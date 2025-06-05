@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>首页</title>
+    <!--引入elementPlus css-->
+    <link rel="stylesheet" href="/static/vue/elementui/elementIndex.css"/>
+    <!-- 引入 Vue.js -->
+    <script src="/static/vue/vue3.min.js"></script>
+    <!--elementPlus-->
+    <script src="/static/vue/elementui/elementPlus.min.js"></script>
+    <!-- 引入中文语言包 -->
+    <script type="text/javascript" src="/static/vue/elementui/zh-cn.min.js"></script>
+    <!-- 引入 jQuery -->
+    <script type="text/javascript" src="/static/jquery/jquery-1.10.2.min.js"></script>
+    <!-- 引入自定义公共文件 -->
+    <script type="text/javascript" src="/pubJs/common.js"></script>
+    <!-- 主JS -->
+    <script type="text/javascript" src="/pubJs/main.js"></script>
+    <style>
+        /* 整体背景修改成暗色系 */
+        body, html {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+            background-color: rgb(67, 74, 80); /* 修改为暗色背景 */
+            color: #fff; /* 修改文本颜色为白色 */
+        }
+
+        #release {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100%;
+        }
+
+        /* 表单样式 */
+        .form-container {
+            background-color: #d2d2d2; /* 修改表单背景为深色 */
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.1); /* 修改阴影颜色为浅色 */
+            padding: 30px;
+            max-width: 600px;
+            width: 100%;
+        }
+
+        .form-title {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 20px;
+            color: #fff;
+        }
+
+        .form-item {
+            margin-bottom: 20px;
+        }
+
+        /* 多行文本放大 */
+        textarea {
+            font-size: 18px;
+            padding: 10px;
+            border-radius: 5px;
+            border: 1px solid #b4b2b2; /* 修改边框颜色 */
+            width: calc(100% - 22px); /* 考虑到 padding 的宽度 */
+            color: #fff; /* 文本颜色 */
+            background-color: #bebdbd; /* 背景颜色 */
+            resize: none; /* 禁止用户调整大小 */
+        }
+
+        /* 按钮样式 */
+        .submit-btn {
+            border: none;
+            border-radius: 5px;
+            padding: 12px;
+            background-color: #737272;
+            color: #fff;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+    </style>
+</head>
+<body>
+<div id="release">
+    <div class="form-container" >
+        <div class="form-title">发布内容</div>
+        <el-form :model="form" label-width="100px" ref="primaryRef">
+            <el-form-item class="form-item" label="发布方式">
+                <el-select
+                        v-model="form.region"
+                        placeholder="选择发布方式"
+                        style="width: 240px"
+                >
+                    <el-option
+                            v-for="item in options"
+                            :key="item.value"
+                            :label="item.label"
+                            :value="item.value"
+                    />
+                </el-select>
+            </el-form-item>
+            <el-form-item class="form-item" label="标题">
+                <el-input v-model="form.blog_title"/>
+            </el-form-item>
+            <el-form-item class="form-item" label="简介">
+                <el-input v-model="form.brieText"/>
+            </el-form-item>
+            <el-form-item class="form-item" label="正文">
+                <el-input v-model="form.mainText" :show-word-limit="true" maxlength="4000" show-word-limit
+                          :autosize="{ minRows: 5}" type="textarea"/>
+            </el-form-item>
+            <el-form-item>
+                <el-button class="submit-btn" type="primary" @click="onSubmit">{{submitBtnName}}</el-button>
+            </el-form-item>
+        </el-form>
+    </div>
+</div>
+</body>
+<script type="text/javascript" src="/mainPageJs/detailPageJs/primary5.js"></script>
+</html>

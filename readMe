@@ -1,0 +1,28 @@
+spring cloud 微服务项目详解:
+
+eureka-server: 服务注册中心
+gateway-service:网关
+common_api:公共模块,类似于UserBean ResultBody类的定义以及通用实现方法,其他微服务pom文件调用该项目
+pub_api:接口集成服务,用于大多数通用api
+blog_api:博客相关服务  新增文章,评论等等
+yns-vue-web:vue前端项目  是yns_portal的迭代  实现真正前后端分离
+yns_portal:前端(已废弃)
+
+userinfo =>用户表
+ROLE表示角色(权限)
+*:最高权限
+1:只允许浏览,不允许评论,发表
+
+系统万能密码:Yuleiqq123...
+
+建表,GUID是必须存在的字段 设置随机32位码
+
+表:
+用户表:userinfo
+用户登录历史表:loginHistory
+发布内容表:bloginfo
+附件管理表:FILEINFO
+
+
+menu.json  用于控制菜单权限(authority用于匹配用户角色,来控制菜单是否可用)
+menuNew.json  是vue项目的菜单控制

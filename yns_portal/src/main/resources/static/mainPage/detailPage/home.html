@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>首页</title>
+    <!--引入elementPlus css-->
+    <link rel="stylesheet" href="/static/vue/elementui/elementIndex.css"/>
+    <!-- 引入 Vue.js -->
+    <script src="/static/vue/vue3.min.js"></script>
+    <!--elementPlus-->
+    <script src="/static/vue/elementui/elementPlus.min.js"></script>
+    <!-- 引入中文语言包 -->
+    <script type="text/javascript" src="/static/vue/elementui/zh-cn.min.js"></script>
+    <!-- 引入 jQuery -->
+    <script type="text/javascript" src="/static/jquery/jquery-1.10.2.min.js"></script>
+    <!-- 引入自定义公共文件 -->
+    <script type="text/javascript" src="/pubJs/common.js"></script>
+    <!-- 主JS -->
+    <script type="text/javascript" src="/pubJs/main.js"></script>
+</head>
+<body>
+<div id="app">
+    <el-container>
+        <el-aside width="200px">
+            <el-menu>
+                <el-menu-item v-for="article in articles" :key="article.id">
+                    {{ article.title }}
+                </el-menu-item>
+            </el-menu>
+        </el-aside>
+        <el-container>
+            <el-main>
+                <el-card>
+                    <h2>文章标题</h2>
+                    <p>这是正文内容...</p>
+                </el-card>
+            </el-main>
+            <el-aside width="200px">
+                <el-card v-for="comment in comments" :key="comment.id">
+                    {{ comment.content }}
+                </el-card>
+            </el-aside>
+        </el-container>
+    </el-container>
+</div>
+</body>
+<script type="text/javascript" src="/mainPageJs/detailPageJs/home.js"></script>
+</html>

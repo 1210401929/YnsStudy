@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>YnsStudy</title>
+    <!-- 引入 jQuery -->
+    <script type="text/javascript" src="/static/jquery/jquery-1.10.2.min.js"></script>
+    <!--layer-->
+    <script type="text/javascript" src="/static/layer/layer.js"></script>
+    <!-- 引入自定义公共文件 -->
+    <script type="text/javascript" src="/pubJs/common.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        html, body {
+            height: 100%;
+            overflow-x: hidden;
+        }
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(270deg, #89f7fe, #66a6ff, #89f7fe, #66a6ff);
+            background-size: 800% 800%;
+            animation: gradientBG 15s ease infinite;
+            color: white;
+            position: relative;
+            animation: fadeInBody 2s ease;
+        }
+
+        @keyframes gradientBG {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        @keyframes fadeInBody {
+            0% { opacity: 0; transform: translateY(30px); }
+            100% { opacity: 1; transform: translateY(0); }
+        }
+
+        header {
+            position: sticky;
+            top: 0;
+            background: rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(6px);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 50px;
+            z-index: 10;
+            animation: fadeIn 2s ease forwards;
+        }
+
+        .logo {
+            font-size: 30px;
+            font-weight: bold;
+            letter-spacing: 1px;
+            text-shadow: 2px 2px 6px rgba(0,0,0,0.4);
+        }
+
+        nav a {
+            margin: 0 15px;
+            color: white;
+            text-decoration: none;
+            font-size: 18px;
+            position: relative;
+        }
+        nav a::after {
+            content: "";
+            position: absolute;
+            width: 0;
+            height: 2px;
+            background: white;
+            bottom: -5px;
+            left: 50%;
+            transition: 0.3s;
+        }
+        nav a:hover::after {
+            width: 100%;
+            left: 0;
+        }
+
+        .login {
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            font-size: 16px;
+        }
+
+        main {
+            text-align: center;
+            margin-top: 100px;
+            position: relative;
+            z-index: 5;
+            animation: fadeIn 2s ease forwards 1s;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        h1 {
+            font-size: 48px;
+            margin-bottom: 20px;
+            text-shadow: 2px 2px 8px rgba(0,0,0,0.6);
+            animation: glow 3s ease-in-out infinite alternate;
+        }
+
+        @keyframes glow {
+            0% { text-shadow: 0 0 10px rgba(255,255,255,0.6); }
+            100% { text-shadow: 0 0 20px rgba(255,255,255,1); }
+        }
+
+        p {
+            font-size: 22px;
+            margin-bottom: 40px;
+            text-shadow: 1px 1px 6px rgba(0,0,0,0.5);
+        }
+
+        .buttons {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .buttons button {
+            padding: 14px 28px;
+            font-size: 18px;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.4s;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(12px);
+            color: white;
+        }
+
+        .buttons button:hover {
+            transform: translateY(-5px) scale(1.08);
+        }
+
+        footer {
+            text-align: center;
+            font-size: 14px;
+            color: rgba(255,255,255,0.8);
+            padding: 30px;
+            position: relative;
+            z-index: 5;
+        }
+
+        /* 波浪层 */
+        .waves {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 320px;
+            overflow: hidden;
+            z-index: 2;
+        }
+        .waves svg {
+            position: absolute;
+            width: 200%;
+            height: 100%;
+        }
+        .wave1 {
+            animation: moveWave1 10s linear infinite;
+            opacity: 0.6;
+        }
+        .wave2 {
+            animation: moveWave2 15s linear infinite;
+            opacity: 0.4;
+        }
+        .wave3 {
+            animation: moveWave3 20s linear infinite;
+            opacity: 0.3;
+        }
+
+        @keyframes moveWave1 {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-50%); }
+        }
+        @keyframes moveWave2 {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-30%); }
+        }
+        @keyframes moveWave3 {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-20%); }
+        }
+
+        /* 泡沫粒子效果 */
+        .particles {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 300px;
+            pointer-events: none;
+            z-index: 3;
+        }
+        .particle {
+            position: absolute;
+            bottom: 0;
+            background: rgba(255,255,255,0.7);
+            border-radius: 50%;
+            animation: rise 10s linear infinite;
+            opacity: 0.5;
+        }
+
+        @keyframes rise {
+            0% { transform: translateY(0) scale(1); opacity: 0.7; }
+            100% { transform: translateY(-400px) scale(0.5); opacity: 0; }
+        }
+    </style>
+</head>
+
+<body>
+
+<header>
+    <div class="logo">YnsStudy</div>
+    <nav>
+        <a href="#">聊天</a>
+        <a href="#">论坛</a>
+        <a href="#">专栏</a>
+        <a href="#">下载</a>
+        <a href="#">导航</a>
+    </nav>
+    <div class="login" onclick="toLogin_()">👤 登录</div>
+</header>
+
+<main>
+    <h1>为每个想学习编程的人提供一个少走弯路的平台</h1>
+    <p>我们缺乏的不是知识，而是学而不厌的态度</p>
+    <div class="buttons">
+        <button>🖕 AI</button>
+        <button>📝 文章</button>
+        <button>🌴 关于我们</button>
+    </div>
+</main>
+
+<div class="waves">
+    <svg class="wave1" viewBox="0 0 1200 120" preserveAspectRatio="none">
+        <path d="M0,30 C150,90 350,0 600,30 C850,60 1050,0 1200,30 L1200,120 L0,120 Z" fill="#ffffff44"></path>
+    </svg>
+    <svg class="wave2" viewBox="0 0 1200 120" preserveAspectRatio="none">
+        <path d="M0,20 C300,70 900,0 1200,20 L1200,120 L0,120 Z" fill="#ffffff33"></path>
+    </svg>
+    <svg class="wave3" viewBox="0 0 1200 120" preserveAspectRatio="none">
+        <path d="M0,40 C200,100 800,0 1200,40 L1200,120 L0,120 Z" fill="#ffffff22"></path>
+    </svg>
+</div>
+
+<div class="particles"></div>
+
+<footer>
+    YnsStudy - 连按【B】键可以切换背景主题
+</footer>
+
+<script>
+    //去登陆
+    function toLogin_(){
+        Y.util.showPage(`/mainPage/login.html`,`登录`,`30%`,`60%`,{hiddTitle:true});
+    }
+    const backgrounds = [
+        "linear-gradient(270deg, #4facfe, #00f2fe, #43cea2, #185a9d)",
+        "linear-gradient(270deg, #ff9a9e, #fad0c4, #fad0c4, #ffdde1)",
+        "linear-gradient(270deg, #a18cd1, #fbc2eb, #a6c1ee, #fbc2eb)",
+        "linear-gradient(270deg, #89f7fe, #66a6ff, #89f7fe, #66a6ff)"
+    ];
+    let current = 0;
+
+    document.addEventListener("keydown", (e) => {
+        if (e.key.toLowerCase() === "b") {
+            current = (current + 1) % backgrounds.length;
+            document.body.style.background = backgrounds[current];
+            document.body.style.backgroundSize = "800% 800%";
+        }
+    });
+
+    // 泡沫粒子动画
+    const particlesContainer = document.querySelector('.particles');
+    function createParticle() {
+        const particle = document.createElement('div');
+        particle.classList.add('particle');
+        particle.style.left = Math.random() * 100 + "%";
+        particle.style.width = Math.random() * 8 + 2 + "px";
+        particle.style.height = particle.style.width;
+        particle.style.animationDuration = (Math.random() * 5 + 5) + "s";
+        particlesContainer.appendChild(particle);
+
+        setTimeout(() => {
+            particlesContainer.removeChild(particle);
+        }, 10000);
+    }
+
+    setInterval(createParticle, 300);
+</script>
+
+</body>
+</html>

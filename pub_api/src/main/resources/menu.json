@@ -1,0 +1,91 @@
+[
+  {
+    "name": "首页",
+    "index": "1",
+    "authority": [
+      "1"
+    ],
+    "url": "/mainPage/detailPage/home.html"
+  },
+  {
+    "name": "文档",
+    "index": "2",
+    "authority": [
+      "1"
+    ],
+    "url": "/mainPage/detailPage/primary1.html?type=Privacy"
+  },
+  {
+    "name": "社区",
+    "index": "4",
+    "authority": [
+      "1"
+    ],
+    "url": "/mainPage/detailPage/primary1.html?type=open"
+  },
+  {
+    "name": "发布内容",
+    "index": "5",
+    "authority": [
+      "1"
+    ],
+    "url": "/mainPage/detailPage/primary5.html"
+  },
+  {
+    "name": "云盘",
+    "index": "3",
+    "authority": [
+      "1"
+    ],
+    "url": "/mainPage/detailPage/primary3.html"
+  },
+  {
+    "name": "后台管理",
+    "index": "6",
+    "authority": [
+      "*"
+    ],
+    "url": ""
+  },
+  {
+    "name": "概述",
+    "index": "7",
+    "authority": [
+      "1"
+    ],
+    "url": "/mainPage/detailPage/primary7.html"
+  },
+  {
+    "name": "联系我们",
+    "index": "8",
+    "authority": [
+      "1"
+    ],
+    "url": "/mainPage/detailPage/primary8.html"
+  },
+  {
+    "name": "Ai体验",
+    "index": "9*",
+    "authority": [
+      "1"
+    ],
+    "children": [
+      {
+        "name": "百度Ai",
+        "index": "9",
+        "authority": [
+          "1"
+        ],
+        "url": "/mainPage/detailPage/primary9.html"
+      },
+      {
+        "name": "操作数据库",
+        "index": "91",
+        "authority": [
+          "*"
+        ],
+        "url": "/mainPage/detailPage/primary91.html"
+      }
+    ]
+  }
+]

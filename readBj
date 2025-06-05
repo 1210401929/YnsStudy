@@ -1,0 +1,14 @@
+前端服务器:
+1.如果浏览器ip是locahost,ajax路径是127.0.0.1,那么会造成跨域,导致共享session失败
+2.为实现前端使用相对路径调用后台网关(gateway)
+需要在前端服务器创建controller(ForwardRequestController)用于把前端请求转发给gateway
+
+后端服务器:
+1.spring boot 项目 redis启动报错 'enableRedisKeyspaceNotificationsInitializer'把redis.conf的配置文件的注释 # notify-keyspace-events "" 改为 notify-keyspace-events Egx
+
+数据库:
+因mysql不同于oracle,字段默认值无法设置随机32位码,所以需要用触发器的方式,给guid设置32码
+
+部署:
+对于pub_hub镜像   当重新运行镜像或容器(NS) 需要启动redis 和  opt/java/jar里面的后端服务
+因为nginx部署在宿主机,所以vue文件放在宿主机(/var/www/vue_dist),没有基于docker

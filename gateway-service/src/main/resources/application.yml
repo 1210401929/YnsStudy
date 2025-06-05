@@ -1,0 +1,43 @@
+eureka:
+  client:
+    service-url:
+      # 指定 eureka 注册中心地址
+      defaultZone: http://localhost:8888/eureka/
+
+server:
+  # 当前网关服务的端口
+  port: 8889
+
+spring:
+  application:
+    # 当前网关服务的注册名（以后其他服务访问要用这个名字）
+    name: gateway-service
+
+  cloud:
+    gateway:
+      routes:
+         # 图片访问路由
+        - id: upload-file
+          uri: lb://service-pub-api
+          predicates:
+            - Path=/uploadFile/**
+
+        # 配置路由1：转发到 service-pub-api 微服务
+        - id: pub-api
+          uri: lb://service-pub-api
+          predicates:
+            - Path=/pub-api/**   # 访问 /pub-api/** 的请求都会路由到 service-pub-api
+
+        # 配置路由2：转发到 service-blog-api 微服务
+        - id: ai-api
+          uri: lb://service-blog-api
+          predicates:
+            - Path=/blog-api/**    # 访问 /blog-api/** 的请求都会路由到 service-blog-api
+
+      discovery:
+        locator:
+          enabled: true  # 开启服务发现，通过服务名自动匹配转发
+
+logging:
+  level:
+    org.springframework.cloud.gateway: DEBUG  # 开启网关 debug 日志（方便排查问题）

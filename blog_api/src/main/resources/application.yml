@@ -1,0 +1,27 @@
+eureka:
+  client:
+    serviceUrl:
+      #服务注册地址
+      defaultZone: http://localhost:8888/eureka/
+server:
+  #运行端口
+  port: 8766
+spring:
+  application:
+    #服务注册名称
+    name: service-blog-api
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
+  #redis
+  redis:
+    host: 49.233.248.240
+    port: 6379
+    password: # 如果有密码
+    timeout: 2000
+    session:
+      store-type: redis
+      redis:
+        namespace: spring:session
+

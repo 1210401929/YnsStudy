@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>首页</title>
+    <!--引入elementPlus css-->
+    <link rel="stylesheet" href="/static/vue/elementui/elementIndex.css"/>
+    <!-- 引入 Vue.js -->
+    <script src="/static/vue/vue3.min.js"></script>
+    <!--elementPlus-->
+    <script src="/static/vue/elementui/elementPlus.min.js"></script>
+    <!-- 引入中文语言包 -->
+    <script type="text/javascript" src="/static/vue/elementui/zh-cn.min.js"></script>
+    <!-- 引入 jQuery -->
+    <script type="text/javascript" src="/static/jquery/jquery-1.10.2.min.js"></script>
+    <!-- 引入自定义公共文件 -->
+    <script type="text/javascript" src="/pubJs/common.js"></script>
+    <!--layer-->
+    <script type="text/javascript" src="/static/layer/layer.js"></script>
+    <!-- 主JS -->
+    <script type="text/javascript" src="/pubJs/main.js"></script>
+    <style>
+        body, html {
+            height: 100%;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+        }
+
+        #upload {
+            height: 100%
+        }
+
+        #upload-section {
+            height: 20%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: #f5f5f5;
+        }
+
+        #file-list-section {
+            height: 80%;
+            background-color: #ffffff;
+            overflow-y: auto;
+        }
+        .file-list {
+            /* 确保有足够的空间来显示子元素 */
+            height: 100vh; /* 或者其他你希望的高度 */
+            padding: 20px; /* 添加一些内边距 */
+            box-sizing: border-box; /* 防止内边距影响总宽度 */
+        }
+
+        .file-item {
+            display: flex; /* 允许子元素水平排列 */
+            align-items: center; /* 垂直居中 */
+            background-color: #f9f9f9; /* 浅灰色背景 */
+            border: 1px solid #ccc; /* 边框 */
+            border-radius: 5px; /* 边框圆角 */
+            margin-bottom: 10px; /* 底部间隔 */
+        }
+
+        .file-name {
+            flex-grow: 1; /* 文件名占据剩余空间 */
+            text-align: left; /* 文本左对齐 */
+            overflow: hidden; /* 防止文本溢出 */
+            white-space: nowrap; /* 防止文本换行 */
+            text-overflow: ellipsis; /* 文本溢出时显示省略号 */
+        }
+        .download-btn {
+            padding: 0 10px; /* 按钮内边距 */
+            border: none; /* 去除边框 */
+            background-color: #48e3a7; /* 蓝色背景 */
+            color: white; /* 白色文字 */
+            cursor: pointer; /* 鼠标悬停时显示手指指针 */
+            border-radius: 3px; /* 圆角 */
+            outline: none; /* 去除点击时的轮廓 */
+            transition: background-color 0.3s; /* 平滑过渡效果 */
+        }
+
+        .download-btn:hover {
+            background-color: #04c279; /* 鼠标悬停时颜色变深 */
+        }
+        .delete-btn {
+            padding: 0 10px; /* 按钮内边距 */
+            border: none; /* 去除边框 */
+            background-color: #ff0080; /* 蓝色背景 */
+            color: white; /* 白色文字 */
+            cursor: pointer; /* 鼠标悬停时显示手指指针 */
+            border-radius: 3px; /* 圆角 */
+            outline: none; /* 去除点击时的轮廓 */
+            transition: background-color 0.3s; /* 平滑过渡效果 */
+        }
+
+        .delete-btn:hover {
+            background-color: #b30000; /* 鼠标悬停时颜色变深 */
+        }
+    </style>
+</head>
+<body>
+<div id="upload">
+    <div id="upload-section">
+        <el-upload
+                class="upload-ass"
+                :action="actionUrl"
+                :on-preview="handlePreview"
+                :on-remove="handleRemove"
+                :on-success="handleSuccess"
+                :file-list="fileList"
+                :on-exceed="handleExceed"
+        >
+            <el-button size="small" type="primary">点击上传</el-button>
+            <template #tip>
+                <div class="el-upload__tip">支持上传任意类型文件,文件大小限制在10MB</div>
+            </template>
+        </el-upload>
+    </div>
+    <div id="file-list-section">
+        <!-- 文件列表内容 -->
+        <div class="file-list"
+             style="width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center;">
+            <div
+                    v-for="(item, index) in existenceFileList"
+                    :key="index"
+                    class="file-item"
+                    style="display: flex; justify-content: space-between; align-items: center; height: 3rem; width: 80%; padding: 0 10px; box-sizing: border-box;"
+            >
+                <!-- 文件名 -->
+                <span class="file-name">{{ item.ORIGINALFILENAME }}</span>
+                <!-- 下载按钮 -->
+                <button class="download-btn" @click="downloadFile(item)">下载</button>
+                &nbsp;
+                <!-- 删除按钮 -->
+                <button class="delete-btn" @click="deleteFile(item)">删除</button>
+            </div>
+        </div>
+    </div>
+
+</div>
+</body>
+<script type="text/javascript" src="/mainPageJs/detailPageJs/primary3.js"></script>
+</html>
