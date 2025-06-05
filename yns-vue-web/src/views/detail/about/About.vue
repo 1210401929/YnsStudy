@@ -26,7 +26,7 @@
 
     <div class="footer">
       <p>开发者：YuNanSong | 联系方式：1210401929@qq.com</p>
-      <p><a href="https://github.com/1210401929" target="_blank">访问作者GitHub</a></p>
+      <p><a href="https://github.com/1210401929/YnsStudy" target="_blank">访问作者GitHub</a></p>
     </div>
   </div>
 </template>
