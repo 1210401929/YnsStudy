@@ -17,7 +17,7 @@
         <h2>使用技术</h2>
         <ul>
           <li>前端：Vue 3 + Element Plus</li>
-          <li>后端：Spring Boot</li>
+          <li>后端：Spring Cloud + Spring Boot + MyBatis...</li>
           <li>数据库：MySQL + Redis</li>
           <li>存储：本地 / 云端</li>
         </ul>
