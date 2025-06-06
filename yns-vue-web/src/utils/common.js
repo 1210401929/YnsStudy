@@ -101,3 +101,26 @@ export const buildChildrenData = (data, options = {}) => {
 
     return result;
 }
+
+export const downloadFileByUrl = (url,fileName)=>{
+    fetch(url, { mode: 'cors' }) // mode: 'cors' 如果资源是跨域的，目标服务器需要设置 CORS
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok')
+            }
+            return response.blob()
+        })
+        .then(blob => {
+            const blobUrl = window.URL.createObjectURL(blob)
+            const a = document.createElement('a')
+            a.href = blobUrl
+            a.download = fileName || 'download'
+            document.body.appendChild(a)
+            a.click()
+            document.body.removeChild(a)
+            window.URL.revokeObjectURL(blobUrl)
+        })
+        .catch(error => {
+            console.error('Download failed:', error)
+        })
+}
