@@ -13,6 +13,7 @@ public class FunToUrlUtil{
     public static String exeSqlByParamsUrl = "/pub-api/sql/exeSqlByParams";
     public static String currentCityUrl = "/pub-api/api/getCurrentCity";
     public static String clientIpAddressUrl = "/pub-api/api/getClientIpAddress";
+    public static String deleteFileByUrlUrl = "/pub-api/upload/deleteFileByUrl";
     public static String deleteFileByUrlsUrl = "/pub-api/upload/deleteFileByUrls";
 
 
