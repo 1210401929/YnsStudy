@@ -35,12 +35,20 @@
             </div>
             <div class="card-actions">
               <el-button
-                  type="primary"
+                  type="success"
                   :icon="Download"
                   size="small"
                   @click="downloadFile(file)"
               >
                 下载
+              </el-button>
+              <el-button
+                  type="primary"
+                  :icon="CopyDocument"
+                  size="small"
+                  @click="copyFileUrl(file)"
+              >
+                复制下载连接
               </el-button>
             </div>
           </div>
@@ -92,6 +100,14 @@
                   下载
                 </el-button>
                 <el-button
+                    type="primary"
+                    :icon="CopyDocument"
+                    size="small"
+                    @click="copyFileUrl(file)"
+                >
+                  复制下载连接
+                </el-button>
+                <el-button
                     type="danger"
                     :icon="Close"
                     size="small"
@@ -121,7 +137,7 @@
 <script setup>
 import {ref, computed, onMounted} from 'vue'
 import {ElMessage} from 'element-plus'
-import {User, Clock, Close, Download, Search} from '@element-plus/icons-vue'
+import {User, Clock, Close,CopyDocument, Download, Search} from '@element-plus/icons-vue'
 import {downloadFileByUrl, ele_confirm, getGuid, sendAxiosRequest} from "@/utils/common.js";
 import {useUserStore} from "@/stores/main/user.js";
 
@@ -182,11 +198,18 @@ const downloadFile = (file) => {
 }
 
 const deleteFile = (file) => {
-  debugger;
   ele_confirm("是否确认删除,删除后不可恢复!",()=>{
     myFiles.value = myFiles.value.filter(item=>item.GUID!=file.GUID);
     ElMessage.success("删除成功!");
     sendAxiosRequest("/blog-api/resource/delFileInfo",{guid:file.GUID,url:file.FILEVIEWURL});
+  });
+}
+
+const copyFileUrl = (file)=>{
+  navigator.clipboard.writeText(file.FILEVIEWURL).then(() => {
+    ElMessage.success("复制成功");
+  }).catch(err => {
+    ElMessage.error("复制失败：", err);
   });
 }
 
