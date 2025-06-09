@@ -25,7 +25,7 @@
     <div class="middle-column">
       <div class="placeholder"> 未开发区域</div>
     </div>
-    <!-- 右侧：热门下载  -->
+    <!-- 右侧：热门下载 -->
     <div class="right-column">
       <h3 class="section-title">📥 热门下载内容</h3>
       <ul class="download-list">
