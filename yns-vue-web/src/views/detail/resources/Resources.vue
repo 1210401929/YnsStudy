@@ -60,10 +60,8 @@
         <el-upload
             v-if="myFiles.length < 5"
             drag
-            action="/pub-api/upload/uploadFile"
-            :data="{ spliceUrl: 'resourcesFile' }"
+            :http-request="customUploadRequest"
             :show-file-list="false"
-            :on-success="handleUploadSuccess"
             style="margin-bottom: 10px;"
         >
           <i class="el-icon-upload" style="font-size: 28px; color: #409EFF;"></i>
@@ -136,23 +134,24 @@
 
 <script setup>
 import {ref, computed, onMounted} from 'vue'
+import {useRoute} from "vue-router";
 import {ElMessage} from 'element-plus'
-import {User, Clock, Close,CopyDocument, Download, Search} from '@element-plus/icons-vue'
+import {User, Clock, Close, CopyDocument, Download, Search} from '@element-plus/icons-vue'
 import {downloadFileByUrl, ele_confirm, getGuid, sendAxiosRequest} from "@/utils/common.js";
 import {useUserStore} from "@/stores/main/user.js";
 
+const route = useRoute();
 const userStore = useUserStore();
 
 // 搜索框
 const searchKeyword = ref('')
-
 // 模拟的他人文件和我上传的文件
 const otherFiles = ref([])
 const myFiles = ref([])
-
 // 初始化数据
 onMounted(() => {
   setFileData();
+
 })
 
 const setFileData = async () => {
@@ -160,18 +159,43 @@ const setFileData = async () => {
   let result = await sendAxiosRequest("/blog-api/resource/getAllFile");
   if (result && !result.isError) {
     //其他用户上传的文件
-    otherFiles.value = result.result.filter(item=>item["USERCODE"]!=userStore.userBean.code);
+    otherFiles.value = result.result.filter(item => item["USERCODE"] != userStore.userBean.code);
     //用户上传文件
-    myFiles.value =result.result.filter(item=>item["USERCODE"]==userStore.userBean.code);
+    myFiles.value = result.result.filter(item => item["USERCODE"] == userStore.userBean.code);
+    //如果路由调用该页面,则取参数过滤附件内容
+    setFileDataByRouterPms();
   }
 }
 
+const setFileDataByRouterPms = ()=>{
+  debugger;
+  let fieldGuid = route.query.g;
+  if (fieldGuid) {
+    otherFiles.value = otherFiles.value.filter(item => item.GUID == fieldGuid);
+    myFiles.value = myFiles.value.filter(item => item.GUID == fieldGuid);
+  }
+}
+
+const customUploadRequest = async (options) => {
+  const {file, onSuccess, onError} = options;
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('spliceUrl', "resourcesFile");
+  try {
+    const res = await sendAxiosRequest('/pub-api/upload/uploadFile', formData);
+    //调用成功方法
+    handleUploadSuccess(res, file);
+  } catch (error) {
+    // 手动调用失败回调
+    ElMessage.error("上传失败" + error);
+  }
+};
+
 // 上传成功处理
 const handleUploadSuccess = (res, file) => {
-
   ElMessage.success(`上传成功：${file.name}`)
   let fileInfo = {
-    GUID:getGuid(),
+    GUID: getGuid(),
     ORIGINALFILENAME: res.result.originalFileName,
     SAVEDFILENAME: res.result.savedFileName,
     FILEREALURL: res.result.fileRealUrl,
@@ -181,7 +205,7 @@ const handleUploadSuccess = (res, file) => {
   }
   sendAxiosRequest("/blog-api/resource/addFileInfo", {fileInfo});
   myFiles.value.unshift({
-    GUID:fileInfo.GUID,
+    GUID: fileInfo.GUID,
     ORIGINALFILENAME: fileInfo.ORIGINALFILENAME,
     CREATE_TIME: `刚刚`,
     FILEVIEWURL: fileInfo.FILEVIEWURL,
@@ -194,18 +218,18 @@ const downloadFile = (file) => {
   file.DOWNNUM++;
   downloadFileByUrl(file.FILEVIEWURL, file.ORIGINALFILENAME)
   //存储下载次数
-  sendAxiosRequest("/blog-api/resource/setFileDownNum",{guid:file.GUID});
+  sendAxiosRequest("/blog-api/resource/setFileDownNum", {guid: file.GUID});
 }
 
 const deleteFile = (file) => {
-  ele_confirm("是否确认删除,删除后不可恢复!",()=>{
-    myFiles.value = myFiles.value.filter(item=>item.GUID!=file.GUID);
+  ele_confirm("是否确认删除,删除后不可恢复!", () => {
+    myFiles.value = myFiles.value.filter(item => item.GUID != file.GUID);
     ElMessage.success("删除成功!");
-    sendAxiosRequest("/blog-api/resource/delFileInfo",{guid:file.GUID,url:file.FILEVIEWURL});
+    sendAxiosRequest("/blog-api/resource/delFileInfo", {guid: file.GUID, url: file.FILEVIEWURL});
   });
 }
 
-const copyFileUrl = (file)=>{
+const copyFileUrl = (file) => {
   navigator.clipboard.writeText(file.FILEVIEWURL).then(() => {
     ElMessage.success("复制成功");
   }).catch(err => {

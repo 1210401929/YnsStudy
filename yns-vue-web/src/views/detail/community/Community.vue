@@ -168,7 +168,7 @@ const debouncedSearch = debounce(() => {
 onMounted(() => {
   fetchArticles()
   //查看路由参数,如果存在则自动弹出文章
-  const blogId = route.query.blogId
+  const blogId = route.query.g
   if (blogId) {
     selectedBlogId.value = blogId
     showDialog.value = true
