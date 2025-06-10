@@ -11,7 +11,7 @@ yns_portal:前端(已废弃)
 userInfo =>用户表
 loginHistory =>用户登录历史表
 
-fileInfo =>附件表
+fileInfo =>附件表;
 blogInfo =>博客文章表;
 blogComment =>博客评论表;
 
