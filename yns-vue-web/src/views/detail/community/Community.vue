@@ -53,8 +53,9 @@
             <div class="author-meta">
               <div class="name">{{ author.USERNAME }}</div>
               <div class="stats-row">
-                <span>📝 文章：{{ author.ARTICLE_COUNT }}</span>
-                <span>💬 评论：{{ author.COMMENT_COUNT }}</span>
+                <span>📝 文章:{{ author.ARTICLE_COUNT }}</span>
+                <span>⬆️ 上传:{{ author.UPLOAD_COUNT }}</span>
+                <span>💬 评论:{{ author.COMMENT_COUNT }}</span>
               </div>
             </div>
           </el-card>
@@ -283,7 +284,7 @@ onMounted(() => {
 .stats-row {
   display: flex;
   justify-content: space-between;
-  font-size: 14px;
+  font-size: 12px;
   color: #606266;
 }
 

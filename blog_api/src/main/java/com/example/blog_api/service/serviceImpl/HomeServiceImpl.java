@@ -32,14 +32,20 @@ public class HomeServiceImpl implements HomeService {
         //根据blogInfo(文章)表  blogComment(评论)表 计算出前三名优质作者
         String sql = "SELECT \n" +
                 "    u.USERCODE,\n" +
-                "    COALESCE(b.username, c.username) AS USERNAME,\n" +
+                "    COALESCE(b.username, c.username, f.username) AS USERNAME,\n" +
                 "    COALESCE(b.article_count, 0) AS ARTICLE_COUNT,\n" +
                 "    COALESCE(c.comment_count, 0) AS COMMENT_COUNT,\n" +
-                "    COALESCE(b.article_count, 0) + COALESCE(c.comment_count, 0) AS TOTAL_SCORE\n" +
+                "    COALESCE(f.upload_count, 0) AS UPLOAD_COUNT,\n" +
+                "    -- 加权评分：文章*1 + 评论*0.1 + 上传*1\n" +
+                "    COALESCE(b.article_count, 0) * 1 +\n" +
+                "    COALESCE(c.comment_count, 0) * 0.1 +\n" +
+                "    COALESCE(f.upload_count, 0) * 1 AS TOTAL_SCORE\n" +
                 "FROM (\n" +
                 "    SELECT usercode FROM blogInfo\n" +
                 "    UNION\n" +
                 "    SELECT usercode FROM blogComment\n" +
+                "    UNION\n" +
+                "    SELECT usercode FROM fileInfo\n" +
                 ") u\n" +
                 "LEFT JOIN (\n" +
                 "    SELECT usercode, username, COUNT(*) AS article_count\n" +
@@ -51,7 +57,12 @@ public class HomeServiceImpl implements HomeService {
                 "    FROM blogComment\n" +
                 "    GROUP BY usercode, username\n" +
                 ") c ON u.usercode = c.usercode\n" +
-                "ORDER BY total_score DESC\n" +
+                "LEFT JOIN (\n" +
+                "    SELECT usercode, username, COUNT(*) AS upload_count\n" +
+                "    FROM fileInfo\n" +
+                "    GROUP BY usercode, username\n" +
+                ") f ON u.usercode = f.usercode\n" +
+                "ORDER BY TOTAL_SCORE DESC\n" +
                 "LIMIT 3;\n";
 
         Map<String, Object> params = new HashMap<>();

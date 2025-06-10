@@ -61,6 +61,7 @@
             v-if="myFiles.length < 5"
             drag
             :http-request="customUploadRequest"
+            :before-upload="beforeUploadCheck"
             :show-file-list="false"
             style="margin-bottom: 10px;"
         >
@@ -77,7 +78,7 @@
             center
             style="margin-bottom: 10px;"
         />
-
+`
         <div class="scroll-panel">
           <el-row :gutter="12">
             <el-col
@@ -167,7 +168,7 @@ const setFileData = async () => {
   }
 }
 
-const setFileDataByRouterPms = ()=>{
+const setFileDataByRouterPms = () => {
   debugger;
   let fieldGuid = route.query.g;
   if (fieldGuid) {
@@ -176,6 +177,17 @@ const setFileDataByRouterPms = ()=>{
   }
 }
 
+//上传文件前校验
+const beforeUploadCheck = (file)=>{
+  const maxSizeMB = 50;
+  const isLtMaxSize = file.size / 1024 / 1024 < maxSizeMB;
+  if (!isLtMaxSize) {
+    ElMessage.error(`上传文件不能超过 ${maxSizeMB}MB`);
+  }
+  return isLtMaxSize;
+}
+
+//上传成功后
 const customUploadRequest = async (options) => {
   const {file, onSuccess, onError} = options;
   const formData = new FormData();
@@ -230,11 +242,17 @@ const deleteFile = (file) => {
 }
 
 const copyFileUrl = (file) => {
-  navigator.clipboard.writeText(file.FILEVIEWURL).then(() => {
+  const input = document.createElement('input');
+  input.value = file.FILEVIEWURL;
+  document.body.appendChild(input);
+  input.select();
+  try {
+    document.execCommand('copy');
     ElMessage.success("复制成功");
-  }).catch(err => {
-    ElMessage.error("复制失败：", err);
-  });
+  } catch (err) {
+    ElMessage.error("复制失败：" + err);
+  }
+  document.body.removeChild(input);
 }
 
 // 搜索过滤他人上传
