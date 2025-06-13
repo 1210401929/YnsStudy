@@ -1,10 +1,13 @@
 package com.example.common_api.bean;
 
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import java.io.Serializable;
 import java.util.HashMap;
 
 public class UserBean implements Serializable {
+
     private String GUID;
     private String CODE;
     private String NAME;
@@ -16,14 +19,44 @@ public class UserBean implements Serializable {
     private String REMARK;
     private String LOGINADDRESS;
     private String LOGINIP;
+
+    //手机号
+    private String PHONE;
+    //邮箱
+    private String EMAIL;
+    //头像
+    private String AVATAR;
+
+    public String getPHONE() {
+        return PHONE;
+    }
+
+    public void setPHONE(String PHONE) {
+        this.PHONE = PHONE;
+    }
+
+    public String getEMAIL() {
+        return EMAIL;
+    }
+
+    public void setEMAIL(String EMAIL) {
+        this.EMAIL = EMAIL;
+    }
+
+    public String getAVATAR() {
+        return AVATAR;
+    }
+
+    public void setAVATAR(String AVATAR) {
+        this.AVATAR = AVATAR;
+    }
+
     public String getLOGINADDRESS() {
         return LOGINADDRESS;
     }
-
     public void setLOGINADDRESS(String LOGINADDRESS) {
         this.LOGINADDRESS = LOGINADDRESS;
     }
-
     public String getLOGINIP() {
         return LOGINIP;
     }
@@ -35,10 +68,14 @@ public class UserBean implements Serializable {
                 ", CODE='" + CODE + '\'' +
                 ", NAME='" + NAME + '\'' +
                 ", PASSWORD='" + PASSWORD + '\'' +
+                ", PASSWORDSALT='" + PASSWORDSALT + '\'' +
                 ", ROLE='" + ROLE + '\'' +
                 ", REMARK='" + REMARK + '\'' +
                 ", LOGINADDRESS='" + LOGINADDRESS + '\'' +
                 ", LOGINIP='" + LOGINIP + '\'' +
+                ", PHONE='" + PHONE + '\'' +
+                ", EMAIL='" + EMAIL + '\'' +
+                ", AVATAR='" + AVATAR + '\'' +
                 '}';
     }
 
@@ -56,10 +93,13 @@ public class UserBean implements Serializable {
         this.PASSWORDSALT = (String) userinfo.get("PASSWORDSALT");
         this.ROLE = (String) userinfo.get("ROLE");
         this.REMARK = (String) userinfo.get("REMARK");
+        this.PHONE=(String) userinfo.get("PHONE");
+        this.EMAIL=(String) userinfo.get("EMAIL");
+        this.AVATAR=(String) userinfo.get("AVATAR");
         if (userinfo.get("LOGINADDRESS") != null)
             this.LOGINADDRESS = (String) userinfo.get("LOGINADDRESS");
         if (userinfo.get("LOGINIP") != null)
-            this.LOGINADDRESS = (String) userinfo.get("LOGINIP");
+            this.LOGINIP = (String) userinfo.get("LOGINIP");
     }
 
     public UserBean(String GUID, String CODE, String NAME, String PASSWORD,  String PASSWORDSALT ,String ROLE, String REMARK) {
