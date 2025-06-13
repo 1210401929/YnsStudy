@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.ResponseBody;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpSession;
+import java.util.HashMap;
 import java.util.Map;
 
 
@@ -72,6 +73,22 @@ public class LoginController {
         String passWord = params.get("passWord");
         String successPassWord = params.get("successPassWord");
         ResultBody resultBody = loginService.register(userName, userCode, passWord, successPassWord, session);
+        return resultBody;
+    }
+
+    @RequestMapping("/changeUserInfo")
+    @ResponseBody
+    public ResultBody changeUserInfo(@RequestBody Map<String, Object> params, HttpSession session) {
+        Map<String, Object> userInfo = (Map<String, Object>) params.get("userInfo");
+        ResultBody resultBody = loginService.changeUserInfo(userInfo,session);
+        return resultBody;
+    }
+
+    @RequestMapping("/deleteUserAvatarFile")
+    @ResponseBody
+    public ResultBody deleteUserAvatarFile(@RequestBody Map<String, String> params, HttpSession session) {
+        String userCode =  params.get("userCode");
+        ResultBody resultBody = loginService.deleteUserAvatarFile(userCode,session);
         return resultBody;
     }
 }

@@ -5,6 +5,7 @@ import org.springframework.stereotype.Service;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpSession;
+import java.util.Map;
 
 @Service
 public interface LoginService {
@@ -12,6 +13,7 @@ public interface LoginService {
     ResultBody sendPhoneCode(String phone);
     //手机号+验证码登录
     ResultBody LoginByPhoneCode(String phone,String code,HttpSession session);
+    //账号密码登录
     ResultBody LoginInfo(String userName, String passWord, HttpSession session) throws Exception;
     //验证是否登录
     ResultBody checkUserLogin(HttpSession session);
@@ -21,4 +23,8 @@ public interface LoginService {
     ResultBody changePassWord(HttpSession session,String oldPassWord,String newPassWord,String confirmPassword);
     //注册账号
     ResultBody register(String userName, String userCode, String passWord,String successPassWord, HttpSession session);
+    //修改账号信息
+    ResultBody changeUserInfo(Map<String,Object> userInfo,HttpSession session);
+    //删除用户头像存储的文件
+    ResultBody deleteUserAvatarFile(String userCode,HttpSession session);
 }

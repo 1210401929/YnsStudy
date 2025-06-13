@@ -15,7 +15,6 @@
       <!-- 文章列表 -->
       <div class="article-section" ref="scrollContainer" @scroll="handleScroll">
         <h2 class="section-title">📚 社区文章</h2>
-
         <el-card
             v-for="(article, index) in articles"
             :key="index"
@@ -23,13 +22,13 @@
             shadow="hover"
         >
           <el-button
-              type="text"
+              link
+              type="primary"
               class="read-more-btn"
               @click.stop="showFullArticle(article)"
           >
             阅读全文 →
           </el-button>
-
           <h3 class="article-title">{{ article.BLOG_TITLE }}</h3>
           <div class="article-meta">
             <span>作者：{{ article.USERNAME }}</span>
@@ -50,12 +49,22 @@
               :key="index"
               class="author-card"
           >
-            <div class="author-meta">
-              <div class="name">{{ author.USERNAME }}</div>
-              <div class="stats-row">
-                <span>📝 文章:{{ author.ARTICLE_COUNT }}</span>
-                <span>⬆️ 上传:{{ author.UPLOAD_COUNT }}</span>
-                <span>💬 评论:{{ author.COMMENT_COUNT }}</span>
+            <div class="author-box">
+              <el-avatar
+                  :src="author.AVATAR"
+                  size="large"
+                  class="author-avatar"
+                  alt="用户头像"
+              >
+                {{ author.USERNAME?.charAt(0) }}
+              </el-avatar>
+              <div class="author-meta">
+                <div class="name">{{ author.USERNAME }}</div>
+                <div class="stats-row">
+                  <span>📝 文章:{{ author.ARTICLE_COUNT }}</span>
+                  <span>⬆️ 上传:{{ author.UPLOAD_COUNT }}</span>
+                  <span>💬 评论:{{ author.COMMENT_COUNT }}</span>
+                </div>
               </div>
             </div>
           </el-card>
@@ -81,6 +90,7 @@ import debounce from 'lodash/debounce'
 import {sendAxiosRequest} from "@/utils/common.js";
 import ContentAndComment from "@/views/detail/blog/ContentAndComment.vue";
 import {useRoute, useRouter} from 'vue-router'
+
 const route = useRoute()
 const router = useRouter()
 
@@ -141,9 +151,7 @@ const onDialogClose = () => {
 }
 
 const showFullArticle = (article) => {
-  debugger;
-
-  router.replace({query: {blogId: article.GUID}});
+  router.replace({query: {g: article.GUID}});
   selectedBlogId.value = article.GUID;
   showDialog.value = true;
 }
@@ -179,12 +187,13 @@ onMounted(() => {
 
 <style scoped>
 .community-page {
-  max-width: 1200px;
+  max-width: 1500px;
   margin: 20px auto;
   padding: 0 20px;
 }
 
 .search-bar {
+
   margin-bottom: 20px;
 }
 
@@ -288,9 +297,7 @@ onMounted(() => {
   color: #606266;
 }
 
-.stats-row span {
-  flex: 1;
-}
+
 
 .author-meta .stats div {
   font-size: 14px;
@@ -309,4 +316,27 @@ onMounted(() => {
   color: #909399;
   margin: 20px 0;
 }
+
+.author-box {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.author-avatar {
+  flex-shrink: 0;
+}
+
+.author-meta .name {
+  font-weight: bold;
+  font-size: 16px;
+}
+
+.stats-row span {
+  margin-right: 10px;
+  color: #666;
+  font-size: 14px;
+}
+
 </style>

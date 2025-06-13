@@ -4,10 +4,18 @@
     <div>
       <template v-if="userStore.userBean.name">
         <el-dropdown @command="handleCommand">
-          <span class="el-dropdown-link login-button">
-            <el-icon><User/></el-icon>
-            {{ userStore.userBean.name }}
-          </span>
+    <span class="el-dropdown-link login-button" style="display: flex; align-items: center; gap: 8px;">
+                    <el-avatar
+                        :src="userStore.userBean.avatar"
+                        size="large"
+                        class="dropdown-avatar"
+                        alt="用户头像"
+                    >
+                {{ userStore.userBean.name?.charAt(0) }}
+              </el-avatar>
+      <el-icon><User/></el-icon>
+      {{ userStore.userBean.name }}
+    </span>
           <template #dropdown>
             <el-dropdown-menu>
               <el-dropdown-item command="profile">个人中心</el-dropdown-item>
@@ -285,8 +293,11 @@ const submitPhoneLogin = async () => {
 };
 
 const handleCommand = async (command) => {
+  //个人中心
   if (command === 'profile') {
-    ElMessage.info('跳转个人中心...');
+    const routeUrl = router.resolve({name: 'personalCenter', query: {id: userStore.userBean.code}}).href;
+    window.open(routeUrl, userStore.userBean.code);
+    //退出登录
   } else if (command === 'logout') {
     await userStore.clearUser();
     //跳转路由到欢迎页面  这里使用replace而不适用push的原因是,实现用户不能通过浏览器进行回退
@@ -376,4 +387,12 @@ const submitRegister = async () => {
   top: 50% !important;
   transform: translateY(-50%);
 }
+
+.dropdown-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
 </style>

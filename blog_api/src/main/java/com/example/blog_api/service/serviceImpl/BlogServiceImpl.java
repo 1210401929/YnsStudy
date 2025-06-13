@@ -61,11 +61,17 @@ public class BlogServiceImpl implements BlogService {
         UserBean userBean = (UserBean) session.getAttribute("userInfo");
         String userCode = userBean == null ? "" : userBean.getCODE();
         //这里需要判断  只允许查到该用户的文章,或者文章是公开的
-        String sql = "select * from blogInfo where guid = '" + blogId + "' and (userCode ='" + userCode + "' or blog_type = 'public')";
+        //String sql = "select * from blogInfo where guid = '" + blogId + "' and (userCode ='" + userCode + "' or blog_type = 'public')";
+        String sql = "SELECT b.*, u.AVATAR " +
+                "FROM blogInfo b " +
+                "LEFT JOIN userinfo u ON b.userCode = u.code " +
+                "WHERE b.guid = ? AND (b.userCode = ? OR b.blog_type = 'public')";
+        List<Object> listParam = Arrays.asList(blogId,userCode);
         Map<String, Object> params_ = new HashMap<>();
         params_.put("sql", sql);
+        params_.put("params",listParam);
         //对于使用访问网关  推荐先接收返回结果,再返回,否则会有未知问题
-        ResultBody result = callService.callFunWithParams(FunToUrlUtil.selectListUrl, params_);
+        ResultBody result = callService.callFunWithParams(FunToUrlUtil.selectListByParamsUrl, params_);
         if (result != null && result.result != null && ((ArrayList) result.result).size() > 0) {
             //如果查到有效数据,给该文章增加1浏览量
             String updateSql = "update blogInfo set view_page = view_page + 1 where guid = ?";

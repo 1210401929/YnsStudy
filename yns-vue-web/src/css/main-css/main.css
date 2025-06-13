@@ -1,0 +1,19 @@
+
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f9f9fb; /* 滚动条轨道颜色 */
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #e3e3e3; /* 滚动条滑块颜色 */
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #d5d5d5; /* 滑块 hover 时颜色 */
+}

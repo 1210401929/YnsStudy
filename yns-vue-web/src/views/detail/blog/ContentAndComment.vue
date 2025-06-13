@@ -3,9 +3,25 @@
     <!-- 正文 -->
     <el-col :xs="24" :sm="24" :md="18" :lg="19">
       <el-card shadow="hover" class="article-card">
+        <div class="author-info">
+          <el-avatar
+              :src="blogContent.AVATAR"
+              size="large"
+              class="author-avatar"
+              alt="用户头像"
+          >
+            {{ blogContent.USERNAME?.charAt(0) }}
+          </el-avatar>
+          <div class="author-text">
+            <div class="author-name">{{ blogContent.USERNAME || '匿名用户' }}</div>
+            <div class="author-tagline">发布者</div>
+          </div>
+        </div>
         <div class="article-header">
+
           <h2>{{ blogContent.BLOG_TITLE }}</h2>
-          <div style="display: flex; gap: 1px;" v-if="blogContent.USERCODE==userStore.userBean.code">
+          <div style="display: flex; gap: 1px;"
+               v-if="userStore?.userBean?.code && blogContent.USERCODE==userStore.userBean.code">
             <el-button size="small" type="warning" plain @click="editorVisible = true">
               编辑文章
             </el-button>
@@ -14,10 +30,9 @@
             </el-button>
           </div>
         </div>
-        <ArticleEditor :isReadOnly="true" :content="blogContent.MAINTEXT" />
+        <ArticleEditor :isReadOnly="true" :content="blogContent.MAINTEXT"/>
       </el-card>
     </el-col>
-
     <!-- 评论 -->
     <el-col :xs="24" :sm="24" :md="6" :lg="5">
       <el-card shadow="hover" class="comment-card">
@@ -27,7 +42,8 @@
             <el-tag type="info" size="small">{{ comment.USERNAME }}</el-tag>
             <span class="comment-text">{{ comment.TEXT }}</span>
             <el-button
-                type="text"
+                link
+                type="primary"
                 size="small"
                 :class="comment.USERCODE == userStore.userBean.code ? 'reply-btn-red' : 'reply-btn'"
                 @click="toggleReplyInput(comment.GUID, comment.USERCODE)"
@@ -55,7 +71,8 @@
 
           <div class="children-comments" v-if="comment.children?.length">
             <el-button
-                type="text"
+                link
+                type="primary"
                 size="small"
                 class="toggle-children-btn"
                 @click="toggleChildren(comment.GUID)"
@@ -112,7 +129,7 @@
 </template>
 
 <script setup>
-import {ref, computed, watch} from "vue";
+import {ref, computed, watch, onMounted} from "vue";
 import {useRoute, useRouter} from "vue-router";
 import {useUserStore} from "@/stores/main/user.js";
 import {useBlogContentStore} from "@/stores/detail/blog.js";
@@ -165,7 +182,6 @@ const handleEditorSubmit = ({title, content}) => {
 };
 
 const loadContentAndComments = async (guid) => {
-
   let result = await sendAxiosRequest("/blog-api/blog/getBlog", {blogId: guid});
   if (result && !result.isError) {
     blogContent.value = result?.result?.[0] || {};
@@ -181,7 +197,12 @@ const loadContentAndComments = async (guid) => {
   isChildrenVisible.value = {};
 };
 
-loadContentAndComments(contentGuid.value);
+
+//只有路由调用该组件时,默认执行一次加载数据
+if (route.query.g) {
+  loadContentAndComments(contentGuid.value);
+}
+
 
 const visibleComments = computed(() => {
   return showAllComments.value ? blogComment.value : blogComment.value.slice(0, 2);
@@ -190,15 +211,19 @@ const visibleComments = computed(() => {
 watch(
     () => props.blogId,
     (newGuid) => {
-      contentGuid.value = newGuid;
-      loadContentAndComments(newGuid);
+      if (newGuid) {
+        contentGuid.value = newGuid;
+        loadContentAndComments(newGuid);
+      }
     }
 );
 watch(
     () => route.query.g,
     (newGuid) => {
-      contentGuid.value = newGuid;
-      loadContentAndComments(newGuid);
+      if (newGuid) {
+        contentGuid.value = newGuid;
+        loadContentAndComments(newGuid);
+      }
     }
 );
 
@@ -207,7 +232,6 @@ function toggleComments() {
 }
 
 function submitComment() {
-  debugger;
   let userBean = userStore.userBean;
   if (!userBean || !userBean.code) {
     ElMessage.error("请先登录!");
@@ -223,7 +247,7 @@ function submitComment() {
       TEXT: value,
       children: [],
     }
-    blogComment.value.push(oneComment);
+    blogComment.value.unshift(oneComment);
     //没有children字段,只是前台需要,所有传递到后台之前删除该字段
     delete oneComment.children;
     let result = sendAxiosRequest("/blog-api/blog/addComment", {blogComment: oneComment})
@@ -249,7 +273,6 @@ function toggleReplyInput(commentId, commentUserCode) {
 }
 
 function submitReply(commentId) {
-  debugger;
   let userBean = userStore.userBean;
   if (!userBean || !userBean.code) {
     ElMessage.error("请先登录!");
@@ -298,6 +321,40 @@ function deleteArticle() {
 }
 </script>
 <style scoped>
+.author-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding: 10px 0;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.author-avatar {
+  width: 48px !important;
+  height: 48px !important;
+  font-size: 20px;
+  background-color: #f2f2f2;
+}
+
+.author-text {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.author-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: #333;
+}
+
+.author-tagline {
+  font-size: 12px;
+  color: #999;
+}
+
+
 .article-view-row {
   margin: 0;
   padding: 0;

@@ -36,6 +36,7 @@ public class HomeServiceImpl implements HomeService {
                 "    COALESCE(b.article_count, 0) AS ARTICLE_COUNT,\n" +
                 "    COALESCE(c.comment_count, 0) AS COMMENT_COUNT,\n" +
                 "    COALESCE(f.upload_count, 0) AS UPLOAD_COUNT,\n" +
+                "    COALESCE(info.AVATAR, '') AS AVATAR,\n" +
                 "    -- 加权评分：文章*1 + 评论*0.1 + 上传*1\n" +
                 "    COALESCE(b.article_count, 0) * 1 +\n" +
                 "    COALESCE(c.comment_count, 0) * 0.1 +\n" +
@@ -62,6 +63,7 @@ public class HomeServiceImpl implements HomeService {
                 "    FROM fileInfo\n" +
                 "    GROUP BY usercode, username\n" +
                 ") f ON u.usercode = f.usercode\n" +
+                "LEFT JOIN userInfo info ON u.usercode = info.CODE\n" +
                 "ORDER BY TOTAL_SCORE DESC\n" +
                 "LIMIT 3;\n";
 

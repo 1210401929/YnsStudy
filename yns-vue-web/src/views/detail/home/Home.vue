@@ -21,11 +21,24 @@
         </li>
       </ul>
     </div>
-    <!-- 中间预留区域 -->
+    <!-- 中间区域 -->
     <div class="middle-column">
-      <div class="placeholder"> 未开发区域</div>
+      <!-- 轮播图部分 -->
+      <el-carousel
+          height="300px"
+          trigger="click"
+          indicator-position="outside"
+          :interval="4000"
+          arrow="always"
+      >
+        <el-carousel-item v-for="(item, index) in carouselImages" :key="index" >
+          <div class="carousel-image-container">
+            <img :src="item.url" alt="轮播图" class="carousel-image" @click="imageClick(item)"/>
+          </div>
+        </el-carousel-item>
+      </el-carousel>
     </div>
-    <!-- 右侧：热门下载   -->
+    <!-- 右侧：热门下载 -->
     <div class="right-column">
       <h3 class="section-title">📥 热门下载内容</h3>
       <ul class="download-list">
@@ -38,8 +51,7 @@
           <div class="download-card">
             <div class="download-title">{{ file.ORIGINALFILENAME }}</div>
             <div class="download-meta">
-              <span>🧑 {{ file.USERNAME }}</span>
-              |
+              <span>🧑 {{ file.USERNAME }}</span> |
               <span style="color:#04c279">下载次数: {{ file.DOWNNUM }}</span>
             </div>
           </div>
@@ -50,6 +62,7 @@
 </template>
 
 <script setup>
+import {ref} from "vue";
 import {useHomeStore} from "@/stores/detail/home.js";
 import {useRouter} from "vue-router";
 
@@ -64,9 +77,35 @@ function hotBlogClick(blog) {
 function downloadClick(file) {
   router.push({name: "Resources", query: {g: file.GUID}});
 }
+
+const carouselImages = ref([{url: "/picture/blog.png", routeName: "Blog"},
+  {url: "/picture/resources.png", routeName: "Resources"},
+  {url: "/picture/community.png", routeName: "Community"},
+]);
+
+const imageClick = (item)=>{
+  router.push({name:item.routeName})
+}
 </script>
 
 <style scoped>
+.carousel-image-container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center; /* 水平居中 */
+  align-items: center; /* 垂直居中 */
+  overflow: hidden; /* 防止图片溢出 */
+  border-radius: 8px;
+}
+
+.carousel-image {
+  height: 100%;
+  object-fit: cover;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
 .three-column-layout {
   display: flex;
   gap: 20px;

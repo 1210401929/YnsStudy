@@ -9,10 +9,13 @@ import Community from '../views/detail/community/Community.vue'
 import About from '../views/detail/about/About.vue'
 import ContentAndComment from "@/views/detail/blog/ContentAndComment.vue";
 
+import personalCenter from "@/views/main/user/personalCenter.vue";
+
 const routes = [
     //根路径重定向到welcome
     {path: '', redirect: '/welcome'},
     {path: '/welcome', name: 'Welcome', component: Welcome},
+    {path: '/personalCenter', name: 'personalCenter', component: personalCenter},
     {
         path: '/ynsStudy',
         component: Index,  // Index 作为父组件
