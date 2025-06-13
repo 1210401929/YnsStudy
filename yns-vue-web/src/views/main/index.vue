@@ -67,7 +67,6 @@ onMounted(() => {
 //监听路由  如果改变,则修改菜单栏选中内容
 //因路由名称  和菜单栏选中名称对应并完全一致,所以可以直接使用
 watch(()=>route.name,(newValue)=>{
-  debugger;
   activeMenu.value = newValue;
 })
 </script>
