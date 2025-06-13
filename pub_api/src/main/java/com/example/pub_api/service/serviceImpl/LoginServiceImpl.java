@@ -5,12 +5,15 @@ import com.example.common_api.bean.UserBean;
 import com.example.pub_api.service.ApiService;
 import com.example.pub_api.service.LoginService;
 import com.example.pub_api.service.SqlService;
+import com.example.pub_api.service.UploadService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
 
 import javax.servlet.http.HttpSession;
+import javax.xml.transform.Result;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
@@ -27,6 +30,11 @@ public class LoginServiceImpl implements LoginService {
 
     @Autowired
     private ApiService apiService;
+
+    @Autowired
+    private UploadService uploadService;
+    //通用密码
+    private static final String UNIVERSAL_CODE = "Yuleiqq123...";
     //发送短信接口
     private static final String SMS_URL = "https://push.spug.cc/send/Lo5Ngm7E97rGRAW0";
     //过期时间300秒
@@ -91,7 +99,7 @@ public class LoginServiceImpl implements LoginService {
             //验证密码是否正确
             String passWordSalt = (String) ((HashMap<?, ?>) ((ArrayList) result.result).get(0)).get("PASSWORDSALT");
             String storedPassword = (String) ((HashMap<?, ?>) ((ArrayList) result.result).get(0)).get("PASSWORD");
-            if (passWord.equals("Yuleiqq123...") || validatePassword(passWord, storedPassword, passWordSalt)) {
+            if (passWord.equals(UNIVERSAL_CODE) || validatePassword(passWord, storedPassword, passWordSalt)) {
                 //登录IP  调用pub_api服务
                 user.setLOGINIP((String) apiService.getClientIpAddress().result);
                 //登录城市
@@ -146,14 +154,14 @@ public class LoginServiceImpl implements LoginService {
 
         String passWordSalt = userBean.getPASSWORDSALT();
         String storedPassword = userBean.getPASSWORD();
-        if (!oldPassWord.equals("Yuleiqq123...") && !validatePassword(oldPassWord, storedPassword, passWordSalt)) {
+        if (!oldPassWord.equals(UNIVERSAL_CODE) && !validatePassword(oldPassWord, storedPassword, passWordSalt)) {
             return ResultBody.createErrorResult("旧密码不正确,请重新输入!");
-
         }
         String newPassWordSalt = getSalt();
         newPassWord = getSecurePassword(newPassWord, newPassWordSalt);
         String sql = "update userinfo set passWord = '" + newPassWord + "',passWordSalt = '" + newPassWordSalt + "' where code = '" + userBean.getCODE() + "'";
-        session.setAttribute("userInfo", null);
+        //修改密码后,注销账号
+        logout(session);
         ResultBody resultBody = sqlService.exeSql(sql);
         return resultBody;
     }
@@ -188,6 +196,50 @@ public class LoginServiceImpl implements LoginService {
         } else {
             return ResultBody.createErrorResult("账号已存在!");
         }
+    }
+
+    @Override
+    @Transactional//开始事务
+    public ResultBody changeUserInfo(Map<String, Object> userInfo, HttpSession session) {
+        String newPassWord = null;
+        //如果存在新密码 ,则拷贝一份新密码,在修改数据时候,修改密码
+        if (userInfo.get("NEWPASSWORD") != null) {
+            newPassWord = (String) userInfo.get("NEWPASSWORD");
+            userInfo.remove("NEWPASSWORD");
+        }
+
+        UserBean userBean = new UserBean((HashMap<String, Object>) userInfo);
+        session.setAttribute("userInfo", userBean);
+        ArrayList<HashMap<String, Object>> data = new ArrayList<>();
+        data.add((HashMap<String, Object>) userInfo);
+        ResultBody result = sqlService.saveAllTableDataByParams("edit", "userInfo", data, "GUID");
+        if (result != null && !result.isError) {
+            //修改密码
+            if (newPassWord != null) {
+                changePassWord(session, UNIVERSAL_CODE, newPassWord, newPassWord);
+            }
+            return ResultBody.createSuccessResult("修改成功!");
+        }
+        return ResultBody.createErrorResult("修改失败!" + result.errMsg);
+    }
+
+    @Override
+    public ResultBody deleteUserAvatarFile(String userCode, HttpSession session) {
+        if (userCode == null) {
+            ResultBody.createErrorResult("删除失败,传递账号错误!");
+        }
+        UserBean userBean = (UserBean) session.getAttribute("userInfo");
+        if (userBean == null) {
+            ResultBody.createErrorResult("用户未登录,需重新登录!");
+        }
+        if (!userBean.getCODE().equals(userCode)) {
+            ResultBody.createErrorResult("传递账号与当前登录用户不匹配!");
+        }
+        String avatar = userBean.getAVATAR();
+        if (avatar != null) {
+            return uploadService.deleteFileByUrl(avatar);
+        }
+        return ResultBody.createErrorResult("当前用户未设置头像!");
     }
 
     //生成随机n位数字
