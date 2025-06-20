@@ -16,11 +16,8 @@ export default {
   display: block;
   height: 100%;
   width: 100%;
+  /*超出部分隐藏*/
+  overflow: hidden;
 }
 
-.background {
-  height: 100%;
-  width: 100%;
-  background-color: #87CEEB;
-}
 </style>

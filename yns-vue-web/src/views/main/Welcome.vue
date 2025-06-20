@@ -17,7 +17,7 @@
       <h2 class="toDefault">少一点迷茫，多一点引导，学习之路不再孤单</h2>
       <p class="toDefault">永远相信美好的事情即将发生</p>
       <div class="buttons">
-        <el-button type="success" @click="buttonClick('navigation')" size="large" round>导航</el-button>
+        <el-button type="success" @click="buttonClick('ai')" size="large" round>AI</el-button>
         <el-button type="primary" @click="buttonClick('article')" size="large" round>文章</el-button>
         <el-button type="danger" @click="buttonClick('aboutWe')" size="large" round>关于我们</el-button>
       </div>
@@ -73,6 +73,7 @@ import {useRouter} from "vue-router";
 import {ElMessage} from 'element-plus';
 import LoginDialog from "@/components/main/LoginDialog.vue";
 import * as menuUtil from "@/utils/menu.js"
+import YnsStudyAi from "@/views/detail/ai/YnsStudyAi.vue";
 //Router 实例
 const router = useRouter();
 //class样式
@@ -89,18 +90,18 @@ function menuClick(menu) {
 function buttonClick(typeName) {
   switch (typeName) {
       //导航
-    case "navigation": {
-      ElMessage.success("你点击了导航!");
+    case "ai": {
+      router.push({name: "YnsStudyAi"});
       break;
     }
       //文章
     case "article": {
-      ElMessage.success("你点击了文章!");
+      router.push({name: "Community"});
       break;
     }
       //关于我们
     case "aboutWe": {
-      ElMessage.success("你点击了关于我们!");
+      router.push({name: "About"});
       break;
     }
   }

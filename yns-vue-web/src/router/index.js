@@ -5,6 +5,7 @@ import Home from '../views/detail/home/Home.vue'
 import Blog from '../views/detail/blog/Blog.vue'
 import Resources from '../views/detail/resources/Resources.vue'
 import Community from '../views/detail/community/Community.vue'
+import YnsStudyAi from '../views/detail/ai/YnsStudyAi.vue'
 
 import About from '../views/detail/about/About.vue'
 import ContentAndComment from "@/views/detail/blog/ContentAndComment.vue";
@@ -16,6 +17,7 @@ const routes = [
     {path: '', redirect: '/welcome'},
     {path: '/welcome', name: 'Welcome', component: Welcome},
     {path: '/personalCenter', name: 'personalCenter', component: personalCenter},
+    {path: '/YnsStudyAi', name: 'YnsStudyAi', component: YnsStudyAi},
     {
         path: '/ynsStudy',
         component: Index,  // Index 作为父组件
