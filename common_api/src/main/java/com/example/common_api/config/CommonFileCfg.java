@@ -4,7 +4,7 @@ public class CommonFileCfg {
     //开发环境 gateway网关ip端口
     private String gateWayDevUrl = "http://localhost:8889";
     //生产环境 gateway网关ip端口
-    private String gateWayProduceUrl = "http://49.233.248.240:8889";
+    private String gateWayProduceUrl = "http://152.136.247.100:8889";
     //windows环境 文件上传的地址
     private String uploadFileWinUrl = System.getProperty("user.dir") + "/upload/";
     //linux环境 文件上传的地址

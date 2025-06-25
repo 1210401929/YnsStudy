@@ -12,7 +12,11 @@ import ContentAndComment from "@/views/detail/blog/ContentAndComment.vue";
 
 import personalCenter from "@/views/main/user/personalCenter.vue";
 
+import LoveStory from "@/views/detail/love/LoveStory.vue";
+
 const routes = [
+    //临时
+    {path:'/loveLY' ,name:'love',component: LoveStory},
     //根路径重定向到welcome
     {path: '', redirect: '/welcome'},
     {path: '/welcome', name: 'Welcome', component: Welcome},

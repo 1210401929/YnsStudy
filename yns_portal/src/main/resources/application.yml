@@ -34,7 +34,7 @@ spring:
 
   #redis
   redis:
-    host: 49.233.248.240
+    host: 152.136.247.100
     port: 6379
     password: # 如果有密码
     timeout: 2000
