@@ -242,6 +242,21 @@ public class LoginServiceImpl implements LoginService {
         return ResultBody.createErrorResult("当前用户未设置头像!");
     }
 
+    @Override
+    public ResultBody getUserInfoByCode(String userCode) {
+        if(userCode==null){
+            return ResultBody.createErrorResult("请传入正确账号!");
+        }
+        String sql = "select * from userinfo where code = '" + userCode + "'";
+        ResultBody result = sqlService.selectList(sql);
+        if(result != null && !result.isError && ((ArrayList)result.result).size()>0){
+            UserBean userBean = new UserBean((HashMap<String, Object>) (((ArrayList)result.result).get(0)));
+            return ResultBody.createSuccessResult(userBean);
+        }else{
+            return ResultBody.createErrorResult("未查询到账号信息!");
+        }
+    }
+
     //生成随机n位数字
     private String generateCode(int length) {
         Random r = new Random();

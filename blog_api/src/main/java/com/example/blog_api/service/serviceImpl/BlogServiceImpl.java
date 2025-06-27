@@ -253,7 +253,19 @@ public class BlogServiceImpl implements BlogService {
 
     @Override
     public ResultBody getComment(String blogId) {
-        String sql = "select * from BLOGCOMMENT where blogId = '" + blogId + "' order by create_time DESC";
+        String sql = "SELECT \n" +
+                "  bc.*, \n" +
+                "  ui.AVATAR \n" +
+                "FROM \n" +
+                "  BLOGCOMMENT bc\n" +
+                "LEFT JOIN \n" +
+                "  userinfo ui \n" +
+                "ON \n" +
+                "  bc.usercode = ui.code\n" +
+                "WHERE \n" +
+                "  bc.blogId = '" + blogId + "'\n" +
+                "ORDER BY \n" +
+                "  bc.create_time DESC\n";
         Map<String, Object> params_ = new HashMap<>();
         params_.put("sql", sql);
         //对于使用访问网关  推荐先接收返回结果,再返回,否则会有未知问题

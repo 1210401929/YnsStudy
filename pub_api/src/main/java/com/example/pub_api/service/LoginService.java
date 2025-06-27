@@ -27,4 +27,6 @@ public interface LoginService {
     ResultBody changeUserInfo(Map<String,Object> userInfo,HttpSession session);
     //删除用户头像存储的文件
     ResultBody deleteUserAvatarFile(String userCode,HttpSession session);
+    //根据账号获取账号信息
+    ResultBody getUserInfoByCode(String userCode);
 }

@@ -74,6 +74,7 @@ import {ElMessage} from 'element-plus';
 import LoginDialog from "@/components/main/LoginDialog.vue";
 import * as menuUtil from "@/utils/menu.js"
 import YnsStudyAi from "@/views/detail/ai/YnsStudyAi.vue";
+import {encrypt} from "@/utils/common.js";
 //Router 实例
 const router = useRouter();
 //class样式
@@ -91,7 +92,8 @@ function buttonClick(typeName) {
   switch (typeName) {
       //导航
     case "ai": {
-      router.push({name: "YnsStudyAi"});
+      const routeUrl = router.resolve({name: 'YnsStudyAi'}).href;
+      window.open(routeUrl, "YnsStudyAi");
       break;
     }
       //文章

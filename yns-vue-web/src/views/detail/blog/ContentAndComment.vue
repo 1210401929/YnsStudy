@@ -9,10 +9,12 @@
               size="large"
               class="author-avatar"
               alt="用户头像"
+              @click="avatarClick(blogContent)"
+              title="查看发布者信息"
           >
             {{ blogContent.USERNAME?.charAt(0) }}
           </el-avatar>
-          <div class="author-text">
+          <div class="author-text" @click="avatarClick(blogContent)" title="查看发布者信息">
             <div class="author-name">{{ blogContent.USERNAME || '匿名用户' }}</div>
             <div class="author-tagline">发布者</div>
           </div>
@@ -39,6 +41,15 @@
         <h3 style="margin-bottom: 10px;">评论</h3>
         <div v-for="(comment, i) in visibleComments" :key="comment.GUID || i" class="comment-item">
           <div class="comment-main-row">
+            <el-avatar
+                :src="comment.AVATAR"
+                size="large"
+                class="author-avatar-comment"
+                @click="commentAvatarClick(comment)"
+                alt="评论用户头像"
+            >
+              {{ comment.USERNAME?.charAt(0) }}
+            </el-avatar>
             <el-tag type="info" size="small">{{ comment.USERNAME }}</el-tag>
             <span class="comment-text">{{ comment.TEXT }}</span>
             <el-button
@@ -81,6 +92,15 @@
             </el-button>
             <div v-show="isChildrenVisible[comment.GUID]" class="children-list">
               <div v-for="(child, idx) in comment.children" :key="child.GUID || idx" class="comment-child">
+                <el-avatar
+                    :src="child.AVATAR"
+                    size="large"
+                    class="author-avatar-comment"
+                    @click="commentAvatarClick(child)"
+                    alt="评论用户头像"
+                >
+                  {{ child.USERNAME?.charAt(0) }}
+                </el-avatar>
                 <el-tag type="success" size="small">{{ child.USERNAME }}</el-tag>
                 <span class="comment-text">{{ child.TEXT }}</span>
               </div>
@@ -134,8 +154,8 @@ import {useRoute, useRouter} from "vue-router";
 import {useUserStore} from "@/stores/main/user.js";
 import {useBlogContentStore} from "@/stores/detail/blog.js";
 import ArticleEditor from "@/components/detail/ArticleEditor.vue";
-import {ElMessageBox, ElMessage} from "element-plus";
-import {buildChildrenData, ele_confirm, getGuid, sendAxiosRequest} from "@/utils/common.js";
+import {ElMessage} from "element-plus";
+import {buildChildrenData, ele_confirm, encrypt, getGuid, sendAxiosRequest} from "@/utils/common.js";
 
 const route = useRoute();
 const router = useRouter();
@@ -198,11 +218,10 @@ const loadContentAndComments = async (guid) => {
 };
 
 
-//只有路由调用该组件时,默认执行一次加载数据
-if (route.query.g) {
+//默认执行一次加载数据
+if (contentGuid.value) {
   loadContentAndComments(contentGuid.value);
 }
-
 
 const visibleComments = computed(() => {
   return showAllComments.value ? blogComment.value : blogComment.value.slice(0, 2);
@@ -227,6 +246,17 @@ watch(
     }
 );
 
+//发表用户点击用户头像
+function avatarClick(blogContent){
+  debugger;
+  const routeUrl = router.resolve({name: 'personInfomation', query: {c: encrypt(blogContent.USERCODE)}}).href;
+  window.open(routeUrl, "showPersonInfomation");
+}
+//评论用户点击用户头像
+function commentAvatarClick(comment){
+  const routeUrl = router.resolve({name: 'personInfomation', query: {c: encrypt(comment.USERCODE)}}).href;
+  window.open(routeUrl, "showPersonInfomation");
+}
 function toggleComments() {
   showAllComments.value = !showAllComments.value;
 }
@@ -328,6 +358,13 @@ function deleteArticle() {
   margin-bottom: 16px;
   padding: 10px 0;
   border-bottom: 1px solid #e0e0e0;
+
+}
+
+.author-avatar-comment {
+  width: 20px !important;
+  height: 20px !important;
+  cursor: pointer;
 }
 
 .author-avatar {
@@ -335,12 +372,14 @@ function deleteArticle() {
   height: 48px !important;
   font-size: 20px;
   background-color: #f2f2f2;
+  cursor: pointer;
 }
 
 .author-text {
   display: flex;
   flex-direction: column;
   justify-content: center;
+  cursor: pointer;
 }
 
 .author-name {

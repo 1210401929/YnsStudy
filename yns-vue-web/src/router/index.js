@@ -11,6 +11,7 @@ import About from '../views/detail/about/About.vue'
 import ContentAndComment from "@/views/detail/blog/ContentAndComment.vue";
 
 import personalCenter from "@/views/main/user/personalCenter.vue";
+import personInfomation from "@/views/main/user/personInformation.vue";
 
 import LoveStory from "@/views/detail/love/LoveStory.vue";
 
@@ -21,6 +22,7 @@ const routes = [
     {path: '', redirect: '/welcome'},
     {path: '/welcome', name: 'Welcome', component: Welcome},
     {path: '/personalCenter', name: 'personalCenter', component: personalCenter},
+    {path:'/personInfomation',name:'personInfomation',component: personInfomation},
     {path: '/YnsStudyAi', name: 'YnsStudyAi', component: YnsStudyAi},
     {
         path: '/ynsStudy',

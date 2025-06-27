@@ -48,6 +48,7 @@
               v-for="(author, index) in topAuthors"
               :key="index"
               class="author-card"
+              @click="hotAuthorClick(author)"
           >
             <div class="author-box">
               <el-avatar
@@ -87,7 +88,7 @@
 <script setup>
 import {ref, onMounted} from 'vue'
 import debounce from 'lodash/debounce'
-import {sendAxiosRequest} from "@/utils/common.js";
+import {sendAxiosRequest,encrypt} from "@/utils/common.js";
 import ContentAndComment from "@/views/detail/blog/ContentAndComment.vue";
 import {useRoute, useRouter} from 'vue-router'
 
@@ -121,6 +122,13 @@ async function setTopAuthors() {
 }
 
 setTopAuthors();
+
+const hotAuthorClick = (author)=>{
+
+  const routeUrl = router.resolve({name: 'personInfomation', query: {c: encrypt(author.USERCODE)}}).href;
+  window.open(routeUrl, "showPersonInfomation");
+}
+
 const fetchArticles = async () => {
   if (loading.value || noMore.value) return
   loading.value = true
@@ -281,7 +289,15 @@ onMounted(() => {
   padding: 12px;
   background-color: #f9f9f9;
   border-radius: 10px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  cursor: pointer;
 }
+
+.author-card:hover {
+  transform: scale(1.03); /* 稍微放大 */
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); /* 添加阴影 */
+}
+
 
 .author-meta .name {
   font-weight: bold;

@@ -91,4 +91,11 @@ public class LoginController {
         ResultBody resultBody = loginService.deleteUserAvatarFile(userCode,session);
         return resultBody;
     }
+    @RequestMapping("/getUserInfoByCode")
+    @ResponseBody
+    public ResultBody getUserInfoByCode(@RequestBody Map<String, String> params) {
+        String userCode =  params.get("userCode");
+        ResultBody resultBody = loginService.getUserInfoByCode(userCode);
+        return resultBody;
+    }
 }
