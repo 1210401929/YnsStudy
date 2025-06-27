@@ -259,7 +259,7 @@ public class LoginServiceImpl implements LoginService {
     }
     //修改用户登录IP和登录城市
     private ResultBody updateUserIpAndAddress(String userCode,String ip,String addRess){
-        String sql = "update userInfo set LOGINIP = ? , LOGINADDRESS=? where userCode = ?";
+        String sql = "update userInfo set LOGINIP = ? , LOGINADDRESS=? where code = ?";
         List<Object> params = Arrays.asList(ip,addRess,userCode);
         return sqlService.exeSqlByParams(sql,params);
     }
