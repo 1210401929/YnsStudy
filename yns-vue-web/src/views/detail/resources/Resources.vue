@@ -25,7 +25,7 @@
                 </span>
                 <span class="meta-item">
                   <el-icon><Clock/></el-icon>
-                    {{ file.CREATE_TIME }}
+                    {{ pubFormatDate(file.CREATE_TIME) }}
                 </span>
                 <span class="meta-item">
                   <el-icon><Download/></el-icon>
@@ -138,7 +138,7 @@ import {ref, computed, onMounted} from 'vue'
 import {useRoute} from "vue-router";
 import {ElMessage} from 'element-plus'
 import {User, Clock, Close, CopyDocument, Download, Search} from '@element-plus/icons-vue'
-import {downloadFileByUrl, ele_confirm, getGuid, sendAxiosRequest} from "@/utils/common.js";
+import {downloadFileByUrl, ele_confirm, getGuid, sendAxiosRequest,pubFormatDate} from "@/utils/common.js";
 import {useUserStore} from "@/stores/main/user.js";
 
 const route = useRoute();

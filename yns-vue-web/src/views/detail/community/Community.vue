@@ -32,7 +32,7 @@
           <h3 class="article-title">{{ article.BLOG_TITLE }}</h3>
           <div class="article-meta">
             <span>作者：{{ article.USERNAME }}</span>
-            <span>时间：{{ article.CREATE_TIME }}</span>
+            <span>时间：{{ pubFormatDate(article.CREATE_TIME) }}</span>
           </div>
           <p class="article-content" v-html="article.MAINTEXT"></p>
         </el-card>
@@ -88,7 +88,7 @@
 <script setup>
 import {ref, onMounted} from 'vue'
 import debounce from 'lodash/debounce'
-import {sendAxiosRequest,encrypt} from "@/utils/common.js";
+import {sendAxiosRequest,encrypt,pubFormatDate} from "@/utils/common.js";
 import ContentAndComment from "@/views/detail/blog/ContentAndComment.vue";
 import {useRoute, useRouter} from 'vue-router'
 
@@ -102,7 +102,7 @@ const searchKeyword = ref('')
 
 const articles = ref([])
 const page = ref(1)
-const pageSize = 10
+const pageSize = 5
 const loading = ref(false)
 const noMore = ref(false)
 

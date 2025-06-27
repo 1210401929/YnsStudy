@@ -53,7 +53,8 @@ import {ElMessage} from 'element-plus'
 const props = defineProps({
   title: String,
   content: String,
-  isReadOnly: Boolean
+  isReadOnly: Boolean,
+  saveType:String
 })
 
 const emits = defineEmits(['submit', 'cancel'])
@@ -83,6 +84,10 @@ const editorConfig = {
           ElMessage.error(result.errMsg)
         }
       }
+    },
+    lineHeight:{
+      lineHeightList: ['0.5','1', '1.5', '2', '2.5'],
+      defaultValue: '0.5' // 默认行高
     }
   }
 }
@@ -116,8 +121,11 @@ function submit() {
     title: localTitle.value.trim(),
     content: localContent.value.trim()
   })
-  localTitle.value = ''
-  localContent.value = ''
+  //如果是新增,则提交操作之后,清除新增得内容
+  if(props.saveType == "add"){
+    localTitle.value = ''
+    localContent.value = ''
+  }
 }
 
 const wrapperStyle = computed(() => ({

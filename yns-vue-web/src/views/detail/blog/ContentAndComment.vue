@@ -1,7 +1,9 @@
 <template>
   <el-row :gutter="20" class="article-view-row" justify="space-between">
     <!-- 正文 -->
-    <el-col :xs="24" :sm="24" :md="18" :lg="19">
+    <el-col :xs="24" :sm="24"
+            :md="showComment ? 15 : 23"
+            :lg="showComment ? 15 : 23">
       <el-card shadow="hover" class="article-card">
         <div class="author-info">
           <el-avatar
@@ -16,11 +18,10 @@
           </el-avatar>
           <div class="author-text" @click="avatarClick(blogContent)" title="查看发布者信息">
             <div class="author-name">{{ blogContent.USERNAME || '匿名用户' }}</div>
-            <div class="author-tagline">发布者</div>
+            <div class="author-tagline">发布时间: {{ pubFormatDate(blogContent.CREATE_TIME) }}</div>
           </div>
         </div>
         <div class="article-header">
-
           <h2>{{ blogContent.BLOG_TITLE }}</h2>
           <div style="display: flex; gap: 1px;"
                v-if="userStore?.userBean?.code && blogContent.USERCODE==userStore.userBean.code">
@@ -35,21 +36,35 @@
         <ArticleEditor :isReadOnly="true" :content="blogContent.MAINTEXT"/>
       </el-card>
     </el-col>
-    <!-- 评论 -->
-    <el-col :xs="24" :sm="24" :md="6" :lg="5">
-      <el-card shadow="hover" class="comment-card">
-        <h3 style="margin-bottom: 10px;">评论</h3>
+
+    <!-- 评论或悬浮按钮 -->
+    <el-col :xs="24" :sm="24" :md="showComment ? 9 : 1" :lg="showComment ? 9 : 1">
+      <!-- 评论区 -->
+      <el-card v-if="showComment" shadow="hover" class="comment-card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+          <h3>评论</h3>
+          <el-button  type="info" link :icon="Right" @click="showComment = false">
+            缩回评论
+          </el-button>
+        </div>
+
         <div v-for="(comment, i) in visibleComments" :key="comment.GUID || i" class="comment-item">
           <div class="comment-main-row">
-            <el-avatar
-                :src="comment.AVATAR"
-                size="large"
-                class="author-avatar-comment"
-                @click="commentAvatarClick(comment)"
-                alt="评论用户头像"
+            <el-tooltip
+                :content="'发布于: '+pubFormatDate(comment.CREATE_TIME)"
+                placement="top"
+                effect="light"
             >
-              {{ comment.USERNAME?.charAt(0) }}
-            </el-avatar>
+              <el-avatar
+                  :src="comment.AVATAR"
+                  size="large"
+                  class="author-avatar-comment"
+                  @click="commentAvatarClick(comment)"
+                  alt="评论用户头像"
+              >
+                {{ comment.USERNAME?.charAt(0) }}
+              </el-avatar>
+            </el-tooltip>
             <el-tag type="info" size="small">{{ comment.USERNAME }}</el-tag>
             <span class="comment-text">{{ comment.TEXT }}</span>
             <el-button
@@ -92,15 +107,21 @@
             </el-button>
             <div v-show="isChildrenVisible[comment.GUID]" class="children-list">
               <div v-for="(child, idx) in comment.children" :key="child.GUID || idx" class="comment-child">
-                <el-avatar
-                    :src="child.AVATAR"
-                    size="large"
-                    class="author-avatar-comment"
-                    @click="commentAvatarClick(child)"
-                    alt="评论用户头像"
+                <el-tooltip
+                    :content="'评论于: ' + pubFormatDate(child.CREATE_TIME)"
+                    placement="top"
+                    effect="light"
                 >
-                  {{ child.USERNAME?.charAt(0) }}
-                </el-avatar>
+                  <el-avatar
+                      :src="child.AVATAR"
+                      size="large"
+                      class="author-avatar-comment"
+                      @click="commentAvatarClick(child)"
+                      alt="评论用户头像"
+                  >
+                    {{ child.USERNAME?.charAt(0) }}
+                  </el-avatar>
+                </el-tooltip>
                 <el-tag type="success" size="small">{{ child.USERNAME }}</el-tag>
                 <span class="comment-text">{{ child.TEXT }}</span>
               </div>
@@ -113,20 +134,35 @@
             {{ showAllComments ? '收起评论' : '展开全部评论' }}
           </el-button>
         </div>
+
+        <!-- 评论输入框 -->
+        <div class="comment-input">
+          <el-input
+              v-model="newComment"
+              placeholder="写下你的评论..."
+              size="small"
+              @keyup.enter="submitComment"
+              clearable
+          />
+          <el-button type="primary" size="small" @click="submitComment" style="margin-top: 10px; width: 100%">
+            发表评论
+          </el-button>
+        </div>
       </el-card>
 
-      <!-- 评论输入框 -->
-      <div class="comment-input">
-        <el-input
-            v-model="newComment"
-            placeholder="写下你的评论..."
-            size="small"
-            @keyup.enter="submitComment"
-            clearable
-        />
-        <el-button type="primary" size="small" @click="submitComment" style="margin-top: 10px; width: 100%">
-          发表评论
-        </el-button>
+      <!-- 悬浮操作按钮（评论关闭时显示） -->
+      <div v-else class="floating-buttons-top">
+        <div class="floating-buttons">
+          <el-tooltip content="点赞" placement="left" effect="light">
+            <el-button circle  class="comment-btn"  @click="handleLike">👍</el-button>
+          </el-tooltip>
+          <el-tooltip content="收藏" placement="left" effect="light">
+            <el-button circle  class="comment-btn" :icon="Star" @click="handleCollect"/>
+          </el-tooltip>
+          <el-tooltip content="评论" placement="left" effect="light">
+            <el-button circle  class="comment-btn" :icon="Comment" @click="showComment = true"/>
+          </el-tooltip>
+        </div>
       </div>
     </el-col>
   </el-row>
@@ -138,24 +174,29 @@
       width="900px"
       top="2vh"
       :close-on-click-modal="false"
+      destroy-on-close
   >
     <ArticleEditor
         :title="blogContent.BLOG_TITLE"
         :content="blogContent.MAINTEXT"
+        :save-type="'edit'"
         @submit="handleEditorSubmit"
         @cancel="editorVisible = false"
     />
   </el-dialog>
 </template>
 
+
+
 <script setup>
-import {ref, computed, watch, onMounted} from "vue";
+import {ref, computed, watch} from "vue";
 import {useRoute, useRouter} from "vue-router";
 import {useUserStore} from "@/stores/main/user.js";
 import {useBlogContentStore} from "@/stores/detail/blog.js";
 import ArticleEditor from "@/components/detail/ArticleEditor.vue";
+import {Star,Comment,Right} from '@element-plus/icons-vue'
 import {ElMessage} from "element-plus";
-import {buildChildrenData, ele_confirm, encrypt, getGuid, sendAxiosRequest} from "@/utils/common.js";
+import {buildChildrenData, ele_confirm, encrypt, getGuid, sendAxiosRequest,pubFormatDate} from "@/utils/common.js";
 
 const route = useRoute();
 const router = useRouter();
@@ -178,6 +219,8 @@ const editorVisible = ref(false);
 const showAllComments = ref(false);
 const newComment = ref("");
 
+const showComment = ref(false);
+
 // 控制回复输入框显示，key:评论id，value:bool
 const replyInputVisible = ref({});
 // 每个回复输入框的文本，key:评论id，value:string
@@ -186,6 +229,7 @@ const replyInputs = ref({});
 const isChildrenVisible = ref({});
 
 const handleEditorSubmit = ({title, content}) => {
+
   let result = sendAxiosRequest("/blog-api/blog/updateBlog", {
     guid: contentGuid.value,
     title,
@@ -216,6 +260,14 @@ const loadContentAndComments = async (guid) => {
   replyInputs.value = {};
   isChildrenVisible.value = {};
 };
+
+function handleLike() {
+  ElMessage.success("点赞成功！");
+}
+
+function handleCollect() {
+  ElMessage.success("已收藏！");
+}
 
 
 //默认执行一次加载数据
@@ -248,7 +300,7 @@ watch(
 
 //发表用户点击用户头像
 function avatarClick(blogContent){
-  debugger;
+
   const routeUrl = router.resolve({name: 'personInfomation', query: {c: encrypt(blogContent.USERCODE)}}).href;
   window.open(routeUrl, "showPersonInfomation");
 }
@@ -351,6 +403,7 @@ function deleteArticle() {
 }
 </script>
 <style scoped>
+
 .author-info {
   display: flex;
   align-items: center;
@@ -392,7 +445,6 @@ function deleteArticle() {
   font-size: 12px;
   color: #999;
 }
-
 
 .article-view-row {
   margin: 0;
@@ -488,5 +540,34 @@ function deleteArticle() {
 
 .comment-input {
   margin-top: 15px;
+}
+
+.floating-buttons-top{
+  width:100%;
+  height:100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.floating-buttons {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.floating-buttons .el-button + .el-button {
+  margin-left: 0 !important;
+}
+
+.floating-buttons .el-button {
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.2);
+}
+
+.comment-btn{
+  width:40px !important;
+  height:40px !important;
+  font-size: 20px
 }
 </style>

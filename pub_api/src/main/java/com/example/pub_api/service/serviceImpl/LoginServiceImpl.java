@@ -110,7 +110,8 @@ public class LoginServiceImpl implements LoginService {
                 if (!user.getNAME().equals("user")) {
                     recordLoginHistory(user);
                 }
-
+                //修改用户登录IP和登录城市
+                updateUserIpAndAddress(user.getCODE(),user.getLOGINIP(),user.getLOGINADDRESS());
                 session.setAttribute("userInfo", user);
                 System.out.println("已存入session");
                 return ResultBody.createSuccessResult(user);
@@ -256,7 +257,12 @@ public class LoginServiceImpl implements LoginService {
             return ResultBody.createErrorResult("未查询到账号信息!");
         }
     }
-
+    //修改用户登录IP和登录城市
+    private ResultBody updateUserIpAndAddress(String userCode,String ip,String addRess){
+        String sql = "update userInfo set LOGINIP = ? , LOGINADDRESS=? where userCode = ?";
+        List<Object> params = Arrays.asList(ip,addRess,userCode);
+        return sqlService.exeSqlByParams(sql,params);
+    }
     //生成随机n位数字
     private String generateCode(int length) {
         Random r = new Random();

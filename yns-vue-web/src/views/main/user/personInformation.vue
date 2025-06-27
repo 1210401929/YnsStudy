@@ -43,7 +43,7 @@
     <!-- 博客内容 -->
     <el-card class="section-card">
       <h3 class="section-title">📚 发表内容</h3>
-      <el-empty v-if="blogs.length === 0" description="暂无博客内容" />
+      <el-empty v-if="blogs.length === 0" description="暂无发表内容" />
       <el-timeline v-else>
         <el-timeline-item
             v-for="(blog, index) in displayedBlogs"

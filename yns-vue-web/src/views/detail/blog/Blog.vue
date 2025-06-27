@@ -47,7 +47,7 @@
       top="2vh"
       :close-on-click-modal="false"
   >
-    <ArticleEditor @submit="handleEditorSubmit" @cancel="editorVisible = false"/>
+    <ArticleEditor @submit="handleEditorSubmit" :save-type="'add'" @cancel="editorVisible = false"/>
   </el-dialog>
 </template>
 
