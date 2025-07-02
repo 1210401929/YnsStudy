@@ -85,4 +85,49 @@ public class BlogController {
         String blogGuid = (String) params.get("blogGuid");
         return blogService.deleteComment(blogGuid);
     }
+
+    @RequestMapping("/giveLikeBlog")
+    @ResponseBody
+    public ResultBody giveLikeBlog(@RequestBody Map<String, Object> params,HttpSession session) {
+        String blogId = (String) params.get("blogId");
+        return blogService.giveLikeBlog(blogId,session);
+    }
+    @RequestMapping("/noGiveLikeBlog")
+    @ResponseBody
+    public ResultBody noGiveLikeBlog(@RequestBody Map<String, Object> params,HttpSession session) {
+        String blogId = (String) params.get("blogId");
+        return blogService.noGiveLikeBlog(blogId,session);
+    }
+    @RequestMapping("/getGiveLikeByBlogId")
+    @ResponseBody
+    public ResultBody getGiveLikeByBlogId(@RequestBody Map<String, Object> params) {
+        String blogId = (String) params.get("blogId");
+        return blogService.getGiveLikeByBlogId(blogId);
+    }
+
+    @RequestMapping("/getLikeAndCollectByBlogId")
+    @ResponseBody
+    public ResultBody getLikeAndCollectByBlogId(@RequestBody Map<String, Object> params) {
+        String blogId = (String) params.get("blogId");
+        return blogService.getLikeAndCollectByBlogId(blogId);
+    }
+    @RequestMapping("/getLikeAndCollectByUserCode")
+    @ResponseBody
+    public ResultBody getLikeAndCollectByUserCode(@RequestBody Map<String, Object> params) {
+        String userCode = (String) params.get("userCode");
+        return blogService.getLikeAndCollectByUserCode(userCode);
+    }
+    @RequestMapping("/collectBlog")
+    @ResponseBody
+    public ResultBody collectBlog(@RequestBody Map<String, Object> params,HttpSession session) {
+        String blogId = (String) params.get("blogId");
+        return blogService.collectBlog(blogId,session);
+    }
+
+    @RequestMapping("/noCollectBlog")
+    @ResponseBody
+    public ResultBody noCollectBlog(@RequestBody Map<String, Object> params,HttpSession session) {
+        String blogId = (String) params.get("blogId");
+        return blogService.noCollectBlog(blogId,session);
+    }
 }

@@ -18,7 +18,9 @@
               <div class="blog-author">by {{ blog.USERNAME }}</div>
               <div class="blog-meta">
                 <span>👁 {{ blog.VIEW_PAGE }}</span>
+                <span>👍 {{ blog.LIKE_COUNT }}</span>
                 <span>💬 {{ blog.COMMENT_COUNT }}</span>
+                <span><el-icon><Star /></el-icon> {{ blog.COLLECT_COUNT }}</span>
               </div>
             </div>
           </li>
@@ -78,6 +80,8 @@ import { ref } from "vue";
 import { useHomeStore } from "@/stores/detail/home.js";
 import { useRouter } from "vue-router";
 import {encrypt} from "@/utils/common.js";
+import {Star} from "@element-plus/icons-vue";
+import {adminUserCode} from "@/config/vue-config.js";
 
 const router = useRouter();
 const homeStore = useHomeStore();
@@ -90,7 +94,7 @@ function downloadClick(file) {
   router.push({ name: "Resources", query: { g: file.GUID } });
 }
 function goToAdmin() {
-  const routeUrl = router.resolve({name: 'personInfomation', query: {c: encrypt("yulei")}}).href;
+  const routeUrl = router.resolve({name: 'personInfomation', query: {c: encrypt(adminUserCode)}}).href;
   window.open(routeUrl, "showPersonInfomation");
 }
 function goToPublishBlog() {
@@ -233,12 +237,14 @@ const imageClick = (item) => {
 }
 
 .blog-title {
+  display: block;
   font-weight: 600;
   font-size: 15px;
   color: #333;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
+  max-width: 100%; /* 保证不超出父容器 */
 }
 .blog-title:hover {
   color: #409EFF;

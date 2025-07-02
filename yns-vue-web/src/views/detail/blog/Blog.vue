@@ -88,6 +88,7 @@ function handleSelect(index) {
   }
 }
 
+router.push({name: 'BlogContent', query: {g: "YouDontNeedToPayAttention"}});
 onMounted(async () => {
   await blogContentStore.initBlogContent();
   handleSelect(selectedIndex.value);

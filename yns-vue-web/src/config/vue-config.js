@@ -8,3 +8,6 @@ export const crypCfg = {
     key:"1234567890123456",
     iv:"6543210987654321"
 }
+
+//网站管理员
+export const adminUserCode = "yulei";

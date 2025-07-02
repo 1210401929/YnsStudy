@@ -85,23 +85,27 @@ public class HomeServiceImpl implements HomeService {
     //获取热门文章
     private ResultBody getHotBlogData() {
         //该sql根据 (CREATE_TIME创建时间 COMMENT_COUNT评论数 VIEW_PAGE浏览数) 这三个字段计算权重  得出热门文章 最多五篇文章
-        String sql =
-                "SELECT " +
-                        "    b.*, " +
-                        "    COUNT(c.guid) AS COMMENT_COUNT, " +
-                        "    b.VIEW_PAGE, " +
-                        "    b.CREATE_TIME, " +
-                        "    ( " +
-                        "        (COUNT(c.guid) * 5) + " +
-                        "        (b.VIEW_PAGE * 1) - " +
-                        "        (UNIX_TIMESTAMP(NOW()) - UNIX_TIMESTAMP(b.CREATE_TIME)) / 3600 * 0.2 " +
-                        "    ) AS HOT_SCORE " +
-                        "FROM blogInfo b " +
-                        "LEFT JOIN blogComment c ON b.guid = c.blogId " +
-                        "WHERE b.blog_type = 'public' " +
-                        "GROUP BY b.guid " +
-                        "ORDER BY HOT_SCORE DESC " +
-                        "LIMIT 5";
+        String sql = "SELECT \n" +
+                "    b.*,\n" +
+                "    COUNT(DISTINCT c.guid) AS COMMENT_COUNT,\n" +
+                "    SUM(CASE WHEN gl.type = 'like' THEN 1 ELSE 0 END) AS LIKE_COUNT,\n" +
+                "    SUM(CASE WHEN gl.type = 'collect' THEN 1 ELSE 0 END) AS COLLECT_COUNT,\n" +
+                "    b.VIEW_PAGE,\n" +
+                "    b.CREATE_TIME,\n" +
+                "    (\n" +
+                "        COUNT(DISTINCT c.guid) * 5\n" +
+                "      + b.VIEW_PAGE * 1\n" +
+                "      + SUM(CASE WHEN gl.type = 'like' THEN 1 ELSE 0 END) * 3\n" +
+                "      + SUM(CASE WHEN gl.type = 'collect' THEN 1 ELSE 0 END) * 4\n" +
+                "      - (UNIX_TIMESTAMP(NOW()) - UNIX_TIMESTAMP(b.CREATE_TIME)) / 3600 * 0.2\n" +
+                "    ) AS HOT_SCORE\n" +
+                "FROM blogInfo b\n" +
+                "LEFT JOIN blogComment c ON b.guid = c.blogId\n" +
+                "LEFT JOIN bloggivelike gl ON b.guid = gl.blogid\n" +
+                "WHERE b.blog_type = 'public'\n" +
+                "GROUP BY b.guid\n" +
+                "ORDER BY HOT_SCORE DESC\n" +
+                "LIMIT 5;\n";
         Map<String, Object> params = new HashMap<>();
         params.put("sql", sql);
         ResultBody result = callService.callFunWithParams(FunToUrlUtil.selectListUrl, params);

@@ -11,31 +11,49 @@
     <!-- 用户信息卡片 -->
     <el-card class="profile-card">
       <div class="profile-header">
-        <el-avatar
-            :src="user.avatar"
-            size="large"
-            class="author-avatar"
-            alt="用户头像"
-        >
-          {{ user.name?.charAt(0) }}
-        </el-avatar>
-        <div class="profile-details">
-          <h2 class="username">{{ user.name }}</h2>
-          <p>邮箱: {{user.email || "未知"}}</p>
-          <p class="userip">IP: {{user.loginaddress || "未知"}}</p>
-          <div class="stats" >
+        <!-- 左侧：头像和基础信息 -->
+        <div class="left-info">
+          <el-avatar
+              :src="user.avatar"
+              size="large"
+              class="author-avatar"
+              alt="用户头像"
+          >
+            {{ user.name?.charAt(0) }}
+          </el-avatar>
+          <div class="profile-details">
+            <h2 class="username">
+              <span class="name">{{ user.name }}</span>
+              <span v-if="user.code == adminUserCode" class="admin-badge">管理员</span>
+            </h2>
+            <p>邮箱: {{ user.email || "未知" }}</p>
+            <p class="userip">IP: {{ user.loginaddress || "未知" }}</p>
+          </div>
+        </div>
+
+        <!-- 右侧：互动信息 -->
+        <div class="right-info">
+          <div class="stats">
             <span>关注 <strong>0</strong></span>
             <span>粉丝 <strong>0</strong></span>
           </div>
           <el-button
               :type="isFollowing ? 'danger' : 'primary'"
-              size="default"
+              size="small"
               round
               @click="toggleFollow"
               class="follow-button"
           >
             {{ isFollowing ? '取消关注' : '关注' }}
           </el-button>
+          <div class="interaction-buttons">
+            <el-button type="primary" link @click="goToLiked">
+              👍 点赞数:{{likeNum}}
+            </el-button>
+            <el-button type="warning" link @click="goToFavorites">
+              ⭐ 收藏数:{{collectNum}}
+            </el-button>
+          </div>
         </div>
       </div>
     </el-card>
@@ -105,6 +123,57 @@
   >
     <ContentAndComment  :blogId="selectedBlogId" />
   </el-dialog>
+  <!-- 通用卡片结构（点赞/收藏列表都用） -->
+  <el-dialog v-model="showLikeDialog" title="👍 点赞列表" width="60%" :modal-class="'fixed-dialog-height'" top="6vh">
+    <div class="card-list-scroll">
+    <div class="card-list">
+      <!-- 卡片内容保持统一结构 -->
+      <el-card
+          v-for="item in likeList"
+          :key="item.GUID"
+          class="list-card"
+          shadow="hover"
+          @click="blogMainClick(item)"
+      >
+        <div class="card-top">
+          <span class="author-name">{{ item.USERNAME || user.name }}</span>
+          <span class="card-time">{{ formatDate(item.CREATE_TIME) }}</span>
+        </div>
+        <div class="card-body">
+          <h4 class="card-title">{{ item.BLOG_TITLE }}</h4>
+          <p class="card-summary" v-html="item.MAINTEXT"></p>
+        </div>
+      </el-card>
+    </div>
+    </div>
+  </el-dialog>
+
+  <el-dialog v-model="showCollectDialog" title="⭐ 收藏列表" width="60%" :modal-class="'fixed-dialog-height'" top="6vh">
+    <div class="card-list-scroll">
+    <div class="card-list">
+      <!-- 卡片内容保持统一结构 -->
+      <el-card
+          v-for="item in collectList"
+          :key="item.GUID"
+          class="list-card"
+          shadow="hover"
+          @click="blogMainClick(item)"
+      >
+        <div class="card-top">
+          <span class="author-name">{{ item.USERNAME || user.name }}</span>
+          <span class="card-time">{{ formatDate(item.CREATE_TIME) }}</span>
+        </div>
+        <div class="card-body">
+          <h4 class="card-title">{{ item.BLOG_TITLE }}</h4>
+          <p class="card-summary" v-html="item.MAINTEXT"></p>
+        </div>
+      </el-card>
+
+    </div>
+    </div>
+  </el-dialog>
+
+
 </template>
 
 <script setup>
@@ -113,6 +182,22 @@ import { ElMessage } from 'element-plus'
 import {useRoute,useRouter} from "vue-router";
 import {pubFormatDate, decrypt, sendAxiosRequest, downloadFileByUrl} from "@/utils/common.js";
 import ContentAndComment from "@/views/detail/blog/ContentAndComment.vue";
+import {adminUserCode} from "@/config/vue-config.js";
+import {useUserStore} from "@/stores/main/user.js";
+
+const userStore = useUserStore();
+userStore.initFromLocal();
+
+const showLikeDialog = ref(false)
+const showCollectDialog = ref(false)
+//点赞数
+const likeNum = ref(0);
+//点赞列表
+const likeList = ref([]);
+//收藏数
+const collectNum = ref(0);
+//收藏列表
+const collectList = ref([]);
 
 const route = useRoute();
 const router = useRouter();
@@ -135,6 +220,18 @@ async function getUserInfo2Data(){
     if(result && !result.isError){
       blogs.value = result.result.blog;
       files.value = result.result.resource;
+    }
+    result = await  sendAxiosRequest("/blog-api/blog/getLikeAndCollectByUserCode",{userCode});
+    if(result && !result.isError){
+      result.result.forEach(item=>{
+        if(item["TYPE"]=="like"){
+          likeNum.value++;
+          likeList.value.push(item);
+        }else if (item["TYPE"]=="collect"){
+          collectNum.value++;
+          collectList.value.push(item);
+        }
+      })
     }
   }
 }
@@ -186,6 +283,14 @@ const scrollToFiles = () => {
   }
 }
 
+const goToLiked = () => {
+  showLikeDialog.value = true;
+}
+
+const goToFavorites = () => {
+  showCollectDialog.value = true;
+}
+
 onMounted(() => {
 
 })
@@ -219,6 +324,13 @@ onMounted(() => {
 
 .profile-header {
   display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+
+.left-info {
+  display: flex;
   align-items: center;
 }
 
@@ -233,10 +345,47 @@ onMounted(() => {
   margin-left: 24px;
 }
 
+.right-info {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.interaction-buttons {
+  display: flex;
+  gap: 10px;
+  margin-top: 4px;
+}
+
 .username {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
   margin: 0;
   font-size: 24px;
   font-weight: bold;
+}
+
+.admin-badge {
+  background-color: #ffdf02;
+  color: #000;
+  font-size: 12px;
+  font-weight: bold;
+  border-radius: 12px;
+  padding: 2px 8px;
+  line-height: 1;
+}
+
+.admin-badge {
+  background-color: #ffdf02;
+  color: #000;
+  font-size: 12px;
+  font-weight: bold;
+  border-radius: 12px;
+  padding: 2px 8px;
+  line-height: 1; /* 避免徽章高度不一致 */
 }
 
 .userip {
@@ -297,4 +446,86 @@ onMounted(() => {
   margin-top: 12px;
   text-align: center;
 }
+
+/* 弹窗固定高度 */
+:deep(.fixed-dialog-height .el-dialog) {
+  max-height: 500px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 弹窗 body 内部滚动 */
+:deep(.fixed-dialog-height .el-dialog__body) {
+  flex: 1;
+  overflow: hidden; /* ⚠️ 禁止 body 滚动 */
+  padding-top: 0;
+}
+
+.card-list-scroll {
+  max-height: 560px;
+  overflow-y: auto;
+  padding: 12px 16px; /* 上下12px，左右16px */
+  box-sizing: border-box;
+}
+
+/* 卡片列表 */
+.card-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.list-card {
+  height: 160px;
+  padding: 12px 16px;
+  background-color: #edf8f4;
+  border: 1px solid #e4e7ed;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.list-card:hover {
+  transform: scale(1.01);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+}
+
+.card-top {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  color: #666;
+  margin-bottom: 4px;
+}
+
+.card-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.card-title {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 6px 0;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  color: #333;
+}
+
+.card-summary {
+  color: #666;
+  font-size: 13px;
+  line-height: 1.6;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
 </style>

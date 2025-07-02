@@ -153,11 +153,11 @@
       <!-- 悬浮操作按钮（评论关闭时显示） -->
       <div v-else class="floating-buttons-top">
         <div class="floating-buttons">
-          <el-tooltip content="点赞" placement="left" effect="light">
-            <el-button circle  class="comment-btn"  @click="handleLike">👍</el-button>
+          <el-tooltip :content="'已点赞: ' + blogLikeNum" placement="left" effect="light">
+            <el-button circle  :class="blogContent.$userIsLike?'comment-btn-success':'comment-btn'"  @click="handleLike">👍</el-button>
           </el-tooltip>
-          <el-tooltip content="收藏" placement="left" effect="light">
-            <el-button circle  class="comment-btn" :icon="Star" @click="handleCollect"/>
+          <el-tooltip :content="'已收藏: ' + blogCollectNum" placement="left" effect="light">
+            <el-button circle  :class="blogContent.$userIsCollect?'comment-btn-success':'comment-btn'" class="comment-btn" :icon="Star" @click="handleCollect"/>
           </el-tooltip>
           <el-tooltip content="评论" placement="left" effect="light">
             <el-button circle  class="comment-btn" :icon="Comment" @click="showComment = true"/>
@@ -196,6 +196,7 @@ import {useBlogContentStore} from "@/stores/detail/blog.js";
 import ArticleEditor from "@/components/detail/ArticleEditor.vue";
 import {Star,Comment,Right} from '@element-plus/icons-vue'
 import {ElMessage} from "element-plus";
+import debounce from 'lodash/debounce'
 import {buildChildrenData, ele_confirm, encrypt, getGuid, sendAxiosRequest,pubFormatDate} from "@/utils/common.js";
 
 const route = useRoute();
@@ -211,7 +212,10 @@ const contentGuid = ref(route.query.g);
 if (props.blogId) {
   contentGuid.value = props.blogId;
 }
-
+//该文章点赞数
+const blogLikeNum = ref(0);
+//该文章收藏数
+const blogCollectNum = ref(0);
 const blogContent = ref({});
 const blogComment = ref([]);
 const editorVisible = ref(false);
@@ -227,6 +231,7 @@ const replyInputVisible = ref({});
 const replyInputs = ref({});
 // 子评论是否展开
 const isChildrenVisible = ref({});
+
 
 const handleEditorSubmit = ({title, content}) => {
 
@@ -250,29 +255,93 @@ const loadContentAndComments = async (guid) => {
   if (result && !result.isError) {
     blogContent.value = result?.result?.[0] || {};
   }
+
   //获取评论
   result = await sendAxiosRequest("/blog-api/blog/getComment", {blogId: guid});
   if (result && !result.isError) {
     blogComment.value = buildChildrenData(result.result);
   }
+  //获取点赞收藏
+  result = await sendAxiosRequest("/blog-api/blog/getLikeAndCollectByBlogId", {blogId: guid});
+  if(result && !result.isError){
+    let userBean = userStore.userBean;
+    //处理该用户是否已经点赞该文章
+      result.result.forEach(item=>{
+
+        if(item["TYPE"]=="like")blogLikeNum.value++;
+        else if(item["TYPE"]=="collect")blogCollectNum.value++;
+
+        //判断是否是当前登录用户的点赞收藏
+        if(item["USERCODE"]==userBean.code){
+          //该用户已经点赞
+            if(item["TYPE"]=="like"){
+              blogContent.value.$userIsLike = true;
+              //该用户已经收藏
+            }else if (item["TYPE"] == "collect"){
+              blogContent.value.$userIsCollect = true;
+            }
+        }
+      });
+
+  }
+
   // 初始化控制状态
   replyInputVisible.value = {};
   replyInputs.value = {};
   isChildrenVisible.value = {};
 };
 
+//点赞
 function handleLike() {
-  ElMessage.success("点赞成功！");
+  let userBean = userStore.userBean;
+  if (!userBean || !userBean.code) {
+    ElMessage.error("请先登录!");
+    return false;
+  }
+  //如果该用户已经点赞
+  if(blogContent.value.$userIsLike){
+    ElMessage.success("已取消点赞");
+    blogLikeNum.value--;
+    blogContent.value.$userIsLike = false;
+    sendAxiosRequest("/blog-api/blog/noGiveLikeBlog",{blogId:contentGuid.value});
+  }else{
+    ElMessage.success("点赞成功");
+    blogLikeNum.value++;
+    blogContent.value.$userIsLike = true;
+    sendAxiosRequest("/blog-api/blog/giveLikeBlog",{blogId:contentGuid.value});
+  }
 }
 
+//收藏
 function handleCollect() {
-  ElMessage.success("已收藏！");
+  let userBean = userStore.userBean;
+  if (!userBean || !userBean.code) {
+    ElMessage.error("请先登录!");
+    return false;
+  }
+  //如果该用户已经收藏
+  if(blogContent.value.$userIsCollect){
+    ElMessage.success("已取消收藏");
+    blogCollectNum.value--;
+    blogContent.value.$userIsCollect = false;
+    sendAxiosRequest("/blog-api/blog/noCollectBlog",{blogId:contentGuid.value});
+  }else{
+    ElMessage.success("收藏成功");
+    blogCollectNum.value++;
+    blogContent.value.$userIsCollect = true;
+    sendAxiosRequest("/blog-api/blog/collectBlog",{blogId:contentGuid.value});
+  }
 }
 
+
+//防抖
+const loadContentAndCommentsDebounced = debounce((guid) => {
+  loadContentAndComments(guid);
+}, 100);
 
 //默认执行一次加载数据
 if (contentGuid.value) {
-  loadContentAndComments(contentGuid.value);
+  loadContentAndCommentsDebounced(contentGuid.value);
 }
 
 const visibleComments = computed(() => {
@@ -284,16 +353,17 @@ watch(
     (newGuid) => {
       if (newGuid) {
         contentGuid.value = newGuid;
-        loadContentAndComments(newGuid);
+        loadContentAndCommentsDebounced(newGuid);
       }
     }
 );
+
 watch(
     () => route.query.g,
     (newGuid) => {
       if (newGuid) {
         contentGuid.value = newGuid;
-        loadContentAndComments(newGuid);
+        loadContentAndCommentsDebounced(newGuid);
       }
     }
 );
@@ -569,5 +639,19 @@ function deleteArticle() {
   width:40px !important;
   height:40px !important;
   font-size: 20px
+}
+
+.comment-btn:hover{
+  background-color: #b7daee;
+}
+
+.comment-btn-success{
+  width:40px !important;
+  height:40px !important;
+  font-size: 20px;
+  background-color: #b7daee;
+}
+.comment-btn-success:hover{
+  background-color: #b7daee;
 }
 </style>

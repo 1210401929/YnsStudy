@@ -1,9 +1,15 @@
 <template>
   <div class="personal-center">
     <div class="header">
-      <h2>个人中心</h2>
-      <div class="city">📍 {{ userStore.userBean.loginaddress }}</div>
+      <div class="left-header">
+        <h2>个人中心</h2>
+        <div class="city">📍 {{ userStore.userBean.loginaddress }}</div>
+      </div>
+      <el-button type="success" size="small" class="career-btn" @click="personalCareer">
+        🙂 个人生涯
+      </el-button>
     </div>
+
     <el-card shadow="always" class="card">
       <div class="avatar-section">
         <div class="avatar-container">
@@ -17,34 +23,24 @@
           />
         </div>
       </div>
+
       <el-form label-width="90px" autocomplete="off" class="info-form">
         <el-form-item label="用户名">
-          <el-input
-              v-model="userStore.userBean.name"
-              name="nouser"
-              autocomplete="off"
-          />
+          <el-input v-model="userStore.userBean.name" name="nouser" />
         </el-form-item>
+
         <el-form-item label="账号">
-          <el-input
-              :value="userStore.userBean.code"
-              disabled
-              name="noaccount"
-              autocomplete="off"
-          />
+          <el-input :value="userStore.userBean.code" disabled name="noaccount" />
         </el-form-item>
+
         <el-form-item label="手机号">
-          <el-input
-              v-model="userStore.userBean.phone"
-              name="nophone"
-              autocomplete="off"
-          />
+          <el-input v-model="userStore.userBean.phone" name="nophone" />
         </el-form-item>
+
         <el-form-item label="邮箱">
           <el-input
               v-model="userStore.userBean.email"
               name="noemail"
-              autocomplete="off"
               :readonly="readonly.email"
               @focus="readonly.email = false"
           />
@@ -54,7 +50,6 @@
           <el-input
               v-model="userStore.userBean.newPassWord"
               name="newpass"
-              autocomplete="new-password"
               show-password
               placeholder="不修改请留空"
               :readonly="readonly.password"
@@ -69,7 +64,6 @@
       </el-form>
     </el-card>
 
-    <!-- 隐藏的文件上传 input -->
     <input
         ref="fileInputRef"
         type="file"
@@ -80,13 +74,16 @@
   </div>
 </template>
 
+
 <script setup>
 import {ref} from 'vue'
-import {storeToRefs} from 'pinia'
 import {ElMessage} from 'element-plus'
 import {useUserStore} from "@/stores/main/user.js";
 import {Edit} from "@element-plus/icons-vue";
-import {ele_confirm, sendAxiosRequest} from "@/utils/common.js";
+import {ele_confirm, sendAxiosRequest,encrypt} from "@/utils/common.js";
+import {useRouter} from "vue-router";
+
+const router = useRouter();
 
 const userStore = useUserStore()
 userStore.initFromLocal();
@@ -183,6 +180,14 @@ const handleFileChange = async (e) => {
 
   e.target.value = ''; // 清空选择，避免下次同图无效
 };
+
+const personalCareer = ()=>{
+  if (!userStore.userBean.code) {
+    ElMessage.error("用户过期,请返回主页面重新登录!");
+    return false;
+  }
+  router.push({name:"personInfomation",query:{c: encrypt(userStore.userBean.code)}});
+}
 </script>
 
 <style scoped>
@@ -190,6 +195,9 @@ const handleFileChange = async (e) => {
   max-width: 800px;
   margin: 40px auto;
   padding: 20px;
+  background: #f9f9f9;
+  border-radius: 16px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.05);
 }
 
 .header {
@@ -199,71 +207,78 @@ const handleFileChange = async (e) => {
   margin-bottom: 20px;
 }
 
-.header h2 {
-  font-size: 24px;
+.left-header h2 {
+  font-size: 26px;
   color: #333;
+  margin: 0;
 }
 
 .city {
   font-size: 14px;
-  color: #999;
+  color: #888;
+  margin-top: 5px;
+}
+
+.career-btn {
+  background-color: #67C23A;
+  color: white;
+  font-weight: bold;
+  border-radius: 20px;
 }
 
 .card {
   padding: 30px;
-  border-radius: 16px;
+  border-radius: 20px;
+  background-color: #fff;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.05);
 }
 
 .avatar-section {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  justify-content: center;
   margin-bottom: 30px;
 }
 
 .avatar-container {
   position: relative;
-  width: 100px;
-  height: 100px;
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .avatar {
-  width: 100px;
-  height: 100px;
-  border-radius: 50%;
+  width: 100%;
+  height: 100%;
   object-fit: cover;
-  border: 2px solid #ccc;
+  border-radius: 50%;
+  transition: transform 0.3s;
+}
+
+.avatar:hover {
+  transform: scale(1.05);
 }
 
 .avatar-edit-button {
   position: absolute;
-  bottom: 0;
-  right: 0;
-  background: #fff;
-  border: 1px solid #ccc;
-}
-
-.stats {
-  display: flex;
-  gap: 40px;
-}
-
-.stat-item {
-  text-align: center;
-}
-
-.stat-value {
-  font-size: 22px;
-  font-weight: bold;
-  color: #409EFF;
-}
-
-.stat-label {
-  font-size: 14px;
-  color: #666;
+  bottom: -8px;
+  right: -8px;
+  background-color: #fff;
+  border: 1px solid #dcdfe6;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
 }
 
 .info-form {
-  margin-top: 20px;
+  margin-top: 10px;
 }
+
+.el-form-item {
+  margin-bottom: 22px;
+}
+
+.el-input {
+  width: 100%;
+}
+
 </style>
