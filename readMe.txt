@@ -24,6 +24,7 @@ yns_portal:前端(已废弃)
 
 资源文件映射,配置在pub_api/src/main/java/com/example/pub_api/config/StaticResourceConfig.java
 
+项目必须依赖nginx 进行静态文件跳转,以及端口跳转
 --------------------关于数据库--------------------------------------------------
 userInfo =>用户表
 loginHistory =>用户登录历史表
@@ -31,11 +32,12 @@ loginHistory =>用户登录历史表
 fileInfo =>附件表
 blogInfo =>博客文章表;
 blogComment =>博客评论表;
+blogGiveLike =>博客点赞收藏表
 
 建表,GUID是必须存在的字段 设置随机32位码;
 
 ---------------------其他-------------------------------------------------
-
+因云服务器提示6379对外攻击:pub_api和blog_api的yml配置文件中的redis密码不再公开
 
 富文本编辑器的图片,路径传到
 项目根目录/upload/editorImage
