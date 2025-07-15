@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseBody;
 
+import javax.servlet.http.HttpSession;
 import java.util.Map;
 
 @Controller
@@ -17,8 +18,25 @@ public class UserInformationController {
 
     @Autowired
     UserInformationService userInformationService;
-
-
+    @RequestMapping("/followUser")
+    @ResponseBody
+    public ResultBody followUser(@RequestBody Map<String,String> params, HttpSession session){
+        String followUserCode = params.get("followUserCode");
+        String followUserName = params.get("followUserName");
+        return userInformationService.followUser(followUserCode,followUserName,session);
+    }
+    @RequestMapping("/noFollowUser")
+    @ResponseBody
+    public ResultBody noFollowUser(@RequestBody Map<String,String> params, HttpSession session){
+        String followUserCode = params.get("followUserCode");
+        return userInformationService.noFollowUser(followUserCode,session);
+    }
+    @RequestMapping("/getFollowUser")
+    @ResponseBody
+    public ResultBody getFollowUser(@RequestBody Map<String,String> params){
+        String userCode = params.get("userCode");
+        return userInformationService.getFollowUser(userCode);
+    }
     @RequestMapping("/getBlogAndResourceByUserCode")
     @ResponseBody
     public ResultBody getBlogAndResourceByUserCode(@RequestBody Map<String,String> params){

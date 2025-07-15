@@ -12,7 +12,7 @@ public interface BlogService {
     ResultBody getUserBlog(HttpSession session);
     ResultBody getBlog(HttpSession session,String blogId);
     ResultBody getAllBlog(int page,int pageSize ,String keyWord);
-    ResultBody updateBlog(String guid, String title, String content);
+    ResultBody updateBlog(String guid, String title, String content,String blog_type);
     ResultBody deleteBlog(String guid);
 
     //新增评论

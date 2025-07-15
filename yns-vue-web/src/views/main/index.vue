@@ -52,6 +52,7 @@ const activeMenu = ref(route.name);
 const menuItems = ref(menuUtil.getMenuItems());
 
 const navigateTo = (routerName) => {
+
   activeMenu.value = routerName;
   const target = menuItems.value.find(item => item.router === routerName);
   if (target?.path) {
@@ -72,15 +73,12 @@ watch(()=>route.name,(newValue)=>{
 </script>
 
 <style scoped>
-/* 根容器：竖向布局 */
+
 .app-container {
   display: flex;
   flex-direction: column;
-  height: 100vh;
-  width: 100vw;
-  overflow: hidden;
+  min-height: 100%;
   background-color: #f4f6f8;
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
 /* 顶部 Header */
@@ -95,6 +93,7 @@ watch(()=>route.name,(newValue)=>{
   flex-shrink: 0;
   position: relative;
   z-index: 10;
+  flex-shrink: 0;
 }
 
 /* 左 Logo 样式 */
@@ -102,6 +101,7 @@ watch(()=>route.name,(newValue)=>{
   font-size: 22px;
   font-weight: 700;
   color: #0077b6;
+  font-style:oblique;
 }
 
 /* 菜单区域 */
@@ -144,7 +144,7 @@ watch(()=>route.name,(newValue)=>{
 /* 内容区域 */
 .content-container {
   flex-grow: 1;
-  //overflow-y: auto; background-color: #f9f9fb;
+  overflow-y: auto;
 }
 
 html, body {

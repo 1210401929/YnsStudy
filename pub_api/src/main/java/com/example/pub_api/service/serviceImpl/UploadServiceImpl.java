@@ -47,7 +47,8 @@ public class UploadServiceImpl implements UploadService {
         //获取网关IP端口号
         String gateWayIpPort = getIsDev() ? commonCfg.getGateWayDevUrl() : commonCfg.getGateWayProduceUrl();
         //文件用来访问的路径  这里返回的是映射路径(映射文件在../../config/StaticResourceConfig.java)，用于前端访问
-        String fileViewUrl = gateWayIpPort + commonCfg.getMappingStaticUrl() + relativeDir + "/" + fileName;
+        //String fileViewUrl = gateWayIpPort + commonCfg.getMappingStaticUrl() + relativeDir + "/" + fileName;
+        String fileViewUrl = commonCfg.getMappingStaticUrl() + relativeDir + "/" + fileName;
         //文件真实存储的路径
         String fileRealUrl = fullUploadPath + "/" + fileName;
         // 返回数据

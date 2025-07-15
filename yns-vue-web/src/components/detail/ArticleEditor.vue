@@ -1,5 +1,9 @@
 <template>
   <div class="editor-container">
+    <el-radio-group v-if="!isReadOnly" v-model="isPublic" style="margin-bottom: 10px">
+      <el-radio-button :label="true">公开</el-radio-button>
+      <el-radio-button :label="false">私密</el-radio-button>
+    </el-radio-group>
     <el-input
         v-if="!isReadOnly"
         v-model="localTitle"
@@ -53,12 +57,14 @@ import {ElMessage} from 'element-plus'
 const props = defineProps({
   title: String,
   content: String,
+  isPublic: Boolean,
   isReadOnly: Boolean,
-  saveType:String
+  saveType: String
 })
 
 const emits = defineEmits(['submit', 'cancel'])
-
+debugger;
+const isPublic = ref(props.isPublic)
 const localTitle = ref(props.title || '')
 const localContent = ref(props.content || '')
 const editorRef = shallowRef(null)
@@ -85,8 +91,8 @@ const editorConfig = {
         }
       }
     },
-    lineHeight:{
-      lineHeightList: ['0.5','1', '1.5', '2', '2.5'],
+    lineHeight: {
+      lineHeightList: ['0.5', '1', '1.5', '2', '2.5'],
       defaultValue: '0.5' // 默认行高
     }
   }
@@ -118,11 +124,12 @@ function submit() {
     return
   }
   emits('submit', {
+    blog_type: isPublic.value ? "public" : "privacy",
     title: localTitle.value.trim(),
     content: localContent.value.trim()
   })
   //如果是新增,则提交操作之后,清除新增得内容
-  if(props.saveType == "add"){
+  if (props.saveType == "add") {
     localTitle.value = ''
     localContent.value = ''
   }
@@ -180,7 +187,7 @@ watch(() => props.content, (val) => {
 
 .editor-wrapper {
   flex: 1;
-  height:100%;
+  height: 100%;
   overflow-y: auto;
 }
 

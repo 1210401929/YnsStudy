@@ -24,7 +24,7 @@ public class BlogController {
     @ResponseBody
     public ResultBody addBlog(@RequestBody Map<String, Object> params) {
         Map<String, String> blogMap = (Map<String, String>) params.get("blogContent");
-        BlogBean blogBean = new BlogBean(blogMap.get("GUID"), blogMap.get("BLOG_TITLE"), "public", blogMap.get("MAINTEXT"), blogMap.get("USERCODE"), blogMap.get("USERNAME"));
+        BlogBean blogBean = new BlogBean(blogMap.get("GUID"), blogMap.get("BLOG_TITLE"), blogMap.get("BLOG_TYPE"), blogMap.get("MAINTEXT"), blogMap.get("USERCODE"), blogMap.get("USERNAME"));
         return blogService.addBlog(blogBean);
     }
 
@@ -39,9 +39,10 @@ public class BlogController {
     @ResponseBody
     public ResultBody updateBlog(@RequestBody Map<String, String> params) {
         String guid = params.get("guid");
+        String blog_type = params.get("blog_type");
         String title = params.get("title");
         String content = params.get("content");
-        return blogService.updateBlog(guid, title, content);
+        return blogService.updateBlog(guid, title, content,blog_type);
     }
 
     @RequestMapping("/getUserBlog")

@@ -24,11 +24,16 @@
         <div class="article-header">
           <h2>{{ blogContent.BLOG_TITLE }}</h2>
           <div style="display: flex; gap: 1px;"
-               v-if="userStore?.userBean?.code && blogContent.USERCODE==userStore.userBean.code">
-            <el-button size="small" type="warning" plain @click="editorVisible = true">
+          >
+            <el-button size="small" type="primary" plain @click="openOneBlog">
+              专注模式
+            </el-button>
+            <el-button size="small" type="warning" plain @click="editorVisible = true"
+                       v-if="userStore?.userBean?.code && blogContent.USERCODE==userStore.userBean.code">
               编辑文章
             </el-button>
-            <el-button size="small" type="danger" plain @click="deleteArticle">
+            <el-button size="small" type="danger" plain @click="deleteArticle"
+                       v-if="userStore?.userBean?.code && blogContent.USERCODE==userStore.userBean.code">
               删除文章
             </el-button>
           </div>
@@ -43,7 +48,7 @@
       <el-card v-if="showComment" shadow="hover" class="comment-card">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
           <h3>评论</h3>
-          <el-button  type="info" link :icon="Right" @click="showComment = false">
+          <el-button type="info" link :icon="Right" @click="showComment = false">
             缩回评论
           </el-button>
         </div>
@@ -51,7 +56,7 @@
         <div v-for="(comment, i) in visibleComments" :key="comment.GUID || i" class="comment-item">
           <div class="comment-main-row">
             <el-tooltip
-                :content="'发布于: '+pubFormatDate(comment.CREATE_TIME)"
+                :content="'评论于: '+pubFormatDate(comment.CREATE_TIME)"
                 placement="top"
                 effect="light"
             >
@@ -154,13 +159,16 @@
       <div v-else class="floating-buttons-top">
         <div class="floating-buttons">
           <el-tooltip :content="'已点赞: ' + blogLikeNum" placement="left" effect="light">
-            <el-button circle  :class="blogContent.$userIsLike?'comment-btn-success':'comment-btn'"  @click="handleLike">👍</el-button>
+            <el-button circle :class="blogContent.$userIsLike?'comment-btn-success':'comment-btn'" @click="handleLike">
+              👍
+            </el-button>
           </el-tooltip>
           <el-tooltip :content="'已收藏: ' + blogCollectNum" placement="left" effect="light">
-            <el-button circle  :class="blogContent.$userIsCollect?'comment-btn-success':'comment-btn'" class="comment-btn" :icon="Star" @click="handleCollect"/>
+            <el-button circle :class="blogContent.$userIsCollect?'comment-btn-success':'comment-btn'"
+                       class="comment-btn" :icon="Star" @click="handleCollect"/>
           </el-tooltip>
           <el-tooltip content="评论" placement="left" effect="light">
-            <el-button circle  class="comment-btn" :icon="Comment" @click="showComment = true"/>
+            <el-button circle class="comment-btn" :icon="Comment" @click="showComment = true"/>
           </el-tooltip>
         </div>
       </div>
@@ -180,12 +188,12 @@
         :title="blogContent.BLOG_TITLE"
         :content="blogContent.MAINTEXT"
         :save-type="'edit'"
+        :isPublic="blogContent.BLOG_TYPE == 'public' ? true : false"
         @submit="handleEditorSubmit"
         @cancel="editorVisible = false"
     />
   </el-dialog>
 </template>
-
 
 
 <script setup>
@@ -194,10 +202,10 @@ import {useRoute, useRouter} from "vue-router";
 import {useUserStore} from "@/stores/main/user.js";
 import {useBlogContentStore} from "@/stores/detail/blog.js";
 import ArticleEditor from "@/components/detail/ArticleEditor.vue";
-import {Star,Comment,Right} from '@element-plus/icons-vue'
+import {Star, Comment, Right} from '@element-plus/icons-vue'
 import {ElMessage} from "element-plus";
 import debounce from 'lodash/debounce'
-import {buildChildrenData, ele_confirm, encrypt, getGuid, sendAxiosRequest,pubFormatDate} from "@/utils/common.js";
+import {buildChildrenData, ele_confirm, encrypt, getGuid, sendAxiosRequest, pubFormatDate} from "@/utils/common.js";
 
 const route = useRoute();
 const router = useRouter();
@@ -233,16 +241,24 @@ const replyInputs = ref({});
 const isChildrenVisible = ref({});
 
 
-const handleEditorSubmit = ({title, content}) => {
+const handleEditorSubmit = ({blog_type, title, content}) => {
 
   let result = sendAxiosRequest("/blog-api/blog/updateBlog", {
     guid: contentGuid.value,
     title,
+    blog_type,
     content,
   });
   if (result && !result.isError) {
     blogContent.value.BLOG_TITLE = title;
     blogContent.value.MAINTEXT = content;
+    blogContent.value.BLOG_TYPE = blog_type;
+    blogContentStore.blogContents.forEach(item => {
+      if (item["GUID"] == contentGuid.value) {
+        item["BLOG_TITLE"] = title;
+        item["BLOG_TYPE"] = blog_type;
+      }
+    });
     ElMessage.success("已修改");
     editorVisible.value = false;
   } else {
@@ -255,7 +271,6 @@ const loadContentAndComments = async (guid) => {
   if (result && !result.isError) {
     blogContent.value = result?.result?.[0] || {};
   }
-
   //获取评论
   result = await sendAxiosRequest("/blog-api/blog/getComment", {blogId: guid});
   if (result && !result.isError) {
@@ -263,25 +278,25 @@ const loadContentAndComments = async (guid) => {
   }
   //获取点赞收藏
   result = await sendAxiosRequest("/blog-api/blog/getLikeAndCollectByBlogId", {blogId: guid});
-  if(result && !result.isError){
+  if (result && !result.isError) {
     let userBean = userStore.userBean;
     //处理该用户是否已经点赞该文章
-      result.result.forEach(item=>{
+    result.result.forEach(item => {
 
-        if(item["TYPE"]=="like")blogLikeNum.value++;
-        else if(item["TYPE"]=="collect")blogCollectNum.value++;
+      if (item["TYPE"] == "like") blogLikeNum.value++;
+      else if (item["TYPE"] == "collect") blogCollectNum.value++;
 
-        //判断是否是当前登录用户的点赞收藏
-        if(item["USERCODE"]==userBean.code){
-          //该用户已经点赞
-            if(item["TYPE"]=="like"){
-              blogContent.value.$userIsLike = true;
-              //该用户已经收藏
-            }else if (item["TYPE"] == "collect"){
-              blogContent.value.$userIsCollect = true;
-            }
+      //判断是否是当前登录用户的点赞收藏
+      if (item["USERCODE"] == userBean.code) {
+        //该用户已经点赞
+        if (item["TYPE"] == "like") {
+          blogContent.value.$userIsLike = true;
+          //该用户已经收藏
+        } else if (item["TYPE"] == "collect") {
+          blogContent.value.$userIsCollect = true;
         }
-      });
+      }
+    });
 
   }
 
@@ -299,16 +314,16 @@ function handleLike() {
     return false;
   }
   //如果该用户已经点赞
-  if(blogContent.value.$userIsLike){
+  if (blogContent.value.$userIsLike) {
     ElMessage.success("已取消点赞");
     blogLikeNum.value--;
     blogContent.value.$userIsLike = false;
-    sendAxiosRequest("/blog-api/blog/noGiveLikeBlog",{blogId:contentGuid.value});
-  }else{
+    sendAxiosRequest("/blog-api/blog/noGiveLikeBlog", {blogId: contentGuid.value});
+  } else {
     ElMessage.success("点赞成功");
     blogLikeNum.value++;
     blogContent.value.$userIsLike = true;
-    sendAxiosRequest("/blog-api/blog/giveLikeBlog",{blogId:contentGuid.value});
+    sendAxiosRequest("/blog-api/blog/giveLikeBlog", {blogId: contentGuid.value});
   }
 }
 
@@ -320,16 +335,16 @@ function handleCollect() {
     return false;
   }
   //如果该用户已经收藏
-  if(blogContent.value.$userIsCollect){
+  if (blogContent.value.$userIsCollect) {
     ElMessage.success("已取消收藏");
     blogCollectNum.value--;
     blogContent.value.$userIsCollect = false;
-    sendAxiosRequest("/blog-api/blog/noCollectBlog",{blogId:contentGuid.value});
-  }else{
+    sendAxiosRequest("/blog-api/blog/noCollectBlog", {blogId: contentGuid.value});
+  } else {
     ElMessage.success("收藏成功");
     blogCollectNum.value++;
     blogContent.value.$userIsCollect = true;
-    sendAxiosRequest("/blog-api/blog/collectBlog",{blogId:contentGuid.value});
+    sendAxiosRequest("/blog-api/blog/collectBlog", {blogId: contentGuid.value});
   }
 }
 
@@ -369,16 +384,18 @@ watch(
 );
 
 //发表用户点击用户头像
-function avatarClick(blogContent){
+function avatarClick(blogContent) {
 
   const routeUrl = router.resolve({name: 'personInfomation', query: {c: encrypt(blogContent.USERCODE)}}).href;
-  window.open(routeUrl, "showPersonInfomation");
+  window.open(routeUrl, blogContent.USERCODE);
 }
+
 //评论用户点击用户头像
-function commentAvatarClick(comment){
+function commentAvatarClick(comment) {
   const routeUrl = router.resolve({name: 'personInfomation', query: {c: encrypt(comment.USERCODE)}}).href;
-  window.open(routeUrl, "showPersonInfomation");
+  window.open(routeUrl, comment.USERCODE);
 }
+
 function toggleComments() {
   showAllComments.value = !showAllComments.value;
 }
@@ -397,12 +414,20 @@ function submitComment() {
       USERNAME: userBean.name || "游客",
       USERCODE: userBean.code || "user",
       TEXT: value,
+      CREATE_TIME: "刚刚",
+      AVATAR: userBean.avatar,
       children: [],
     }
     blogComment.value.unshift(oneComment);
+    //克隆
+    let comment = {...oneComment};
     //没有children字段,只是前台需要,所有传递到后台之前删除该字段
-    delete oneComment.children;
-    let result = sendAxiosRequest("/blog-api/blog/addComment", {blogComment: oneComment})
+    delete comment.children;
+    //删除更新日期,后台自动生成
+    delete comment.CREATE_TIME;
+    //清除头像,评论表没有该字段
+    delete comment.AVATAR;
+    let result = sendAxiosRequest("/blog-api/blog/addComment", {blogComment: comment})
     newComment.value = "";
   }
 }
@@ -441,10 +466,18 @@ function submitReply(commentId) {
       SUPERGUID: parentComment.GUID,
       USERNAME: userBean.name || "游客",
       USERCODE: userBean.code || "user",
+      CREATE_TIME: "刚刚",
+      AVATAR: userBean.avatar,
       TEXT: value,
     }
     parentComment.children.push(oneComment);
-    let result = sendAxiosRequest("/blog-api/blog/addComment", {blogComment: oneComment})
+    //克隆
+    let comment = {...oneComment};
+    //删除更新日期,后台自动生成
+    delete comment.CREATE_TIME;
+    //清除头像,评论表没有该字段
+    delete comment.AVATAR;
+    let result = sendAxiosRequest("/blog-api/blog/addComment", {blogComment: comment})
     replyInputs.value[commentId] = "";
     replyInputVisible.value[commentId] = false;
     isChildrenVisible.value[commentId] = true;
@@ -455,6 +488,15 @@ function submitReply(commentId) {
 function toggleChildren(commentId) {
   isChildrenVisible.value[commentId] = !isChildrenVisible.value[commentId];
 }
+
+function openOneBlog() {
+  const routeUrl = router.resolve({
+    name: "oneBlog",
+    query: {g: blogContent.value.GUID, u: encrypt(blogContent.value.USERCODE), n: blogContent.value.BLOG_TITLE}
+  }).href;
+  window.open(routeUrl, blogContent.value.GUID);
+}
+
 
 function deleteArticle() {
   ele_confirm("确定要删除这篇文章吗？此操作不可撤销。", () => {
@@ -523,7 +565,8 @@ function deleteArticle() {
 }
 
 .article-card {
-  height: 80vh; /* 限制高度 */
+  /*height: 80vh;  限制高度 */
+  min-height: 80vh;
   display: flex;
   flex-direction: column;
   overflow-y: auto;
@@ -612,12 +655,17 @@ function deleteArticle() {
   margin-top: 15px;
 }
 
-.floating-buttons-top{
-  width:100%;
-  height:100%;
+.floating-buttons-top {
+  position: fixed; /* 固定定位 */
+  top: 50%; /* 垂直居中 */
+  right: 30px; /* 距离右侧 20px，可以根据需要调节 */
+  transform: translateY(-50%); /* 让元素垂直中心点对齐屏幕中线 */
+  z-index: 1000; /* 保证按钮显示在最上层 */
   display: flex;
   justify-content: center;
   align-items: center;
+  height: auto; /* 根据内容自适应高度 */
+  width: auto; /* 根据内容自适应宽度 */
 }
 
 .floating-buttons {
@@ -635,23 +683,24 @@ function deleteArticle() {
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.2);
 }
 
-.comment-btn{
-  width:40px !important;
-  height:40px !important;
+.comment-btn {
+  width: 40px !important;
+  height: 40px !important;
   font-size: 20px
 }
 
-.comment-btn:hover{
+.comment-btn:hover {
   background-color: #b7daee;
 }
 
-.comment-btn-success{
-  width:40px !important;
-  height:40px !important;
+.comment-btn-success {
+  width: 40px !important;
+  height: 40px !important;
   font-size: 20px;
   background-color: #b7daee;
 }
-.comment-btn-success:hover{
+
+.comment-btn-success:hover {
   background-color: #b7daee;
 }
 </style>

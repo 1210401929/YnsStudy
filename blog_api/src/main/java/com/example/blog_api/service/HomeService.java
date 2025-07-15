@@ -8,5 +8,5 @@ public interface HomeService {
     ResultBody getHomeData();
 
     //获取优质作者
-    ResultBody getHigAuthor();
+    ResultBody getHigAuthor(String num);
 }

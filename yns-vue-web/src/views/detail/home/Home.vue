@@ -1,6 +1,5 @@
 <template>
   <div class="home-page-wrapper">
-
     <!-- 主体三栏布局 -->
     <div class="three-column-layout">
       <!-- 左侧：热门文章 -->
@@ -20,39 +19,108 @@
                 <span>👁 {{ blog.VIEW_PAGE }}</span>
                 <span>👍 {{ blog.LIKE_COUNT }}</span>
                 <span>💬 {{ blog.COMMENT_COUNT }}</span>
-                <span><el-icon><Star /></el-icon> {{ blog.COLLECT_COUNT }}</span>
+                <span><el-icon><Star/></el-icon> {{ blog.COLLECT_COUNT }}</span>
               </div>
             </div>
           </li>
         </ul>
       </div>
 
-      <!-- 中间轮播图 -->
+      <!-- 中间按钮栏 -->
       <div class="middle-column">
-        <!-- 精致顶部按钮区域 -->
-        <div class="top-action-bar">
-          <el-button class="action-button" @click="goToAdmin">👨‍💼 站长主页</el-button>
-          <el-button class="action-button" @click="goToPublishBlog">📝 发布内容</el-button>
-          <el-button class="action-button" @click="goToUpload">📤 上传资源</el-button>
-        </div>
-
-        <el-carousel
-            height="300px"
-            trigger="click"
-            indicator-position="outside"
-            :interval="4000"
-            arrow="always"
-        >
-          <el-carousel-item v-for="(item, index) in carouselImages" :key="index">
-            <div class="carousel-image-container">
-              <img :src="item.url" alt="轮播图" class="carousel-image" @click="imageClick(item)" />
+        <!-- 滚动容器添加样式 -->
+        <div class="article-scroll">
+          <span class="top-action-bar">
+            <el-button class="action-button" @click="goToAdmin">👨‍💼 站长主页</el-button>
+            <el-button class="action-button" @click="goToPublishBlog">📝 发布内容</el-button>
+            <el-button class="action-button" @click="goToUpload">📤 上传资源</el-button>
+          </span>
+          <!-- 搜索栏 -->
+          <div class="search-bar">
+            <el-input
+                v-model="searchKeyword"
+                placeholder="搜索文章标题或内容"
+                clearable
+                prefix-icon="el-icon-search"
+                @clear="resetAndLoad"
+                @input="debouncedSearch"
+            />
+          </div>
+          <el-card
+              v-for="(article, index) in articles"
+              :key="index"
+              class="article-card"
+              shadow="hover"
+          >
+            <el-button
+                link
+                type="primary"
+                class="read-more-btn"
+                @click.stop="hotBlogClick(article)"
+            >
+              阅读全文 →
+            </el-button>
+            <h3 class="article-title">
+              <el-avatar
+                  :src="article.AVATAR"
+                  size="large"
+                  class="author-avatar title-avatar"
+                  alt="用户头像"
+              >
+                {{ article.USERNAME?.charAt(0) }}
+              </el-avatar>
+              {{ article.BLOG_TITLE }}
+            </h3>
+            <div class="article-meta">
+              <span>作者：{{ article.USERNAME }}</span>
+              <span>时间：{{ pubFormatDate(article.CREATE_TIME) }}</span>
             </div>
-          </el-carousel-item>
-        </el-carousel>
+            <p class="article-content" v-html="article.MAINTEXT"></p>
+          </el-card>
+
+          <el-empty v-if="!articles.length && !loading" description="暂无内容"/>
+          <el-button
+              v-if="!noMore && !loading"
+              type="primary"
+              link
+              @click="fetchArticles"
+              style="margin: 20px auto; display: block;"
+          >
+            加载更多
+          </el-button>
+          <div v-if="loading" class="loading-text">加载中...</div>
+          <div v-if="noMore" class="end-text">没有更多文章了</div>
+        </div>
       </div>
 
-      <!-- 右侧：热门下载 -->
+      <!-- 右侧：热门下载 + 优质作者 -->
       <div class="right-column">
+
+        <h3 class="section-title">🌟 优质作者</h3>
+        <el-card
+            v-for="(author, index) in homeStore.homeData.higAuthor"
+            :key="index"
+            class="author-card"
+            @click="hotAuthorClick(author)"
+        >
+          <div class="author-box">
+            <el-avatar
+                :src="author.AVATAR"
+                size="large"author-card
+                class="author-avatar"
+                alt="用户头像"
+            >
+              {{ author.USERNAME?.charAt(0) }}
+            </el-avatar>
+            <div class="author-meta">
+              <div class="name">{{ author.USERNAME }}</div>
+              <div class="stats-row">
+                <span>👩🏻‍🤝‍🧑🏽粉丝:{{ author.FOLLOWER_COUNT }}</span>&nbsp;&nbsp;&nbsp;&nbsp;
+                <span>📄文章:{{ author.ARTICLE_COUNT }}</span>
+              </div>
+            </div>
+          </div>
+        </el-card>
         <h3 class="section-title">📥 热门下载内容</h3>
         <ul class="download-list">
           <li
@@ -76,58 +144,203 @@
 </template>
 
 <script setup>
-import { ref } from "vue";
-import { useHomeStore } from "@/stores/detail/home.js";
-import { useRouter } from "vue-router";
-import {encrypt} from "@/utils/common.js";
+import {onMounted, onBeforeUnmount, ref} from "vue";
+import {useHomeStore} from "@/stores/detail/home.js";
+import {useRouter} from "vue-router";
+import {encrypt, pubFormatDate, sendAxiosRequest} from "@/utils/common.js";
 import {Star} from "@element-plus/icons-vue";
 import {adminUserCode} from "@/config/vue-config.js";
+import debounce from "lodash/debounce.js";
 
 const router = useRouter();
 const homeStore = useHomeStore();
 homeStore.initHomeData();
 
+// 文章列表数据
+const articles = ref([])
+const page = ref(1)
+const pageSize = 5
+const loading = ref(false)
+const noMore = ref(false)
+// 滚动容器引用
+const scrollContainer = ref(null)
+
+// 搜索文章
+const searchKeyword = ref('')
+
+const resetAndLoad = () => {
+  page.value = 1
+  noMore.value = false
+  articles.value = []
+  fetchArticles()
+}
+
+const debouncedSearch = debounce(() => {
+  resetAndLoad()
+}, 500)
+
+// 加载文章
+const fetchArticles = async () => {
+  if (loading.value || noMore.value) return
+  loading.value = true
+  try {
+    const res = await sendAxiosRequest('/blog-api/blog/getAllBlog', {
+      page: page.value,
+      pageSize,
+      keyword: searchKeyword.value
+    }, 'get')
+
+    const newData = res.result.data
+    if (newData.length < pageSize) {
+      noMore.value = true
+    }
+    articles.value.push(...newData)
+    page.value++
+  } catch (e) {
+    console.error('获取文章失败', e)
+  } finally {
+    loading.value = false
+  }
+}
+
+const handleScroll = () => {
+  const el = scrollContainer.value
+  if (el.scrollTop + el.clientHeight >= el.scrollHeight - 10) {
+    fetchArticles()
+  }
+}
+
 function hotBlogClick(blog) {
-  router.push({ name: "Community", query: { g: blog.GUID } });
+  const routeUrl = router.resolve({
+    name: "oneBlog",
+    query: {g: blog.GUID,u:encrypt(blog.USERCODE),n:blog.BLOG_TITLE}
+  }).href;
+  window.open(routeUrl, blog.GUID);
+
 }
+
 function downloadClick(file) {
-  router.push({ name: "Resources", query: { g: file.GUID } });
+  router.push({name: "Resources", query: {g: file.GUID}});
 }
+
 function goToAdmin() {
-  const routeUrl = router.resolve({name: 'personInfomation', query: {c: encrypt(adminUserCode)}}).href;
-  window.open(routeUrl, "showPersonInfomation");
+  const routeUrl = router.resolve({
+    name: "personInfomation",
+    query: {c: encrypt(adminUserCode)}
+  }).href;
+  window.open(routeUrl, adminUserCode);
 }
+
 function goToPublishBlog() {
-  router.push({ name: "Blog" });
+  router.push({name: "MyBlog"});
 }
+
 function goToUpload() {
-  router.push({ name: "Resources" });
+  router.push({name: "Resources"});
 }
 
-const carouselImages = ref([
-  { url: "/picture/blog.png", routeName: "Blog" },
-  { url: "/picture/resources.png", routeName: "Resources" },
-  { url: "/picture/community.png", routeName: "Community" }
-]);
 
-const imageClick = (item) => {
-  router.push({ name: item.routeName });
+const hotAuthorClick = (author) => {
+  const routeUrl = router.resolve({
+    name: "personInfomation",
+    query: {c: encrypt(author.USERCODE)}
+  }).href;
+  window.open(routeUrl, author.USERCODE);
 };
+
+const handleWindowScroll = () => {
+  // 获取页面滚动相关数据
+  const scrollTop = window.pageYOffset || document.documentElement.scrollTop || document.body.scrollTop;
+  const windowHeight = window.innerHeight;
+  const docHeight = document.documentElement.scrollHeight;
+
+  // 判断滚动是否接近底部（这里预留10px偏差）
+  if (scrollTop + windowHeight >= docHeight - 10) {
+    fetchArticles();
+  }
+};
+
+onMounted(() => {
+  fetchArticles();
+  //window.addEventListener('scroll', handleWindowScroll);
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener('scroll', handleWindowScroll);
+});
 </script>
 
 <style scoped>
-/* 页面整体包装 */
+.search-bar {
+  margin-bottom: 20px;
+  width: 100%;
+}
+.article-card {
+  position: relative;
+  margin-bottom: 20px;
+  border-radius: 8px;
+  height: 200px;
+  display: flex;
+  cursor: pointer;
+  flex-direction: column;
+  justify-content: space-between;
+  overflow: hidden;
+}
+
+.article-card:hover {
+  transform: translateY(-2px);
+}
+
+.article-title {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 10px 0;
+  color: #333;
+}
+
+.article-meta {
+  font-size: 13px;
+  color: #888;
+  display: flex;
+  gap: 20px;
+  margin-bottom: 8px;
+}
+
+.article-content {
+  font-size: 14px;
+  color: #555;
+  line-height: 1.6;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.read-more-btn {
+  float: right;
+  font-size: 13px;
+  margin-top: -6px;
+  margin-bottom: 6px;
+}
+
+.loading-text,
+.end-text {
+  text-align: center;
+  color: #999;
+  margin: 16px 0;
+}
+
 .home-page-wrapper {
   width: 100%;
   box-sizing: border-box;
+  background-color: #f4f6f9;
+  padding: 10px 0;
+  margin: 10px auto; /* ← 加这一行：上下左右都有外边距 */
 }
 
-/* 顶部按钮栏：美观居中 */
 .top-action-bar {
   display: flex;
   justify-content: center;
   gap: 16px;
-  margin: 20px auto;
+  margin: 13px auto;
   flex-wrap: wrap;
 }
 
@@ -149,7 +362,6 @@ const imageClick = (item) => {
   transform: translateY(-2px);
 }
 
-/* 三栏主区域 */
 .three-column-layout {
   display: flex;
   gap: 20px;
@@ -171,37 +383,15 @@ const imageClick = (item) => {
 
 .middle-column {
   flex: 1;
-  min-height: 300px;
-  border-radius: 10px;
+  border-radius: 12px;
   background: #fff;
   padding: 20px;
   box-sizing: border-box;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  /* 去掉 overflow:hidden 或者 设置为 visible */
+  overflow: visible;
 }
 
-/* 轮播图样式 */
-.carousel-image-container {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  overflow: hidden;
-  border-radius: 10px;
-}
-
-.carousel-image {
-  height: 100%;
-  object-fit: cover;
-  border-radius: 10px;
-  cursor: pointer;
-  transition: transform 0.3s ease;
-}
-.carousel-image:hover {
-  transform: scale(1.03);
-}
-
-/* 标题样式 */
 .section-title {
   font-size: 16px;
   font-weight: bold;
@@ -211,7 +401,6 @@ const imageClick = (item) => {
   padding-left: 8px;
 }
 
-/* 热门文章区域 */
 .blog-list {
   list-style: none;
   padding: 0;
@@ -244,8 +433,8 @@ const imageClick = (item) => {
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  max-width: 100%; /* 保证不超出父容器 */
 }
+
 .blog-title:hover {
   color: #409EFF;
 }
@@ -263,7 +452,6 @@ const imageClick = (item) => {
   gap: 12px;
 }
 
-/* 下载区域 */
 .download-list {
   list-style: none;
   padding: 0;
@@ -275,6 +463,7 @@ const imageClick = (item) => {
   cursor: pointer;
   transition: transform 0.2s ease;
 }
+
 .download-item:hover {
   transform: translateY(-2px);
 }
@@ -305,7 +494,47 @@ const imageClick = (item) => {
   flex-wrap: wrap;
 }
 
-/* 响应式优化 */
+/* 优质作者 */
+.author-card {
+  margin-bottom: 12px; /* 原来是15px */
+  background-color: #f9f9f9;
+  border-radius: 10px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  cursor: pointer;
+}
+
+.author-card:hover {
+  transform: scale(1.03);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.author-box {
+  display: flex;
+  align-items: center;
+  gap: 10px; /* 原来是12px */
+  margin-bottom: 0; /* ← 去掉多余的 margin-bottom */
+}
+
+.author-avatar {
+  flex-shrink: 0;
+}
+
+.author-meta .name {
+  font-weight: bold;
+  font-size: 16px;
+}
+
+.stats-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: #606266;
+}
+.title-avatar {
+  margin-right: 10px;
+  vertical-align: middle;
+}
+
 @media (max-width: 768px) {
   .three-column-layout {
     flex-direction: column;

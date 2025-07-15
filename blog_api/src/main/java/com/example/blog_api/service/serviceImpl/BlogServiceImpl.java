@@ -43,7 +43,9 @@ public class BlogServiceImpl implements BlogService {
             return ResultBody.createErrorResult("用户未登录!");
         } else {
             String userCode = userBean.getCODE();
-            String sql = "select * from blogInfo where userCode = '" + userCode + "' order by create_time DESC";
+            String sql = "select * from blogInfo " +
+                    "where userCode = '" + userCode + "' " +
+                    "order by (case BLOG_TYPE when 'public' then 0 when 'privacy' then 1 else 2 end), create_time DESC";
             Map<String, Object> params_ = new HashMap<>();
             params_.put("sql", sql);
             //对于使用访问网关  推荐先接收返回结果,再返回,否则会有未知问题
@@ -92,14 +94,16 @@ public class BlogServiceImpl implements BlogService {
         String listSql;
         List<Object> listParams = new ArrayList<>();
         if (keyWord != null && !keyWord.trim().isEmpty()) {
-            listSql = "SELECT * FROM blogInfo " +
-                    "WHERE blog_title LIKE ? OR mainText LIKE ? " +
-                    "ORDER BY create_time DESC LIMIT ? OFFSET ?";
+            listSql = "SELECT b.*, u.AVATAR FROM blogInfo b " +
+                    "LEFT JOIN userinfo u ON b.USERCODE = u.code " +
+                    "WHERE (b.blog_title LIKE ? OR b.mainText LIKE ?) and b.blog_type = 'public'" +
+                    "ORDER BY b.create_time DESC LIMIT ? OFFSET ?";
             listParams.add("%" + keyWord + "%");
             listParams.add("%" + keyWord + "%");
         } else {
-            listSql = "SELECT * FROM blogInfo " +
-                    "ORDER BY create_time DESC LIMIT ? OFFSET ?";
+            listSql = "SELECT b.*, u.AVATAR FROM blogInfo b " +
+                    "LEFT JOIN userinfo u ON b.USERCODE = u.code where b.blog_type = 'public'" +
+                    "ORDER BY b.create_time DESC LIMIT ? OFFSET ?";
         }
         listParams.add(pageSize);
         listParams.add(offset);
@@ -108,11 +112,13 @@ public class BlogServiceImpl implements BlogService {
         String countSql;
         List<Object> countParams = new ArrayList<>();
         if (keyWord != null && !keyWord.trim().isEmpty()) {
-            countSql = "SELECT COUNT(*) AS total FROM blogInfo WHERE blog_title LIKE ? OR mainText LIKE ?";
+            countSql = "SELECT COUNT(*) AS total FROM blogInfo b " +
+                    "LEFT JOIN userinfo u ON b.USERCODE = u.code " +
+                    "WHERE (b.blog_title LIKE ? OR b.mainText LIKE ?) and b.blog_type = 'public'";
             countParams.add("%" + keyWord + "%");
             countParams.add("%" + keyWord + "%");
         } else {
-            countSql = "SELECT COUNT(*) AS total FROM blogInfo";
+            countSql = "SELECT COUNT(*) AS total FROM blogInfo where blog_type = 'public'";
         }
 
         // 3. 查询数据列表
@@ -133,7 +139,7 @@ public class BlogServiceImpl implements BlogService {
             return countResult;
         }
 
-        // 5. 获取总数（countResult 返回的是 list，每个 map 有个 "total"）
+        // 5. 获取总数
         int total = 0;
         List<Map<String, Object>> countData = (List<Map<String, Object>>) countResult.result;
         if (!countData.isEmpty() && countData.get(0).get("total") != null) {
@@ -149,9 +155,10 @@ public class BlogServiceImpl implements BlogService {
     }
 
 
+
     @Override
     @Transactional//开启事务
-    public ResultBody updateBlog(String guid, String title, String content) {
+    public ResultBody updateBlog(String guid, String title, String content,String blog_type) {
         //查询修改前的数据
         String sql = "select MAINTEXT from blogInfo where guid = '" + guid + "'";
         Map<String, Object> params_ = new HashMap<>();
@@ -181,8 +188,8 @@ public class BlogServiceImpl implements BlogService {
             result = callService.callFunWithParams(FunToUrlUtil.deleteFileByUrlsUrl, params);
             //删除图片后,修改文章主体内容
             if (result != null && !result.isError) {
-                sql = "update blogInfo set blog_title = ? , mainText = ? where guid = ?";
-                List<Object> listParams = Arrays.asList(title, content, guid);
+                sql = "update blogInfo set blog_title = ? , mainText = ?,blog_type = ? where guid = ?";
+                List<Object> listParams = Arrays.asList(title, content,blog_type, guid);
                 params = new HashMap<>();
                 params.put("sql", sql);
                 params.put("params", listParams);

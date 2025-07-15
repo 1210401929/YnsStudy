@@ -279,7 +279,7 @@ const submitPhoneLogin = async () => {
     });
     if (res && res.result && !res.isError) {
       userStore.setUser(res.result);
-      debugger;
+
       ElMessage.success('登录成功！');
       //刷新页面
       location.reload();

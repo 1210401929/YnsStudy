@@ -169,7 +169,7 @@ const setFileData = async () => {
 }
 
 const setFileDataByRouterPms = () => {
-  debugger;
+
   let fieldGuid = route.query.g;
   if (fieldGuid) {
     otherFiles.value = otherFiles.value.filter(item => item.GUID == fieldGuid);

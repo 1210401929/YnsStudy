@@ -141,10 +141,16 @@ export const downloadFileByUrl = (url,fileName)=>{
         })
 }
 
-export function  pubFormatDate(dateStr){
-    const date = new Date(dateStr)
-    return date.toLocaleString()
+export function pubFormatDate(dateStr) {
+    const timestamp = Date.parse(dateStr);
+    if (isNaN(timestamp)) {
+        // 非法日期字符串，直接返回原始输入
+        return dateStr;
+    }
+    const date = new Date(timestamp);
+    return date.toLocaleString();
 }
+
 
 
 export function encrypt(text) {

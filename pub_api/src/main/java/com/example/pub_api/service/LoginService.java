@@ -29,4 +29,6 @@ public interface LoginService {
     ResultBody deleteUserAvatarFile(String userCode,HttpSession session);
     //根据账号获取账号信息
     ResultBody getUserInfoByCode(String userCode);
+    //根据名字模糊查询相关账号
+    ResultBody getUserInfoByName(String userName);
 }

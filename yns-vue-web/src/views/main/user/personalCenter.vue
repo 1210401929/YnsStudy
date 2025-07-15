@@ -17,6 +17,7 @@
           <el-button
               class="avatar-edit-button"
               size="small"
+              title="编辑头像"
               @click="triggerFileSelect"
               :icon="Edit"
               circle
@@ -44,6 +45,10 @@
               :readonly="readonly.email"
               @focus="readonly.email = false"
           />
+        </el-form-item>
+
+        <el-form-item label="个性签名">
+          <el-input type="textarea" v-model="userStore.userBean.remark" name="remark" />
         </el-form-item>
 
         <el-form-item label="新密码">
@@ -237,6 +242,7 @@ const personalCareer = ()=>{
   display: flex;
   justify-content: center;
   margin-bottom: 30px;
+  position: relative; /* 用于按钮定位 */
 }
 
 .avatar-container {
@@ -244,7 +250,7 @@ const personalCareer = ()=>{
   width: 120px;
   height: 120px;
   border-radius: 50%;
-  overflow: hidden;
+  overflow: visible; /* 改这里，不再裁剪按钮 */
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
@@ -262,12 +268,19 @@ const personalCareer = ()=>{
 
 .avatar-edit-button {
   position: absolute;
-  bottom: -8px;
-  right: -8px;
-  background-color: #fff;
+  bottom: -10px;  /* 放在容器外部，避免被圆形裁切 */
+  right: -10px;
+  z-index: 10;
+  background-color: white;
   border: 1px solid #dcdfe6;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  width: 28px;
+  height: 28px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
+
 
 .info-form {
   margin-top: 10px;

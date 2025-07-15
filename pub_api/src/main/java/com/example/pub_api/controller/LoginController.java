@@ -98,4 +98,11 @@ public class LoginController {
         ResultBody resultBody = loginService.getUserInfoByCode(userCode);
         return resultBody;
     }
+    @RequestMapping("/getUserInfoByName")
+    @ResponseBody
+    public ResultBody getUserInfoByName(@RequestBody Map<String, String> params) {
+        String userName =  params.get("userName");
+        ResultBody resultBody = loginService.getUserInfoByName(userName);
+        return resultBody;
+    }
 }

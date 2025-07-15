@@ -24,29 +24,29 @@ public class HomeServiceImpl implements HomeService {
         data.put("hotBlogData", result.result);
         result = getHotFileData();
         data.put("hotFileData", result.result);
+        result = getHigAuthor("4");
+        data.put("higAuthor",result.result);
         return ResultBody.createSuccessResult(data);
     }
 
     @Override
-    public ResultBody getHigAuthor() {
+    public ResultBody getHigAuthor(String num) {
+        //默认4条
+        if(num==null) num = "4";
         //根据blogInfo(文章)表  blogComment(评论)表 计算出前三名优质作者
         String sql = "SELECT \n" +
                 "    u.USERCODE,\n" +
-                "    COALESCE(b.username, c.username, f.username) AS USERNAME,\n" +
+                "    COALESCE(b.username, info.name) AS USERNAME,\n" +
                 "    COALESCE(b.article_count, 0) AS ARTICLE_COUNT,\n" +
-                "    COALESCE(c.comment_count, 0) AS COMMENT_COUNT,\n" +
-                "    COALESCE(f.upload_count, 0) AS UPLOAD_COUNT,\n" +
+                "    COALESCE(follow.follower_count, 0) AS FOLLOWER_COUNT,\n" +
                 "    COALESCE(info.AVATAR, '') AS AVATAR,\n" +
-                "    -- 加权评分：文章*1 + 评论*0.1 + 上传*1\n" +
+                "    -- 加权评分：文章*1 + 被关注数*2\n" +
                 "    COALESCE(b.article_count, 0) * 1 +\n" +
-                "    COALESCE(c.comment_count, 0) * 0.1 +\n" +
-                "    COALESCE(f.upload_count, 0) * 1 AS TOTAL_SCORE\n" +
+                "    COALESCE(follow.follower_count, 0) * 2 AS TOTAL_SCORE\n" +
                 "FROM (\n" +
                 "    SELECT usercode FROM blogInfo\n" +
                 "    UNION\n" +
-                "    SELECT usercode FROM blogComment\n" +
-                "    UNION\n" +
-                "    SELECT usercode FROM fileInfo\n" +
+                "    SELECT followusercode AS usercode FROM userFollow\n" +
                 ") u\n" +
                 "LEFT JOIN (\n" +
                 "    SELECT usercode, username, COUNT(*) AS article_count\n" +
@@ -54,25 +54,19 @@ public class HomeServiceImpl implements HomeService {
                 "    GROUP BY usercode, username\n" +
                 ") b ON u.usercode = b.usercode\n" +
                 "LEFT JOIN (\n" +
-                "    SELECT usercode, username, COUNT(*) AS comment_count\n" +
-                "    FROM blogComment\n" +
-                "    GROUP BY usercode, username\n" +
-                ") c ON u.usercode = c.usercode\n" +
-                "LEFT JOIN (\n" +
-                "    SELECT usercode, username, COUNT(*) AS upload_count\n" +
-                "    FROM fileInfo\n" +
-                "    GROUP BY usercode, username\n" +
-                ") f ON u.usercode = f.usercode\n" +
+                "    SELECT followusercode, COUNT(*) AS follower_count\n" +
+                "    FROM userFollow\n" +
+                "    GROUP BY followusercode\n" +
+                ") follow ON u.usercode = follow.followusercode\n" +
                 "LEFT JOIN userInfo info ON u.usercode = info.CODE\n" +
                 "ORDER BY TOTAL_SCORE DESC\n" +
-                "LIMIT 3;\n";
+                "LIMIT " + num + ";\n";
 
         Map<String, Object> params = new HashMap<>();
         params.put("sql", sql);
         ResultBody result = callService.callFunWithParams(FunToUrlUtil.selectListUrl, params);
         return result;
     }
-
     //获取热门下载内容
     private ResultBody getHotFileData() {
         String sql = "select * from fileinfo order by DOWNNUM DESC limit 5";
@@ -87,25 +81,35 @@ public class HomeServiceImpl implements HomeService {
         //该sql根据 (CREATE_TIME创建时间 COMMENT_COUNT评论数 VIEW_PAGE浏览数) 这三个字段计算权重  得出热门文章 最多五篇文章
         String sql = "SELECT \n" +
                 "    b.*,\n" +
-                "    COUNT(DISTINCT c.guid) AS COMMENT_COUNT,\n" +
-                "    SUM(CASE WHEN gl.type = 'like' THEN 1 ELSE 0 END) AS LIKE_COUNT,\n" +
-                "    SUM(CASE WHEN gl.type = 'collect' THEN 1 ELSE 0 END) AS COLLECT_COUNT,\n" +
+                "    IFNULL(c.COMMENT_COUNT, 0) AS COMMENT_COUNT,\n" +
+                "    IFNULL(gl.LIKE_COUNT, 0) AS LIKE_COUNT,\n" +
+                "    IFNULL(gl.COLLECT_COUNT, 0) AS COLLECT_COUNT,\n" +
                 "    b.VIEW_PAGE,\n" +
                 "    b.CREATE_TIME,\n" +
                 "    (\n" +
-                "        COUNT(DISTINCT c.guid) * 5\n" +
+                "        IFNULL(c.COMMENT_COUNT, 0) * 5\n" +
                 "      + b.VIEW_PAGE * 1\n" +
-                "      + SUM(CASE WHEN gl.type = 'like' THEN 1 ELSE 0 END) * 3\n" +
-                "      + SUM(CASE WHEN gl.type = 'collect' THEN 1 ELSE 0 END) * 4\n" +
+                "      + IFNULL(gl.LIKE_COUNT, 0) * 3\n" +
+                "      + IFNULL(gl.COLLECT_COUNT, 0) * 4\n" +
                 "      - (UNIX_TIMESTAMP(NOW()) - UNIX_TIMESTAMP(b.CREATE_TIME)) / 3600 * 0.2\n" +
                 "    ) AS HOT_SCORE\n" +
                 "FROM blogInfo b\n" +
-                "LEFT JOIN blogComment c ON b.guid = c.blogId\n" +
-                "LEFT JOIN bloggivelike gl ON b.guid = gl.blogid\n" +
+                "LEFT JOIN (\n" +
+                "    SELECT blogId, COUNT(DISTINCT guid) AS COMMENT_COUNT\n" +
+                "    FROM blogComment\n" +
+                "    GROUP BY blogId\n" +
+                ") c ON b.guid = c.blogId\n" +
+                "LEFT JOIN (\n" +
+                "    SELECT \n" +
+                "        blogid,\n" +
+                "        SUM(CASE WHEN type = 'like' THEN 1 ELSE 0 END) AS LIKE_COUNT,\n" +
+                "        SUM(CASE WHEN type = 'collect' THEN 1 ELSE 0 END) AS COLLECT_COUNT\n" +
+                "    FROM bloggivelike\n" +
+                "    GROUP BY blogid\n" +
+                ") gl ON b.guid = gl.blogid\n" +
                 "WHERE b.blog_type = 'public'\n" +
-                "GROUP BY b.guid\n" +
                 "ORDER BY HOT_SCORE DESC\n" +
-                "LIMIT 5;\n";
+                "LIMIT 10;\n";
         Map<String, Object> params = new HashMap<>();
         params.put("sql", sql);
         ResultBody result = callService.callFunWithParams(FunToUrlUtil.selectListUrl, params);

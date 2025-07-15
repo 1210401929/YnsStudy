@@ -202,6 +202,13 @@ public class LoginServiceImpl implements LoginService {
     @Override
     @Transactional//开始事务
     public ResultBody changeUserInfo(Map<String, Object> userInfo, HttpSession session) {
+        UserBean currentUser = (UserBean)session.getAttribute("userInfo");
+        if(currentUser==null){
+            return ResultBody.createErrorResult("当前用户未登录或已过期!");
+        }
+        if(!currentUser.getCODE().equals(userInfo.get("CODE"))){
+            return ResultBody.createErrorResult("正在修改其他用户的信息,非法操作!");
+        }
         String newPassWord = null;
         //如果存在新密码 ,则拷贝一份新密码,在修改数据时候,修改密码
         if (userInfo.get("NEWPASSWORD") != null) {
@@ -257,6 +264,18 @@ public class LoginServiceImpl implements LoginService {
             return ResultBody.createErrorResult("未查询到账号信息!");
         }
     }
+
+    @Override
+    public ResultBody getUserInfoByName(String userName) {
+        if(userName==null){
+            return ResultBody.createErrorResult("用户名不允许为空!");
+        }
+        String sql = "select CODE,NAME,AVATAR,REMARK from userinfo where NAME like ? ";
+        List<Object> listParams = Arrays.asList("%"+userName+"%");
+        ResultBody result = sqlService.selectListByParams(sql,listParams);
+        return result;
+    }
+
     //修改用户登录IP和登录城市
     private ResultBody updateUserIpAndAddress(String userCode,String ip,String addRess){
         String sql = "update userInfo set LOGINIP = ? , LOGINADDRESS=? where code = ?";

@@ -2,7 +2,7 @@ window["descriptions_component"] = defineComponent({
     props: ["info"],
     setup(props) {
         let isShowComputed = (item) => {
-            debugger;
+
             if (window.top.userInfo.guid == item.USERID)
                 return true;
             else

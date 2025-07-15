@@ -9,6 +9,10 @@
             :index="index.toString()"
             class="el-menu_"
         >
+          <el-tag :type="blogContent.BLOG_TYPE == 'public'?'success':'danger'" effect="plain" size="small">{{
+              blogContent.BLOG_TYPE == "public" ? "公开" : "私密"
+            }}
+          </el-tag>
           {{ blogContent.BLOG_TITLE }}
         </el-menu-item>
       </el-menu>
@@ -47,7 +51,7 @@
       top="2vh"
       :close-on-click-modal="false"
   >
-    <ArticleEditor @submit="handleEditorSubmit" :save-type="'add'" @cancel="editorVisible = false"/>
+    <ArticleEditor @submit="handleEditorSubmit" :is-public="true" :save-type="'add'" @cancel="editorVisible = false"/>
   </el-dialog>
 </template>
 
@@ -95,12 +99,13 @@ onMounted(async () => {
   isInitialized.value = true;
 })
 
-async function handleEditorSubmit({title, content}) {
+async function handleEditorSubmit({blog_type,title, content}) {
   let userBean = userStore.userBean;
   let blogContent = {
     GUID: getGuid(),
     BLOG_TITLE: title,
     MAINTEXT: content,
+    BLOG_TYPE:blog_type,
     USERCODE: userBean.code,
     USERNAME: userBean.name
   };
