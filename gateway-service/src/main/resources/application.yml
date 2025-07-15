@@ -29,7 +29,7 @@ spring:
             - Path=/pub-api/**   # 访问 /pub-api/** 的请求都会路由到 service-pub-api
 
         # 配置路由2：转发到 service-blog-api 微服务
-        - id: ai-api
+        - id: blog-api
           uri: lb://service-blog-api
           predicates:
             - Path=/blog-api/**    # 访问 /blog-api/** 的请求都会路由到 service-blog-api

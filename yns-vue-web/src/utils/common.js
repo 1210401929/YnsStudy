@@ -2,7 +2,7 @@ import axios from 'axios'
 import {ElMessage, ElMessageBox} from 'element-plus'
 import CryptoJS from 'crypto-js'
 //获取配置的生产环境ip端口
-import {produceDevIpPort,crypCfg} from "@/config/vue-config.js";
+import {produceDevIpPort, crypCfg} from "@/config/vue-config.js";
 
 /**
  *  sendAxiosRequest        发送后台请求统一入口
@@ -15,36 +15,40 @@ import {produceDevIpPort,crypCfg} from "@/config/vue-config.js";
  *  decrypt                 解密字符串
  */
 
-
-
 //调用后台方法
 export const sendAxiosRequest = async (url, data, type, isReturnAll) => {
     // 环境判断：开发使用相对路径(开发环境的配置在vite.config.js)，生产使用真实地址
     url = import.meta.env.MODE === 'development'
         ? url
         : produceDevIpPort + url;
+    // 默认值
     data = data || {};
     type = type || "post";
+    isReturnAll = isReturnAll || false;
     type = type.toLowerCase();
     let response;
-    // 配置对象
     let config = {
-        withCredentials: true // 允许携带 Cookie（包括 SESSION）  为了实现后端session共享
+        withCredentials: true // 允许携带 Cookie（包括 SESSION）
     };
-    // 4. 如果是 POST/PUT 并且 data 是 FormData，则添加 multipart header
+    // 如果是 POST/PUT 并且 data 是 FormData，则添加 multipart header
     if (typeof FormData !== 'undefined' && data instanceof FormData) {
         config.headers = {
             'Content-Type': 'multipart/form-data'
         };
     }
-    if (type === "get") {
-        response = await axios.get(url, {params: data});
-    } else {
-        response = await axios[type](url, data, config);
+    try {
+        // 根据请求方法类型处理请求
+        if (type === "get") {
+            response = await axios.get(url, {params: data, ...config});
+        } else {
+            response = await axios[type](url, data, config);
+        }
+        return isReturnAll ? response : response.data; // 根据是否返回完整响应数据决定返回值
+    } catch (error) {
+        console.error("调用后台方法失败:", error);
+        throw error;
     }
-    return isReturnAll ? response : response.data;
 }
-
 
 //获取随机32码
 export const getGuid = () => {
@@ -118,8 +122,8 @@ export const buildChildrenData = (data, options = {}) => {
 }
 
 //根据路径下载文件
-export const downloadFileByUrl = (url,fileName)=>{
-    fetch(url, { mode: 'cors' }) // mode: 'cors' 如果资源是跨域的，目标服务器需要设置 CORS
+export const downloadFileByUrl = (url, fileName) => {
+    fetch(url, {mode: 'cors'}) // mode: 'cors' 如果资源是跨域的，目标服务器需要设置 CORS
         .then(response => {
             if (!response.ok) {
                 throw new Error('Network response was not ok')
@@ -151,24 +155,55 @@ export function pubFormatDate(dateStr) {
     return date.toLocaleString();
 }
 
+// 加密函数，支持任何类型的数据（如对象、数组等）
+export function encrypt(data) {
+    const key = CryptoJS.enc.Utf8.parse(crypCfg.key);
+    const iv = CryptoJS.enc.Utf8.parse(crypCfg.iv);
+    // 判断数据类型并转换为字节数组（Uint8Array 或 Base64 编码）
+    let srcs;
+    if (typeof data === 'object') {
+        // 如果是对象，先将对象转为 JSON 字符串
+        srcs = CryptoJS.enc.Utf8.parse(JSON.stringify(data));
+    } else if (typeof data === 'string') {
+        // 如果是字符串，直接转为字节数组
+        srcs = CryptoJS.enc.Utf8.parse(data);
+    } else if (data instanceof ArrayBuffer || Array.isArray(data)) {
+        // 如果是 ArrayBuffer 或 Array 类型，直接转为字节数组
+        srcs = CryptoJS.enc.u8array.parse(new Uint8Array(data));
+    } else {
+        throw new Error('Unsupported data type');
+    }
 
-
-export function encrypt(text) {
-    const key = CryptoJS.enc.Utf8.parse(crypCfg.key)
-    const iv  = CryptoJS.enc.Utf8.parse(crypCfg.iv)
-
-    let srcs = CryptoJS.enc.Utf8.parse(text);
-    let encrypted = CryptoJS.AES.encrypt(srcs, key, { iv: iv, mode: CryptoJS.mode.CBC, padding: CryptoJS.pad.Pkcs7 });
+    // 执行加密
+    let encrypted = CryptoJS.AES.encrypt(srcs, key, {
+        iv: iv,
+        mode: CryptoJS.mode.CBC,
+        padding: CryptoJS.pad.Pkcs7
+    });
+    // 返回加密后的密文，转为大写的十六进制
     return encrypted.ciphertext.toString().toUpperCase();
 }
 
+// 解密函数，支持任何类型的数据（如对象、数组等）
 export function decrypt(cipherText) {
-    const key = CryptoJS.enc.Utf8.parse(crypCfg.key)
-   const iv  = CryptoJS.enc.Utf8.parse(crypCfg.iv)
-
+    const key = CryptoJS.enc.Utf8.parse(crypCfg.key);
+    const iv = CryptoJS.enc.Utf8.parse(crypCfg.iv);
+    // 将密文从 Base64 解码为字节数据
     let encryptedHexStr = CryptoJS.enc.Hex.parse(cipherText);
     let srcs = CryptoJS.enc.Base64.stringify(encryptedHexStr);
-    let decrypt = CryptoJS.AES.decrypt(srcs, key, { iv: iv, mode: CryptoJS.mode.CBC, padding: CryptoJS.pad.Pkcs7 });
+    // 解密
+    let decrypt = CryptoJS.AES.decrypt(srcs, key, {
+        iv: iv,
+        mode: CryptoJS.mode.CBC,
+        padding: CryptoJS.pad.Pkcs7
+    });
+    // 获取解密后的数据
     let decryptedStr = decrypt.toString(CryptoJS.enc.Utf8);
-    return decryptedStr.toString();
+    try {
+        // 尝试解析为 JSON 对象
+        return JSON.parse(decryptedStr);
+    } catch (e) {
+        // 如果不是 JSON 对象，则直接返回解密后的字符串
+        return decryptedStr;
+    }
 }

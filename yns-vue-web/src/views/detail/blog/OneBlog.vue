@@ -27,16 +27,16 @@
               <div class="stat-num">{{ followingNum }}</div>
               <div class="stat-label">关注</div>
             </div>
-            <div class="stat-item"  title="粉丝">
+            <div class="stat-item" title="粉丝">
               <div class="stat-num">{{ followersNum }}</div>
               <div class="stat-label">粉丝</div>
             </div>
           </div>
           <div class="author-actions">
-            <el-button  size="default" :type="isFollowing ? 'danger' : 'primary'" round @click="toggleFollow"
+            <el-button size="default" :type="isFollowing ? 'danger' : 'primary'" round @click="toggleFollow"
                        style="flex: 1; margin-right: 8px;">{{ isFollowing ? '取消关注' : '关注' }}
             </el-button>
-            <el-button  size="default" round @click="messageAuthor" style="flex: 1;">私信</el-button>
+            <el-button size="default" round @click="messageAuthor" style="flex: 1;">私信</el-button>
           </div>
         </el-card>
       </div>
@@ -45,11 +45,14 @@
         <ContentAndComment :blogId="blogId"/>
       </div>
     </div>
+    <!-- 聊天窗口 -->
+    <Chat v-if="chatVisible" :title="'与'+authorInfo.name+'的聊天'" @closeChat="messageAuthor"/>
   </div>
 </template>
 
 <script setup>
 import {ref, onMounted} from "vue";
+import Chat from "@/components/detail/Chat.vue";
 import {useRoute, useRouter} from "vue-router";
 import ContentAndComment from "@/views/detail/blog/ContentAndComment.vue";
 import {sendAxiosRequest, pubFormatDate, decrypt, encrypt} from "@/utils/common";
@@ -78,6 +81,9 @@ const followingNum = ref(0);
 //关注列表
 const followingUser = ref([]);
 
+// 聊天相关
+const chatVisible = ref(false);
+
 async function getUserInfo2Data() {
   if (userCode) {
     //获取账号信息
@@ -85,7 +91,6 @@ async function getUserInfo2Data() {
     if (result && !result.isError) {
       authorInfo.value = result.result;
     }
-
 
     result = await sendAxiosRequest("/blog-api/userInformation/getFollowUser", {userCode});
     if (result && !result.isError) {
@@ -111,14 +116,17 @@ const toggleFollow = () => {
   isFollowing.value = !isFollowing.value
 
   //关注
-  if(isFollowing.value){
+  if (isFollowing.value) {
     followersNum.value++;
-    sendAxiosRequest("/blog-api/userInformation/followUser",{followUserCode:authorInfo.value.code,followUserName:authorInfo.value.name});
+    sendAxiosRequest("/blog-api/userInformation/followUser", {
+      followUserCode: authorInfo.value.code,
+      followUserName: authorInfo.value.name
+    });
 
     //取消关注
-  }else{
+  } else {
     followersNum.value--;
-    sendAxiosRequest("/blog-api/userInformation/noFollowUser",{followUserCode:authorInfo.value.code});
+    sendAxiosRequest("/blog-api/userInformation/noFollowUser", {followUserCode: authorInfo.value.code});
   }
   ElMessage.success(isFollowing.value ? '已关注' : '已取消关注')
 }
@@ -132,12 +140,15 @@ function avatarClick(authorInfo) {
 }
 
 const messageAuthor = () => {
-  debugger;
-  ElMessage.success("私信作者:"+ authorInfo.value.name);
+  if (!userStore.userBean.code) {
+    ElMessage.error("用户过期,请返回主页面重新登录!");
+    return false;
+  }
+  chatVisible.value = !chatVisible.value; // 显示聊天窗口
 };
 
 const goBack = () => {
-    router.push("/");
+  router.push("/");
 };
 
 onMounted(() => {
@@ -260,9 +271,7 @@ onMounted(() => {
   font-size: 14px;
   color: #666;
   margin-bottom: 20px;
-  min-height: 40px;
   user-select: text;
-
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2; /* 最多两行 */
@@ -274,6 +283,9 @@ onMounted(() => {
   padding: 4px 8px;
   border-radius: 6px;
   font-style: italic;
+
+  /* 删除 min-height 以适应内容 */
+  min-height: auto;
 }
 
 
@@ -321,6 +333,7 @@ onMounted(() => {
   font-weight: 600;
   user-select: none;
 }
+
 .content-side {
   flex: 1;
   background: #fff;
@@ -339,7 +352,7 @@ onMounted(() => {
   }
 
   .author-side {
-    width: 100%;  /* 让作者信息在手机端占据全宽 */
+    width: 100%; /* 让作者信息在手机端占据全宽 */
   }
 
   .author-card {

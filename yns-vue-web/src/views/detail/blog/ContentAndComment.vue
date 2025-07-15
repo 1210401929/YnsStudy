@@ -168,7 +168,13 @@
                        class="comment-btn" :icon="Star" @click="handleCollect"/>
           </el-tooltip>
           <el-tooltip content="评论" placement="left" effect="light">
-            <el-button circle class="comment-btn" :icon="Comment" @click="showComment = true"/>
+            <!-- 评论按钮 -->
+            <el-button circle class="comment-btn" :icon="Comment" @click="showComment = true"
+                       style="position: relative;">
+              <!-- 使用el-badge显示评论数量，并通过绝对定位调整其位置 -->
+              <el-badge :value="blogComment.length" class="comment-badge"
+                        style="position: absolute; top: -7px; right: -7px;"/>
+            </el-button>
           </el-tooltip>
         </div>
       </div>
@@ -268,8 +274,11 @@ const handleEditorSubmit = ({blog_type, title, content}) => {
 
 const loadContentAndComments = async (guid) => {
   let result = await sendAxiosRequest("/blog-api/blog/getBlog", {blogId: guid});
-  if (result && !result.isError) {
-    blogContent.value = result?.result?.[0] || {};
+  if (result && !result.isError && result?.result?.[0]) {
+    blogContent.value = result.result[0];
+  }else{
+    ElMessage.error("该文章为私密或已删除");
+    return false;
   }
   //获取评论
   result = await sendAxiosRequest("/blog-api/blog/getComment", {blogId: guid});

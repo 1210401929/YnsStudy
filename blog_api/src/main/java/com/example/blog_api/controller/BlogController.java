@@ -60,7 +60,6 @@ public class BlogController {
 
     @RequestMapping("/getAllBlog")
     @ResponseBody
-    //required:false 表示不是必须需要的参数
     public ResultBody getAllBlog(@RequestParam(defaultValue = "1") int page, @RequestParam(defaultValue = "10") int pageSize, @RequestParam(required = false) String keyword) {
 
         return blogService.getAllBlog(page, pageSize, keyword);

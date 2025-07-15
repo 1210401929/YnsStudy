@@ -177,37 +177,8 @@
     <div class="chat-float-btn" @click="chatVisible = !chatVisible">
       💬
     </div>
-
     <!-- 聊天窗口 -->
-    <div class="chat-window" v-if="chatVisible">
-      <div class="chat-header">
-        社区聊天
-        <span class="close-btn" @click="chatVisible = false">×</span>
-      </div>
-      <div class="chat-messages" ref="chatMessagesRef">
-        <div
-            v-for="(msg, index) in chatMessages"
-            :key="index"
-            :class="['chat-message', msg.user === '我' ? 'self' : 'other']"
-        >
-          <div class="message-bubble">
-            <strong v-if="msg.user !== '我'" class="sender">{{ msg.user }}：</strong>
-            {{ msg.text }}
-          </div>
-        </div>
-      </div>
-      <div class="chat-input-row">
-        <el-input
-            v-model="chatText"
-            size="small"
-            placeholder="输入消息，回车或点击发送"
-            @keyup.enter="sendChat"
-            class="chat-input"
-        />
-        <el-button type="primary" size="small" @click="sendChat" class="chat-send-btn">发送</el-button>
-      </div>
-    </div>
-
+    <Chat v-if="chatVisible" title="社区聊天" @closeChat="closeChat" />
     <!-- 搜索用户对话框 -->
     <el-dialog title="搜索用户" v-model="searchUserDialogVisible" width="400px" :before-close="handleClose">
       <el-input
@@ -219,7 +190,7 @@
           style="margin-bottom: 12px"
       />
       <div v-for="userInfo in searchUserArr" :key="userInfo.CODE">
-        <el-card class="user-card" shadow="hover" style="margin-bottom: 10px">
+        <el-card class="user-card" shadow="hover" style="margin-bottom: 10px" @click="userInfoCLick(userInfo)">
           <div class="user-card-content">
             <el-avatar
                 :src="userInfo.AVATAR"
@@ -244,6 +215,7 @@
 
 <script setup>
 import {ref, computed, nextTick, onMounted, onBeforeUnmount} from 'vue';
+import Chat from "@/components/detail/Chat.vue";
 import {ElMessage} from "element-plus";
 import {ChatDotSquare, Delete, Star} from '@element-plus/icons-vue'
 import {encrypt, sendAxiosRequest, pubFormatDate, getGuid, buildChildrenData, ele_confirm} from "@/utils/common.js";
@@ -431,29 +403,27 @@ function avatarClick(community) {
   window.open(routeUrl, community.USERCODE);
 }
 
+function userInfoCLick(userInfo){
+  const routeUrl = router.resolve({name: 'personInfomation', query: {c: encrypt(userInfo.CODE)}}).href;
+  window.open(routeUrl, userInfo.CODE);
+}
+
 function commentAvatarClick(comment) {
   const routeUrl = router.resolve({name: 'personInfomation', query: {c: encrypt(comment.USERCODE)}}).href;
   window.open(routeUrl, comment.USERCODE);
 }
 
-const chatVisible = ref(false);
-const chatText = ref('');
-const chatMessages = ref([
-  {user: '小明', text: '有人在吗？'},
-  {user: '我', text: '我在！'},
-]);
-const chatMessagesRef = ref(null);
 
-function sendChat() {
-  if (!chatText.value.trim()) return;
-  chatMessages.value.push({user: '我', text: chatText.value});
-  chatText.value = '';
-  nextTick(() => {
-    if (chatMessagesRef.value) {
-      chatMessagesRef.value.scrollTop = chatMessagesRef.value.scrollHeight;
-    }
-  });
-}
+const chatText = ref('');
+const chatVisible = ref(false);
+
+const toggleChatVisibility = () => {
+  chatVisible.value = !chatVisible.value;
+};
+
+const closeChat = () => {
+  chatVisible.value = false;
+};
 
 const searchUserDialogVisible = ref(false);
 const searchUserInput = ref('');
@@ -565,11 +535,6 @@ const badges = ref(['原始股']);
   padding-bottom: 6px;
 }
 
-.comment-avatar {
-  width: 26px;
-  height: 26px;
-}
-
 .comment-content {
   flex: 1;
 }
@@ -652,68 +617,6 @@ const badges = ref(['原始股']);
   bottom: 30px;
 }
 
-.chat-window {
-  position: fixed;
-  right: 20px;
-  bottom: 90px;
-  width: 340px;
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 4px 25px rgba(0, 0, 0, 0.2);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  z-index: 1000;
-  border: 1px solid #e0e0e0;
-}
-
-.chat-header {
-  background: #409EFF;
-  color: white;
-  padding: 12px 16px;
-  font-size: 16px;
-  font-weight: bold;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.close-btn {
-  cursor: pointer;
-  font-size: 18px;
-}
-
-.chat-messages {
-  padding: 10px;
-  max-height: 240px;
-  overflow-y: auto;
-  font-size: 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  background: #f8f8f8;
-}
-.chat-message {
-  display: flex;
-}
-
-.chat-message.self {
-  justify-content: flex-end;
-}
-
-.chat-message.other {
-  justify-content: flex-start;
-}
-
-.message-bubble {
-  max-width: 70%;
-  padding: 8px 12px;
-  border-radius: 14px;
-  background-color: #f0f0f0;
-  word-break: break-word;
-  font-size: 14px;
-}
-
 .chat-message.self .message-bubble {
   background-color: #409eff;
   color: white;
@@ -726,21 +629,6 @@ const badges = ref(['原始股']);
   border-bottom-left-radius: 0;
 }
 
-.chat-input-row {
-  display: flex;
-  padding: 10px;
-  border-top: 1px solid #eee;
-  background-color: #fff;
-  gap: 6px;
-}
-
-.chat-input {
-  flex: 1;
-}
-
-.chat-send-btn {
-  white-space: nowrap;
-}
 
 .badge-card {
   padding: 15px;
@@ -787,6 +675,7 @@ const badges = ref(['原始股']);
   background-color: #fff;
   border-radius: 8px;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  cursor: pointer;
 }
 
 .user-card-content {
@@ -823,4 +712,5 @@ const badges = ref(['原始股']);
   height: 40px !important;
   border-radius: 50%;
 }
+
 </style>

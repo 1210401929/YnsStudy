@@ -189,7 +189,6 @@ const fetchArticles = async () => {
       pageSize,
       keyword: searchKeyword.value
     }, 'get')
-
     const newData = res.result.data
     if (newData.length < pageSize) {
       noMore.value = true
@@ -275,16 +274,17 @@ onBeforeUnmount(() => {
   margin-bottom: 20px;
   width: 100%;
 }
+
 .article-card {
   position: relative;
   margin-bottom: 20px;
   border-radius: 8px;
-  height: 200px;
   display: flex;
-  cursor: pointer;
   flex-direction: column;
   justify-content: space-between;
   overflow: hidden;
+  height: auto; /* 不设置固定高度，让内容自动适应 */
+  min-height: 150px; /* 给文章卡片一个最小高度 */
 }
 
 .article-card:hover {
@@ -312,6 +312,14 @@ onBeforeUnmount(() => {
   line-height: 1.6;
   overflow: hidden;
   text-overflow: ellipsis;
+
+  /* 确保不超过三行显示 */
+  display: -webkit-box;
+  -webkit-line-clamp: 3; /* 限制显示三行 */
+  -webkit-box-orient: vertical;
+
+  /* 给内容增加内边距，防止内容与边框过于贴合 */
+  padding-right: 10px;
 }
 
 .read-more-btn {

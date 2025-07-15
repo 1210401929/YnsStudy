@@ -10,6 +10,7 @@
         <module name="gateway-service" />
         <module name="yns_portal" />
         <module name="common_api" />
+        <module name="pub_api" />
         <module name="blog_api" />
         <module name="eureka-server" />
         <module name="NYS_TOP" />

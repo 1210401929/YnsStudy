@@ -63,7 +63,6 @@ const props = defineProps({
 })
 
 const emits = defineEmits(['submit', 'cancel'])
-debugger;
 const isPublic = ref(props.isPublic)
 const localTitle = ref(props.title || '')
 const localContent = ref(props.content || '')
