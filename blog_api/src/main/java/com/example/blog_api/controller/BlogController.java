@@ -60,8 +60,10 @@ public class BlogController {
 
     @RequestMapping("/getAllBlog")
     @ResponseBody
-    public ResultBody getAllBlog(@RequestParam(defaultValue = "1") int page, @RequestParam(defaultValue = "10") int pageSize, @RequestParam(required = false) String keyword) {
-
+    public ResultBody getAllBlog(@RequestBody Map<String, Object> params) {
+        int page = (int)params.get("page");
+        int pageSize = (int)params.get("pageSize");
+        String keyword = (String) params.get("keyword");
         return blogService.getAllBlog(page, pageSize, keyword);
     }
 

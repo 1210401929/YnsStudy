@@ -43,8 +43,10 @@ public class CommunityController {
     @RequestMapping("/getAllCommunity")
     @ResponseBody
     //required:false 表示不是必须需要的参数
-    public ResultBody getAllCommunity(@RequestParam(defaultValue = "1") int page, @RequestParam(defaultValue = "10") int pageSize, @RequestParam(required = false) String keyword) {
-
+    public ResultBody getAllCommunity(@RequestBody Map<String, Object> params) {
+        int page = (int)params.get("page");
+        int pageSize = (int)params.get("pageSize");
+        String keyword = (String) params.get("keyword");
         return communityService.getAllCommunity(page, pageSize, keyword);
     }
 

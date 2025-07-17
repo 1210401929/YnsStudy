@@ -9,6 +9,8 @@ server:
   port: 8889
 
 spring:
+  codec:
+    max-in-memory-size: 10MB  # 默认只有 256KB，Base64 非常容易超限
   application:
     # 当前网关服务的注册名（以后其他服务访问要用这个名字）
     name: gateway-service

@@ -38,6 +38,18 @@
             <groupId>org.apache.tomcat.embed</groupId>
             <artifactId>tomcat-embed-core</artifactId>
         </dependency>
+        <dependency>
+            <groupId>com.example</groupId>
+            <artifactId>common_api</artifactId>
+            <version>1.0.0</version>
+            <scope>compile</scope>
+            <exclusions>
+                <exclusion>                       <!-- 排除 MVC -->
+                    <groupId>org.springframework.boot</groupId>
+                    <artifactId>spring-boot-starter-web</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
     </dependencies>
 
     <dependencyManagement>

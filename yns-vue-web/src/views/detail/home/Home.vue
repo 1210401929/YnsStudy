@@ -147,7 +147,7 @@
 import {onMounted, onBeforeUnmount, ref} from "vue";
 import {useHomeStore} from "@/stores/detail/home.js";
 import {useRouter} from "vue-router";
-import {encrypt, pubFormatDate, sendAxiosRequest} from "@/utils/common.js";
+import {decrypt, encrypt, pubFormatDate, sendAxiosRequest} from "@/utils/common.js";
 import {Star} from "@element-plus/icons-vue";
 import {adminUserCode} from "@/config/vue-config.js";
 import debounce from "lodash/debounce.js";
@@ -188,7 +188,7 @@ const fetchArticles = async () => {
       page: page.value,
       pageSize,
       keyword: searchKeyword.value
-    }, 'get')
+    })
     const newData = res.result.data
     if (newData.length < pageSize) {
       noMore.value = true
@@ -230,7 +230,7 @@ function goToAdmin() {
   window.open(routeUrl, adminUserCode);
 }
 
-function goToPublishBlog() {
+async function goToPublishBlog() {
   router.push({name: "MyBlog"});
 }
 

@@ -144,6 +144,10 @@ const messageAuthor = () => {
     ElMessage.error("用户过期,请返回主页面重新登录!");
     return false;
   }
+  if(userStore.userBean.code==authorInfo.value.code){
+    ElMessage.error("和自己就别聊了");
+    return false;
+  }
   chatVisible.value = !chatVisible.value; // 显示聊天窗口
 };
 

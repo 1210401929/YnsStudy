@@ -283,7 +283,7 @@ const fetchArticles = async () => {
       page: page.value,
       pageSize,
       keyword: searchKeyword.value
-    }, 'get');
+    });
     const newData = res.result.data;
     if (newData.length < pageSize) noMore.value = true;
     allPosts.value.push(...newData);

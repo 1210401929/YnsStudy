@@ -2,18 +2,18 @@
 <template>
   <div class="chat-window">
     <div class="chat-header">
-      {{props.title}}
+      {{ props.title }}
       <span class="close-btn" @click="closeChat">×</span>
     </div>
     <div class="chat-messages" ref="chatMessagesRef">
       <div
           v-for="(msg, index) in chatMessages"
           :key="index"
-          :class="['chat-message', msg.user === '我' ? 'self' : 'other']"
+          :class="['chat-message', msg.USERCODE === userStore.userBean.code ? 'self' : 'other']"
       >
         <div class="message-bubble">
-          <strong v-if="msg.user !== '我'" class="sender">{{ msg.user }}：</strong>
-          {{ msg.text }}
+          <strong v-if="msg.USERCODE != userStore.userBean.code" class="sender">{{ msg.USERNAME }}：</strong>
+          {{ msg.TEXT }}
         </div>
       </div>
     </div>
@@ -31,15 +31,17 @@
 </template>
 
 <script setup>
-import { ref, nextTick } from 'vue';
+import {ref, nextTick} from 'vue';
+import {useUserStore} from "@/stores/main/user.js";
+
+const userStore = useUserStore();
+debugger;
 const emits = defineEmits(['closeChat'])
 const props = defineProps({
-  title:String
+  title: String
 })
 const chatText = ref('');
 const chatMessages = ref([
-  { user: '小明', text: '有人在吗？' },
-  { user: '我', text: '我在！' },
 ]);
 
 const chatMessagesRef = ref(null);
@@ -50,7 +52,11 @@ const closeChat = () => {
 
 const sendChat = () => {
   if (!chatText.value.trim()) return;
-  chatMessages.value.push({ user: '我', text: chatText.value });
+  chatMessages.value.push({
+    USERCODE: userStore.userBean.code,
+    USERNAME: userStore.userBean.name,
+    TEXT: chatText.value
+  });
   chatText.value = '';
   nextTick(() => {
     if (chatMessagesRef.value) {
@@ -58,8 +64,8 @@ const sendChat = () => {
     }
   });
 };
-</script>
 
+</script>
 <style scoped>
 .chat-window {
   position: fixed;

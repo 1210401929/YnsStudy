@@ -2,7 +2,7 @@ import axios from 'axios'
 import {ElMessage, ElMessageBox} from 'element-plus'
 import CryptoJS from 'crypto-js'
 //获取配置的生产环境ip端口
-import {produceDevIpPort, crypCfg} from "@/config/vue-config.js";
+import {produceDevIpPort, crypCfg, isSendCrypto} from "@/config/vue-config.js";
 
 /**
  *  sendAxiosRequest        发送后台请求统一入口
@@ -15,39 +15,63 @@ import {produceDevIpPort, crypCfg} from "@/config/vue-config.js";
  *  decrypt                 解密字符串
  */
 
-//调用后台方法
-export const sendAxiosRequest = async (url, data, type, isReturnAll) => {
-    // 环境判断：开发使用相对路径(开发环境的配置在vite.config.js)，生产使用真实地址
+/**
+ * 统一请求方法（纯 JS）
+ * @param url         接口地址
+ * @param data        请求参数或 body
+ * @param method      'get' | 'post' | 'put' | 'delete'
+ * @param needCrypto  是否走加/解密，默认用全局 isSendCrypto
+ * @param isReturnAll 是否返回完整响应对象
+ */
+export const sendAxiosRequest = async function (
+    url,
+    data = {},
+    method = 'post',
+    needCrypto = isSendCrypto,
+    isReturnAll = false
+) {
+    // 环境判断
     url = import.meta.env.MODE === 'development'
         ? url
-        : produceDevIpPort + url;
-    // 默认值
-    data = data || {};
-    type = type || "post";
-    isReturnAll = isReturnAll || false;
-    type = type.toLowerCase();
-    let response;
-    let config = {
-        withCredentials: true // 允许携带 Cookie（包括 SESSION）
-    };
-    // 如果是 POST/PUT 并且 data 是 FormData，则添加 multipart header
-    if (typeof FormData !== 'undefined' && data instanceof FormData) {
-        config.headers = {
-            'Content-Type': 'multipart/form-data'
-        };
-    }
-    try {
-        // 根据请求方法类型处理请求
-        if (type === "get") {
-            response = await axios.get(url, {params: data, ...config});
-        } else {
-            response = await axios[type](url, data, config);
+        : produceDevIpPort + url
+
+    method = method.toLowerCase()
+    const config = {withCredentials: true}
+    const isForm = typeof FormData !== 'undefined' && data instanceof FormData
+
+    // 构造 payload
+    let payload
+    if (needCrypto && !isForm && (method === 'post' || method === 'put')) {
+        payload = {cipherText: encrypt(data)}
+    } else {
+        payload = data
+        if (isForm && (method === 'post' || method === 'put')) {
+            config.headers = {'Content-Type': 'multipart/form-data'}
         }
-        return isReturnAll ? response : response.data; // 根据是否返回完整响应数据决定返回值
-    } catch (error) {
-        console.error("调用后台方法失败:", error);
-        throw error;
     }
+
+    // 发请求
+    let resp
+    if (method === 'get' || method === 'delete') {
+        resp = await axios[method](url, {params: payload, ...config})
+    } else {
+        resp = await axios[method](url, payload, config)
+    }
+
+    if (isReturnAll) {
+        return resp
+    }
+
+    const respData = resp.data
+    // 只有 POST/PUT 且开启加密时才解密
+    if (needCrypto && (method === 'post' || method === 'put') && respData) {
+        const cipher = (typeof respData === 'object' && respData.data)
+            ? respData.data
+            : respData
+        return decrypt(cipher)
+    }
+    // 其它直接返回 data
+    return respData
 }
 
 //获取随机32码
@@ -155,55 +179,46 @@ export function pubFormatDate(dateStr) {
     return date.toLocaleString();
 }
 
-// 加密函数，支持任何类型的数据（如对象、数组等）
+/**
+ * AES 加密函数，支持字符串或对象，返回 Base64 编码字符串
+ * @param {string|object} data - 原始数据
+ * @returns {string} - 加密后 Base64 字符串
+ */
 export function encrypt(data) {
-    const key = CryptoJS.enc.Utf8.parse(crypCfg.key);
-    const iv = CryptoJS.enc.Utf8.parse(crypCfg.iv);
-    // 判断数据类型并转换为字节数组（Uint8Array 或 Base64 编码）
-    let srcs;
-    if (typeof data === 'object') {
-        // 如果是对象，先将对象转为 JSON 字符串
-        srcs = CryptoJS.enc.Utf8.parse(JSON.stringify(data));
-    } else if (typeof data === 'string') {
-        // 如果是字符串，直接转为字节数组
-        srcs = CryptoJS.enc.Utf8.parse(data);
-    } else if (data instanceof ArrayBuffer || Array.isArray(data)) {
-        // 如果是 ArrayBuffer 或 Array 类型，直接转为字节数组
-        srcs = CryptoJS.enc.u8array.parse(new Uint8Array(data));
-    } else {
-        throw new Error('Unsupported data type');
-    }
+    const key = CryptoJS.enc.Utf8.parse(crypCfg.key)
+    const iv = CryptoJS.enc.Utf8.parse(crypCfg.iv)
 
-    // 执行加密
-    let encrypted = CryptoJS.AES.encrypt(srcs, key, {
+    const plaintext =
+        typeof data === 'object' ? JSON.stringify(data) : String(data)
+
+    const encrypted = CryptoJS.AES.encrypt(plaintext, key, {
         iv: iv,
         mode: CryptoJS.mode.CBC,
-        padding: CryptoJS.pad.Pkcs7
-    });
-    // 返回加密后的密文，转为大写的十六进制
-    return encrypted.ciphertext.toString().toUpperCase();
+        padding: CryptoJS.pad.Pkcs7,
+    })
+
+    // 默认输出即为 Base64
+    return encrypted.toString()
 }
 
-// 解密函数，支持任何类型的数据（如对象、数组等）
+/**
+ * AES 解密函数，输入为 Base64 字符串，返回原始字符串或对象
+ * @param {string} cipherText - 加密后的 Base64 字符串
+ * @returns {string|object} - 解密后的字符串或对象
+ */
 export function decrypt(cipherText) {
-    const key = CryptoJS.enc.Utf8.parse(crypCfg.key);
-    const iv = CryptoJS.enc.Utf8.parse(crypCfg.iv);
-    // 将密文从 Base64 解码为字节数据
-    let encryptedHexStr = CryptoJS.enc.Hex.parse(cipherText);
-    let srcs = CryptoJS.enc.Base64.stringify(encryptedHexStr);
-    // 解密
-    let decrypt = CryptoJS.AES.decrypt(srcs, key, {
+    const key = CryptoJS.enc.Utf8.parse(crypCfg.key)
+    const iv = CryptoJS.enc.Utf8.parse(crypCfg.iv)
+
+    const decrypted = CryptoJS.AES.decrypt(cipherText, key, {
         iv: iv,
         mode: CryptoJS.mode.CBC,
-        padding: CryptoJS.pad.Pkcs7
-    });
-    // 获取解密后的数据
-    let decryptedStr = decrypt.toString(CryptoJS.enc.Utf8);
+        padding: CryptoJS.pad.Pkcs7,
+    })
+    const result = decrypted.toString(CryptoJS.enc.Utf8)
     try {
-        // 尝试解析为 JSON 对象
-        return JSON.parse(decryptedStr);
+        return JSON.parse(result)
     } catch (e) {
-        // 如果不是 JSON 对象，则直接返回解密后的字符串
-        return decryptedStr;
+        return result
     }
 }
