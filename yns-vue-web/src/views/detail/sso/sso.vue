@@ -31,7 +31,9 @@ const checkEditorFiles = async () => {
   ElMessage.success('正在验证编辑器文件...请等待');
   let result = await sendAxiosRequest("/blog-api/file/consistencyFileCheck", {type: "editorImage"});
   if (result && !result.isError) {
-    ElMessage.success("核对成功:已经删除的文件" + result.result);
+    ElMessage.success(`核对成功:删除文件总数:${result.result.length},文件名:${result.result}`);
+  }else{
+    ElMessage.error(result.errMsg);
   }
 };
 
@@ -39,7 +41,9 @@ const checkResourceFiles = async () => {
   ElMessage.success('正在验证资源文件...');
   let result = await sendAxiosRequest("/blog-api/file/consistencyFileCheck", {type: "resourcesFile"});
   if (result && !result.isError) {
-    ElMessage.success("核对成功:已经删除的文件" + result.result);
+    ElMessage.success(`核对成功:删除文件总数:${result.result.length},文件名:${result.result}`);
+  }else{
+    ElMessage.error(result.errMsg);
   }
 };
 
@@ -47,7 +51,9 @@ const checkAvatarFiles = async () => {
   ElMessage.success('正在验证用户头像文件...');
   let result = await sendAxiosRequest("/blog-api/file/consistencyFileCheck", {type: "userAvatar"});
   if (result && !result.isError) {
-    ElMessage.success("核对成功:已经删除的文件" + result.result);
+    ElMessage.success(`核对成功:删除文件总数:${result.result.length},文件名:${result.result}`);
+  }else{
+    ElMessage.error(result.errMsg);
   }
 };
 </script>
