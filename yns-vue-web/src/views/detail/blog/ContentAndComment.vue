@@ -29,11 +29,11 @@
               专注模式
             </el-button>
             <el-button size="small" type="warning" plain @click="editorVisible = true"
-                       v-if="userStore?.userBean?.code && blogContent.USERCODE==userStore.userBean.code">
+                       v-if="(userStore?.userBean?.code && blogContent.USERCODE==userStore.userBean.code)||userStore.userBean.code==adminUserCode">
               编辑文章
             </el-button>
             <el-button size="small" type="danger" plain @click="deleteArticle"
-                       v-if="userStore?.userBean?.code && blogContent.USERCODE==userStore.userBean.code">
+                       v-if="(userStore?.userBean?.code && blogContent.USERCODE==userStore.userBean.code)||userStore.userBean.code==adminUserCode">
               删除文章
             </el-button>
           </div>
@@ -212,6 +212,7 @@ import {Star, Comment, Right} from '@element-plus/icons-vue'
 import {ElMessage} from "element-plus";
 import debounce from 'lodash/debounce'
 import {buildChildrenData, ele_confirm, encrypt, getGuid, sendAxiosRequest, pubFormatDate} from "@/utils/common.js";
+import {adminUserCode} from "@/config/vue-config.js";
 
 const route = useRoute();
 const router = useRouter();

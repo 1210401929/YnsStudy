@@ -36,19 +36,22 @@ public class SqlController {
 
     @RequestMapping("/deleteBySql")
     @ResponseBody
-    public ResultBody deleteBySql(String sql) {
+    public ResultBody deleteBySql(@RequestBody Map<String, Object> params) {
+        String sql = (String) params.get("sql");
         return sqlService.deleteBySql(sql);
     }
 
     @RequestMapping("/updateBySql")
     @ResponseBody
-    public ResultBody updateBySql(String sql) {
+    public ResultBody updateBySql(@RequestBody Map<String, Object> params) {
+        String sql = (String) params.get("sql");
         return sqlService.updateBySql(sql);
     }
 
     @RequestMapping("/exeSql")
     @ResponseBody
-    public ResultBody exeSql(String sql) {
+    public ResultBody exeSql(@RequestBody Map<String, Object> params) {
+        String sql = (String) params.get("sql");
         return sqlService.exeSql(sql);
     }
 

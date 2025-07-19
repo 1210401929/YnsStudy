@@ -9,8 +9,8 @@ import java.util.Base64;
 public final class AesUtil {
 
     // 16 字节 key 和 IV，必须与前端保持一致（UTF-8 编码）
-    private static final String KEY_STR = "1234567890123456";
-    private static final String IV_STR  = "6543210987654321";
+    private static final String KEY_STR = "7546455674406856";
+    private static final String IV_STR  = "7513956994549178";
 
     private static final SecretKeySpec KEY =
             new SecretKeySpec(KEY_STR.getBytes(StandardCharsets.UTF_8), "AES");

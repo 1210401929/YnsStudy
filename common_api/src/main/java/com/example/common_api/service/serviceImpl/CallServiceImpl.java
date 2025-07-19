@@ -14,6 +14,7 @@ import javax.servlet.http.HttpServletRequest;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.Enumeration;
+import java.util.HashMap;
 import java.util.Map;
 
 //公共请求网关   统一走这里
@@ -27,22 +28,28 @@ public class CallServiceImpl implements CallService {
 
     @Override
     public ResultBody callFunNoParams(String url) {
-        url = pubApiUrl + url;
+        if(url.indexOf(pubApiUrl)==-1){
+            url = pubApiUrl + url;
+        }
         System.out.println("发送网关,地址:" + url);
         return restTemplate.getForObject(url, ResultBody.class);
     }
 
     @Override
     public ResultBody callFunOneParams(String url, String paramsName, String paramsValue) {
-        url = pubApiUrl + url;
-        String urlWithParams = url + "?" + paramsName + "=" + paramsValue;
-        System.out.println("发送网关,地址:" + urlWithParams);
-        return restTemplate.getForObject(urlWithParams, ResultBody.class);
+        if(url.indexOf(pubApiUrl)==-1){
+            url = pubApiUrl + url;
+        }
+        Map<String,Object> params = new HashMap<>();
+        params.put(paramsName,paramsValue);
+        return callFunWithParams(url,params);
     }
 
     @Override
     public ResultBody callFunWithParams(String url, Map<String, Object> params) {
-        url = pubApiUrl + url;
+        if(url.indexOf(pubApiUrl)==-1){
+            url = pubApiUrl + url;
+        }
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);  // 设置请求头为 JSON 类型
 

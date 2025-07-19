@@ -35,7 +35,7 @@ import {ref, nextTick} from 'vue';
 import {useUserStore} from "@/stores/main/user.js";
 
 const userStore = useUserStore();
-debugger;
+
 const emits = defineEmits(['closeChat'])
 const props = defineProps({
   title: String

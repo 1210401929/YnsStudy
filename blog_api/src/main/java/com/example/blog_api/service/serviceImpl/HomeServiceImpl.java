@@ -36,7 +36,7 @@ public class HomeServiceImpl implements HomeService {
         //根据blogInfo(文章)表  blogComment(评论)表 计算出前三名优质作者
         String sql = "SELECT \n" +
                 "    u.USERCODE,\n" +
-                "    COALESCE(b.username, info.name) AS USERNAME,\n" +
+                "    COALESCE(info.NAME, '') AS USERNAME,\n" +
                 "    COALESCE(b.article_count, 0) AS ARTICLE_COUNT,\n" +
                 "    COALESCE(follow.follower_count, 0) AS FOLLOWER_COUNT,\n" +
                 "    COALESCE(info.AVATAR, '') AS AVATAR,\n" +
@@ -49,9 +49,9 @@ public class HomeServiceImpl implements HomeService {
                 "    SELECT followusercode AS usercode FROM userFollow\n" +
                 ") u\n" +
                 "LEFT JOIN (\n" +
-                "    SELECT usercode, username, COUNT(*) AS article_count\n" +
+                "    SELECT usercode , COUNT(*) AS article_count\n" +
                 "    FROM blogInfo\n" +
-                "    GROUP BY usercode, username\n" +
+                "    GROUP BY usercode\n" +
                 ") b ON u.usercode = b.usercode\n" +
                 "LEFT JOIN (\n" +
                 "    SELECT followusercode, COUNT(*) AS follower_count\n" +
@@ -67,6 +67,7 @@ public class HomeServiceImpl implements HomeService {
         ResultBody result = callService.callFunWithParams(FunToUrlUtil.selectListUrl, params);
         return result;
     }
+
     //获取热门下载内容
     private ResultBody getHotFileData() {
         String sql = "select * from fileinfo order by DOWNNUM DESC limit 5";

@@ -26,17 +26,24 @@ public class AesCryptoFilter implements GlobalFilter, Ordered {
     private static final String FIELD = "cipherText";
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
+    /** 判断是否为 multipart/form-data 上传请求 */
+    private boolean isMultipart(ServerWebExchange exchange) {
+        MediaType ct = exchange.getRequest().getHeaders().getContentType();
+        return ct != null && "multipart".equalsIgnoreCase(ct.getType());
+    }
+
     @Override
     public Mono<Void> filter(ServerWebExchange exchange,
                              org.springframework.cloud.gateway.filter.GatewayFilterChain chain) {
 
         String path = exchange.getRequest().getURI().getPath();
 
-        // ✅ 如果是上传图片或静态资源，则直接跳过加密解密逻辑
-        if (path.startsWith("/uploadFile/")) {
+        // 图片资源或 multipart 上传文件全部跳过加密/解密
+        if (path.startsWith("/uploadFile/") || isMultipart(exchange)) {
             return chain.filter(exchange);
         }
 
+        // 其余请求才进入加解密流程
         return DataBufferUtils.join(exchange.getRequest().getBody())
                 .flatMap(buf -> {
                     byte[] originalBytes = new byte[buf.readableByteCount()];
@@ -83,8 +90,11 @@ public class AesCryptoFilter implements GlobalFilter, Ordered {
                 });
     }
 
+    /** 用新的 body 包装请求，同时尽量保留原始 Content-Type */
     private ServerHttpRequestDecorator wrapRequest(ServerWebExchange exchange, byte[] bytes) {
         DataBufferFactory factory = exchange.getResponse().bufferFactory();
+        MediaType originalCt = exchange.getRequest().getHeaders().getContentType();
+
         return new ServerHttpRequestDecorator(exchange.getRequest()) {
             @Override
             public Flux<DataBuffer> getBody() {
@@ -95,13 +105,18 @@ public class AesCryptoFilter implements GlobalFilter, Ordered {
             public HttpHeaders getHeaders() {
                 HttpHeaders h = new HttpHeaders();
                 h.putAll(super.getHeaders());
-                h.setContentType(MediaType.APPLICATION_JSON);
+
+                // 仅当原本是 JSON 或者没有 Content-Type 时才设置为 JSON
+                if (originalCt == null || MediaType.APPLICATION_JSON.isCompatibleWith(originalCt)) {
+                    h.setContentType(MediaType.APPLICATION_JSON);
+                }
                 h.setContentLength(bytes.length);
                 return h;
             }
         };
     }
 
+    /** 将响应内容 AES 加密后返回 */
     private ServerHttpResponseDecorator wrapResponseForEncrypt(ServerWebExchange exchange) {
         return new ServerHttpResponseDecorator(exchange.getResponse()) {
             @Override

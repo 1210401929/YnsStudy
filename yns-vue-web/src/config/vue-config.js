@@ -6,8 +6,8 @@ export const produceDevIpPort = '/api';
 export const isSendCrypto = true;
 //加密key和iv  随意配置,用于数据加密(如果用户前后端数据加密,必须保证值一样)
 export const crypCfg = {
-    key:"1234567890123456",
-    iv:"6543210987654321"
+    key:"7546455674406856",
+    iv:"7513956994549178"
 }
 //网站管理员
 export const adminUserCode = "yulei";

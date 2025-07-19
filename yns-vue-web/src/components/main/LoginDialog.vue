@@ -19,6 +19,7 @@
           <template #dropdown>
             <el-dropdown-menu>
               <el-dropdown-item command="profile">个人中心</el-dropdown-item>
+              <el-dropdown-item v-if="userStore.userBean.code==adminUserCode" command="sso">后台管理</el-dropdown-item>
               <el-dropdown-item command="logout">退出登录</el-dropdown-item>
             </el-dropdown-menu>
           </template>
@@ -178,6 +179,7 @@ import {sendAxiosRequest} from '@/utils/common.js';
 import {useUserStore} from '@/stores/main/user.js';
 import {useBlogContentStore} from "@/stores/detail/blog.js";
 import {User} from '@element-plus/icons-vue';
+import {adminUserCode} from "@/config/vue-config.js";
 
 const router = useRouter();
 
@@ -297,6 +299,10 @@ const handleCommand = async (command) => {
   if (command === 'profile') {
     const routeUrl = router.resolve({name: 'personalCenter', query: {id: userStore.userBean.code}}).href;
     window.open(routeUrl, userStore.userBean.code);
+    //后台管理
+  }else if(command === 'sso'){
+    const routeUrl = router.resolve({name: 'sso'}).href;
+    window.open(routeUrl, "sso");
     //退出登录
   } else if (command === 'logout') {
     await userStore.clearUser();

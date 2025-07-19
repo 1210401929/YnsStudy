@@ -10,7 +10,7 @@
       <div style="text-align: center;">
         🎉 欢迎来到 YNS 社区！新用户请阅读
         <a
-            href="http://ynsstudy.cn/oneBlog?g=F4D23BEE65D1432196379195FF8F1EC0&u=7E5B0BB01BBEB7CF4C8A528794A99698&n=%E7%A4%BE%E5%8C%BA%E6%8C%87%E5%8D%97"
+            href="http://ynsstudy.cn/oneBlog?g=F4D23BEE65D1432196379195FF8F1EC0&u=fUCXsV6gN7lBb7Z/Tna/mw==&n=%E7%A4%BE%E5%8C%BA%E6%8C%87%E5%8D%97"
             target="_blank"
             style="color: #409EFF; text-decoration: underline; margin-left: 4px;"
         >《社区指南》</a> ~
@@ -167,20 +167,18 @@
         </el-tag>
       </el-card>
     </div>
-
     <!-- 悬浮按钮：搜索用户 -->
     <div class="search-float-btn" @click="searchUserDialogVisible = true">
       🔍
     </div>
-
     <!-- 悬浮按钮：聊天 -->
     <div class="chat-float-btn" @click="chatVisible = !chatVisible">
       💬
     </div>
     <!-- 聊天窗口 -->
-    <Chat v-if="chatVisible" title="社区聊天" @closeChat="closeChat" />
+    <Chat v-if="chatVisible" title="社区聊天" @closeChat="closeChat"/>
     <!-- 搜索用户对话框 -->
-    <el-dialog title="搜索用户" v-model="searchUserDialogVisible" width="400px" :before-close="handleClose">
+    <el-dialog title="搜索用户" v-model="searchUserDialogVisible" width="400px">
       <el-input
           v-model="searchUserInput"
           placeholder="输入用户名"
@@ -214,11 +212,11 @@
 </template>
 
 <script setup>
-import {ref, computed, nextTick, onMounted, onBeforeUnmount} from 'vue';
+import {ref, computed, onMounted} from 'vue';
 import Chat from "@/components/detail/Chat.vue";
 import {ElMessage} from "element-plus";
-import {ChatDotSquare, Delete, Star} from '@element-plus/icons-vue'
-import {encrypt, sendAxiosRequest, pubFormatDate, getGuid, buildChildrenData, ele_confirm} from "@/utils/common.js";
+import {ChatDotSquare, Delete, Star, Close} from '@element-plus/icons-vue'
+import {encrypt, sendAxiosRequest, pubFormatDate, getGuid, buildChildrenData, ele_confirm,loadScript} from "@/utils/common.js";
 import {useUserStore} from "@/stores/main/user.js";
 import {adminUserCode} from "@/config/vue-config.js";
 import {useRouter} from "vue-router";
@@ -240,6 +238,7 @@ const displayedPosts = computed(() => allPosts.value);
 
 onMounted(() => {
   fetchArticles(); // 只加载第一页
+  //loadAiFun();//加载Ai按钮
 });
 
 // 提交帖子
@@ -403,7 +402,7 @@ function avatarClick(community) {
   window.open(routeUrl, community.USERCODE);
 }
 
-function userInfoCLick(userInfo){
+function userInfoCLick(userInfo) {
   const routeUrl = router.resolve({name: 'personInfomation', query: {c: encrypt(userInfo.CODE)}}).href;
   window.open(routeUrl, userInfo.CODE);
 }
@@ -445,6 +444,21 @@ async function searchUser() {
 }
 
 const badges = ref(['原始股']);
+
+const loadAiFun = async () => {
+  // 动态加载 SDK 脚本
+  const sdkUrl = "https://agi-dev-platform-web.bj.bcebos.com/ai_apaas/embed/output/embedLiteSDK.js?responseExpires=0";
+  if (!window.EmbedLiteSDK) {
+    await loadScript(sdkUrl);
+  }
+  const appId = "f85ab2ae-b66c-4b7b-98e0-7241ed296953";
+  const code = "embedgbotWcUfzUsuj4CQw9Wj";
+  new window.EmbedLiteSDK({
+    appId,
+    code,
+  });
+}
+
 </script>
 
 <style scoped>
@@ -593,6 +607,7 @@ const badges = ref(['原始股']);
   color: #888;
 }
 
+.ai-float-btn,
 .search-float-btn,
 .chat-float-btn {
   position: fixed;
@@ -605,6 +620,11 @@ const badges = ref(['原始股']);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
   cursor: pointer;
   z-index: 1000;
+}
+
+.ai-float-btn {
+  background: #1e1d1d;
+  bottom: 150px;
 }
 
 .search-float-btn {
@@ -681,8 +701,8 @@ const badges = ref(['原始股']);
 .user-card-content {
   display: flex;
   align-items: center;
-  gap: 15px;            /* 增加头像与用户名之间的间距 */
-  flex-wrap: wrap;       /* 允许内容换行 */
+  gap: 15px; /* 增加头像与用户名之间的间距 */
+  flex-wrap: wrap; /* 允许内容换行 */
   width: 100%;
 }
 
@@ -690,24 +710,24 @@ const badges = ref(['原始股']);
   font-size: 16px;
   font-weight: bold;
   color: #333;
-  max-width: 5em;        /* 限制最大宽度为5个字符 */
-  white-space: nowrap;   /* 禁止换行 */
-  overflow: hidden;      /* 隐藏超出部分 */
+  max-width: 5em; /* 限制最大宽度为5个字符 */
+  white-space: nowrap; /* 禁止换行 */
+  overflow: hidden; /* 隐藏超出部分 */
   text-overflow: ellipsis; /* 显示省略号 */
-  flex-shrink: 0;        /* 防止用户名被压缩 */
+  flex-shrink: 0; /* 防止用户名被压缩 */
 }
 
 .user-remark {
   font-size: 13px;
   color: #888;
   margin-top: 4px;
-  white-space: nowrap;   /* 禁止换行 */
-  overflow: hidden;      /* 隐藏超出部分 */
+  white-space: nowrap; /* 禁止换行 */
+  overflow: hidden; /* 隐藏超出部分 */
   text-overflow: ellipsis; /* 显示省略号 */
-  flex-shrink: 1;        /* 允许个性签名压缩 */
+  flex-shrink: 1; /* 允许个性签名压缩 */
 }
 
-.author-avatar-search{
+.author-avatar-search {
   width: 40px !important;
   height: 40px !important;
   border-radius: 50%;

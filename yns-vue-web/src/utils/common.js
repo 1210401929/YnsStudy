@@ -13,15 +13,18 @@ import {produceDevIpPort, crypCfg, isSendCrypto} from "@/config/vue-config.js";
  *  pubFormatDate           格式化日期字符串
  *  encrypt                 加密字符串
  *  decrypt                 解密字符串
+ *  loadScript              动态加载外部脚本
+ *  isProbablyCipher        判断字符串是否“看起来像” Base64 密文
  */
 
 /**
- * 统一请求方法（纯 JS）
- * @param url         接口地址
- * @param data        请求参数或 body
- * @param method      'get' | 'post' | 'put' | 'delete'
- * @param needCrypto  是否走加/解密，默认用全局 isSendCrypto
- * @param isReturnAll 是否返回完整响应对象
+ * 统一发送 Axios 请求，支持可选加密 / 解密
+ *
+ * @param {string}  url           请求地址
+ * @param {Object}  data          请求数据 (默认 {})
+ * @param {string}  method        HTTP 方法 (默认 'post')
+ * @param {boolean} needCrypto    是否对请求 & 响应做加密 (默认全局 isSendCrypto)
+ * @param {boolean} isReturnAll   是否返回整个 Axios 响应对象 (默认 false)
  */
 export const sendAxiosRequest = async function (
     url,
@@ -36,24 +39,27 @@ export const sendAxiosRequest = async function (
         : produceDevIpPort + url
 
     method = method.toLowerCase()
-    const config = {withCredentials: true}
+
+    const config = { withCredentials: true }
     const isForm = typeof FormData !== 'undefined' && data instanceof FormData
 
-    // 构造 payload
+    /* ---------- 构造 payload ---------- */
     let payload
     if (needCrypto && !isForm && (method === 'post' || method === 'put')) {
-        payload = {cipherText: encrypt(data)}
+        // 普通 JSON 请求且需要加密
+        payload = { cipherText: encrypt(data) }
     } else {
+        // GET / DELETE / multipart / 不需要加密 —— 原样发送
         payload = data
         if (isForm && (method === 'post' || method === 'put')) {
-            config.headers = {'Content-Type': 'multipart/form-data'}
+            config.headers = { 'Content-Type': 'multipart/form-data' }
         }
     }
 
-    // 发请求
+    /* ---------- 发请求 ---------- */
     let resp
     if (method === 'get' || method === 'delete') {
-        resp = await axios[method](url, {params: payload, ...config})
+        resp = await axios[method](url, { params: payload, ...config })
     } else {
         resp = await axios[method](url, payload, config)
     }
@@ -62,15 +68,27 @@ export const sendAxiosRequest = async function (
         return resp
     }
 
+    /* ---------- 处理响应 ---------- */
     const respData = resp.data
-    // 只有 POST/PUT 且开启加密时才解密
+
+    // 仅当 needCrypto=true 并且响应看上去是密文才尝试解密
     if (needCrypto && (method === 'post' || method === 'put') && respData) {
-        const cipher = (typeof respData === 'object' && respData.data)
-            ? respData.data
-            : respData
-        return decrypt(cipher)
+        // 兼容后端 {"data": "..."} 或直接返回字符串
+        const cipherCandidate =
+            typeof respData === 'object' && respData !== null && 'data' in respData
+                ? respData.data
+                : respData
+
+        if (isProbablyCipher(cipherCandidate)) {
+            try {
+                return decrypt(cipherCandidate)
+            } catch (e) {
+                // 解密失败说明并非我们的密文，直接返回原数据
+                console.warn('Decrypt failed, return raw response:', e)
+            }
+        }
     }
-    // 其它直接返回 data
+    // 走到这里说明不需要解密 / 不是密文 / 解密失败
     return respData
 }
 
@@ -221,4 +239,31 @@ export function decrypt(cipherText) {
     } catch (e) {
         return result
     }
+}
+
+// 动态加载外部脚本
+export function loadScript(src) {
+    return new Promise((resolve, reject) => {
+        const script = document.createElement("script");
+        script.src = src;
+        script.async = true;
+        script.onload = resolve;
+        script.onerror = reject;
+        document.head.appendChild(script);
+    });
+}
+
+/**
+ * 判断字符串是否“看起来像” Base64 密文
+ * 条件：
+ *   1. 仅包含 A-Z / a-z / 0-9 / + / /
+ *   2. 末尾可选 1‒2 个 =
+ *   3. 长度是 4 的倍数
+ *   4. 字符数不少于 24（≈16 字节），避免把普通字段误判成密文
+ */
+function isProbablyCipher(str) {
+    return typeof str === 'string'
+        && /^[A-Za-z0-9+/]+={0,2}$/.test(str)
+        && (str.length % 4 === 0)
+        && str.length >= 24
 }

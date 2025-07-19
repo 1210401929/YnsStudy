@@ -78,7 +78,7 @@
             center
             style="margin-bottom: 10px;"
         />
-`
+
         <div class="scroll-panel">
           <el-row :gutter="12">
             <el-col
@@ -292,6 +292,7 @@ const filteredOtherFiles = computed(() =>
   font-size: 15px;
   font-weight: 600;
   color: #303133;
+  word-break: break-all;
 }
 
 .file-meta {
@@ -301,6 +302,7 @@ const filteredOtherFiles = computed(() =>
   font-size: 13px;
   color: #606266;
   margin-top: 4px;
+  word-break: break-all;
 }
 
 .meta-item {
@@ -343,4 +345,49 @@ const filteredOtherFiles = computed(() =>
   max-height: calc(100vh - 180px);
   padding-right: 4px;
 }
+@media (max-width: 768px) {
+  /* 主体区域垂直排列 */
+  .el-main {
+    flex-direction: column !important;
+  }
+
+  /* 两个主区域宽度设为 100% */
+  .el-main > div {
+    width: 100% !important;
+    flex: none !important;
+  }
+
+  /* 卡片布局调整 */
+  .file-card {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 12px 14px;
+  }
+
+  .card-actions {
+    margin-top: 10px;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .scroll-panel {
+    max-height: none;
+    height: auto;
+    padding-right: 0;
+  }
+
+  .el-upload {
+    width: 100%;
+  }
+
+  .el-card {
+    width: 100%;
+  }
+
+  .el-input {
+    width: 100%;
+  }
+}
+
 </style>
