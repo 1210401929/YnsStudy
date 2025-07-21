@@ -95,7 +95,7 @@
           加载更多
         </el-button>
         <div v-if="loading" class="loading-text">加载中...</div>
-        <div v-if="noMore" class="end-text">没有更多文章了</div>
+        <div v-if="noMore" class="end-text">没有更多内容了</div>
       </el-card>
 
       <!-- 上传的文件 -->
