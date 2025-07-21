@@ -43,7 +43,15 @@ public class UserInformationController {
         String userCode = params.get("userCode");
         return userInformationService.getBlogAndResourceByUserCode(userCode);
     }
-
+    @RequestMapping("/getBlogAndCommunityByUserCode")
+    @ResponseBody
+    public ResultBody getBlogAndCommunityByUserCode(@RequestBody Map<String,Object> params){
+        String userCode = (String) params.get("userCode");
+        int page = (int)params.get("page");
+        int pageSize = (int)params.get("pageSize");
+        String keyword = (String) params.get("keyword");
+        return userInformationService.getBlogAndCommunityByUserCode(userCode,page,pageSize,keyword);
+    }
     @RequestMapping("/getResourceByUserCode")
     @ResponseBody
     public ResultBody getResourceByUserCode(@RequestBody Map<String,String> params){

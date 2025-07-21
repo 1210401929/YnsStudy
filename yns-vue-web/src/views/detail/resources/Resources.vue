@@ -179,12 +179,19 @@ const setFileDataByRouterPms = () => {
 
 //上传文件前校验
 const beforeUploadCheck = (file)=>{
+  let isSuccess = true;
   const maxSizeMB = 50;
+  //校验文件是否超出大小
   const isLtMaxSize = file.size / 1024 / 1024 < maxSizeMB;
   if (!isLtMaxSize) {
     ElMessage.error(`上传文件不能超过 ${maxSizeMB}MB`);
+    isSuccess = false;
   }
-  return isLtMaxSize;
+
+  if(isSuccess){
+    ElMessage.success(`上传文件需要时间,请耐心等待!`);
+  }
+  return isSuccess;
 }
 
 //上传成功后
@@ -228,6 +235,7 @@ const handleUploadSuccess = (res, file) => {
 // 下载文件
 const downloadFile = (file) => {
   file.DOWNNUM++;
+  ElMessage.success(`下载文件需要时间,请耐心等待!`);
   downloadFileByUrl(file.FILEVIEWURL, file.ORIGINALFILENAME)
   //存储下载次数
   sendAxiosRequest("/blog-api/resource/setFileDownNum", {guid: file.GUID});
@@ -242,8 +250,10 @@ const deleteFile = (file) => {
 }
 
 const copyFileUrl = (file) => {
+  // 获取当前页面的域名部分（包括协议和域名）
+  const domain = window.location.origin;
   const input = document.createElement('input');
-  input.value = file.FILEVIEWURL;
+  input.value = domain+file.FILEVIEWURL;
   document.body.appendChild(input);
   input.select();
   try {

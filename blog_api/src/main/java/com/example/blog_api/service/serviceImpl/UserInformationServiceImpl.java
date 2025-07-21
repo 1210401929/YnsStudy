@@ -103,6 +103,76 @@ public class UserInformationServiceImpl implements UserInformationService {
         return ResultBody.createSuccessResult(data);
     }
 
+    @Override
+    public ResultBody getBlogAndCommunityByUserCode(String userCode, int page, int pageSize, String keyWord) {
+        int offset = (page - 1) * pageSize;
+
+        // 1. 构建查询 SQL 和参数
+        String sql = "SELECT GUID, BLOG_TITLE, MAINTEXT, USERCODE, USERNAME, CREATE_TIME, 'blog' AS TYPE " +
+                "FROM bloginfo WHERE USERCODE = ? AND (BLOG_TITLE LIKE ? OR MAINTEXT LIKE ?) " +
+                "UNION ALL " +
+                "SELECT GUID, TITLE AS BLOG_TITLE, TEXT AS MAINTEXT, USERCODE, USERNAME, CREATE_TIME, 'community' AS TYPE " +
+                "FROM communityinfo WHERE USERCODE = ? AND (TITLE LIKE ? OR TEXT LIKE ?) " +
+                "ORDER BY CREATE_TIME DESC LIMIT ? OFFSET ?";
+
+        List<Object> params = new ArrayList<>();
+        params.add(userCode);      // USERCODE for blog
+        params.add("%" + keyWord + "%");  // LIKE keyword for blog title
+        params.add("%" + keyWord + "%");  // LIKE keyword for blog content
+        params.add(userCode);      // USERCODE for community
+        params.add("%" + keyWord + "%");  // LIKE keyword for community title
+        params.add("%" + keyWord + "%");  // LIKE keyword for community content
+        params.add(pageSize);      // LIMIT
+        params.add(offset);        // OFFSET
+
+        // 2. 构建总数查询 SQL 和参数
+        String countSql = "SELECT COUNT(*) AS total FROM ( " +
+                "SELECT 1 FROM bloginfo WHERE USERCODE = ? AND (BLOG_TITLE LIKE ? OR MAINTEXT LIKE ?) " +
+                "UNION ALL " +
+                "SELECT 1 FROM communityinfo WHERE USERCODE = ? AND (TITLE LIKE ? OR TEXT LIKE ?) " +
+                ") AS combined";
+
+        List<Object> countParams = new ArrayList<>();
+        countParams.add(userCode);  // USERCODE for blog
+        countParams.add("%" + keyWord + "%");  // LIKE keyword for blog title
+        countParams.add("%" + keyWord + "%");  // LIKE keyword for blog content
+        countParams.add(userCode);  // USERCODE for community
+        countParams.add("%" + keyWord + "%");  // LIKE keyword for community title
+        countParams.add("%" + keyWord + "%");  // LIKE keyword for community content
+
+        // 3. 查询数据列表
+        Map<String, Object> paramsMap = new HashMap<>();
+        paramsMap.put("sql", sql);
+        paramsMap.put("params", params);
+        ResultBody listResult = callService.callFunWithParams(FunToUrlUtil.selectListByParamsUrl, paramsMap);
+        if (listResult == null || listResult.isError) {
+            return listResult;
+        }
+
+        // 4. 查询总数
+        Map<String, Object> countParamsMap = new HashMap<>();
+        countParamsMap.put("sql", countSql);
+        countParamsMap.put("params", countParams);
+        ResultBody countResult = callService.callFunWithParams(FunToUrlUtil.selectListByParamsUrl, countParamsMap);
+        if (countResult == null || countResult.isError) {
+            return countResult;
+        }
+
+        // 5. 获取总数
+        int total = 0;
+        List<Map<String, Object>> countData = (List<Map<String, Object>>) countResult.result;
+        if (!countData.isEmpty() && countData.get(0).get("total") != null) {
+            total = Integer.parseInt(countData.get(0).get("total").toString());
+        }
+
+        // 6. 组装分页结果
+        Map<String, Object> result = new HashMap<>();
+        result.put("total", total);
+        result.put("data", listResult.result);
+
+        return ResultBody.createSuccessResult(result);
+    }
+
 
 
     @Override

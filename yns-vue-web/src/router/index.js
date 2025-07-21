@@ -14,7 +14,7 @@ import ContentAndComment from "@/views/detail/blog/ContentAndComment.vue";
 import personalCenter from "@/views/main/user/personalCenter.vue";
 import personInfomation from "@/views/main/user/personInformation.vue";
 
-import sso from "@/views/detail/sso/sso.vue";
+import sso from "@/views/main/sso/sso.vue";
 import LoveStory from "@/views/detail/love/LoveStory.vue";
 
 const routes = [

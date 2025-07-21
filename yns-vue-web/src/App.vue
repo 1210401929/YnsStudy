@@ -27,8 +27,53 @@
         </div>
       </div>
     </footer>
+
+    <!-- 回到顶部按钮 -->
+    <div class="scroll-to-top" :class="{ hidden: !showScrollButton }" @click="scrollToTop" @mouseenter="hover = true" @mouseleave="hover = false">
+      <el-icon><Top/></el-icon>
+    </div>
   </div>
 </template>
+
+
+
+
+<script setup>
+import { ref, onMounted, onUnmounted } from 'vue';
+import { Top } from "@element-plus/icons-vue"; // 引入 Top 图标
+
+const showScrollButton = ref(false);
+const hover = ref(false); // 用于控制鼠标移入移出时的透明度变化
+
+// 判断是否显示回到顶部按钮
+const handleScroll = () => {
+  const scrollY = window.scrollY;  // 获取页面滚动的垂直距离
+
+  // 当页面滚动超过300px时，显示回到顶部按钮
+  if (scrollY > 300) {
+    showScrollButton.value = true;
+  } else {
+    showScrollButton.value = false;
+  }
+};
+
+// 回到顶部函数
+const scrollToTop = () => {
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+};
+
+// 监听滚动事件
+onMounted(() => {
+  window.addEventListener('scroll', handleScroll);
+});
+
+onUnmounted(() => {
+  window.removeEventListener('scroll', handleScroll);
+});
+</script>
+
+
+
 
 <style scoped>
 html, body {
@@ -67,7 +112,6 @@ html, body {
   gap: 12px;
   text-align: center;
 }
-
 
 /* 联系方式 */
 .footer-contact p {
@@ -112,6 +156,67 @@ html, body {
   color: #aaa;
   margin-top: 8px;
 }
+
+/* 回到顶部按钮 */
+.scroll-to-top {
+  position: fixed;
+  left: 20px;
+  bottom: 20px;
+  width: 30px; /* 设置按钮宽度 */
+  height: 80px; /* 设置按钮高度，使其纵向 */
+  background-color: rgba(64, 158, 255, 0.4); /* 半透明 */
+  color: #fff;
+  border-radius: 20px; /* 圆柱形 */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+  opacity: 0.4; /* 初始透明度 */
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  z-index: 999;
+  font-size: 14px;
+}
+
+.scroll-to-top .el-icon {
+  font-size: 24px; /* 设置图标的大小 */
+}
+
+.scroll-to-top:hover {
+  opacity: 1; /* 鼠标悬停时完全显示 */
+  transform: translateY(-5px); /* 轻微上升 */
+}
+
+.scroll-to-top .scroll-text {
+  display: inline-block;
+  transition: opacity 0.3s ease;
+}
+
+.scroll-to-top.hidden {
+  display: none;
+}
+
+.scroll-to-top .scroll-text {
+  opacity: 0; /* 初始文本不可见 */
+}
+
+.scroll-to-top:hover .scroll-text {
+  opacity: 1; /* 鼠标悬停时显示文本 */
+}
+
+/* 手机端样式 */
+@media (max-width: 768px) {
+  .scroll-to-top {
+    width: 35px;
+    height: 100px;
+  }
+
+  .scroll-to-top .el-icon {
+    font-size: 18px;
+  }
+}
 </style>
-<script setup>
-</script>
+
+
+
+

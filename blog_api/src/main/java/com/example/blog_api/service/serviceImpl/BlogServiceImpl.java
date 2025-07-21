@@ -43,7 +43,7 @@ public class BlogServiceImpl implements BlogService {
             return ResultBody.createErrorResult("用户未登录!");
         } else {
             String userCode = userBean.getCODE();
-            String sql = "select * from blogInfo " +
+            String sql = "select GUID,BLOG_TITLE,BLOG_TYPE,USERCODE,USERNAME,VIEW_PAGE,CREATE_TIME from blogInfo " +
                     "where userCode = '" + userCode + "' " +
                     "order by (case BLOG_TYPE when 'public' then 0 when 'privacy' then 1 else 2 end), create_time DESC";
             Map<String, Object> params_ = new HashMap<>();
@@ -182,6 +182,7 @@ public class BlogServiceImpl implements BlogService {
                     removedUrls.add(url);
                 }
             }
+            System.out.println("修改文章内容=>需要删除的图片:"+removedUrls);
             Map<String, Object> params = new HashMap<>();
             params.put("urls", removedUrls);
             //发送网关请求,删除图片

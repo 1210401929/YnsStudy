@@ -14,6 +14,7 @@ public interface UserInformationService {
     ResultBody getFollowUser(String userCode);
 
     ResultBody getBlogAndResourceByUserCode(String userCode);
+    ResultBody getBlogAndCommunityByUserCode(String userCode, int page, int pageSize, String keyWord);
     ResultBody getCommunityByUserCode(String userCode);
     ResultBody getResourceByUserCode(String userCode);
 

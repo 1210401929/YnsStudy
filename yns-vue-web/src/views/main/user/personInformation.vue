@@ -69,27 +69,33 @@
               style="margin-left: auto;"
           />
         </div>
-        <el-empty v-if="filteredBlogs.length === 0" description="暂无发表内容"/>
-        <el-timeline v-else>
+        <el-timeline v-if="showBlogs.length>0">
           <el-timeline-item
-              v-for="(blog, index) in displayedBlogs"
+              v-for="(blog, index) in showBlogs"
               :key="blog.GUID"
-              :timestamp="(!blog.TEXT ? '发表文章：' : '社区发起：') + formatDate(blog.CREATE_TIME)"
+              :timestamp="(blog.TYPE=='blog' ? '发表文章：' : '社区发起：') + formatDate(blog.CREATE_TIME)"
               placement="top"
               type="primary"
           >
             <el-card shadow="hover" class="blog-card" @click="blogMainClick(blog)">
               <h4>{{ blog.BLOG_TITLE }}</h4>
-              <p class="blog-summary" v-html="blog.MAINTEXT || blog.TEXT"></p>
+              <p class="blog-summary" v-html="blog.MAINTEXT"></p>
             </el-card>
           </el-timeline-item>
         </el-timeline>
 
-        <div v-if="filteredBlogs.length > 3" class="collapse-toggle">
-          <el-button link type="primary" @click="showAllBlogs = !showAllBlogs">
-            {{ showAllBlogs ? '收起博客内容' : '查看全部博客内容' }}
-          </el-button>
-        </div>
+        <el-empty v-if="!showBlogs.length && !loading" description="暂无内容"/>
+        <el-button
+            v-if="!noMore && !loading"
+            type="primary"
+            link
+            @click="fetchArticles(null)"
+            style="margin: 20px auto; display: block;"
+        >
+          加载更多
+        </el-button>
+        <div v-if="loading" class="loading-text">加载中...</div>
+        <div v-if="noMore" class="end-text">没有更多文章了</div>
       </el-card>
 
       <!-- 上传的文件 -->
@@ -312,23 +318,52 @@ const openFollowingUser = (item) => {
   window.open(routeUrl, item.CODE)
 }
 
+const page = ref(1)
+const pageSize = 5
+const loading = ref(false)
+const noMore = ref(false)
+
+const fetchArticles = async (userCode) => {
+  if (loading.value || noMore.value) return;
+  if (!userCode) userCode = decrypt(route.query.c);
+  loading.value = true
+  try {
+    const res = await sendAxiosRequest('/blog-api/userInformation/getBlogAndCommunityByUserCode', {
+      userCode,
+      page: page.value,
+      pageSize,
+      keyword: ""
+    })
+    const newData = res.result.data
+    if (newData.length < pageSize) {
+      noMore.value = true
+    }
+    blogs.value.push(...newData)
+    page.value++
+  } catch (e) {
+    console.error('获取内容失败', e)
+  } finally {
+    loading.value = false
+  }
+}
+
 async function getUserInfo2Data() {
   let userCode = route.query.c
   if (userCode) {
     userCode = decrypt(userCode)
+    //获取用户发布内容  文章和社区
+    fetchArticles(userCode);
+    //获取用户信息
     let result = await sendAxiosRequest('/pub-api/login/getUserInfoByCode', {userCode})
     if (result && !result.isError) {
       user.value = result.result
     }
-
-    result = await sendAxiosRequest('/blog-api/userInformation/getBlogAndResourceByUserCode', {userCode})
+    //获取用户上传的文件
+    result = await sendAxiosRequest('/blog-api/userInformation/getResourceByUserCode', {userCode})
     if (result && !result.isError) {
-      const arr = [...result.result.blog, ...result.result.community]
-      arr.sort((a, b) => new Date(b.CREATE_TIME) - new Date(a.CREATE_TIME))
-      blogs.value = arr
-      files.value = result.result.resource
+      files.value = result.result;
     }
-
+    //获取用户点赞作品和收藏作品
     result = await sendAxiosRequest('/blog-api/blog/getLikeAndCollectByUserCode', {userCode})
     if (result && !result.isError) {
       result.result.forEach(item => {
@@ -341,7 +376,7 @@ async function getUserInfo2Data() {
         }
       })
     }
-
+    //获取用户的关注列表和粉丝列表
     result = await sendAxiosRequest('/blog-api/userInformation/getFollowUser', {userCode})
     if (result && !result.isError) {
       followersNum.value = result.result.followersUser.length
@@ -359,18 +394,16 @@ getUserInfo2Data()
 const blogs = ref([])
 const files = ref([])
 const onlyArticle = ref(false)
-const showAllBlogs = ref(false)
-
-const filteredBlogs = computed(() =>
-    onlyArticle.value ? blogs.value.filter(item => !item.TEXT) : blogs.value
-)
-
-const displayedBlogs = computed(() =>
-    showAllBlogs.value ? filteredBlogs.value : filteredBlogs.value.slice(0, 3)
-)
-
 const showDialog = ref(false)
 const selectedBlogId = ref('')
+
+const showBlogs = computed(() => {
+  if (!onlyArticle.value)
+    return blogs.value;
+  else {
+    return blogs.value.filter(item => item.TYPE == "blog");
+  }
+})
 
 function blogMainClick(blog) {
   if (blog.TEXT) {
@@ -436,7 +469,7 @@ onMounted(() => {
   position: relative;
 
   /*背景*/
-  background: url('/picture/user/lantianbaiyuncaodi.png') no-repeat center center fixed;
+  background: url('/picture/user/lantianbaiyuncaodi.webp') no-repeat center center fixed;
   background-size: 100% 100%;
 }
 
@@ -698,6 +731,13 @@ onMounted(() => {
   font-size: 14px;
   font-weight: bold;
   color: #333;
+}
+
+.loading-text,
+.end-text {
+  text-align: center;
+  color: #999;
+  margin: 16px 0;
 }
 
 @media (max-width: 768px) {
