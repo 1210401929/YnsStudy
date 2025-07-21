@@ -109,7 +109,7 @@ public class UserInformationServiceImpl implements UserInformationService {
 
         // 1. 构建查询 SQL 和参数
         String sql = "SELECT GUID, BLOG_TITLE, MAINTEXT, USERCODE, USERNAME, CREATE_TIME, 'blog' AS TYPE " +
-                "FROM bloginfo WHERE USERCODE = ? AND (BLOG_TITLE LIKE ? OR MAINTEXT LIKE ?) " +
+                "FROM bloginfo WHERE USERCODE = ? and blog_type = 'public' AND (BLOG_TITLE LIKE ? OR MAINTEXT LIKE ?) " +
                 "UNION ALL " +
                 "SELECT GUID, TITLE AS BLOG_TITLE, TEXT AS MAINTEXT, USERCODE, USERNAME, CREATE_TIME, 'community' AS TYPE " +
                 "FROM communityinfo WHERE USERCODE = ? AND (TITLE LIKE ? OR TEXT LIKE ?) " +
