@@ -405,7 +405,7 @@ public class BlogServiceImpl implements BlogService {
     @Override
     public ResultBody getLikeAndCollectByUserCode(String userCode) {
         String sql = "SELECT\n" +
-                "  b.*,g.TYPE\n" +
+                "  b.GUID,b.BLOG_TITLE,b.BLOG_TYPE,b.USERCODE,b.USERNAME,b.VIEW_PAGE,b.CREATE_TIME,g.TYPE\n" +
                 "FROM\n" +
                 "  bloginfo b\n" +
                 "  LEFT JOIN blogGiveLike g ON g.BLOGID = b.GUID\n" +

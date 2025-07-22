@@ -79,7 +79,7 @@
           >
             <el-card shadow="hover" class="blog-card" @click="blogMainClick(blog)">
               <h4>{{ blog.BLOG_TITLE }}</h4>
-              <p class="blog-summary" v-html="blog.MAINTEXT"></p>
+              <p class="blog-summary" v-html="stripImages(blog.MAINTEXT)"></p>
             </el-card>
           </el-timeline-item>
         </el-timeline>
@@ -152,7 +152,6 @@
             </div>
             <div class="card-body">
               <h4 class="card-title">{{ item.BLOG_TITLE }}</h4>
-              <p class="card-summary" v-html="item.MAINTEXT"></p>
             </div>
           </el-card>
         </div>
@@ -177,7 +176,6 @@
             </div>
             <div class="card-body">
               <h4 class="card-title">{{ item.BLOG_TITLE }}</h4>
-              <p class="card-summary" v-html="item.MAINTEXT"></p>
             </div>
           </el-card>
 
@@ -245,7 +243,7 @@
 import {ref, onMounted, computed} from 'vue'
 import {ElMessage} from 'element-plus'
 import {useRoute, useRouter} from 'vue-router'
-import {pubFormatDate, decrypt, encrypt, sendAxiosRequest, downloadFileByUrl} from '@/utils/common.js'
+import {pubFormatDate, decrypt, encrypt, sendAxiosRequest,stripImages, downloadFileByUrl} from '@/utils/common.js'
 import ContentAndComment from '@/views/detail/blog/ContentAndComment.vue'
 import {adminUserCode} from '@/config/vue-config.js'
 import {useUserStore} from '@/stores/main/user.js'
@@ -628,7 +626,7 @@ onMounted(() => {
 
 .blog-summary {
   display: -webkit-box;
-  -webkit-line-clamp: 8;
+  -webkit-line-clamp: 4;
   -webkit-box-orient: vertical;
   overflow: hidden;
   text-overflow: ellipsis;

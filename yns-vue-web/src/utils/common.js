@@ -1,11 +1,12 @@
 import axios from 'axios'
-import {ElMessage, ElMessageBox} from 'element-plus'
+import {ElMessage, ElMessageBox, ElLoading} from 'element-plus'
 import CryptoJS from 'crypto-js'
 //获取配置的生产环境ip端口
 import {produceDevIpPort, crypCfg, isSendCrypto} from "@/config/vue-config.js";
 
 /**
  *  sendAxiosRequest        发送后台请求统一入口
+ *  uploadFileWithProgress  上传文件调用后台接口
  *  getGuid                 获取随机32位码
  *  ele_confirm             弹出确认对话框
  *  buildChildrenData       构造上下级数组
@@ -13,8 +14,11 @@ import {produceDevIpPort, crypCfg, isSendCrypto} from "@/config/vue-config.js";
  *  pubFormatDate           格式化日期字符串
  *  encrypt                 加密字符串
  *  decrypt                 解密字符串
+ *  pubLoading              loading动画
  *  loadScript              动态加载外部脚本
  *  isProbablyCipher        判断字符串是否“看起来像” Base64 密文
+ *  stripImages             删除html里的图片等内容
+ *  extractFirstImage       提取html中的第一个图片
  */
 
 /**
@@ -40,26 +44,26 @@ export const sendAxiosRequest = async function (
 
     method = method.toLowerCase()
 
-    const config = { withCredentials: true }
+    const config = {withCredentials: true}
     const isForm = typeof FormData !== 'undefined' && data instanceof FormData
 
     /* ---------- 构造 payload ---------- */
     let payload
     if (needCrypto && !isForm && (method === 'post' || method === 'put')) {
         // 普通 JSON 请求且需要加密
-        payload = { cipherText: encrypt(data) }
+        payload = {cipherText: encrypt(data)}
     } else {
         // GET / DELETE / multipart / 不需要加密 —— 原样发送
         payload = data
         if (isForm && (method === 'post' || method === 'put')) {
-            config.headers = { 'Content-Type': 'multipart/form-data' }
+            config.headers = {'Content-Type': 'multipart/form-data'}
         }
     }
 
     /* ---------- 发请求 ---------- */
     let resp
     if (method === 'get' || method === 'delete') {
-        resp = await axios[method](url, { params: payload, ...config })
+        resp = await axios[method](url, {params: payload, ...config})
     } else {
         resp = await axios[method](url, payload, config)
     }
@@ -91,6 +95,56 @@ export const sendAxiosRequest = async function (
     // 走到这里说明不需要解密 / 不是密文 / 解密失败
     return respData
 }
+
+//上传文件调用后台接口  sendAxiosRequest方法的扩展,轻易不要用这个方法,使用场景,需要获取上传文件的进度
+export function uploadFileWithProgress({
+                                           url,
+                                           file,
+                                           fieldName = "file",
+                                           extraData = {},
+                                           onProgress = () => {},
+                                           onSuccess = () => {},
+                                           onError = () => {}
+                                       }) {
+    const formData = new FormData();
+    formData.append(fieldName, file);
+    Object.entries(extraData).forEach(([key, value]) => {
+        formData.append(key, value);
+    });
+    const xhr = new XMLHttpRequest();
+    // 加上这个！
+    xhr.withCredentials = true;
+    // 自动拼接生产路径（模仿你的封装）
+    const realUrl =
+        import.meta.env.MODE === "development" ? url : produceDevIpPort + url;
+
+    xhr.open("POST", realUrl, true);
+
+    xhr.upload.onprogress = (event) => {
+        if (event.lengthComputable) {
+            const percent = Math.round((event.loaded / event.total) * 100);
+            onProgress(percent);
+        }
+    };
+
+    xhr.onload = () => {
+        if (xhr.status === 200) {
+            try {
+                const res = JSON.parse(xhr.responseText);
+                onSuccess(res);
+            } catch (e) {
+                onError("返回结果解析失败");
+            }
+        } else {
+            onError(`上传失败：${xhr.statusText}`);
+        }
+    };
+    xhr.onerror = () => {
+        onError("上传失败，请检查网络连接");
+    };
+    xhr.send(formData);
+}
+
 
 //获取随机32码
 export const getGuid = () => {
@@ -165,27 +219,58 @@ export const buildChildrenData = (data, options = {}) => {
 
 //根据路径下载文件
 export const downloadFileByUrl = (url, fileName) => {
-    fetch(url, {mode: 'cors'}) // mode: 'cors' 如果资源是跨域的，目标服务器需要设置 CORS
+    // 开启loading
+    pubLoading("start", {text: "下载中，请稍候..."});
+
+    fetch(url, {mode: 'cors'})
         .then(response => {
             if (!response.ok) {
-                throw new Error('Network response was not ok')
+                throw new Error('Network response was not ok');
             }
-            return response.blob()
-        })
-        .then(blob => {
-            const blobUrl = window.URL.createObjectURL(blob)
-            const a = document.createElement('a')
-            a.href = blobUrl
-            a.download = fileName || 'download'
-            document.body.appendChild(a)
-            a.click()
-            document.body.removeChild(a)
-            window.URL.revokeObjectURL(blobUrl)
+            const reader = response.body.getReader();
+            const contentLength = +response.headers.get('Content-Length');
+            let receivedLength = 0;
+            const chunks = [];
+            const pump = () => {
+                reader.read().then(({done, value}) => {
+                    if (done) {
+                        // 创建 Blob 对象，下载文件
+                        const blob = new Blob(chunks);
+                        const blobUrl = window.URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = blobUrl;
+                        a.download = fileName || 'download';
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        window.URL.revokeObjectURL(blobUrl);
+                        // 下载完成，关闭loading提示
+                        pubLoading("close");
+                        ElMessage.success('文件下载成功!');
+                        return;
+                    }
+                    // 更新接收长度并显示进度
+                    receivedLength += value.length;
+                    chunks.push(value);
+                    const progress = (receivedLength / contentLength) * 100;
+                    // 更新loading提示中的进度
+                    pubLoading("update", {
+                        text: `下载中... (${Math.round(progress)}%)`
+                    });
+                    // 继续读取流
+                    pump();
+                });
+            };
+
+            pump();
         })
         .catch(error => {
-            console.error('Download failed:', error)
-        })
-}
+            // 下载失败，关闭loading并弹出错误提示
+            pubLoading("close");
+            ElMessage.error('下载失败: ' + error.message);
+        });
+};
+
 
 export function pubFormatDate(dateStr) {
     const timestamp = Date.parse(dateStr);
@@ -241,6 +326,44 @@ export function decrypt(cipherText) {
     }
 }
 
+/**
+ *loading动画
+ * @param type   start|update|close
+ * @param cfg
+ */
+export function pubLoading(type = "start", cfg = {}) {
+    let loading;
+    switch (type) {
+        case "start":
+            // 如果已经存在，强行关闭之前的loading
+            if (window["yns_loading"]) {
+                window["yns_loading"].close();
+            }
+            loading = ElLoading.service({
+                text: cfg.text || '执行中，请稍候...',
+                spinner: cfg.spinner || '<el-icon><loading /></el-icon>',
+                background: cfg.background || 'rgba(243,243,243,0.7)',
+            });
+            window["yns_loading"] = loading;
+            break;
+        case "update":
+            if (!window["yns_loading"]) return false;
+
+            let cfgInfoArr = Object.keys(cfg);
+            cfgInfoArr.forEach(info => {
+                if (window["yns_loading"][info])
+                    window["yns_loading"][info].value = cfg[info];
+            })
+            break;
+        case "close":
+            if (window["yns_loading"]) {
+                window["yns_loading"].close();
+            }
+            break;
+    }
+    return window["yns_loading"];
+}
+
 // 动态加载外部脚本
 export function loadScript(src) {
     return new Promise((resolve, reject) => {
@@ -261,9 +384,32 @@ export function loadScript(src) {
  *   3. 长度是 4 的倍数
  *   4. 字符数不少于 24（≈16 字节），避免把普通字段误判成密文
  */
-function isProbablyCipher(str) {
+export function isProbablyCipher(str) {
     return typeof str === 'string'
         && /^[A-Za-z0-9+/]+={0,2}$/.test(str)
         && (str.length % 4 === 0)
         && str.length >= 24
+}
+
+//删除html里的图片等内容
+export function stripImages(htmlContent) {
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = htmlContent;
+    const images = tempDiv.querySelectorAll('img');
+    images.forEach(img => img.remove());
+    const ads = tempDiv.querySelectorAll('iframe, .advertisement');
+    ads.forEach(ad => ad.remove());
+    const result = tempDiv.innerHTML;
+    tempDiv.remove();
+    return result;
+};
+
+//提取html中的第一个图片
+export function extractFirstImage(htmlContent) {
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = htmlContent;
+
+    // 查找第一张图片
+    const img = tempDiv.querySelector('img');
+    return img ? img.src : '';
 }

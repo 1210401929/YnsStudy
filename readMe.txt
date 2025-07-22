@@ -27,12 +27,17 @@ yns_portal:前端(已废弃)
 项目必须依赖nginx 进行静态文件跳转,以及端口跳转
 --------------------关于数据库--------------------------------------------------
 userInfo =>用户表
+userfollow =>用户关注列表
 loginHistory =>用户登录历史表
 
 fileInfo =>附件表
 blogInfo =>博客文章表;
 blogComment =>博客评论表;
 blogGiveLike =>博客点赞收藏表
+
+communityInfo =>社区内容表
+communityComment =>社区内容评论表
+
 
 建表,GUID是必须存在的字段 设置随机32位码;
 

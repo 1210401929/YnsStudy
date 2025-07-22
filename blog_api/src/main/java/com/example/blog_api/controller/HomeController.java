@@ -24,6 +24,12 @@ public class HomeController {
         return homeService.getHomeData();
     }
 
+    @RequestMapping("/getWebsiteStatistics")
+    @ResponseBody
+    public ResultBody getWebsiteStatistics() {
+        return homeService.getWebsiteStatistics();
+    }
+
     @RequestMapping("/getHigAuthor")
     @ResponseBody
     public ResultBody getHigAuthor(@RequestBody Map<String,String> params) {

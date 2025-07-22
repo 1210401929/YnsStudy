@@ -169,7 +169,7 @@
           </el-tooltip>
           <el-tooltip content="评论" placement="left" effect="light">
             <!-- 评论按钮 -->
-            <el-button circle class="comment-btn" :icon="Comment" @click="showComment = true"
+            <el-button circle class="comment-btn" :icon="Comment" @click="showCommentFun"
                        style="position: relative;">
               <!-- 使用el-badge显示评论数量，并通过绝对定位调整其位置 -->
               <el-badge :value="blogComment.length" class="comment-badge"
@@ -203,7 +203,7 @@
 
 
 <script setup>
-import {ref, computed, watch} from "vue";
+import {ref, computed, watch, nextTick} from "vue";
 import {useRoute, useRouter} from "vue-router";
 import {useUserStore} from "@/stores/main/user.js";
 import {useBlogContentStore} from "@/stores/detail/blog.js";
@@ -239,6 +239,19 @@ const showAllComments = ref(false);
 const newComment = ref("");
 
 const showComment = ref(false);
+
+const showCommentFun = ()=>{
+  showComment.value = true;
+  nextTick(()=>{
+    const commentSection = document.querySelector('.comment-card'); // 找到评论区域
+    if (commentSection) {
+      commentSection.scrollIntoView({
+        behavior: 'smooth', // 平滑滚动
+        block: 'start' // 滚动到视口顶部
+      });
+    }
+  })
+}
 
 // 控制回复输入框显示，key:评论id，value:bool
 const replyInputVisible = ref({});
@@ -277,7 +290,7 @@ const loadContentAndComments = async (guid) => {
   let result = await sendAxiosRequest("/blog-api/blog/getBlog", {blogId: guid});
   if (result && !result.isError && result?.result?.[0]) {
     blogContent.value = result.result[0];
-  }else{
+  } else {
     ElMessage.error("该文章为私密或已删除");
     return false;
   }
@@ -392,6 +405,7 @@ watch(
       }
     }
 );
+
 
 //发表用户点击用户头像
 function avatarClick(blogContent) {

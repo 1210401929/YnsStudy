@@ -75,7 +75,16 @@
               <span>作者：{{ article.USERNAME }}</span>
               <span>时间：{{ pubFormatDate(article.CREATE_TIME) }}</span>
             </div>
-            <p class="article-content" v-html="article.MAINTEXT"></p>
+
+            <!-- 文章内容和图片放在同一容器中 -->
+            <div class="article-content-wrapper">
+              <p class="article-content" v-html="stripImages(article.MAINTEXT)"></p>
+
+              <!-- 图片显示在右侧 -->
+              <div v-if="article.ILLUSTRATION" class="article-image">
+                <img :src="article.ILLUSTRATION" alt="文章插图" class="article-thumbnail"/>
+              </div>
+            </div>
           </el-card>
 
           <el-empty v-if="!articles.length && !loading" description="暂无内容"/>
@@ -106,7 +115,7 @@
           <div class="author-box">
             <el-avatar
                 :src="author.AVATAR"
-                size="large"author-card
+                size="large" author-card
                 class="author-avatar"
                 alt="用户头像"
             >
@@ -147,7 +156,7 @@
 import {onMounted, onBeforeUnmount, ref} from "vue";
 import {useHomeStore} from "@/stores/detail/home.js";
 import {useRouter} from "vue-router";
-import {decrypt, encrypt, pubFormatDate, sendAxiosRequest} from "@/utils/common.js";
+import {encrypt, extractFirstImage, pubFormatDate, sendAxiosRequest, stripImages} from "@/utils/common.js";
 import {Star} from "@element-plus/icons-vue";
 import {adminUserCode} from "@/config/vue-config.js";
 import debounce from "lodash/debounce.js";
@@ -189,7 +198,14 @@ const fetchArticles = async () => {
       pageSize,
       keyword: searchKeyword.value
     })
-    const newData = res.result.data
+    const newData = res.result.data;
+
+    // 提取每篇文章的第一张图片
+    newData.forEach(article => {
+      const firstImage = extractFirstImage(article.MAINTEXT);
+      article.ILLUSTRATION = firstImage; // 保存图片 URL
+    });
+
     if (newData.length < pageSize) {
       noMore.value = true
     }
@@ -212,7 +228,7 @@ const handleScroll = () => {
 function hotBlogClick(blog) {
   const routeUrl = router.resolve({
     name: "oneBlog",
-    query: {g: blog.GUID,u:encrypt(blog.USERCODE),n:blog.BLOG_TITLE}
+    query: {g: blog.GUID, u: encrypt(blog.USERCODE), n: blog.BLOG_TITLE}
   }).href;
   window.open(routeUrl, blog.GUID);
 
@@ -306,20 +322,35 @@ onBeforeUnmount(() => {
   margin-bottom: 8px;
 }
 
+.article-content-wrapper {
+  display: flex;
+  align-items: flex-start; /* 确保文本和图片对齐 */
+  gap: 16px; /* 控制文本与图片之间的间距 */
+  margin-top: 12px;
+}
+
 .article-content {
+  flex-grow: 1; /* 使得文章内容占据剩余空间 */
   font-size: 14px;
   color: #555;
   line-height: 1.6;
   overflow: hidden;
   text-overflow: ellipsis;
-
-  /* 确保不超过三行显示 */
   display: -webkit-box;
   -webkit-line-clamp: 3; /* 限制显示三行 */
   -webkit-box-orient: vertical;
+}
 
-  /* 给内容增加内边距，防止内容与边框过于贴合 */
-  padding-right: 10px;
+.article-thumbnail {
+  max-width: 150px; /* 设置图片最大宽度 */
+  max-height: 150px;
+  height: auto;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.article-image {
+  flex-shrink: 0; /* 防止图片缩放 */
 }
 
 .read-more-btn {
@@ -447,6 +478,7 @@ onBeforeUnmount(() => {
   color: #409EFF;
 }
 
+
 .blog-author {
   font-size: 12px;
   color: #999;
@@ -538,6 +570,7 @@ onBeforeUnmount(() => {
   font-size: 12px;
   color: #606266;
 }
+
 .title-avatar {
   margin-right: 10px;
   vertical-align: middle;

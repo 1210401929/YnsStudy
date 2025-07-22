@@ -63,10 +63,21 @@
             :http-request="customUploadRequest"
             :before-upload="beforeUploadCheck"
             :show-file-list="false"
+            :on-progress="handleUploadProgress"
             style="margin-bottom: 10px;"
         >
           <i class="el-icon-upload" style="font-size: 28px; color: #409EFF;"></i>
           <div class="el-upload__text">点击或拖拽上传文件</div>
+
+          <el-progress
+              v-if="isUploading"
+              :percentage="uploadProgress"
+              status="success"
+              :text-inside="true"
+              :stroke-width="18"
+              style="width: 100%; margin-top: 10px;"
+          />
+          <p v-if="showProcessing">上传成功,后台处理中请耐心等待...</p>
         </el-upload>
         <!-- 超过上传限制的提示 -->
         <el-alert
@@ -138,38 +149,40 @@ import {ref, computed, onMounted} from 'vue'
 import {useRoute} from "vue-router";
 import {ElMessage} from 'element-plus'
 import {User, Clock, Close, CopyDocument, Download, Search} from '@element-plus/icons-vue'
-import {downloadFileByUrl, ele_confirm, getGuid, sendAxiosRequest,pubFormatDate} from "@/utils/common.js";
+import {
+  downloadFileByUrl,
+  ele_confirm,
+  getGuid,
+  sendAxiosRequest,
+  pubFormatDate,
+  uploadFileWithProgress
+} from "@/utils/common.js";
 import {useUserStore} from "@/stores/main/user.js";
 
 const route = useRoute();
 const userStore = useUserStore();
 
-// 搜索框
 const searchKeyword = ref('')
-// 模拟的他人文件和我上传的文件
 const otherFiles = ref([])
 const myFiles = ref([])
-// 初始化数据
-onMounted(() => {
-  setFileData();
 
+const uploadProgress = ref(0)
+const isUploading = ref(false)
+
+onMounted(() => {
+  setFileData()
 })
 
 const setFileData = async () => {
-  //查询所有文件
   let result = await sendAxiosRequest("/blog-api/resource/getAllFile");
   if (result && !result.isError) {
-    //其他用户上传的文件
     otherFiles.value = result.result.filter(item => item["USERCODE"] != userStore.userBean.code);
-    //用户上传文件
     myFiles.value = result.result.filter(item => item["USERCODE"] == userStore.userBean.code);
-    //如果路由调用该页面,则取参数过滤附件内容
     setFileDataByRouterPms();
   }
 }
 
 const setFileDataByRouterPms = () => {
-
   let fieldGuid = route.query.g;
   if (fieldGuid) {
     otherFiles.value = otherFiles.value.filter(item => item.GUID == fieldGuid);
@@ -177,41 +190,62 @@ const setFileDataByRouterPms = () => {
   }
 }
 
-//上传文件前校验
-const beforeUploadCheck = (file)=>{
+const beforeUploadCheck = (file) => {
   let isSuccess = true;
   const maxSizeMB = 50;
-  //校验文件是否超出大小
   const isLtMaxSize = file.size / 1024 / 1024 < maxSizeMB;
   if (!isLtMaxSize) {
     ElMessage.error(`上传文件不能超过 ${maxSizeMB}MB`);
     isSuccess = false;
   }
-
-  if(isSuccess){
-    ElMessage.success(`上传文件需要时间,请耐心等待!`);
+  if (isSuccess) {
+    ElMessage.success(`上传文件需要时间，请耐心等待`);
   }
   return isSuccess;
 }
 
-//上传成功后
-const customUploadRequest = async (options) => {
-  const {file, onSuccess, onError} = options;
-  const formData = new FormData();
-  formData.append('file', file);
-  formData.append('spliceUrl', "resourcesFile");
-  try {
-    const res = await sendAxiosRequest('/pub-api/upload/uploadFile', formData);
-    //调用成功方法
-    handleUploadSuccess(res, file);
-  } catch (error) {
-    // 手动调用失败回调
-    ElMessage.error("上传失败" + error);
-  }
+const handleUploadProgress = (event) => {
+  isUploading.value = true;
+  uploadProgress.value = Math.floor(event.percent);
+}
+
+const showProcessing = ref(false);
+
+const customUploadRequest = ({file, onProgress, onSuccess, onError}) => {
+  isUploading.value = true;
+  uploadProgress.value = 0;
+
+  uploadFileWithProgress({
+    url: "/pub-api/upload/uploadFile",
+    file,
+    fieldName: "file",
+    extraData: {spliceUrl: "resourcesFile"},
+    onProgress: (percent) => {
+      uploadProgress.value = percent;
+      onProgress({percent});
+      if (percent >= 100) {
+        showProcessing.value = true;
+      }
+    },
+    onSuccess: (res) => {
+      isUploading.value = false;
+      uploadProgress.value = 0;
+      showProcessing.value = false;
+      handleUploadSuccess(res, file)
+    },
+    onError: (err) => {
+      isUploading.value = false;
+      uploadProgress.value = 0;
+      showProcessing.value;
+      ElMessage.error(err || "上传失败");
+      onError(err);
+    },
+  });
 };
 
-// 上传成功处理
 const handleUploadSuccess = (res, file) => {
+  isUploading.value = false;
+  uploadProgress.value = 0;
   ElMessage.success(`上传成功：${file.name}`)
   let fileInfo = {
     GUID: getGuid(),
@@ -232,28 +266,25 @@ const handleUploadSuccess = (res, file) => {
   })
 }
 
-// 下载文件
 const downloadFile = (file) => {
   file.DOWNNUM++;
-  ElMessage.success(`下载文件需要时间,请耐心等待!`);
+  ElMessage.success(`下载文件需要时间，请耐心等待!`);
   downloadFileByUrl(file.FILEVIEWURL, file.ORIGINALFILENAME)
-  //存储下载次数
   sendAxiosRequest("/blog-api/resource/setFileDownNum", {guid: file.GUID});
 }
 
 const deleteFile = (file) => {
-  ele_confirm("是否确认删除,删除后不可恢复!", () => {
+  ele_confirm("是否确认删除，删除后不可恢复！", () => {
     myFiles.value = myFiles.value.filter(item => item.GUID != file.GUID);
-    ElMessage.success("删除成功!");
+    ElMessage.success("删除成功！");
     sendAxiosRequest("/blog-api/resource/delFileInfo", {guid: file.GUID, url: file.FILEVIEWURL});
   });
 }
 
 const copyFileUrl = (file) => {
-  // 获取当前页面的域名部分（包括协议和域名）
   const domain = window.location.origin;
   const input = document.createElement('input');
-  input.value = domain+file.FILEVIEWURL;
+  input.value = domain + file.FILEVIEWURL;
   document.body.appendChild(input);
   input.select();
   try {
@@ -265,7 +296,6 @@ const copyFileUrl = (file) => {
   document.body.removeChild(input);
 }
 
-// 搜索过滤他人上传
 const filteredOtherFiles = computed(() =>
     searchKeyword.value
         ? otherFiles.value.filter(f => f.ORIGINALFILENAME.toLowerCase().includes(searchKeyword.value.toLowerCase()))
@@ -355,6 +385,7 @@ const filteredOtherFiles = computed(() =>
   max-height: calc(100vh - 180px);
   padding-right: 4px;
 }
+
 @media (max-width: 768px) {
   /* 主体区域垂直排列 */
   .el-main {

@@ -8,8 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import javax.xml.transform.Result;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 
 @Component
 public class HomeServiceImpl implements HomeService {
@@ -27,6 +26,23 @@ public class HomeServiceImpl implements HomeService {
         result = getHigAuthor("4");
         data.put("higAuthor",result.result);
         return ResultBody.createSuccessResult(data);
+    }
+
+    @Override
+    public ResultBody getWebsiteStatistics() {
+        String sql ="SELECT \n" +
+                "    (SELECT COUNT(1) FROM blogInfo) AS ARTICLENUM,\n" +
+                "    (SELECT COUNT(1) FROM communityInfo) AS COMMUNITYNUM,\n" +
+                "    (SELECT SUM(VIEW_PAGE) FROM blogInfo) AS VIEW_PAGE,\n" +
+                "    (SELECT COUNT(1) FROM userInfo) AS USERNUM,\n" +
+                "    (select COUNT(1) from loginHistory) as USERLOGINNUM;";
+        ResultBody result = callService.callFunOneParams(FunToUrlUtil.selectListUrl,"sql",sql);
+        if(result!=null && !result.isError){
+            Map<String,Integer> map = (Map<String,Integer>)((ArrayList)result.result).get(0);
+            return ResultBody.createSuccessResult(map);
+        }else{
+            return ResultBody.createErrorResult("获取网站统计失败");
+        }
     }
 
     @Override

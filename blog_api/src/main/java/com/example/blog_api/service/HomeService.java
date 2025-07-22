@@ -6,7 +6,8 @@ import org.springframework.stereotype.Service;
 @Service
 public interface HomeService {
     ResultBody getHomeData();
-
+    //获取网站统计数据
+    ResultBody getWebsiteStatistics();
     //获取优质作者
     ResultBody getHigAuthor(String num);
 }

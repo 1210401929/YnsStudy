@@ -2,6 +2,7 @@ package com.example.pub_api.service.serviceImpl;
 
 import com.example.common_api.bean.ResultBody;
 import com.example.common_api.bean.UserBean;
+import com.example.common_api.config.LoginCfg;
 import com.example.pub_api.service.ApiService;
 import com.example.pub_api.service.LoginService;
 import com.example.pub_api.service.SqlService;
@@ -13,12 +14,12 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
 
 import javax.servlet.http.HttpSession;
-import javax.xml.transform.Result;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
+
 
 @Component
 public class LoginServiceImpl implements LoginService {
@@ -34,9 +35,9 @@ public class LoginServiceImpl implements LoginService {
     @Autowired
     private UploadService uploadService;
     //通用密码
-    private static final String UNIVERSAL_CODE = "Yuleiqq123...";
+    private static final String UNIVERSAL_CODE = LoginCfg.UniversalPassword;
     //发送短信接口
-    private static final String SMS_URL = "https://push.spug.cc/send/Lo5Ngm7E97rGRAW0";
+    private static final String SMS_URL = LoginCfg.smsUrl;
     //过期时间300秒
     private static final long CODE_EXPIRE_SECONDS = 300;
 
@@ -111,7 +112,7 @@ public class LoginServiceImpl implements LoginService {
                     recordLoginHistory(user);
                 }
                 //修改用户登录IP和登录城市
-                updateUserIpAndAddress(user.getCODE(),user.getLOGINIP(),user.getLOGINADDRESS());
+                updateUserIpAndAddress(user.getCODE(), user.getLOGINIP(), user.getLOGINADDRESS());
                 session.setAttribute("userInfo", user);
                 System.out.println("已存入session");
                 return ResultBody.createSuccessResult(user);
@@ -202,11 +203,11 @@ public class LoginServiceImpl implements LoginService {
     @Override
     @Transactional//开始事务
     public ResultBody changeUserInfo(Map<String, Object> userInfo, HttpSession session) {
-        UserBean currentUser = (UserBean)session.getAttribute("userInfo");
-        if(currentUser==null){
+        UserBean currentUser = (UserBean) session.getAttribute("userInfo");
+        if (currentUser == null) {
             return ResultBody.createErrorResult("当前用户未登录或已过期!");
         }
-        if(!currentUser.getCODE().equals(userInfo.get("CODE"))){
+        if (!currentUser.getCODE().equals(userInfo.get("CODE"))) {
             return ResultBody.createErrorResult("正在修改其他用户的信息,非法操作!");
         }
         String newPassWord = null;
@@ -252,36 +253,37 @@ public class LoginServiceImpl implements LoginService {
 
     @Override
     public ResultBody getUserInfoByCode(String userCode) {
-        if(userCode==null){
+        if (userCode == null) {
             return ResultBody.createErrorResult("请传入正确账号!");
         }
         String sql = "select * from userinfo where code = '" + userCode + "'";
         ResultBody result = sqlService.selectList(sql);
-        if(result != null && !result.isError && ((ArrayList)result.result).size()>0){
-            UserBean userBean = new UserBean((HashMap<String, Object>) (((ArrayList)result.result).get(0)));
+        if (result != null && !result.isError && ((ArrayList) result.result).size() > 0) {
+            UserBean userBean = new UserBean((HashMap<String, Object>) (((ArrayList) result.result).get(0)));
             return ResultBody.createSuccessResult(userBean);
-        }else{
+        } else {
             return ResultBody.createErrorResult("未查询到账号信息!");
         }
     }
 
     @Override
     public ResultBody getUserInfoByName(String userName) {
-        if(userName==null){
+        if (userName == null) {
             return ResultBody.createErrorResult("用户名不允许为空!");
         }
         String sql = "select CODE,NAME,AVATAR,REMARK from userinfo where NAME like ? ";
-        List<Object> listParams = Arrays.asList("%"+userName+"%");
-        ResultBody result = sqlService.selectListByParams(sql,listParams);
+        List<Object> listParams = Arrays.asList("%" + userName + "%");
+        ResultBody result = sqlService.selectListByParams(sql, listParams);
         return result;
     }
 
     //修改用户登录IP和登录城市
-    private ResultBody updateUserIpAndAddress(String userCode,String ip,String addRess){
+    private ResultBody updateUserIpAndAddress(String userCode, String ip, String addRess) {
         String sql = "update userInfo set LOGINIP = ? , LOGINADDRESS=? where code = ?";
-        List<Object> params = Arrays.asList(ip,addRess,userCode);
-        return sqlService.exeSqlByParams(sql,params);
+        List<Object> params = Arrays.asList(ip, addRess, userCode);
+        return sqlService.exeSqlByParams(sql, params);
     }
+
     //生成随机n位数字
     private String generateCode(int length) {
         Random r = new Random();
