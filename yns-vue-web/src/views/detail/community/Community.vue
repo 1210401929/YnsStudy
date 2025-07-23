@@ -48,7 +48,35 @@
             <div class="author-meta">{{ pubFormatDate(item.CREATE_TIME) }}</div>
           </div>
         </div>
-        <div class="feed-body" v-html="item.TEXT"></div>
+
+        <!-- 内容展示部分 -->
+        <div class="feed-body" v-if="item.isExpanded" v-html="item.TEXT"></div>
+        <div class="feed-body" v-else>
+          <!--不展开时,只显示两行内容-->
+          <div v-html="item.TEXT.split('\n').slice(0, 2).join('\n')"></div>
+        </div>
+        <!-- 展开/收起帖子内容按钮 -->
+        <div class="expand-btn-wrapper" v-if="item.TEXT.split('\n').length > 2">
+          <el-button
+              v-if="!item.isExpanded"
+              type="primary"
+              plain
+              class="expand-btn"
+              @click="expandPost(item)"
+          >
+            展开
+          </el-button>
+          <el-button
+              v-if="item.isExpanded"
+              type="primary"
+              plain
+              class="expand-btn"
+              @click="collapsePost(item)"
+          >
+            收起
+          </el-button>
+        </div>
+        <!-- 展开/收起按钮 -->
         <div class="feed-actions">
           <el-button text size="small" :icon="ChatDotSquare" @click="toggleComments(item)">
             {{ item.showComments ? '收起评论' : '评论' }}
@@ -60,6 +88,8 @@
                      @click="deleteCommunity(item)">删除
           </el-button>
         </div>
+
+        <!-- 评论部分 -->
         <transition name="fade">
           <div v-show="item.showComments" class="comment-section">
             <div
@@ -71,7 +101,7 @@
                   :src="comment.AVATAR"
                   size="large"
                   class="author-avatar-comment"
-                  @click="commentAvatarClick(child)"
+                  @click="commentAvatarClick(comment)"
                   alt="评论用户头像"
               >
                 {{ comment.USERNAME?.charAt(0) }}
@@ -99,7 +129,7 @@
                         :src="r.AVATAR"
                         size="large"
                         class="author-avatar-comment"
-                        @click="commentAvatarClick(child)"
+                        @click="commentAvatarClick(r)"
                         alt="评论用户头像"
                     >
                       {{ r.USERNAME?.charAt(0) }}
@@ -133,24 +163,32 @@
           type="primary"
           link
           @click="fetchArticles"
-          style="margin: 20px auto; display: block; border-radius: 8px; padding: 8px 20px; background-color: #409EFF; color: white;"
+          style="margin: 20px auto; display: block;"
       >
         加载更多
       </el-button>
       <div v-if="loading" class="loading-text">加载中...</div>
       <div v-if="noMore" class="end-text">没有更多内容了</div>
     </div>
+
     <!-- 快速发帖 -->
     <el-card class="post-box" shadow="always">
       <h3>💬 快速发帖</h3>
       <el-input
+          v-if="!showPreview"
           v-model="newPost"
           type="textarea"
           :rows="3"
-          placeholder="分享你的想法、提问、或者一句话"
+          placeholder="说点什么吧? （支持 Markdown 语法）"
           class="post-textarea"
+          :autosize="true"
       />
-      <el-button type="primary" @click="submitPost" class="submit-btn">发布</el-button>
+      <!-- Markdown 预览 -->
+      <div v-if="showPreview" class="preview-box" v-html="renderedHtml"></div>
+      <div class="post-actions">
+        <el-button type="primary" @click="submitPost">发布</el-button>
+        <el-button @click="togglePreview">{{showPreview ? '编辑' : '预览'}}</el-button>
+      </div>
     </el-card>
     <!-- 荣誉勋章 -->
     <div class="section">
@@ -167,16 +205,20 @@
         </el-tag>
       </el-card>
     </div>
+
     <!-- 悬浮按钮：搜索用户 -->
     <div class="search-float-btn" @click="searchUserDialogVisible = true">
       🔍
     </div>
+
     <!-- 悬浮按钮：聊天 -->
     <div class="chat-float-btn" @click="chatVisible = !chatVisible">
       💬
     </div>
+
     <!-- 聊天窗口 -->
     <Chat v-if="chatVisible" title="社区聊天" @closeChat="closeChat"/>
+
     <!-- 搜索用户对话框 -->
     <el-dialog title="搜索用户" v-model="searchUserDialogVisible" width="400px">
       <el-input
@@ -216,10 +258,19 @@ import {ref, computed, onMounted} from 'vue';
 import Chat from "@/components/detail/Chat.vue";
 import {ElMessage} from "element-plus";
 import {ChatDotSquare, Delete, Star, Close} from '@element-plus/icons-vue'
-import {encrypt, sendAxiosRequest, pubFormatDate, getGuid, buildChildrenData, ele_confirm,loadScript} from "@/utils/common.js";
+import {
+  encrypt,
+  sendAxiosRequest,
+  pubFormatDate,
+  getGuid,
+  buildChildrenData,
+  ele_confirm,
+  loadScript
+} from "@/utils/common.js";
 import {useUserStore} from "@/stores/main/user.js";
 import {adminUserCode} from "@/config/vue-config.js";
 import {useRouter} from "vue-router";
+import {marked} from 'marked';
 
 const router = useRouter();
 const userStore = useUserStore();
@@ -254,12 +305,13 @@ function submitPost() {
     USERNAME: userStore.userBean.name,
     AVATAR: userStore.userBean.avatar || "",
     CREATE_TIME: '刚刚',
-    TEXT: newPost.value,
+    TEXT: marked(newPost.value),
     comments: [],
     newComment: '',
     showComments: false,
     showAllComments: false,
     hasLoadedComments: true,
+    isExpanded: false, // 用于控制帖子是否展开
   }
   allPosts.value.unshift(community);
   sendAxiosRequest("/blog-api/community/addCommunity", {
@@ -284,6 +336,7 @@ const fetchArticles = async () => {
       keyword: searchKeyword.value
     });
     const newData = res.result.data;
+    console.log(newData)
     if (newData.length < pageSize) noMore.value = true;
     allPosts.value.push(...newData);
     page.value++;
@@ -295,7 +348,6 @@ const fetchArticles = async () => {
 }
 
 function setTopCommunity(community) {
-
   let isTop = "1";
   let tip = "已置顶,刷新页面显示最新效果";
   if (community.ISTOP == "1") {
@@ -307,7 +359,7 @@ function setTopCommunity(community) {
   ElMessage.success(tip);
 }
 
-//删除帖子
+// 删除帖子
 function deleteCommunity(community) {
   ele_confirm("是否确认删除该内容!", () => {
     sendAxiosRequest("/blog-api/community/deleteCommunity", {communityGuid: community.GUID});
@@ -315,9 +367,8 @@ function deleteCommunity(community) {
   });
 }
 
-//加载评论
+// 加载评论
 async function toggleComments(postItem) {
-
   postItem.showComments = !postItem.showComments;
   if (postItem.showComments && !postItem.hasLoadedComments) {
     try {
@@ -333,13 +384,11 @@ async function toggleComments(postItem) {
 }
 
 function limitedComments(item) {
-
   if (item.showAllComments) return item.comments;
   return (item.comments || []).slice(0, 3);
 }
 
 function submitComment(postItem) {
-
   if (!postItem.newComment.trim()) return;
   if (!userStore.userBean.code) {
     ElMessage.error("请先登录!");
@@ -368,7 +417,6 @@ function submitComment(postItem) {
 }
 
 function submitReply(postItem, comment) {
-
   if (!comment.replyText || !comment.replyText.trim()) return;
   if (!userStore.userBean.code) {
     ElMessage.error("请先登录!");
@@ -397,9 +445,23 @@ function submitReply(postItem, comment) {
   replyTarget.value = null;
 }
 
+function expandPost(postItem) {
+  postItem.isExpanded = true;
+}
+
+function collapsePost(postItem) {
+  postItem.isExpanded = false;
+}
+
 function avatarClick(community) {
   const routeUrl = router.resolve({name: 'personInfomation', query: {c: encrypt(community.USERCODE)}}).href;
   window.open(routeUrl, community.USERCODE);
+}
+
+function commentAvatarClick(comment) {
+
+  const routeUrl = router.resolve({name: 'personInfomation', query: {c: encrypt(comment.USERCODE)}}).href;
+  window.open(routeUrl, comment.USERCODE);
 }
 
 function userInfoCLick(userInfo) {
@@ -407,22 +469,13 @@ function userInfoCLick(userInfo) {
   window.open(routeUrl, userInfo.CODE);
 }
 
-function commentAvatarClick(comment) {
-  const routeUrl = router.resolve({name: 'personInfomation', query: {c: encrypt(comment.USERCODE)}}).href;
-  window.open(routeUrl, comment.USERCODE);
+const showPreview = ref(false)
+const togglePreview = () => {
+  showPreview.value = !showPreview.value
 }
-
-
-const chatText = ref('');
-const chatVisible = ref(false);
-
-const toggleChatVisibility = () => {
-  chatVisible.value = !chatVisible.value;
-};
-
-const closeChat = () => {
-  chatVisible.value = false;
-};
+const renderedHtml = computed(() => {
+  return marked.parse(newPost.value || '')
+})
 
 const searchUserDialogVisible = ref(false);
 const searchUserInput = ref('');
@@ -443,7 +496,12 @@ async function searchUser() {
   searchUserArr.value = result.result;
 }
 
-const badges = ref(['原始股']);
+const chatVisible = ref(false);
+
+const closeChat = () => {
+  chatVisible.value = false;
+};
+
 
 const loadAiFun = async () => {
   // 动态加载 SDK 脚本
@@ -459,6 +517,7 @@ const loadAiFun = async () => {
   });
 }
 
+const badges = ref(["原始股"]);
 </script>
 
 <style scoped>
@@ -515,6 +574,27 @@ const loadAiFun = async () => {
   font-weight: bold;
   font-size: 14px;
   color: #333;
+}
+
+.expand-btn-wrapper {
+  display: flex;
+  justify-content: center;
+  margin-top: 10px;
+}
+
+.expand-btn {
+  width: 100%;
+  max-width: 100%;
+  border: none; /* 去掉边框 */
+  border-radius: 0 0 6px 6px;
+  background-color: #f5f5f5; /* 默认灰色背景 */
+  color: #333; /* 字体颜色改深一点 */
+  font-weight: bold;
+  transition: background-color 0.3s;
+}
+
+.expand-btn:hover {
+  background-color: #e0e0e0; /* 鼠标移入时变浅灰色 */
 }
 
 .author-meta {
@@ -649,11 +729,28 @@ const loadAiFun = async () => {
   border-bottom-left-radius: 0;
 }
 
-
 .badge-card {
   padding: 15px;
 }
+.post-actions {
+  margin-top: 10px;
+}
 
+.preview-box {
+  margin-top: 15px;
+  padding: 12px;
+  border: 1px solid #ddd;
+  background-color: #f9f9f9;
+  border-radius: 6px;
+  line-height: 1.6;
+}
+
+/* 鼠标悬停按钮时为灰色 */
+.el-button:hover {
+  background-color: #e5e5e5 !important;
+  border-color: #dcdcdc !important;
+  color: #333 !important;
+}
 .badge {
   margin: 5px;
 }
@@ -732,5 +829,4 @@ const loadAiFun = async () => {
   height: 40px !important;
   border-radius: 50%;
 }
-
 </style>

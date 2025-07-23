@@ -243,7 +243,7 @@
 import {ref, onMounted, computed} from 'vue'
 import {ElMessage} from 'element-plus'
 import {useRoute, useRouter} from 'vue-router'
-import {pubFormatDate, decrypt, encrypt, sendAxiosRequest,stripImages, downloadFileByUrl} from '@/utils/common.js'
+import {pubFormatDate, decrypt, encrypt, sendAxiosRequest, stripImages, downloadFileByUrl} from '@/utils/common.js'
 import ContentAndComment from '@/views/detail/blog/ContentAndComment.vue'
 import {adminUserCode} from '@/config/vue-config.js'
 import {useUserStore} from '@/stores/main/user.js'
@@ -404,7 +404,7 @@ const showBlogs = computed(() => {
 })
 
 function blogMainClick(blog) {
-  if (blog.TEXT) {
+  if (blog.TYPE == "community") {
     ElMessage.success('社区发起内容不用查看详情')
     return false
   }
@@ -465,10 +465,9 @@ onMounted(() => {
   padding: 24px 0;
   box-sizing: border-box;
   position: relative;
-
+  background-color: #f8f8f8;
   /*背景*/
-  background: url('/picture/user/lantianbaiyuncaodi.webp') no-repeat center center fixed;
-  background-size: 100% 100%;
+//background: url('/picture/user/lantianbaiyuncaodi.webp') no-repeat center center fixed; //background-size: 100% 100%;
 }
 
 .inner-container {

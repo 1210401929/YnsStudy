@@ -24,8 +24,8 @@ public class StaticResourceConfig implements WebMvcConfigurer {
         //前端访问的路径   /uploadFile/**
         String resourceHandlerUrl = commonCfg.getMappingStaticUrl() + "**";
         System.out.println("前端访问的路径:" + resourceHandlerUrl);
-        registry.addResourceHandler(resourceHandlerUrl)
-                .addResourceLocations(uploadPath)
+        registry.addResourceHandler(resourceHandlerUrl)//    /uploadFile/
+                .addResourceLocations(uploadPath)//    /opt/upload/
                 .setCachePeriod(3600)
                 .resourceChain(true);
     }
