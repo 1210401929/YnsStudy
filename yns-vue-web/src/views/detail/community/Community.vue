@@ -336,7 +336,6 @@ const fetchArticles = async () => {
       keyword: searchKeyword.value
     });
     const newData = res.result.data;
-    console.log(newData)
     if (newData.length < pageSize) noMore.value = true;
     allPosts.value.push(...newData);
     page.value++;
