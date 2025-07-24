@@ -243,7 +243,15 @@
 import {ref, onMounted, computed} from 'vue'
 import {ElMessage} from 'element-plus'
 import {useRoute, useRouter} from 'vue-router'
-import {pubFormatDate, decrypt, encrypt, sendAxiosRequest, stripImages, downloadFileByUrl} from '@/utils/common.js'
+import {
+  pubFormatDate,
+  decrypt,
+  encrypt,
+  sendAxiosRequest,
+  stripImages,
+  downloadFileByUrl,
+  sendNotifications
+} from '@/utils/common.js'
 import ContentAndComment from '@/views/detail/blog/ContentAndComment.vue'
 import {adminUserCode} from '@/config/vue-config.js'
 import {useUserStore} from '@/stores/main/user.js'
@@ -283,6 +291,9 @@ const toggleFollow = () => {
       followUserCode: user.value.code,
       followUserName: user.value.name
     })
+    //发送消息
+    sendNotifications(userStore.userBean.code, user.value.code, "followUser", null, `${userStore.userBean.name}关注了你`)
+
   } else {
     followersNum.value--
     sendAxiosRequest('/blog-api/userInformation/noFollowUser', {followUserCode: user.value.code})

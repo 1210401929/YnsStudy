@@ -102,9 +102,12 @@ export function uploadFileWithProgress({
                                            file,
                                            fieldName = "file",
                                            extraData = {},
-                                           onProgress = () => {},
-                                           onSuccess = () => {},
-                                           onError = () => {}
+                                           onProgress = () => {
+                                           },
+                                           onSuccess = () => {
+                                           },
+                                           onError = () => {
+                                           }
                                        }) {
     const formData = new FormData();
     formData.append(fieldName, file);
@@ -412,4 +415,35 @@ export function extractFirstImage(htmlContent) {
     // 查找第一张图片
     const img = tempDiv.querySelector('img');
     return img ? img.src : '';
+}
+
+/**
+ * 系统通用发送消息
+ * @param sendUserCode  发送用户账号
+ * @param receiverUserCode  接收用户账号
+ * @param type  类型  comment:评论
+ * @param execute   操作页面路径
+ * @param remark    通知文本
+ * @returns {Promise<boolean>}
+ */
+export async function sendNotifications(sendUserCode, receiverUserCode, type, execute, remark) {
+    if (!sendUserCode || !receiverUserCode || !type) {
+        console.error("发送消息失败,参数传递不完整!");
+        return false;
+    }
+    if (!execute) {
+        execute = window.location.href;
+    }
+    if (!remark) {
+        remark = "未知操作";
+    }
+    let result = await sendAxiosRequest("/pub-api/notice/addNotice", {
+        sendUserCode, receiverUserCode, type, execute, remark
+    });
+    if (result && !result.isError) {
+        return true;
+    } else {
+        console.error("通知用户失败");
+        return false;
+    }
 }

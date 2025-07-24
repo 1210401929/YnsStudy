@@ -25,7 +25,8 @@
           <h2>{{ blogContent.BLOG_TITLE }}</h2>
           <div style="display: flex; gap: 1px;"
           >
-            <el-button size="small" type="primary" plain @click="openOneBlog">
+            <el-button size="small" type="primary" plain @click="openOneBlog"
+                       v-if="route.name!='oneBlog'">
               专注模式
             </el-button>
             <el-button size="small" type="warning" plain @click="editorVisible = true"
@@ -172,7 +173,7 @@
             <el-button circle class="comment-btn" :icon="Comment" @click="showCommentFun"
                        style="position: relative;">
               <!-- 使用el-badge显示评论数量，并通过绝对定位调整其位置 -->
-              <el-badge :value="blogComment.length" class="comment-badge"
+              <el-badge :value="blogComment.length" type="primary" class="comment-badge"
                         style="position: absolute; top: -7px; right: -7px;"/>
             </el-button>
           </el-tooltip>
@@ -211,7 +212,15 @@ import ArticleEditor from "@/components/detail/ArticleEditor.vue";
 import {Star, Comment, Right} from '@element-plus/icons-vue'
 import {ElMessage} from "element-plus";
 import debounce from 'lodash/debounce'
-import {buildChildrenData, ele_confirm, encrypt, getGuid, sendAxiosRequest, pubFormatDate} from "@/utils/common.js";
+import {
+  buildChildrenData,
+  ele_confirm,
+  encrypt,
+  getGuid,
+  sendAxiosRequest,
+  pubFormatDate,
+  sendNotifications
+} from "@/utils/common.js";
 import {adminUserCode} from "@/config/vue-config.js";
 
 const route = useRoute();
@@ -240,17 +249,26 @@ const newComment = ref("");
 
 const showComment = ref(false);
 
-const showCommentFun = ()=>{
+const showCommentFun = () => {
   showComment.value = true;
-  nextTick(()=>{
+  nextTick(() => {
     const commentSection = document.querySelector('.comment-card'); // 找到评论区域
     if (commentSection) {
-      commentSection.scrollIntoView({
-        behavior: 'smooth', // 平滑滚动
-        block: 'start' // 滚动到视口顶部
-      });
+      const rect = commentSection.getBoundingClientRect();
+      //判断该元素,是否已经完全显示在屏幕内
+      const isVisible = (
+          rect.top >= 0 &&
+          rect.bottom <= (window.innerHeight || document.documentElement.clientHeight)
+      );
+
+      if (!isVisible) {
+        commentSection.scrollIntoView({
+          behavior: 'smooth',
+          block: 'start'
+        });
+      }
     }
-  })
+  });
 }
 
 // 控制回复输入框显示，key:评论id，value:bool
@@ -303,12 +321,12 @@ const loadContentAndComments = async (guid) => {
   result = await sendAxiosRequest("/blog-api/blog/getLikeAndCollectByBlogId", {blogId: guid});
   if (result && !result.isError) {
     let userBean = userStore.userBean;
+    let likeNum = 0, collectNum = 0;
     //处理该用户是否已经点赞该文章
     result.result.forEach(item => {
-
-      if (item["TYPE"] == "like") blogLikeNum.value++;
-      else if (item["TYPE"] == "collect") blogCollectNum.value++;
-
+      //计算点赞,收藏数
+      if (item["TYPE"] == "like") likeNum++;
+      else if (item["TYPE"] == "collect") collectNum++;
       //判断是否是当前登录用户的点赞收藏
       if (item["USERCODE"] == userBean.code) {
         //该用户已经点赞
@@ -320,7 +338,8 @@ const loadContentAndComments = async (guid) => {
         }
       }
     });
-
+    blogLikeNum.value = likeNum;
+    blogCollectNum.value = collectNum;
   }
 
   // 初始化控制状态
@@ -347,6 +366,8 @@ function handleLike() {
     blogLikeNum.value++;
     blogContent.value.$userIsLike = true;
     sendAxiosRequest("/blog-api/blog/giveLikeBlog", {blogId: contentGuid.value});
+    //发送消息
+    sendNotifications(userBean.code, blogContent.value.USERCODE, "giveLike", null, `${userBean.name}点赞了你的作品《${blogContent.value.BLOG_TITLE}》`)
   }
 }
 
@@ -368,6 +389,8 @@ function handleCollect() {
     blogCollectNum.value++;
     blogContent.value.$userIsCollect = true;
     sendAxiosRequest("/blog-api/blog/collectBlog", {blogId: contentGuid.value});
+    //发送消息
+    sendNotifications(userBean.code, blogContent.value.USERCODE, "collect", null, `${userBean.name}收藏了你的作品《${blogContent.value.BLOG_TITLE}》`)
   }
 }
 
@@ -425,6 +448,7 @@ function toggleComments() {
 }
 
 function submitComment() {
+  debugger;
   let userBean = userStore.userBean;
   if (!userBean || !userBean.code) {
     ElMessage.error("请先登录!");
@@ -453,6 +477,8 @@ function submitComment() {
     delete comment.AVATAR;
     let result = sendAxiosRequest("/blog-api/blog/addComment", {blogComment: comment})
     newComment.value = "";
+    //发送消息
+    sendNotifications(userBean.code, blogContent.value.USERCODE, "comment", null, `${userBean.name}评论了你的作品《${blogContent.value.BLOG_TITLE}》`)
   }
 }
 

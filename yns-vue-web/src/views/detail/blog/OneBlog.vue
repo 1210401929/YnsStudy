@@ -55,7 +55,7 @@ import {ref, onMounted} from "vue";
 import Chat from "@/components/detail/Chat.vue";
 import {useRoute, useRouter} from "vue-router";
 import ContentAndComment from "@/views/detail/blog/ContentAndComment.vue";
-import {sendAxiosRequest, pubFormatDate, decrypt, encrypt} from "@/utils/common";
+import {sendAxiosRequest, decrypt, encrypt, sendNotifications} from "@/utils/common";
 import {useUserStore} from "@/stores/main/user.js";
 import {ElMessage} from "element-plus";
 
@@ -122,7 +122,8 @@ const toggleFollow = () => {
       followUserCode: authorInfo.value.code,
       followUserName: authorInfo.value.name
     });
-
+    //发送消息
+    sendNotifications(userStore.userBean.code, authorInfo.value.code, "followUser", null, `${userStore.userBean.name}关注了你`)
     //取消关注
   } else {
     followersNum.value--;
@@ -144,7 +145,7 @@ const messageAuthor = () => {
     ElMessage.error("用户过期,请返回主页面重新登录!");
     return false;
   }
-  if(userStore.userBean.code==authorInfo.value.code){
+  if (userStore.userBean.code == authorInfo.value.code) {
     ElMessage.error("和自己就别聊了");
     return false;
   }

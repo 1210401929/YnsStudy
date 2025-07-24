@@ -3,7 +3,10 @@ import {ref} from 'vue';
 import {sendAxiosRequest} from "@/utils/common.js";
 
 export const useUserStore = defineStore('user', () => {
+    //用户信息
     const userBean = ref({});
+    //用户未读通知
+    const userUnreadArr = ref([]);
 
     const setUser = (userObj) => {
         userBean.value = userObj;
@@ -17,14 +20,17 @@ export const useUserStore = defineStore('user', () => {
     };
 
     const initFromLocal = async () => {
-        const result = await sendAxiosRequest('/pub-api/login/checkUserLogin');
+        let result = await sendAxiosRequest('/pub-api/login/checkUserLogin');
         if (result && result.result) {
             setUser(result.result);
+            result = await sendAxiosRequest("/pub-api/notice/getNotice", {userCode: userBean.value.code});
+            userUnreadArr.value = result.result;
         }
     };
 
     return {
         userBean,
+        userUnreadArr,
         setUser,
         clearUser,
         initFromLocal

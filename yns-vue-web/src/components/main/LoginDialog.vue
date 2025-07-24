@@ -3,7 +3,30 @@
     <!-- 登录按钮区域 -->
     <div>
       <template v-if="userStore.userBean.name">
-        <el-dropdown @command="handleCommand">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <!-- 🔔 通知铃铛图标 -->
+          <div style="position: relative; cursor: pointer;" @click="goToNotification">
+            <el-icon :size="18">
+              <Bell/>
+            </el-icon>
+            <sup
+                v-if="userStore.userUnreadArr.length > 0"
+                style="
+          position: absolute;
+          top: -8px;
+          right: -13px;
+          background-color: red;
+          color: white;
+          font-size: 12px;
+          border-radius: 10px;
+          padding: 2px 6px;
+          line-height: 1;
+        "
+            >
+              {{ userStore.userUnreadArr.length }}
+            </sup>
+          </div>
+          <el-dropdown @command="handleCommand">
     <span class="el-dropdown-link login-button" style="display: flex; align-items: center; gap: 8px;">
                     <el-avatar
                         :src="userStore.userBean.avatar"
@@ -16,14 +39,16 @@
       <el-icon><User/></el-icon>
       {{ userStore.userBean.name }}
     </span>
-          <template #dropdown>
-            <el-dropdown-menu>
-              <el-dropdown-item command="profile">个人中心</el-dropdown-item>
-              <el-dropdown-item v-if="userStore.userBean.code==adminUserCode" command="sso">后台管理</el-dropdown-item>
-              <el-dropdown-item command="logout">退出登录</el-dropdown-item>
-            </el-dropdown-menu>
-          </template>
-        </el-dropdown>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item command="profile">个人中心</el-dropdown-item>
+                <el-dropdown-item v-if="userStore.userBean.code==adminUserCode" command="sso">后台管理
+                </el-dropdown-item>
+                <el-dropdown-item command="logout">退出登录</el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
+        </div>
       </template>
 
       <template v-else>
@@ -168,6 +193,52 @@
         </el-form>
       </el-dialog>
     </teleport>
+    <teleport to="body">
+      <el-dialog
+          v-model="notificationDialogVisible"
+          title="未读通知"
+          width="500px"
+          :close-on-click-modal="false"
+          class="custom-dialog"
+      >
+        <template #header>
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <span>未读通知</span>
+            <el-button type="primary" size="small" @click="markAllAsRead"
+                       :disabled="userStore.userUnreadArr.length === 0">
+              全部已读
+            </el-button>
+          </div>
+        </template>
+
+        <div v-if="userStore.userUnreadArr.length > 0">
+          <el-scrollbar height="300px">
+            <el-timeline>
+              <el-timeline-item
+                  v-for="(item, index) in userStore.userUnreadArr"
+                  :key="index"
+                  :timestamp="pubFormatDate(item.CREATE_TIME) || '未知时间'"
+                  placement="top"
+                  style="background-color: #f0f9ff;cursor: pointer !important;"
+              >
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <span class="remark-text" :title="item.REMARK" @click="unreadClick(item)">{{ item.REMARK || '无内容' }}</span>
+                  <el-button type="success" text size="small" @click="markAsRead(item)">已读</el-button>
+                </div>
+              </el-timeline-item>
+            </el-timeline>
+          </el-scrollbar>
+        </div>
+        <div v-else style="text-align: center; padding: 20px;">
+          暂无未读通知
+        </div>
+
+        <template #footer>
+          <el-button type="primary" @click="notificationDialogVisible = false">关闭</el-button>
+        </template>
+      </el-dialog>
+    </teleport>
+
   </div>
 </template>
 
@@ -175,20 +246,42 @@
 import {ref} from 'vue';
 import {useRouter} from "vue-router";
 import {ElMessage} from 'element-plus';
-import {sendAxiosRequest} from '@/utils/common.js';
+import {pubFormatDate, sendAxiosRequest} from '@/utils/common.js';
 import {useUserStore} from '@/stores/main/user.js';
-import {useBlogContentStore} from "@/stores/detail/blog.js";
-import {User} from '@element-plus/icons-vue';
+import {User, Bell} from '@element-plus/icons-vue';
 import {adminUserCode} from "@/config/vue-config.js";
 
 const router = useRouter();
+
+const notificationDialogVisible = ref(false);
+//查看通知
+const goToNotification = () => {
+  notificationDialogVisible.value = true;
+};
+//全部已读
+const markAllAsRead = () => {
+  debugger;
+  sendAxiosRequest("/pub-api/notice/allReadNotice", {userCode: userStore.userBean.code});
+  userStore.userUnreadArr = [];
+}
+//单条已读
+const markAsRead = (item) => {
+
+  sendAxiosRequest("/pub-api/notice/readNotice", {guid: item.GUID});
+  //排除该通知
+  userStore.userUnreadArr = userStore.userUnreadArr.filter(i => i.GUID != item.GUID);
+}
+//未读通知点击事件
+const unreadClick = (item) => {
+  window.open(item.EXECUTE,item.EXECUTE);
+  markAsRead(item);
+}
 
 const visible = ref(false);
 const phoneLoginVisible = ref(false);
 const countdown = ref(0);
 let timer = null;
 
-const blogContentStore = useBlogContentStore();
 const userStore = useUserStore();
 userStore.initFromLocal();
 
@@ -300,7 +393,7 @@ const handleCommand = async (command) => {
     const routeUrl = router.resolve({name: 'personalCenter', query: {id: userStore.userBean.code}}).href;
     window.open(routeUrl, userStore.userBean.code);
     //后台管理
-  }else if(command === 'sso'){
+  } else if (command === 'sso') {
     const routeUrl = router.resolve({name: 'sso'}).href;
     window.open(routeUrl, "sso");
     //退出登录
@@ -399,6 +492,14 @@ const submitRegister = async () => {
   height: 30px;
   border-radius: 50%;
   object-fit: cover;
+}
+
+.remark-text {
+  max-width: 300px; /* 根据实际布局调整 */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: inline-block;
 }
 
 </style>
