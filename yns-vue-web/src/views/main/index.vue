@@ -29,12 +29,14 @@
 
       <!-- 移动端菜单按钮 -->
       <div class="mobile-menu-btn mobile-only" @click="drawerVisible = true">
-        <el-icon><Menu /></el-icon>
+        <el-icon>
+          <Menu/>
+        </el-icon>
       </div>
 
       <!-- 登录组件（桌面端显示） -->
       <div class="login-wrapper desktop-only">
-        <LoginDialog />
+        <LoginDialog/>
       </div>
     </header>
 
@@ -64,23 +66,23 @@
 
       <!-- 登录组件（移动端） -->
       <div class="login-mobile">
-        <LoginDialog />
+        <LoginDialog/>
       </div>
     </el-drawer>
 
     <!-- 主内容区域 -->
     <main class="content-container">
-      <router-view />
+      <router-view/>
     </main>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, watch } from 'vue';
-import { useRouter, useRoute } from 'vue-router';
+import {ref, onMounted, watch} from 'vue';
+import {useRouter, useRoute} from 'vue-router';
 import LoginDialog from '@/components/main/LoginDialog.vue';
 import * as menuUtil from '@/utils/menu.js';
-import { Menu } from '@element-plus/icons-vue';
+import {Menu} from '@element-plus/icons-vue';
 
 const router = useRouter();
 const route = useRoute();
@@ -92,21 +94,23 @@ const navigateTo = (routerName) => {
   activeMenu.value = routerName;
   const target = menuItems.value.find(item => item.router === routerName);
   if (target?.path) {
-    router.push({ name: routerName });
+    router.push({name: routerName});
   }
 };
 
 onMounted(() => {
   const path = window.location.pathname.split('/')[2];
   activeMenu.value = path;
+  document.title = menuItems.value.filter(item => item.router == activeMenu.value)[0]["name"] + " - ynsStudy";
 });
 
 //监听路由  如果改变,则修改菜单栏选中内容
 //因路由名称  和菜单栏选中名称对应并完全一致,所以可以直接使用
-watch(()=>route.name,(newValue)=>{
-  const routerNames = menuItems.value.map(item=>item.router);
-  if(routerNames.indexOf(newValue)!=-1){
+watch(() => route.name, (newValue) => {
+  const routerNames = menuItems.value.map(item => item.router);
+  if (routerNames.indexOf(newValue) != -1) {
     activeMenu.value = newValue;
+    document.title = menuItems.value.filter(item => item.router == newValue)[0]["name"] + " - ynsStudy";
   }
 })
 

@@ -215,13 +215,13 @@ import debounce from 'lodash/debounce'
 import {
   buildChildrenData,
   ele_confirm,
-  encrypt,
   getGuid,
   sendAxiosRequest,
   pubFormatDate,
   sendNotifications
 } from "@/utils/common.js";
 import {adminUserCode} from "@/config/vue-config.js";
+import {pubOpenOneBlog, pubOpenUser} from "@/utils/blogUtil.js";
 
 const route = useRoute();
 const router = useRouter();
@@ -248,6 +248,8 @@ const showAllComments = ref(false);
 const newComment = ref("");
 
 const showComment = ref(false);
+
+const emit = defineEmits(['loaded'])
 
 const showCommentFun = () => {
   showComment.value = true;
@@ -341,7 +343,8 @@ const loadContentAndComments = async (guid) => {
     blogLikeNum.value = likeNum;
     blogCollectNum.value = collectNum;
   }
-
+  //加载数据后方法
+  emit('loaded', {blogContent:blogContent.value});
   // 初始化控制状态
   replyInputVisible.value = {};
   replyInputs.value = {};
@@ -432,15 +435,12 @@ watch(
 
 //发表用户点击用户头像
 function avatarClick(blogContent) {
-
-  const routeUrl = router.resolve({name: 'personInfomation', query: {c: encrypt(blogContent.USERCODE)}}).href;
-  window.open(routeUrl, blogContent.USERCODE);
+  pubOpenUser(router,blogContent.USERCODE);
 }
 
 //评论用户点击用户头像
 function commentAvatarClick(comment) {
-  const routeUrl = router.resolve({name: 'personInfomation', query: {c: encrypt(comment.USERCODE)}}).href;
-  window.open(routeUrl, comment.USERCODE);
+  pubOpenUser(router,comment.USERCODE);
 }
 
 function toggleComments() {
@@ -448,7 +448,7 @@ function toggleComments() {
 }
 
 function submitComment() {
-  debugger;
+
   let userBean = userStore.userBean;
   if (!userBean || !userBean.code) {
     ElMessage.error("请先登录!");
@@ -531,6 +531,8 @@ function submitReply(commentId) {
     replyInputs.value[commentId] = "";
     replyInputVisible.value[commentId] = false;
     isChildrenVisible.value[commentId] = true;
+    //发送通知
+    sendNotifications(oneComment.USERCODE, parentComment.USERCODE, "comment", null, `${oneComment.USERNAME}回复了你的评论《${parentComment.TEXT}》`);
   }
 }
 
@@ -540,11 +542,7 @@ function toggleChildren(commentId) {
 }
 
 function openOneBlog() {
-  const routeUrl = router.resolve({
-    name: "oneBlog",
-    query: {g: blogContent.value.GUID, u: encrypt(blogContent.value.USERCODE), n: blogContent.value.BLOG_TITLE}
-  }).href;
-  window.open(routeUrl, blogContent.value.GUID);
+  pubOpenOneBlog(router,blogContent.value.GUID)
 }
 
 
@@ -563,6 +561,7 @@ function deleteArticle() {
     });
   })
 }
+
 </script>
 <style scoped>
 

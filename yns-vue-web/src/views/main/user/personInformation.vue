@@ -250,11 +250,12 @@ import {
   sendAxiosRequest,
   stripImages,
   downloadFileByUrl,
-  sendNotifications
+  sendNotifications, extractPlainTextFromHTML
 } from '@/utils/common.js'
 import ContentAndComment from '@/views/detail/blog/ContentAndComment.vue'
 import {adminUserCode} from '@/config/vue-config.js'
 import {useUserStore} from '@/stores/main/user.js'
+import {pubOpenUser} from "@/utils/blogUtil.js";
 
 const userStore = useUserStore()
 userStore.initFromLocal()
@@ -318,13 +319,11 @@ const followersUserClick = () => {
 }
 
 const openFollowersUser = (item) => {
-  const routeUrl = router.resolve({name: 'personInfomation', query: {c: encrypt(item.CODE)}}).href
-  window.open(routeUrl, item.CODE)
+  pubOpenUser(router, item.CODE);
 }
 
 const openFollowingUser = (item) => {
-  const routeUrl = router.resolve({name: 'personInfomation', query: {c: encrypt(item.CODE)}}).href
-  window.open(routeUrl, item.CODE)
+  pubOpenUser(router, item.CODE);
 }
 
 const page = ref(1)
@@ -334,7 +333,7 @@ const noMore = ref(false)
 
 const fetchArticles = async (userCode) => {
   if (loading.value || noMore.value) return;
-  if (!userCode) userCode = decrypt(route.query.c);
+  if (!userCode) userCode = decrypt(route.params.u);
   loading.value = true
   try {
     const res = await sendAxiosRequest('/blog-api/userInformation/getBlogAndCommunityByUserCode', {
@@ -357,7 +356,7 @@ const fetchArticles = async (userCode) => {
 }
 
 async function getUserInfo2Data() {
-  let userCode = route.query.c
+  let userCode = route.params.u;
   if (userCode) {
     userCode = decrypt(userCode)
     //获取用户发布内容  文章和社区
@@ -395,6 +394,17 @@ async function getUserInfo2Data() {
       const arr = result.result.followersUser.filter(item => item.CODE === userStore.userBean.code)
       if (arr.length > 0) isFollowing.value = true
     }
+  }
+  //修改浏览器title和meta,有助于搜索排名
+  document.title = user.value.name + "的主页";
+  const metaDesc = document.querySelector('meta[name="description"]');
+  if (metaDesc) {
+    metaDesc.setAttribute("content", document.title);
+  } else {
+    const desc = document.createElement('meta')
+    desc.name = "description";
+    desc.content = document.title;
+    document.head.appendChild(desc)
   }
 }
 

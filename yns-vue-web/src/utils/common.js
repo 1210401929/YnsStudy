@@ -19,6 +19,8 @@ import {produceDevIpPort, crypCfg, isSendCrypto} from "@/config/vue-config.js";
  *  isProbablyCipher        判断字符串是否“看起来像” Base64 密文
  *  stripImages             删除html里的图片等内容
  *  extractFirstImage       提取html中的第一个图片
+ *  extractPlainTextFromHTML 提取html中的纯文本
+ *  sendNotifications       系统通用发送消息
  */
 
 /**
@@ -416,6 +418,15 @@ export function extractFirstImage(htmlContent) {
     const img = tempDiv.querySelector('img');
     return img ? img.src : '';
 }
+
+//提取html中的纯文本
+export function extractPlainTextFromHTML(html) {
+    const div = document.createElement('div')
+    div.innerHTML = html
+    const text = div.textContent || div.innerText || ''
+    return text;
+}
+
 
 /**
  * 系统通用发送消息

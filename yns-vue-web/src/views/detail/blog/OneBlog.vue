@@ -42,7 +42,7 @@
       </div>
       <!-- 右侧正文内容 -->
       <div class="content-side">
-        <ContentAndComment :blogId="blogId"/>
+        <ContentAndComment :blogId="blogId" @loaded="contentAndCommentIsLoad"/>
       </div>
     </div>
     <!-- 聊天窗口 -->
@@ -55,17 +55,18 @@ import {ref, onMounted} from "vue";
 import Chat from "@/components/detail/Chat.vue";
 import {useRoute, useRouter} from "vue-router";
 import ContentAndComment from "@/views/detail/blog/ContentAndComment.vue";
-import {sendAxiosRequest, decrypt, encrypt, sendNotifications} from "@/utils/common";
+import {sendAxiosRequest, decrypt, encrypt, sendNotifications, extractPlainTextFromHTML} from "@/utils/common";
 import {useUserStore} from "@/stores/main/user.js";
 import {ElMessage} from "element-plus";
+import {pubOpenUser} from "@/utils/blogUtil.js";
 
 const userStore = useUserStore();
 userStore.initFromLocal();
 
 const route = useRoute();
 const router = useRouter();
-const blogId = route.query.g;
-const userCode = decrypt(route.query.u);
+const blogId = route.params.g;
+let userCode;
 
 // 作者信息
 const authorInfo = ref({});
@@ -83,6 +84,7 @@ const followingUser = ref([]);
 
 // 聊天相关
 const chatVisible = ref(false);
+
 
 async function getUserInfo2Data() {
   if (userCode) {
@@ -133,11 +135,10 @@ const toggleFollow = () => {
 }
 
 // 顶部栏信息
-const articleTitle = ref(route.query.n);
+const articleTitle = ref("");
 
 function avatarClick(authorInfo) {
-  const routeUrl = router.resolve({name: 'personInfomation', query: {c: encrypt(authorInfo.code)}}).href;
-  window.open(routeUrl, authorInfo.code);
+  pubOpenUser(router, authorInfo.code);
 }
 
 const messageAuthor = () => {
@@ -156,9 +157,26 @@ const goBack = () => {
   router.push("/");
 };
 
-onMounted(() => {
-  getUserInfo2Data();
-});
+const contentAndCommentIsLoad = ({blogContent}) => {
+  if (blogContent.USERCODE) {
+    userCode = blogContent.USERCODE;
+    articleTitle.value = blogContent.BLOG_TITLE;
+    //搜索用户信息
+    getUserInfo2Data();
+    //修改浏览器title和meta,有助于搜索排名
+    document.title = blogContent.BLOG_TITLE;
+    const metaDesc = document.querySelector('meta[name="description"]');
+    const blogSummary = extractPlainTextFromHTML(blogContent.BLOG_TITLE + blogContent.MAINTEXT).slice(0, 200) + '...';
+    if (metaDesc) {
+      metaDesc.setAttribute("content", blogSummary);
+    } else {
+      const desc = document.createElement('meta')
+      desc.name = "description"
+      desc.content = blogSummary
+      document.head.appendChild(desc)
+    }
+  }
+}
 
 </script>
 

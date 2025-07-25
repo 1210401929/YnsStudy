@@ -30,11 +30,11 @@ const routes = [
     //个人信息
     {path: '/personalCenter', name: 'personalCenter', component: personalCenter},
     //账号主页
-    {path:'/personInfomation',name:'personInfomation',component: personInfomation},
+    {path:'/personInfomation/:u',name:'personInfomation',component: personInfomation},
     //Ai
     {path: '/YnsStudyAi', name: 'YnsStudyAi', component: YnsStudyAi},
     //展示一条博客内容
-    {path:'/oneBlog', name: 'oneBlog', component: OneBlog},
+    {path:'/oneBlog/:g', name: 'oneBlog', component: OneBlog},
     //导航栏菜单
     {
         path: '/ynsStudy',

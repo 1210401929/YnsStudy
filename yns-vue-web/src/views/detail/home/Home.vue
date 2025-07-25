@@ -160,6 +160,7 @@ import {encrypt, extractFirstImage, pubFormatDate, sendAxiosRequest, stripImages
 import {Star} from "@element-plus/icons-vue";
 import {adminUserCode} from "@/config/vue-config.js";
 import debounce from "lodash/debounce.js";
+import {pubOpenOneBlog, pubOpenUser} from "@/utils/blogUtil.js";
 
 const router = useRouter();
 const homeStore = useHomeStore();
@@ -226,12 +227,7 @@ const handleScroll = () => {
 }
 
 function hotBlogClick(blog) {
-  const routeUrl = router.resolve({
-    name: "oneBlog",
-    query: {g: blog.GUID, u: encrypt(blog.USERCODE), n: blog.BLOG_TITLE}
-  }).href;
-  window.open(routeUrl, blog.GUID);
-
+  pubOpenOneBlog(router,blog.GUID)
 }
 
 function downloadClick(file) {
@@ -239,11 +235,7 @@ function downloadClick(file) {
 }
 
 function goToAdmin() {
-  const routeUrl = router.resolve({
-    name: "personInfomation",
-    query: {c: encrypt(adminUserCode)}
-  }).href;
-  window.open(routeUrl, adminUserCode);
+  pubOpenUser(router,adminUserCode);
 }
 
 async function goToPublishBlog() {
@@ -256,11 +248,7 @@ function goToUpload() {
 
 
 const hotAuthorClick = (author) => {
-  const routeUrl = router.resolve({
-    name: "personInfomation",
-    query: {c: encrypt(author.USERCODE)}
-  }).href;
-  window.open(routeUrl, author.USERCODE);
+  pubOpenUser(router,author.USERCODE);
 };
 
 const handleWindowScroll = () => {

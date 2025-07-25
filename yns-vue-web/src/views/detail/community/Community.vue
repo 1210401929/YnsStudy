@@ -10,7 +10,7 @@
       <div style="text-align: center;">
         🎉 欢迎来到 YNS 社区！新用户请阅读
         <a
-            href="http://ynsstudy.cn/oneBlog?g=F4D23BEE65D1432196379195FF8F1EC0&u=fUCXsV6gN7lBb7Z/Tna/mw==&n=%E7%A4%BE%E5%8C%BA%E6%8C%87%E5%8D%97"
+            href="http://ynsstudy.cn/oneBlog?g=F4D23BEE65D1432196379195FF8F1EC0"
             target="_blank"
             style="color: #409EFF; text-decoration: underline; margin-left: 4px;"
         >《社区指南》</a> ~
@@ -187,7 +187,7 @@
       <div v-if="showPreview" class="preview-box" v-html="renderedHtml"></div>
       <div class="post-actions">
         <el-button type="primary" @click="submitPost">发布</el-button>
-        <el-button @click="togglePreview">{{showPreview ? '编辑' : '预览'}}</el-button>
+        <el-button @click="togglePreview">{{ showPreview ? '编辑' : '预览' }}</el-button>
       </div>
     </el-card>
     <!-- 荣誉勋章 -->
@@ -265,12 +265,13 @@ import {
   getGuid,
   buildChildrenData,
   ele_confirm,
-  loadScript
+  loadScript, sendNotifications
 } from "@/utils/common.js";
 import {useUserStore} from "@/stores/main/user.js";
 import {adminUserCode} from "@/config/vue-config.js";
 import {useRouter} from "vue-router";
 import {marked} from 'marked';
+import {pubOpenUser} from "@/utils/blogUtil.js";
 
 const router = useRouter();
 const userStore = useUserStore();
@@ -403,7 +404,7 @@ function submitComment(postItem) {
     children: [],
     replyText: ''
   }
-  postItem.comments.push(comment);
+  postItem.comments.unshift(comment);
   let sendComment = {
     GUID: comment.GUID,
     USERCODE: comment.USERCODE,
@@ -413,6 +414,8 @@ function submitComment(postItem) {
   }
   sendAxiosRequest("/blog-api/community/addComment", {comment: sendComment});
   postItem.newComment = '';
+  //发送通知
+  sendNotifications(comment.USERCODE, postItem.USERCODE, "comment", null, `${userStore.userBean.name}评论了你在${pubFormatDate(postItem.CREATE_TIME)}发布的社区内容`)
 }
 
 function submitReply(postItem, comment) {
@@ -453,19 +456,15 @@ function collapsePost(postItem) {
 }
 
 function avatarClick(community) {
-  const routeUrl = router.resolve({name: 'personInfomation', query: {c: encrypt(community.USERCODE)}}).href;
-  window.open(routeUrl, community.USERCODE);
+  pubOpenUser(router, community.USERCODE);
 }
 
 function commentAvatarClick(comment) {
-
-  const routeUrl = router.resolve({name: 'personInfomation', query: {c: encrypt(comment.USERCODE)}}).href;
-  window.open(routeUrl, comment.USERCODE);
+  pubOpenUser(router, comment.USERCODE);
 }
 
 function userInfoCLick(userInfo) {
-  const routeUrl = router.resolve({name: 'personInfomation', query: {c: encrypt(userInfo.CODE)}}).href;
-  window.open(routeUrl, userInfo.CODE);
+  pubOpenUser(router, userInfo.CODE);
 }
 
 const showPreview = ref(false)
@@ -731,6 +730,7 @@ const badges = ref(["原始股"]);
 .badge-card {
   padding: 15px;
 }
+
 .post-actions {
   margin-top: 10px;
 }
@@ -750,6 +750,7 @@ const badges = ref(["原始股"]);
   border-color: #dcdcdc !important;
   color: #333 !important;
 }
+
 .badge {
   margin: 5px;
 }
