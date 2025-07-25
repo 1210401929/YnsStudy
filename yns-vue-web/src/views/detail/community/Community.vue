@@ -10,7 +10,7 @@
       <div style="text-align: center;">
         🎉 欢迎来到 YNS 社区！新用户请阅读
         <a
-            href="http://ynsstudy.cn/oneBlog?g=F4D23BEE65D1432196379195FF8F1EC0"
+            href="http://ynsstudy.cn/oneBlog/F4D23BEE65D1432196379195FF8F1EC0"
             target="_blank"
             style="color: #409EFF; text-decoration: underline; margin-left: 4px;"
         >《社区指南》</a> ~
