@@ -36,14 +36,15 @@ public class AesCryptoFilter implements GlobalFilter, Ordered {
     public Mono<Void> filter(ServerWebExchange exchange,
                              org.springframework.cloud.gateway.filter.GatewayFilterChain chain) {
 
+        String method = exchange.getRequest().getMethodValue();
         String path = exchange.getRequest().getURI().getPath();
 
-        // 图片资源或 multipart 上传文件全部跳过加密/解密
-        if (path.startsWith("/uploadFile/") || isMultipart(exchange)) {
+        // 跳过 GET 请求、上传文件请求
+        if ("GET".equalsIgnoreCase(method) || path.startsWith("/uploadFile/") || isMultipart(exchange)) {
             return chain.filter(exchange);
         }
 
-        // 其余请求才进入加解密流程
+        // 非 GET 请求，进入解密处理
         return DataBufferUtils.join(exchange.getRequest().getBody())
                 .flatMap(buf -> {
                     byte[] originalBytes = new byte[buf.readableByteCount()];
@@ -53,18 +54,13 @@ public class AesCryptoFilter implements GlobalFilter, Ordered {
                     boolean needCrypto = false;
                     String cipherHex = null;
 
-                    if ("GET".equalsIgnoreCase(exchange.getRequest().getMethodValue())) {
-                        cipherHex = exchange.getRequest().getQueryParams().getFirst(FIELD);
-                        needCrypto = cipherHex != null;
-                    } else {
-                        String bodyStr = new String(originalBytes, StandardCharsets.UTF_8);
-                        if (bodyStr.contains(FIELD)) {
-                            try {
-                                JsonNode node = MAPPER.readTree(bodyStr);
-                                cipherHex = node.get(FIELD).asText();
-                                needCrypto = true;
-                            } catch (Exception ignore) {}
-                        }
+                    String bodyStr = new String(originalBytes, StandardCharsets.UTF_8);
+                    if (bodyStr.contains(FIELD)) {
+                        try {
+                            JsonNode node = MAPPER.readTree(bodyStr);
+                            cipherHex = node.get(FIELD).asText();
+                            needCrypto = true;
+                        } catch (Exception ignore) {}
                     }
 
                     if (needCrypto) {
@@ -85,6 +81,7 @@ public class AesCryptoFilter implements GlobalFilter, Ordered {
                                 .build());
                     }
 
+                    // 不需要解密，仅重新包装 body
                     ServerHttpRequestDecorator newReq = wrapRequest(exchange, originalBytes);
                     return chain.filter(exchange.mutate().request(newReq).build());
                 });

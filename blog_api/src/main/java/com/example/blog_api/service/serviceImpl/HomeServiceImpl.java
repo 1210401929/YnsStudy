@@ -24,23 +24,23 @@ public class HomeServiceImpl implements HomeService {
         result = getHotFileData();
         data.put("hotFileData", result.result);
         result = getHigAuthor("4");
-        data.put("higAuthor",result.result);
+        data.put("higAuthor", result.result);
         return ResultBody.createSuccessResult(data);
     }
 
     @Override
     public ResultBody getWebsiteStatistics() {
-        String sql ="SELECT \n" +
+        String sql = "SELECT \n" +
                 "    (SELECT COUNT(1) FROM blogInfo) AS ARTICLENUM,\n" +
                 "    (SELECT COUNT(1) FROM communityInfo) AS COMMUNITYNUM,\n" +
                 "    (SELECT SUM(VIEW_PAGE) FROM blogInfo) AS VIEW_PAGE,\n" +
                 "    (SELECT COUNT(1) FROM userInfo) AS USERNUM,\n" +
                 "    (select COUNT(1) from loginHistory) as USERLOGINNUM;";
-        ResultBody result = callService.callFunOneParams(FunToUrlUtil.selectListUrl,"sql",sql);
-        if(result!=null && !result.isError){
-            Map<String,Integer> map = (Map<String,Integer>)((ArrayList)result.result).get(0);
+        ResultBody result = callService.callFunOneParams(FunToUrlUtil.selectListUrl, "sql", sql);
+        if (result != null && !result.isError) {
+            Map<String, Integer> map = (Map<String, Integer>) ((ArrayList) result.result).get(0);
             return ResultBody.createSuccessResult(map);
-        }else{
+        } else {
             return ResultBody.createErrorResult("获取网站统计失败");
         }
     }
@@ -48,7 +48,7 @@ public class HomeServiceImpl implements HomeService {
     @Override
     public ResultBody getHigAuthor(String num) {
         //默认4条
-        if(num==null) num = "4";
+        if (num == null) num = "4";
         //根据blogInfo(文章)表  blogComment(评论)表 计算出前三名优质作者
         String sql = "SELECT \n" +
                 "    u.USERCODE,\n" +
@@ -82,6 +82,19 @@ public class HomeServiceImpl implements HomeService {
         params.put("sql", sql);
         ResultBody result = callService.callFunWithParams(FunToUrlUtil.selectListUrl, params);
         return result;
+    }
+
+    @Override
+    public ResultBody getAllBlogGuids() {
+        String sql = "select GUID from blogInfo";
+        Map<String, Object> params = new HashMap<>();
+        params.put("sql", sql);
+        ResultBody result = callService.callFunWithParams(FunToUrlUtil.selectListUrl, params);
+        List<String> guids = new ArrayList<>();
+        for (Map<String, Object> item : (List<Map<String, Object>>) result.result) {
+            guids.add((String) item.get("GUID"));
+        }
+        return ResultBody.createSuccessResult(guids);
     }
 
     //获取热门下载内容

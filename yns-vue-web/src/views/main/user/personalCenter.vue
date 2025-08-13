@@ -87,6 +87,7 @@ import {useUserStore} from "@/stores/main/user.js";
 import {Edit} from "@element-plus/icons-vue";
 import {ele_confirm, sendAxiosRequest,encrypt} from "@/utils/common.js";
 import {useRouter} from "vue-router";
+import {pubOpenUser} from "@/utils/blogUtil.js";
 
 const router = useRouter();
 
@@ -191,7 +192,7 @@ const personalCareer = ()=>{
     ElMessage.error("用户过期,请返回主页面重新登录!");
     return false;
   }
-  router.push({name:"personInfomation",query:{c: encrypt(userStore.userBean.code)}});
+  pubOpenUser(router,userStore.userBean.code);
 }
 </script>
 

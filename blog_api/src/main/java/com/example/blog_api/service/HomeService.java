@@ -10,4 +10,5 @@ public interface HomeService {
     ResultBody getWebsiteStatistics();
     //获取优质作者
     ResultBody getHigAuthor(String num);
+    ResultBody getAllBlogGuids();
 }
