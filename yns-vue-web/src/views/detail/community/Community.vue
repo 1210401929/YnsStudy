@@ -1,22 +1,6 @@
 <template>
   <!-- 公告横幅 -->
-  <el-alert
-      type="success"
-      show-icon
-      class="banner-alert"
-      closable
-  >
-    <template #title>
-      <div style="text-align: center;">
-        🎉 欢迎来到 YNS 社区！新用户请阅读
-        <a
-            href="http://ynsstudy.cn/oneBlog/F4D23BEE65D1432196379195FF8F1EC0"
-            target="_blank"
-            style="color: #409EFF; text-decoration: underline; margin-left: 4px;"
-        >《社区指南》</a> ~
-      </div>
-    </template>
-  </el-alert>
+  <Announcement v-for="al in topAlert" :key="al.GUID" :TEXT="al.TEXT" :URL="al.URL" :URLNAME="al.URLNAME" />
 
   <div class="community-page">
     <!-- 讨论区 -->
@@ -257,6 +241,7 @@
 import {ref, computed, onMounted} from 'vue';
 import Chat from "@/components/detail/Chat.vue";
 import {ElMessage} from "element-plus";
+import Announcement from "@/components/detail/Announcement.vue";
 import {ChatDotSquare, Delete, Star, Close} from '@element-plus/icons-vue'
 import {
   encrypt,
@@ -271,7 +256,7 @@ import {useUserStore} from "@/stores/main/user.js";
 import {adminUserCode} from "@/config/vue-config.js";
 import {useRouter} from "vue-router";
 import {marked} from 'marked';
-import {pubOpenUser} from "@/utils/blogUtil.js";
+import {getAnnouncementByRouterName, pubOpenUser} from "@/utils/blogUtil.js";
 
 const router = useRouter();
 const userStore = useUserStore();
@@ -514,7 +499,12 @@ const loadAiFun = async () => {
     code,
   });
 }
-
+//公告横幅内容
+const topAlert = ref([]);
+const setTopAlert = async ()=>{
+  topAlert.value = await getAnnouncementByRouterName("Community");
+}
+setTopAlert();
 const badges = ref(["原始股"]);
 </script>
 
@@ -779,12 +769,7 @@ const badges = ref(["原始股"]);
   padding: 4px 0;
 }
 
-.banner-alert {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  text-align: center;
-}
+
 
 .user-card {
   margin-bottom: 12px;

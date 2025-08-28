@@ -1,4 +1,7 @@
 <template>
+  <!-- 公告横幅 -->
+  <Announcement v-for="al in topAlert" :key="al.GUID" :TEXT="al.TEXT" :URL="al.URL" :URLNAME="al.URLNAME" />
+
   <el-container style="height: 100vh; padding: 20px; box-sizing: border-box;">
     <el-main style="display: flex; gap: 20px;">
       <!-- 左侧：他人上传的文件 -->
@@ -158,6 +161,8 @@ import {
   uploadFileWithProgress
 } from "@/utils/common.js";
 import {useUserStore} from "@/stores/main/user.js";
+import Announcement from "@/components/detail/Announcement.vue";
+import {getAnnouncementByRouterName} from "@/utils/blogUtil.js";
 
 const route = useRoute();
 const userStore = useUserStore();
@@ -301,6 +306,12 @@ const filteredOtherFiles = computed(() =>
         ? otherFiles.value.filter(f => f.ORIGINALFILENAME.toLowerCase().includes(searchKeyword.value.toLowerCase()))
         : otherFiles.value
 )
+//公告横幅内容
+const topAlert = ref([]);
+const setTopAlert = async ()=>{
+  topAlert.value = await getAnnouncementByRouterName("Resources");
+}
+setTopAlert();
 </script>
 
 <style scoped>

@@ -1,4 +1,6 @@
 <template>
+  <!-- 公告横幅 -->
+  <Announcement v-for="al in topAlert" :key="al.GUID" :TEXT="al.TEXT" :URL="al.URL" :URLNAME="al.URLNAME" />
   <div class="home-page-wrapper">
     <!-- 主体三栏布局 -->
     <div class="three-column-layout">
@@ -160,7 +162,8 @@ import {encrypt, extractFirstImage, pubFormatDate, sendAxiosRequest, stripImages
 import {Star} from "@element-plus/icons-vue";
 import {adminUserCode} from "@/config/vue-config.js";
 import debounce from "lodash/debounce.js";
-import {pubOpenOneBlog, pubOpenUser} from "@/utils/blogUtil.js";
+import {getAnnouncementByRouterName, pubOpenOneBlog, pubOpenUser} from "@/utils/blogUtil.js";
+import Announcement from "@/components/detail/Announcement.vue";
 
 const router = useRouter();
 const homeStore = useHomeStore();
@@ -271,6 +274,13 @@ onMounted(() => {
 onBeforeUnmount(() => {
   window.removeEventListener('scroll', handleWindowScroll);
 });
+
+//公告横幅内容
+const topAlert = ref([]);
+const setTopAlert = async ()=>{
+  topAlert.value = await getAnnouncementByRouterName("Home");
+}
+setTopAlert();
 </script>
 
 <style scoped>

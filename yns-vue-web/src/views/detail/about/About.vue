@@ -1,4 +1,7 @@
 <template>
+  <!-- 公告横幅 -->
+  <Announcement v-for="al in topAlert" :key="al.GUID" :TEXT="al.TEXT" :URL="al.URL" :URLNAME="al.URLNAME" />
+
   <div class="about-wrapper">
     <div class="about-container">
       <div class="hero">
@@ -55,6 +58,8 @@
 <script setup>
 import {ref, onMounted} from 'vue'
 import {sendAxiosRequest} from "@/utils/common.js";
+import Announcement from "@/components/detail/Announcement.vue";
+import {getAnnouncementByRouterName} from "@/utils/blogUtil.js";
 
 const features = [
   {
@@ -93,7 +98,12 @@ const getWebsiteStatistics = async () => {
     stats.value = result.result;
   }
 }
-
+//公告横幅内容
+const topAlert = ref([]);
+const setTopAlert = async ()=>{
+  topAlert.value = await getAnnouncementByRouterName("About");
+}
+setTopAlert();
 </script>
 
 <style scoped>

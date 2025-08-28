@@ -1,4 +1,7 @@
 <template>
+  <!-- 公告横幅 -->
+  <Announcement v-for="al in topAlert" :key="al.GUID" :TEXT="al.TEXT" :URL="al.URL" :URLNAME="al.URLNAME" />
+
   <el-container class="blog-container">
     <!-- 左侧目录 -->
     <el-aside width="220px" class="sidebar" v-if="blogContentStore.blogContents.length>0">
@@ -65,6 +68,8 @@ import {getGuid} from '@/utils/common.js'
 import ArticleEditor from '@/components/detail/ArticleEditor.vue'
 import {sendAxiosRequest} from "@/utils/common.js";
 import {ElMessage} from 'element-plus';
+import Announcement from "@/components/detail/Announcement.vue";
+import {getAnnouncementByRouterName} from "@/utils/blogUtil.js";
 
 const router = useRouter()
 const userStore = useUserStore();
@@ -116,6 +121,13 @@ async function handleEditorSubmit({blog_type,title, content}) {
   handleSelect(selectedIndex.value)
   editorVisible.value = false
 }
+
+//公告横幅内容
+const topAlert = ref([]);
+const setTopAlert = async ()=>{
+  topAlert.value = await getAnnouncementByRouterName("MyBlog");
+}
+setTopAlert();
 </script>
 
 <style scoped>
