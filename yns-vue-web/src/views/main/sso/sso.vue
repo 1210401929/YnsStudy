@@ -148,6 +148,7 @@ const saveAnnouncement = async (row) => {
 
 //删除
 const deleteAnnouncement = async (row) => {
+  debugger;
   ele_confirm("是否确认删除?", async () => {
     let result = await sendAxiosRequest("/blog-api/sso/deleteAnnouncement", {guid: row.GUID});
     if (result && !result.isError) {
