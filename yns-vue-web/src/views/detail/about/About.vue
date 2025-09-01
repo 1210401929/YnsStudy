@@ -121,7 +121,7 @@ setTopAlert();
 .about-container {
   flex: 1;
   overflow-y: auto;
-  padding: 16px;
+  padding: 0 16px 16px 16px;
   box-sizing: border-box;
   width: 100%; /* 确保容器填满可用宽度 */
   max-width: 1400px; /* 限制最大宽度 */

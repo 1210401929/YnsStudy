@@ -486,9 +486,9 @@ onMounted(() => {
   padding: 24px 0;
   box-sizing: border-box;
   position: relative;
-  background-color: #f8f8f8;
-  /*背景
-//background: url('/picture/user/lantianbaiyuncaodi.webp') no-repeat center center fixed; //background-size: 100% 100%;*/
+  /*background-color: #f8f8f8;*/
+  background: url('/picture/user/lantianbaiyuncaodi.webp') no-repeat center center fixed;
+  background-size: 100% 100%;
 }
 
 .inner-container {

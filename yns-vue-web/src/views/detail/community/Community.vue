@@ -516,7 +516,7 @@ const badges = ref(["原始股"]);
 }
 
 .community-page {
-  padding: 30px;
+  padding: 0 30px 30px 30px;
   background: #f7f8fa;
 }
 
