@@ -1,3 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ExternalStorageConfigurationManager" enabled="true" />
   <component name="JavaScriptSettings">
@@ -15,6 +16,7 @@
         <option value="$PROJECT_DIR$/gateway-service/pom.xml" />
         <option value="$PROJECT_DIR$/common_api/pom.xml" />
         <option value="$PROJECT_DIR$/blog_api/pom.xml" />
+        <option value="$PROJECT_DIR$/ai_api/pom.xml" />
       </list>
     </option>
     <option name="ignoredFiles">

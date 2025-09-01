@@ -10,10 +10,10 @@
         <module name="gateway-service" />
         <module name="yns_portal" />
         <module name="common_api" />
+        <module name="ai_api" />
         <module name="pub_api" />
         <module name="blog_api" />
         <module name="eureka-server" />
-        <module name="NYS_TOP" />
       </profile>
     </annotationProcessing>
     <bytecodeTargetLevel>
@@ -25,6 +25,7 @@
   </component>
   <component name="JavacSettings">
     <option name="ADDITIONAL_OPTIONS_OVERRIDE">
+      <module name="ai_api" options="-parameters" />
       <module name="blog_api" options="-parameters" />
       <module name="consumer" options="-parameters" />
       <module name="eureka-server" options="-parameters" />

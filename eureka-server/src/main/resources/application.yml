@@ -8,8 +8,8 @@ eureka:
   client:
     #禁止自己当做服务注册
     register-with-eureka: false
-    #屏蔽注册信息
-    fetch-registry: false
+    #是否屏蔽注册信息
+    fetch-registry: true
     #注册url
     serviceUrl:
       defaultZone: http://${eureka.instance.hostname}:${server.port}/eureka/

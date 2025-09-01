@@ -30,6 +30,11 @@ export default defineConfig(({ mode }) => {
                     target: 'http://localhost:8889',
                     changeOrigin: true,
                     rewrite: path => path
+                },
+                '/ai-api': {
+                    target: 'http://localhost:8889',
+                    changeOrigin: true,
+                    rewrite: path => path
                 }
             }
         };

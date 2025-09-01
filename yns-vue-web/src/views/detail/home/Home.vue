@@ -297,9 +297,15 @@ setTopAlert();
   flex-direction: column;
   justify-content: space-between;
   overflow: hidden;
-  height: auto; /* 不设置固定高度，让内容自动适应 */
-  min-height: 150px; /* 给文章卡片一个最小高度 */
+  height: auto;
+  min-height: 150px;
+  /* 关键：强制长串内容在容器内换行 */
+  word-break: break-all;        /* 遇到超长单词/字符也强制断开 */
+  overflow-wrap: anywhere;      /* CSS3 推荐写法，任何地方都能换行 */
+  white-space: normal;          /* 确保不是 nowrap */
 }
+
+
 
 .article-card:hover {
   transform: translateY(-2px);
@@ -426,7 +432,7 @@ setTopAlert();
   box-sizing: border-box;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
   /* 去掉 overflow:hidden 或者 设置为 visible */
-  overflow: visible;
+  overflow: hidden;
 }
 
 .section-title {

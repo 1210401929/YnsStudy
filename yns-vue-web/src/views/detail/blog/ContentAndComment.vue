@@ -186,7 +186,7 @@
   <el-dialog
       v-model="editorVisible"
       title="文章编辑"
-      width="900px"
+      width="1000px"
       top="2vh"
       :close-on-click-modal="false"
       destroy-on-close

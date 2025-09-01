@@ -36,6 +36,12 @@ spring:
           predicates:
             - Path=/blog-api/**    # 访问 /blog-api/** 的请求都会路由到 service-blog-api
 
+        # 配置路由3：转发到 service-ai-api 微服务
+        - id: ai-api
+          uri: lb://service-ai-api
+          predicates:
+            - Path=/ai-api/**    # 访问 /ai-api/** 的请求都会路由到 service-ai-api
+
       discovery:
         locator:
           enabled: true  # 开启服务发现，通过服务名自动匹配转发

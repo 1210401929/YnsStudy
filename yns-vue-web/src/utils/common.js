@@ -23,6 +23,14 @@ import {produceDevIpPort, crypCfg, isSendCrypto} from "@/config/vue-config.js";
  *  sendNotifications       系统通用发送消息
  */
 
+export const getSendAxiosUrl = (url) => {
+    // 环境判断
+    url = import.meta.env.MODE === 'development'
+        ? url
+        : produceDevIpPort + url
+    return url;
+}
+
 /**
  * 统一发送 Axios 请求，支持可选加密 / 解密
  *
@@ -40,9 +48,7 @@ export const sendAxiosRequest = async function (
     isReturnAll = false
 ) {
     // 环境判断
-    url = import.meta.env.MODE === 'development'
-        ? url
-        : produceDevIpPort + url
+    url = getSendAxiosUrl(url);
 
     method = method.toLowerCase()
 
