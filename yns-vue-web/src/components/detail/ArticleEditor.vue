@@ -330,8 +330,8 @@ watch(() => props.content, (v) => (localContent.value = v))
 
 /* 1) 真正的内容容器是 .w-e-text —— 在这里加“护边”最稳 */
 :deep(.w-e-text) {
-  padding-left: 16px; /* 左侧安全区 */
-  padding-right: 16px; /* 顺便给右侧也加一点 */
+  padding-left: 0px;  /*左侧安全区 */
+  padding-right: 0px; /* 顺便给右侧也加一点 */
   box-sizing: border-box;
 }
 
@@ -400,4 +400,15 @@ watch(() => props.content, (v) => (localContent.value = v))
 :deep(img) {
   cursor: zoom-in;
 }
+
+/* 移动端适配 */
+@media (max-width: 768px) {
+  /* 缩短内边距 */
+  :deep(.w-e-text-container) {
+    padding: 0px!important; /* 或者 padding-left: 16px; */
+    box-sizing: border-box;
+    overflow-x: auto; /* 防止代码块等超长内容被裁掉 */
+  }
+}
+
 </style>
