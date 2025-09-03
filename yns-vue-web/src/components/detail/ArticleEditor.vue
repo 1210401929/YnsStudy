@@ -199,7 +199,7 @@ onBeforeUnmount(() => {
 /* ---------- ai按钮组 ---------- */
 //从头写
 function aiButtonMh() {
-  debugger;
+
   let preface = localTitle.value;
   if (!preface) {
     ElMessage.error("告诉ai写点什么吧,写在文章标题区域!");
