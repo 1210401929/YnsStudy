@@ -230,7 +230,7 @@ function aiHelp(preface = "") {
     editorRef.value?.focus(true)
   } catch {
   }
-  pubLoading("start", {text: "正在使用 AI 协助写作时，发现格式存在问题，请对其进行少量修改与优化。"})
+  pubLoading("start", {text: "正在使用 AI 协助写作，发现格式存在问题时，请对其进行少量修改与优化。"})
   const source = new EventSource(getSendAxiosUrl(`/ai-api/ai/qWenStream?message=${encrypt(content)}`));
   let buffer = '';
 
