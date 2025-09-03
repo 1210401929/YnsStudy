@@ -246,7 +246,6 @@ import {useRoute, useRouter} from 'vue-router'
 import {
   pubFormatDate,
   decrypt,
-  encrypt,
   sendAxiosRequest,
   stripImages,
   downloadFileByUrl,
@@ -488,7 +487,8 @@ onMounted(() => {
   position: relative;
   /*background-color: #f8f8f8;*/
   background: url('/picture/user/lantianbaiyuncaodi.webp') no-repeat center center fixed;
-  background-size: 100% 100%;
+  background-size: cover;   /* 关键：保持比例并填满容器 */
+  background-attachment: fixed; /* 在手机上可能会失效，可根据需求调整 */
 }
 
 .inner-container {
