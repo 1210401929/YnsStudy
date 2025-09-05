@@ -81,7 +81,7 @@
       <!-- 右侧：我上传的文件 -->
       <div v-if="userStore.userBean.code" style="flex: 3; display: flex; flex-direction: column;">
         <el-upload
-            v-if="myFiles.length < 5"
+            v-if="myFiles.length < 5 && userStore.userBean.code != adminUserCode"
             drag
             :http-request="customUploadRequest"
             :before-upload="beforeUploadCheck"
@@ -209,6 +209,7 @@ import {useUserStore} from "@/stores/main/user.js";
 import Announcement from "@/components/detail/Announcement.vue";
 import {getAnnouncementByRouterName} from "@/utils/blogUtil.js";
 import debounce from "lodash/debounce.js";
+import {adminUserCode} from "@/config/vue-config.js";
 
 const route = useRoute();
 const userStore = useUserStore();
