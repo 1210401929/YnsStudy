@@ -1,8 +1,8 @@
 <template>
   <!-- 公告横幅 -->
-  <Announcement v-for="al in topAlert" :key="al.GUID" :TEXT="al.TEXT" :URL="al.URL" :URLNAME="al.URLNAME" />
+  <Announcement v-for="al in topAlert" :key="al.GUID" :TEXT="al.TEXT" :URL="al.URL" :URLNAME="al.URLNAME"/>
 
-  <el-container style="height: 100vh; padding: 20px; box-sizing: border-box;">
+  <el-container style="height: auto; min-height:100vh; padding: 20px; box-sizing: border-box;">
     <el-main style="display: flex; gap: 20px;">
       <!-- 左侧：他人上传的文件 -->
       <div style="flex: 7; display: flex; flex-direction: column;">
@@ -11,16 +11,24 @@
             placeholder="搜索他人上传的文件"
             :prefix-icon="Search"
             clearable
+            @clear="resetAndLoad"
+            @input="debouncedSearch"
             style="margin-bottom: 10px;"
         />
         <div class="scroll-panel">
           <div
-              v-for="file in filteredOtherFiles"
+              v-for="file in articles"
               :key="file.GUID"
               class="file-card"
           >
             <div class="card-content">
               <div class="file-title">{{ file.ORIGINALFILENAME }}</div>
+              <!-- 备注（有就显示，悬浮显示完整内容） -->
+              <el-tooltip :content="file.REMARK" placement="top" :disabled="!file.REMARK">
+                <div v-if="file.REMARK" class="file-remark">
+                  文件详情：{{ file.REMARK }}
+                </div>
+              </el-tooltip>
               <div class="file-meta">
                 <span class="meta-item">
                   <el-icon><User/></el-icon>
@@ -51,11 +59,23 @@
                   size="small"
                   @click="copyFileUrl(file)"
               >
-                复制下载连接
+                复制下载链接
               </el-button>
             </div>
           </div>
         </div>
+        <el-empty v-if="!articles.length && !loading" description="暂无内容"/>
+        <el-button
+            v-if="!noMore && !loading"
+            type="primary"
+            link
+            @click="fetchArticles"
+            style="display: block;"
+        >
+          加载更多
+        </el-button>
+        <div v-if="loading" class="loading-text">加载中...</div>
+        <div v-if="noMore" class="end-text">没有更多文件了</div>
       </div>
 
       <!-- 右侧：我上传的文件 -->
@@ -102,7 +122,7 @@
             >
               <el-card shadow="hover" class="file-card compact-card">
                 <div class="card-title">{{ file.ORIGINALFILENAME }}</div>
-                <div class="card-meta">上传时间：{{ file.CREATE_TIME }}</div>
+                <div class="card-meta">上传时间：{{ pubFormatDate(file.CREATE_TIME) }}</div>
                 <div class="card-meta">下载次数：{{ file.DOWNNUM }}次</div>
                 <el-button
                     type="success"
@@ -118,7 +138,16 @@
                     size="small"
                     @click="copyFileUrl(file)"
                 >
-                  复制下载连接
+                  复制下载链接
+                </el-button>
+                <!-- 卡片内按钮区，新增“编辑” -->
+                <el-button
+                    type="warning"
+                    :icon="EditPen"
+                    size="small"
+                    @click="openEdit(file)"
+                >
+                  编辑
                 </el-button>
                 <el-button
                     type="danger"
@@ -145,55 +174,121 @@
       </div>
     </el-main>
   </el-container>
+  <!-- 编辑弹窗 -->
+  <el-dialog v-model="editVisible" title="编辑文件信息" width="480px" @closed="resetEdit">
+    <el-form :model="editForm" :rules="editRules" ref="editRef" label-width="90px">
+      <el-form-item label="文件名称" prop="ORIGINALFILENAME">
+        <el-input v-model.trim="editForm.ORIGINALFILENAME" maxlength="180" show-word-limit clearable/>
+      </el-form-item>
+      <el-form-item label="备注" prop="REMARK">
+        <el-input v-model.trim="editForm.REMARK" type="textarea" :autosize="{minRows:3,maxRows:6}" maxlength="300" show-word-limit/>
+      </el-form-item>
+    </el-form>
+    <template #footer>
+      <el-button @click="editVisible = false">取消</el-button>
+      <el-button type="primary" :loading="savingEdit" @click="submitEdit">保存</el-button>
+    </template>
+  </el-dialog>
+
 </template>
 
 <script setup>
-import {ref, computed, onMounted} from 'vue'
+import {ref, computed,onMounted,watch } from 'vue'
 import {useRoute} from "vue-router";
 import {ElMessage} from 'element-plus'
-import {User, Clock, Close, CopyDocument, Download, Search} from '@element-plus/icons-vue'
+import {User, Clock, Close, CopyDocument, Download, Search,EditPen} from '@element-plus/icons-vue'
 import {
   downloadFileByUrl,
   ele_confirm,
   getGuid,
   sendAxiosRequest,
   pubFormatDate,
-  uploadFileWithProgress
+  uploadFileWithProgress, extractFirstImage
 } from "@/utils/common.js";
 import {useUserStore} from "@/stores/main/user.js";
 import Announcement from "@/components/detail/Announcement.vue";
 import {getAnnouncementByRouterName} from "@/utils/blogUtil.js";
+import debounce from "lodash/debounce.js";
 
 const route = useRoute();
 const userStore = useUserStore();
 
-const searchKeyword = ref('')
-const otherFiles = ref([])
-const myFiles = ref([])
+
 
 const uploadProgress = ref(0)
 const isUploading = ref(false)
 
 onMounted(() => {
-  setFileData()
+
+  fetchArticles();
 })
 
-const setFileData = async () => {
-  let result = await sendAxiosRequest("/blog-api/resource/getAllFile");
-  if (result && !result.isError) {
-    otherFiles.value = result.result.filter(item => item["USERCODE"] != userStore.userBean.code);
-    myFiles.value = result.result.filter(item => item["USERCODE"] == userStore.userBean.code);
-    setFileDataByRouterPms();
+// 文件列表数据
+const articles = ref([])
+const page = ref(1)
+const pageSize = 10
+const loading = ref(false)
+const noMore = ref(false)
+
+// 搜索文件
+const searchKeyword = ref('')
+
+const resetAndLoad = () => {
+  page.value = 1
+  noMore.value = false
+  articles.value = []
+  fetchArticles()
+}
+
+const debouncedSearch = debounce(() => {
+  resetAndLoad()
+}, 500)
+
+const fetchArticles = async () => {
+  if (loading.value || noMore.value) return
+  loading.value = true
+  try {
+    const res = await sendAxiosRequest('/blog-api/resource/getAllFile', {
+      page: page.value,
+      pageSize,
+      keyword: searchKeyword.value
+    })
+    const newData = res.result.data;
+
+    if (newData.length < pageSize) {
+      noMore.value = true
+    }
+    articles.value.push(...newData)
+    page.value++
+  } catch (e) {
+    console.error('获取文件失败', e)
+  } finally {
+    loading.value = false
   }
 }
 
-const setFileDataByRouterPms = () => {
-  let fieldGuid = route.query.g;
-  if (fieldGuid) {
-    otherFiles.value = otherFiles.value.filter(item => item.GUID == fieldGuid);
-    myFiles.value = myFiles.value.filter(item => item.GUID == fieldGuid);
+const myFiles = ref([]);
+
+//获取用户本身上传的附件
+const setMyFileData = async () => {
+  debugger;
+  if(!userStore.userBean.code) return false;
+  let result = await sendAxiosRequest("/blog-api/resource/getFileByUser",{userCode:userStore.userBean.code});
+  if (result && !result.isError) {
+    myFiles.value = result.result;
   }
 }
+
+watch(
+    () => userStore.userBean && userStore.userBean.code,
+    (code) => {
+      if (code) {
+        debugger;
+        setMyFileData();
+      }
+    },
+    { immediate: true }
+)
 
 const beforeUploadCheck = (file) => {
   let isSuccess = true;
@@ -300,15 +395,89 @@ const copyFileUrl = (file) => {
   }
   document.body.removeChild(input);
 }
+//编辑附件区域---------------------------------------------------------------------------
+// 编辑弹窗相关
+const editVisible = ref(false)
+const savingEdit = ref(false)
+const editRef = ref()
+const editingItem = ref(null) // 当前编辑的那条记录引用
 
-const filteredOtherFiles = computed(() =>
-    searchKeyword.value
-        ? otherFiles.value.filter(f => f.ORIGINALFILENAME.toLowerCase().includes(searchKeyword.value.toLowerCase()))
-        : otherFiles.value
-)
+const editForm = ref({
+  GUID: '',
+  ORIGINALFILENAME: '',
+  REMARK: ''
+})
+
+const editRules = {
+  ORIGINALFILENAME: [
+    { required: true, message: '请输入文件名称', trigger: 'blur' },
+    { min: 1, max: 180, message: '长度 1-180 个字符', trigger: 'blur' }
+  ],
+  REMARK: [
+    { max: 300, message: '最多 300 个字符', trigger: 'blur' }
+  ]
+}
+
+function openEdit(file) {
+  editingItem.value = file
+  editForm.value.GUID = file.GUID
+  editForm.value.ORIGINALFILENAME = file.ORIGINALFILENAME || ''
+  editForm.value.REMARK = file.REMARK || ''
+  editVisible.value = true
+}
+
+function resetEdit() {
+  editingItem.value = null
+  editRef.value?.clearValidate?.()
+}
+
+async function submitEdit() {
+  debugger;
+  try {
+    await editRef.value.validate()
+  } catch {
+    return
+  }
+  savingEdit.value = true
+  try {
+    // 根据你的后端接口自行调整字段名
+    const payload = {
+      guid: editForm.value.GUID,
+      originalFileName: editForm.value.ORIGINALFILENAME,
+      remark: editForm.value.REMARK
+    }
+    const res = await sendAxiosRequest('/blog-api/resource/updateFileInfo', payload)
+
+    if (res && !res.isError) {
+      // 本地乐观更新
+      if (editingItem.value) {
+        editingItem.value.ORIGINALFILENAME = editForm.value.ORIGINALFILENAME
+        editingItem.value.REMARK = editForm.value.REMARK
+      } else {
+        const i = myFiles.value.findIndex(x => x.GUID === editForm.value.GUID)
+        if (i > -1) {
+          myFiles.value[i] = {
+            ...myFiles.value[i],
+            ORIGINALFILENAME: editForm.value.ORIGINALFILENAME,
+            REMARK: editForm.value.REMARK
+          }
+        }
+      }
+      ElMessage.success('保存成功,刷新页面可以看到最新内容!')
+      editVisible.value = false
+    } else {
+      ElMessage.error(res?.errMsg || '保存失败')
+    }
+  } catch (e) {
+    console.error(e)
+    ElMessage.error('保存失败')
+  } finally {
+    savingEdit.value = false
+  }
+}
 //公告横幅内容
 const topAlert = ref([]);
-const setTopAlert = async ()=>{
+const setTopAlert = async () => {
   topAlert.value = await getAnnouncementByRouterName("Resources");
 }
 setTopAlert();
@@ -390,12 +559,33 @@ setTopAlert();
 }
 
 .scroll-panel {
-  flex: 1;
   overflow-y: auto;
   overflow-x: hidden; /* ✅ 禁止横向滚动 */
-  max-height: calc(100vh - 180px);
+  height:auto;
   padding-right: 4px;
 }
+
+.loading-text,
+.end-text {
+  text-align: center;
+  color: #999;
+  margin: 16px 0;
+}
+
+.file-remark {
+  font-size: 13px;
+  color: #0256fd;
+  line-height: 1.5;
+  margin-top: 4px;
+
+  display: -webkit-box;
+  -webkit-line-clamp: 1;     /* 最多显示两行 */
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: break-all;
+}
+
+.file-remark.muted { color: #a8abb2; }
 
 @media (max-width: 768px) {
   /* 主体区域垂直排列 */
@@ -424,7 +614,6 @@ setTopAlert();
   }
 
   .scroll-panel {
-    max-height: none;
     height: auto;
     padding-right: 0;
   }

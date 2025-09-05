@@ -20,19 +20,19 @@ public class UserInformationServiceImpl implements UserInformationService {
     @Override
     public ResultBody followUser(String followUserCode, String followUserName, HttpSession session) {
         UserBean userBean = (UserBean) session.getAttribute("userInfo");
-        List<Map<String,Object>> data = new ArrayList<>();
-        Map<String,Object> map = new HashMap<>();
-        map.put("USERCODE",userBean.getCODE());
-        map.put("USERNAME",userBean.getNAME());
-        map.put("FOLLOWUSERCODE",followUserCode);
-        map.put("FOLLOWUSERNAME",followUserName);
+        List<Map<String, Object>> data = new ArrayList<>();
+        Map<String, Object> map = new HashMap<>();
+        map.put("USERCODE", userBean.getCODE());
+        map.put("USERNAME", userBean.getNAME());
+        map.put("FOLLOWUSERCODE", followUserCode);
+        map.put("FOLLOWUSERNAME", followUserName);
         data.add(map);
-        Map<String,Object> params = new HashMap<>();
-        params.put("saveType","add");
-        params.put("tableName","userFollow");
-        params.put("data",data);
-        params.put("key","GUID");
-        ResultBody  result = callService.callFunWithParams(FunToUrlUtil.saveAllTableDataByParamsUrl,params);
+        Map<String, Object> params = new HashMap<>();
+        params.put("saveType", "add");
+        params.put("tableName", "userFollow");
+        params.put("data", data);
+        params.put("key", "GUID");
+        ResultBody result = callService.callFunWithParams(FunToUrlUtil.saveAllTableDataByParamsUrl, params);
         return result;
     }
 
@@ -41,17 +41,17 @@ public class UserInformationServiceImpl implements UserInformationService {
         UserBean userBean = (UserBean) session.getAttribute("userInfo");
         String userCode = userBean.getCODE();
         String sql = "delete from userFollow where followUserCode = ? and userCode = ?";
-        List<Object> listParam = Arrays.asList(followUserCode,userCode);
-        Map<String,Object> params = new HashMap<>();
-        params.put("sql",sql);
-        params.put("params",listParam);
-        ResultBody result = callService.callFunWithParams(FunToUrlUtil.exeSqlByParamsUrl,params);
+        List<Object> listParam = Arrays.asList(followUserCode, userCode);
+        Map<String, Object> params = new HashMap<>();
+        params.put("sql", sql);
+        params.put("params", listParam);
+        ResultBody result = callService.callFunWithParams(FunToUrlUtil.exeSqlByParamsUrl, params);
         return result;
     }
 
     @Override
     public ResultBody getFollowUser(String userCode) {
-        Map<String,Object> res = new HashMap<>();
+        Map<String, Object> res = new HashMap<>();
         //关注用户
         String sql = "SELECT CODE\n" +
                 "  ,\n" +
@@ -64,12 +64,12 @@ public class UserInformationServiceImpl implements UserInformationService {
                 "WHERE\n" +
                 "  f.USERCODE = ? order by f.create_time";
         List<Object> listParams = Arrays.asList(userCode);
-        Map<String,Object> params = new HashMap<>();
-        params.put("sql",sql);
-        params.put("params",listParams);
+        Map<String, Object> params = new HashMap<>();
+        params.put("sql", sql);
+        params.put("params", listParams);
         ResultBody result = callService.callFunWithParams(FunToUrlUtil.selectListByParamsUrl, params);
-        if(result!=null && !result.isError){
-            res.put("followingUser",result.result);
+        if (result != null && !result.isError) {
+            res.put("followingUser", result.result);
         }
         //粉丝用户
         sql = "SELECT CODE\n" +
@@ -82,24 +82,24 @@ public class UserInformationServiceImpl implements UserInformationService {
                 "  LEFT JOIN userFollow f ON u.code = f.USERCODE \n" +
                 "WHERE\n" +
                 "  f.FOLLOWUSERCODE = ? order by f.create_time";
-        params.put("sql",sql);
+        params.put("sql", sql);
         result = callService.callFunWithParams(FunToUrlUtil.selectListByParamsUrl, params);
-        if(result!=null && !result.isError){
-            res.put("followersUser",result.result);
+        if (result != null && !result.isError) {
+            res.put("followersUser", result.result);
         }
 
-        return  ResultBody.createSuccessResult(res);
+        return ResultBody.createSuccessResult(res);
     }
 
     @Override
     public ResultBody getBlogAndResourceByUserCode(String userCode) {
-        Map<String,Object> data = new HashMap<>();
+        Map<String, Object> data = new HashMap<>();
         ResultBody result = getBlogByUserCode(userCode);
-        data.put("blog",result.result);
+        data.put("blog", result.result);
         result = getCommunityByUserCode(userCode);
-        data.put("community",result.result);
+        data.put("community", result.result);
         result = getResourceByUserCode(userCode);
-        data.put("resource",result.result);
+        data.put("resource", result.result);
         return ResultBody.createSuccessResult(data);
     }
 
@@ -174,14 +174,13 @@ public class UserInformationServiceImpl implements UserInformationService {
     }
 
 
-
     @Override
     public ResultBody getResourceByUserCode(String userCode) {
         String sql = "select * from fileInfo where USERCODE = ?  order by create_time DESC";
         List<Object> listParam = Arrays.asList(userCode);
-        Map<String,Object> params_ = new HashMap<>();
-        params_.put("sql",sql);
-        params_.put("params",listParam);
+        Map<String, Object> params_ = new HashMap<>();
+        params_.put("sql", sql);
+        params_.put("params", listParam);
         ResultBody result = callService.callFunWithParams(FunToUrlUtil.selectListByParamsUrl, params_);
         return result;
     }
@@ -190,19 +189,54 @@ public class UserInformationServiceImpl implements UserInformationService {
     public ResultBody getBlogByUserCode(String userCode) {
         String sql = "select * from blogInfo where USERCODE = ? and blog_type = 'public' order by create_time DESC";
         List<Object> listParam = Arrays.asList(userCode);
-        Map<String,Object> params_ = new HashMap<>();
-        params_.put("sql",sql);
-        params_.put("params",listParam);
+        Map<String, Object> params_ = new HashMap<>();
+        params_.put("sql", sql);
+        params_.put("params", listParam);
         ResultBody result = callService.callFunWithParams(FunToUrlUtil.selectListByParamsUrl, params_);
         return result;
     }
+
+    @Override
+    public ResultBody setPersonInfo(String userCode, String fieldName, String fieldValue) {
+
+        String saveType = "add";
+        Map<String, Object> map = new HashMap<>();
+        map.put("USERCODE", userCode);
+        map.put(fieldName, fieldValue);
+
+        String sql = "select GUID from personInfo where userCode = '" + userCode + "'";
+        ResultBody result = callService.callFunOneParams(FunToUrlUtil.selectListUrl, "sql", sql);
+        //如果存在记录   update
+        if (result != null && !result.isError && ((ArrayList) result.result).size() > 0) {
+            saveType = "edit";
+            map.put("GUID",((LinkedHashMap) ((ArrayList) result.result).get(0)).get("GUID"));
+        }
+
+        List<Map<String, Object>> data = new ArrayList<>();
+        data.add(map);
+        Map<String, Object> params = new HashMap<>();
+        params.put("saveType", saveType);
+        params.put("tableName", "personInfo");
+        params.put("data", data);
+        params.put("key", "GUID");
+        result = callService.callFunWithParams(FunToUrlUtil.saveAllTableDataByParamsUrl, params);
+        return result;
+    }
+
+    @Override
+    public ResultBody getPersonInfo(String userCode) {
+        String sql = "select * from personInfo where userCode = '" + userCode + "'";
+        ResultBody result = callService.callFunOneParams(FunToUrlUtil.selectListUrl, "sql", sql);
+        return result;
+    }
+
     @Override
     public ResultBody getCommunityByUserCode(String userCode) {
         String sql = "select * from communityInfo where USERCODE = ?  order by create_time DESC";
         List<Object> listParam = Arrays.asList(userCode);
-        Map<String,Object> params_ = new HashMap<>();
-        params_.put("sql",sql);
-        params_.put("params",listParam);
+        Map<String, Object> params_ = new HashMap<>();
+        params_.put("sql", sql);
+        params_.put("params", listParam);
         ResultBody result = callService.callFunWithParams(FunToUrlUtil.selectListByParamsUrl, params_);
         return result;
     }

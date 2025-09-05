@@ -48,8 +48,73 @@ public class ResourceServiceImpl implements ResourceService {
     }
 
     @Override
-    public ResultBody getAllFile() {
-        String sql = "select * from fileInfo order by create_time desc";
+    public ResultBody getAllFile(int page, int pageSize, String keyWord) {
+        // 0. 容错处理
+        if (page < 1) page = 1;
+        if (pageSize <= 0) pageSize = 10;
+        int offset = (page - 1) * pageSize;
+
+        // 1) 主查询 SQL 与参数
+        String baseFrom = " FROM fileInfo f ";
+        String where = "";
+        List<Object> listParams = new ArrayList<>();
+        List<Object> countParams = new ArrayList<>();
+
+        // 关键字搜索
+        if (keyWord != null && !keyWord.trim().isEmpty()) {
+            where = " WHERE (f.ORIGINALFILENAME LIKE ? OR f.REMARK LIKE ?) ";
+            String kw = "%" + keyWord.trim() + "%";
+            listParams.add(kw);
+            listParams.add(kw);
+            countParams.add(kw);
+            countParams.add(kw);
+        }
+
+        String listSql = "SELECT f.* " + baseFrom + where +
+                " ORDER BY f.create_time DESC LIMIT ? OFFSET ?";
+        listParams.add(pageSize);
+        listParams.add(offset);
+
+        // 2) 统计总数 SQL 与参数
+        String countSql = "SELECT COUNT(*) AS total " + baseFrom + where;
+
+        // 3) 查询数据列表
+        Map<String, Object> params = new HashMap<>();
+        params.put("sql", listSql);
+        params.put("params", listParams);
+        ResultBody listResult = callService.callFunWithParams(FunToUrlUtil.selectListByParamsUrl, params);
+        if (listResult == null || listResult.isError) {
+            return listResult;
+        }
+
+        // 4) 查询总数
+        params = new HashMap<>();
+        params.put("sql", countSql);
+        params.put("params", countParams);
+        ResultBody countResult = callService.callFunWithParams(FunToUrlUtil.selectListByParamsUrl, params);
+        if (countResult == null || countResult.isError) {
+            return countResult;
+        }
+
+        // 5) 解析总数
+        int total = 0;
+        List<Map<String, Object>> countData = (List<Map<String, Object>>) countResult.result;
+        if (countData != null && !countData.isEmpty() && countData.get(0).get("total") != null) {
+            total = Integer.parseInt(countData.get(0).get("total").toString());
+        }
+
+        // 6) 组装分页结果
+        Map<String, Object> result = new HashMap<>();
+        result.put("total", total);
+        result.put("data", listResult.result);
+
+        return ResultBody.createSuccessResult(result);
+    }
+
+
+    @Override
+    public ResultBody getFileByUser(String userCode) {
+        String sql = "select * from fileInfo where userCode = '" + userCode + "' order by create_time desc";
         Map<String, Object> params = new HashMap<>();
         params.put("sql", sql);
         ResultBody result = callService.callFunWithParams(FunToUrlUtil.selectListUrl, params);
@@ -57,13 +122,14 @@ public class ResourceServiceImpl implements ResourceService {
     }
 
     @Override
-    public ResultBody getFileByUser(UserBean userBean) {
-        String userCode = userBean.getCODE();
-        String sql = "select * from fileInfo where userCode = '" + userCode + "' order by create_time desc";
-        Map<String, Object> params = new HashMap<>();
-        params.put("sql", sql);
-        ResultBody result = callService.callFunWithParams(FunToUrlUtil.selectListUrl, params);
-        return result;
+    public ResultBody updateFileInfo(String guid, String originalFileName, String remark) {
+        String sql = "update fileInfo set ORIGINALFILENAME = ?,REMARK = ? where guid = ?";
+        List<String> listParam = Arrays.asList(originalFileName,remark,guid);
+        Map<String,Object> params = new HashMap<>();
+        params.put("sql",sql);
+        params.put("params",listParam);
+        ResultBody resultBody = callService.callFunWithParams(FunToUrlUtil.exeSqlByParamsUrl,params);
+        return resultBody;
     }
 
     @Override

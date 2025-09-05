@@ -1,5 +1,114 @@
 <template>
-  <div class="person-info">
+  <div class="person-info" :style="bgStyle">
+    <!-- 左侧悬浮设置面板（不占文档流） -->
+    <div class="left-dock"
+         v-if="isSelf"
+         :class="{ collapsed: dockCollapsed }">
+      <el-card shadow="hover" class="dock-card">
+        <div class="dock-title">🎨 背景设置</div>
+
+        <!-- 背景图片 -->
+        <div class="dock-block">
+          <div class="dock-subtitle">图片</div>
+          <el-input
+              v-model="bgImageInput"
+              size="small"
+              placeholder="粘贴图片URL后回车"
+              @keyup.enter="applyBgImageUrl"
+              style="margin-top:8px"/>
+          <div class="dock-actions">
+            <el-button size="small" @click="resetBgImage">恢复默认</el-button>
+            <el-button size="small" link @click="previewBgImage" :disabled="!bgImage">预览</el-button>
+          </div>
+        </div>
+
+        <el-divider/>
+
+        <!-- 背景音乐 -->
+        <div class="dock-title">
+          {{ isSelf ? "🎵 音乐设置" : `${user.name}的背景音乐` }}
+        </div>
+        <div class="dock-block">
+          <el-input
+              v-model="bgAudioInput"
+              size="small"
+              placeholder="粘贴音频URL后回车"
+              @keyup.enter="applyBgAudioUrl"
+              style="margin-top:8px"/>
+
+          <div class="audio-row">
+            <el-button size="small" :type="isAudioPlaying ? 'danger' : 'primary'" @click="toggleAudio">
+              {{ isAudioPlaying ? '暂停' : '播放' }}
+            </el-button>
+            <el-switch
+                v-model="audioMuted"
+                size="small"
+                active-text="静音"
+                style="margin-left:12px"
+                @change="applyMute"/>
+          </div>
+
+          <div class="audio-row" style="margin-top:8px">
+            <span class="vol-label">音量</span>
+            <el-slider v-model="audioVolume" :min="0" :max="100" :step="1" style="flex:1" @change="applyVolume"/>
+          </div>
+        </div>
+      </el-card>
+
+      <!-- 折叠按钮 -->
+      <button class="dock-toggle" @click="dockCollapsed = !dockCollapsed">
+        {{ dockCollapsed ? '▶' : '◀' }}
+      </button>
+    </div>
+    <!-- 隐藏原生控件的播放器 -->
+    <audio
+        ref="bgAudioRef"
+        :src="bgAudio || ''"
+        loop
+        preload="auto"
+        playsinline
+    ></audio>
+    <!-- 访客迷你音乐控制（仅当不是本人 & 有音乐地址时出现） -->
+    <div class="music-mini" v-if="!isSelf && bgAudio">
+      <div class="music-mini__title">🎵 {{ user.name || 'Ta' }} 的音乐</div>
+      <div class="music-mini__row mini-controls">
+        <!-- 播放 / 暂停 -->
+        <el-button
+            class="icon-btn"
+            circle
+            size="small"
+            :title="isAudioPlaying ? '暂停' : '播放'"
+            :type="isAudioPlaying ? 'danger' : 'primary'"
+            @click="toggleAudio"
+        >
+          {{ isAudioPlaying ? '⏸' : '▶' }}
+        </el-button>
+
+        <!-- 静音切换 -->
+        <el-button
+            class="icon-btn"
+            circle
+            size="small"
+            :title="audioMuted ? '取消静音' : '静音'"
+            @click="audioMuted = !audioMuted; applyMute()"
+        >
+          {{ audioMuted ? '🔇' : '🔊' }}
+        </el-button>
+
+        <!-- 精简音量条 -->
+        <el-slider
+            class="mini-slider"
+            v-model="audioVolume"
+            :min="0"
+            :max="100"
+            :step="1"
+            :show-tooltip="false"
+            @input="applyVolume"
+        />
+      </div>
+    </div>
+
+
     <div class="inner-container">
       <!-- 顶部跳转按钮 -->
       <div class="toolbar">
@@ -240,7 +349,7 @@
 </template>
 
 <script setup>
-import {ref, onMounted, computed} from 'vue'
+import {ref, onMounted, computed,nextTick} from 'vue'
 import {ElMessage} from 'element-plus'
 import {useRoute, useRouter} from 'vue-router'
 import {
@@ -270,6 +379,21 @@ const route = useRoute()
 const router = useRouter()
 const user = ref({})
 
+//当前打开用户code
+const targetUserCode = ref('');
+try {
+  const raw = route.params.u;
+  targetUserCode.value = raw ? decrypt(raw) : '';
+} catch (e) {
+  targetUserCode.value = '';
+}
+
+// 是否访问自己的主页
+const isSelf = computed(() =>
+    !!userStore.userBean.code &&
+    !!targetUserCode.value &&
+    targetUserCode.value === userStore.userBean.code
+);
 // 关注相关
 const isFollowing = ref(false)
 const followersNum = ref(0)
@@ -393,6 +517,8 @@ async function getUserInfo2Data() {
       const arr = result.result.followersUser.filter(item => item.CODE === userStore.userBean.code)
       if (arr.length > 0) isFollowing.value = true
     }
+    //设置用户主页信息  :背景图片,背景音乐等等
+    setPersonInfo();
   }
   //修改浏览器title和meta,有助于搜索排名
   document.title = user.value.name + "的主页";
@@ -471,8 +597,223 @@ const messageAuthor = () => {
   ElMessage.success('私信作者:' + user.value.name)
 }
 
+// ==== 背景与音乐：状态 ====
+const defaultBg = ""; // 你的默认背景
+const bgImage = ref("");
+const bgImageInput = ref("");
+
+const bgPresets = {
+  // 贴近你默认的天空蓝 → 更亮的白，带两处很淡的蓝色光斑
+  softSky:
+      "radial-gradient(1000px 700px at 20% 15%, rgba(210,235,255,.90) 0%, rgba(210,235,255,0) 60%),\
+       radial-gradient(800px 600px at 80% 70%, rgba(180,205,230,.35) 0%, rgba(180,205,230,0) 60%),\
+       linear-gradient(180deg,#f8fbff 0%, #ffffff 68%)",
+
+  // 暖白纸感 → 对内容最友好，基本不喧宾夺主
+  warmPaper:
+      "radial-gradient(900px 600px at 25% 20%, rgba(255,244,223,.85) 0%, rgba(255,244,223,0) 55%),\
+       linear-gradient(180deg,#fffaf2 0%, #ffffff 72%)",
+
+  // 夜间柔和深蓝（不是纯黑，阅读友好）
+  nightSoft:
+      "radial-gradient(900px 650px at 30% 20%, rgba(60,85,120,.45) 0%, rgba(60,85,120,0) 55%),\
+       linear-gradient(180deg,#1a2430 0%, #202b38 70%)"
+};
+//加载自定义背景图片前的背景
+bgImage.value = bgPresets.softSky;
+
+const bgStyle = computed(() => {
+  const v = (bgImage.value || '').trim();
+  if (!v) return {}; // 用你 .person-info 里的默认图
+  // 如果是 gradient(...) 或多层背景字符串，直接塞进去
+  if (/gradient\(/i.test(v) || v.includes(',')) {
+    return { backgroundImage: v };
+  }
+  // 其他情况按 URL 处理
+  return { backgroundImage: `url('${v}')` };
+});
+
+// 左侧面板
+const dockCollapsed = ref(false);
+
+// 音频
+const bgAudioRef = ref(null);
+const bgAudio = ref("");
+const bgAudioInput = ref("");
+const isAudioPlaying = ref(false);
+const audioVolume = ref(70);
+const audioMuted = ref(false);
+
+// ==== 背景图片：文件/URL/重置 ====
+
+const applyBgImageUrl = () => {
+  debugger;
+  if (!bgImageInput.value) {
+    ElMessage.error("无效路径!");
+    return false;
+  }
+  bgImage.value = bgImageInput.value.trim();
+  let result = sendAxiosRequest("/blog-api/userInformation/setPersonInfo", {
+    userCode: userStore.userBean.code,
+    fieldName: "BGIMAGEURL",
+    fieldValue: bgImage.value
+  });
+  ElMessage.success("背景图片已应用");
+};
+
+const resetBgImage = () => {
+  bgImage.value = "";
+  ElMessage.success("已恢复默认背景");
+};
+
+const previewBgImage = () => {
+  if (!bgImage.value) return;
+  window.open(bgImage.value, "_blank");
+};
+
+// ==== 背景音乐：文件/URL/控制 ====
+const applyBgAudioUrl = () => {
+  if (!bgAudioInput.value) {
+    ElMessage.error("无效路径!");
+    return false;
+  }
+  let result = sendAxiosRequest("/blog-api/userInformation/setPersonInfo", {
+    userCode: userStore.userBean.code,
+    fieldName: "BGMUSICURL",
+    fieldValue: bgAudioInput.value.trim()
+  });
+  setAudioSrc(bgAudioInput.value.trim());
+  ElMessage.success("背景音乐已设置");
+};
+
+function setAudioSrc(src) {
+  bgAudio.value = src;
+  // 若已在播放，切换后继续播
+  nextTickPlayIfWanted();
+}
+
+const toggleAudio = async () => {
+  const el = bgAudioRef.value;
+  if (!el) return;
+  if (isAudioPlaying.value) {
+    el.pause();
+    isAudioPlaying.value = false;
+  } else {
+    try {
+      await el.play();
+      isAudioPlaying.value = true;
+    } catch (e) {
+      ElMessage.error("浏览器阻止自动播放，请手动点击播放");
+    }
+  }
+};
+
+const applyVolume = () => {
+  const el = bgAudioRef.value;
+  if (!el) return;
+  el.volume = Math.min(1, Math.max(0, audioVolume.value / 100));
+};
+
+const applyMute = () => {
+  const el = bgAudioRef.value;
+  if (!el) return;
+  el.muted = !!audioMuted.value;
+};
+
+const nextTickPlayIfWanted = async () => {
+  await Promise.resolve();
+  const el = bgAudioRef.value;
+  if (!el) return;
+  el.volume = Math.min(1, Math.max(0, audioVolume.value / 100));
+  el.muted = !!audioMuted.value;
+  // 不强制自动播放，尊重用户交互；保留按钮控制
+};
+
+async function setBgImageSafely(url) {
+  if (!url) { bgImage.value = ''; return; }
+  const img = new Image();
+  img.src = url;
+  try {
+    if (img.decode) await img.decode();
+    else await new Promise(r => { img.onload = r; img.onerror = r; });
+  } finally {
+    bgImage.value = url;
+    await nextTick();
+    const root = document.querySelector('.person-info');
+    if (root) {
+      root.classList.add('bg-fade');
+      setTimeout(() => root.classList.remove('bg-fade'), 260);
+    }
+  }
+}
+
+//获取用户主页信息  背景图片 背景音乐等等
+const setPersonInfo = async () => {
+  debugger;
+  let result = await sendAxiosRequest("/blog-api/userInformation/getPersonInfo", {userCode: user.value.code});
+  if (result && !result.isError) {
+    result = result.result[0];
+    //背景音乐
+    bgAudioInput.value = result.BGMUSICURL || "";
+    bgAudio.value = result.BGMUSICURL || "";
+    if (bgAudio.value) {
+      attemptAutoplay();
+    }
+    //背景图片
+    await setBgImageSafely(result.BGIMAGEURL || "");
+    bgImageInput.value = result.BGIMAGEURL || "";
+    bgImage.value = result.BGIMAGEURL || "";
+
+  }
+}
+
+
+async function attemptAutoplay() {
+  const el = bgAudioRef.value;
+  if (!el || !bgAudio.value) return;
+
+  // 先同步应用音量/静音
+  el.volume = Math.min(1, Math.max(0, audioVolume.value / 100));
+  el.muted = !!audioMuted.value;
+
+  try {
+    // ① 正常尝试
+    await el.play();
+    isAudioPlaying.value = true;
+  } catch (e1) {
+    try {
+      // ② 静音自动播（大多数浏览器允许）
+      el.muted = true;
+      await el.play();
+      isAudioPlaying.value = true;
+
+      // 等用户第一次交互后再恢复你设定的静音状态
+      const unmuteOnce = () => {
+        el.muted = !!audioMuted.value;
+        document.removeEventListener('pointerdown', unmuteOnce);
+      };
+      document.addEventListener('pointerdown', unmuteOnce, {once: true});
+    } catch (e2) {
+      // ③ 最后兜底：等待一次用户手势再播放
+      const resume = () => {
+        el.play().then(() => {
+          isAudioPlaying.value = true;
+          document.removeEventListener('pointerdown', resume);
+        }).catch(() => {
+        });
+      };
+      document.addEventListener('pointerdown', resume, {once: true});
+    }
+  }
+}
+
+// 恢复播放状态
 onMounted(() => {
-})
+
+  // 初始化音量/静音
+  applyVolume();
+  applyMute();
+});
 </script>
 
 <style scoped>
@@ -486,9 +827,19 @@ onMounted(() => {
   box-sizing: border-box;
   position: relative;
   /*background-color: #f8f8f8;*/
-  background: url('/picture/user/lantianbaiyuncaodi.webp') no-repeat center center fixed;
-  background-size: cover;   /* 关键：保持比例并填满容器 */
+  background: url('/picture/user/default.webp') no-repeat center center fixed;
+  background-size: cover; /* 关键：保持比例并填满容器 */
   background-attachment: fixed; /* 在手机上可能会失效，可根据需求调整 */
+
+  transition: background-image .001s; /* 防止重排，几乎无感 */
+}
+
+.person-info.bg-fade {
+  animation: bgfade .25s ease;
+}
+@keyframes bgfade {
+  from { opacity: .6; }
+  to   { opacity: 1; }
 }
 
 .inner-container {
@@ -758,6 +1109,154 @@ onMounted(() => {
   margin: 16px 0;
 }
 
+/* 左侧悬浮设置面板 */
+.left-dock {
+  position: fixed;
+  left: 20px;
+  top: 120px;
+  width: 260px;
+  z-index: 20;
+  transition: transform 0.25s ease, opacity 0.25s ease;
+}
+
+.left-dock.collapsed {
+  transform: translateX(-280px);
+}
+
+.dock-card {
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: saturate(180%) blur(6px);
+  border-radius: 12px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
+  padding-bottom: 12px;
+}
+
+.dock-title {
+  font-weight: 700;
+  color: #333;
+  margin-bottom: 8px;
+}
+
+.dock-subtitle {
+  font-weight: 600;
+  font-size: 13px;
+  color: #666;
+  margin-bottom: 6px;
+}
+
+.dock-block {
+  margin-bottom: 12px;
+}
+
+.dock-upload {
+  display: inline-block;
+}
+
+.dock-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+.audio-row {
+  padding-top: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.vol-label {
+  font-size: 12px;
+  color: #666;
+  width: 36px;
+}
+
+/* 折叠按钮 */
+.dock-toggle {
+  position: absolute;
+  right: -18px;
+  top: 10px;
+  width: 22px;
+  height: 28px;
+  border-radius: 0 6px 6px 0;
+  border: 1px solid #dcdfe6;
+  background: #fff;
+  color: #666;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* —— 更小更精致的迷你音乐条 —— */
+.music-mini {
+  position: fixed;
+  left: 20px;
+  top: 20px;
+  width: 220px; /* 更窄 */
+  z-index: 19;
+  padding: 8px 10px; /* 更小的内边距 */
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: saturate(180%) blur(6px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+  transition: transform .18s ease, box-shadow .18s ease, background .18s ease;
+}
+
+.music-mini__title {
+  font-size: 12px; /* 更小字号 */
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.music-mini__row {
+  display: flex;
+  align-items: center;
+  gap: 8px; /* 更紧凑 */
+}
+
+/* 圆形图标按钮（更小巧） */
+.icon-btn {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  font-size: 14px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 精简滑条：更细更小的滑块 */
+.mini-slider {
+  flex: 1;
+  margin-left: 6px;
+}
+
+.mini-slider :deep(.el-slider__runway) {
+  height: 3px; /* 细一些 */
+  border-radius: 999px;
+}
+
+.mini-slider :deep(.el-slider__bar) {
+  height: 3px;
+  border-radius: 999px;
+}
+
+.mini-slider :deep(.el-slider__button-wrapper) {
+  width: 12px;
+  height: 12px;
+}
+
+.mini-slider :deep(.el-slider__button) {
+  width: 10px;
+  height: 10px; /* 小滑块 */
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+
 @media (max-width: 768px) {
   /* 时间线整体去掉左边距和内边距 */
   .person-info :deep(.el-timeline) {
@@ -842,6 +1341,26 @@ onMounted(() => {
 
   .card-summary {
     -webkit-line-clamp: 4;
+  }
+
+  .left-dock {
+    transform: translateX(-280px);
+  }
+
+  .left-dock.collapsed {
+    transform: translateX(-280px); /* 保持折叠 */
+  }
+
+  .left-dock .dock-toggle {
+    transform: translateX(0px);
+  }
+
+  .music-mini {
+    left: 50%;
+    transform: translateX(-50%);
+    top: 12px;
+    width: calc(100vw - 100px);
+    padding: 8px 10px;
   }
 }
 </style>

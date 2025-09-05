@@ -12,11 +12,13 @@ public interface ResourceService {
 
     ResultBody addFileInfo(HttpSession session, Map<String, Object> fileInfo);
 
-    ResultBody delFileInfo(String guid,String url);
+    ResultBody delFileInfo(String guid, String url);
 
-    ResultBody getAllFile();
+    ResultBody getAllFile(int page, int pageSize, String keyWord);
 
-    ResultBody getFileByUser(UserBean userBean);
+    ResultBody getFileByUser(String userCode);
+
+    ResultBody updateFileInfo(String guid, String originalFileName, String remark);
 
     ResultBody setFileDownNum(String guid);
 }
