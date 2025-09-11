@@ -49,6 +49,12 @@ public class ResourceController {
         String userCode = params.get("userCode");
         return resourceService.getFileByUser(userCode);
     }
+    @RequestMapping("/getFileById")
+    @ResponseBody
+    public ResultBody getFileById(@RequestBody Map<String, String> params) {
+        String guid = params.get("guid");
+        return resourceService.getFileById(guid);
+    }
     @RequestMapping("/updateFileInfo")
     @ResponseBody
     public ResultBody updateFileInfo(@RequestBody Map<String, String> params) {

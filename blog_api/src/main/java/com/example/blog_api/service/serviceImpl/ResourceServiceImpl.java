@@ -122,6 +122,15 @@ public class ResourceServiceImpl implements ResourceService {
     }
 
     @Override
+    public ResultBody getFileById(String guid) {
+        String sql = "select * from fileInfo where guid = '" + guid + "'";
+        Map<String, Object> params = new HashMap<>();
+        params.put("sql", sql);
+        ResultBody result = callService.callFunWithParams(FunToUrlUtil.selectListUrl, params);
+        return result;
+    }
+
+    @Override
     public ResultBody updateFileInfo(String guid, String originalFileName, String remark) {
         String sql = "update fileInfo set ORIGINALFILENAME = ?,REMARK = ? where guid = ?";
         List<String> listParam = Arrays.asList(originalFileName,remark,guid);

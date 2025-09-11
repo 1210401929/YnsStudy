@@ -17,7 +17,7 @@ public interface ResourceService {
     ResultBody getAllFile(int page, int pageSize, String keyWord);
 
     ResultBody getFileByUser(String userCode);
-
+    ResultBody getFileById(String guid);
     ResultBody updateFileInfo(String guid, String originalFileName, String remark);
 
     ResultBody setFileDownNum(String guid);

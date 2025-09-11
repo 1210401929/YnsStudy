@@ -220,9 +220,23 @@ const uploadProgress = ref(0)
 const isUploading = ref(false)
 
 onMounted(() => {
-
-  fetchArticles();
+  let fileGuid = route.query.g || "";
+  if(fileGuid){
+    debugger
+    setFilesById(fileGuid);
+  }else{
+    fetchArticles();
+  }
 })
+
+async function setFilesById(guid){
+  let result = await sendAxiosRequest("/blog-api/resource/getFileById",{guid});
+  if(result&&!result.isError){
+    articles.value = result.result;
+  }else{
+    return false;
+  }
+}
 
 // 文件列表数据
 const articles = ref([])
@@ -288,6 +302,7 @@ watch(
     },
     { immediate: true }
 )
+
 
 const beforeUploadCheck = (file) => {
   let isSuccess = true;
