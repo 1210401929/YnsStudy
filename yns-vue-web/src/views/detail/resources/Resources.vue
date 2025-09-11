@@ -81,7 +81,7 @@
       <!-- 右侧：我上传的文件 -->
       <div v-if="userStore.userBean.code" style="flex: 3; display: flex; flex-direction: column;">
         <el-upload
-            v-if="myFiles.length < 5 && userStore.userBean.code != adminUserCode"
+            v-if="myFiles.length < 5 || userStore.userBean.code == adminUserCode"
             drag
             :http-request="customUploadRequest"
             :before-upload="beforeUploadCheck"
