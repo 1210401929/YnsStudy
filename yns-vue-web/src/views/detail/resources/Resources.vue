@@ -272,7 +272,6 @@ const myFiles = ref([]);
 
 //获取用户本身上传的附件
 const setMyFileData = async () => {
-  debugger;
   if(!userStore.userBean.code) return false;
   let result = await sendAxiosRequest("/blog-api/resource/getFileByUser",{userCode:userStore.userBean.code});
   if (result && !result.isError) {
@@ -284,7 +283,6 @@ watch(
     () => userStore.userBean && userStore.userBean.code,
     (code) => {
       if (code) {
-        debugger;
         setMyFileData();
       }
     },
@@ -433,7 +431,6 @@ function resetEdit() {
 }
 
 async function submitEdit() {
-  debugger;
   try {
     await editRef.value.validate()
   } catch {

@@ -647,7 +647,6 @@ const audioMuted = ref(false);
 // ==== 背景图片：文件/URL/重置 ====
 
 const applyBgImageUrl = () => {
-  debugger;
   if (!bgImageInput.value) {
     ElMessage.error("无效路径!");
     return false;
@@ -749,7 +748,6 @@ async function setBgImageSafely(url) {
 
 //获取用户主页信息  背景图片 背景音乐等等
 const setPersonInfo = async () => {
-  debugger;
   let result = await sendAxiosRequest("/blog-api/userInformation/getPersonInfo", {userCode: user.value.code});
   if (result && !result.isError) {
     result = result.result[0];

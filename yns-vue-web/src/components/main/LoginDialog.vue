@@ -260,7 +260,6 @@ const goToNotification = () => {
 };
 //全部已读
 const markAllAsRead = () => {
-  debugger;
   sendAxiosRequest("/pub-api/notice/allReadNotice", {userCode: userStore.userBean.code});
   userStore.userUnreadArr = [];
 }
