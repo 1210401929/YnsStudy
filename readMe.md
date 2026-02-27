@@ -3,11 +3,12 @@
 ## 🚀 关于启动项目
 
 ### 后端启动顺序
-依次执行以下 4 个 Spring Boot 项目：
+依次执行以下 5 个 Spring Boot 项目：
 1. `EurekaServerApplication`
 2. `GatewayServiceApplication`
 3. `PubApiApplication`
 4. `BlogApiApplication`
+5. `aiApiApplication`(可选)
 
 ### 前端启动
 1. 进入 `yns-vue-web` 目录
@@ -24,7 +25,8 @@
 - **pub_api**: 接口集成服务，用于大多数通用 API。
 - **blog_api**: 博客相关服务，包含新增文章、评论等功能。
 - **yns-vue-web**: Vue 前端项目。是 `yns_portal` 的迭代版本，实现真正的前后端分离。
-- **secret.yml**:包含数据库等重要链接信息 不在源码中,需要手动创建
+- **secret.yml**: 包含数据库等重要链接信息 不在源码中,需要手动创建
+- **.gitignore**: 用于配置忽略git提交的文件
 
 ---
 
@@ -57,7 +59,7 @@
 
 ## 📌 其他注意事项
 
-- **Redis 安全**: 因云服务器提示 6379 端口存在对外攻击风险，`pub_api` 和 `blog_api` 的 `yml` 配置文件中的 Redis 密码不再公开。
+- **Redis 安全**: 因云服务器提示 6379 端口存在对外攻击风险，`pub_api` 和 `blog_api` 的 `yml` 配置文件中的 Redis 密码不再公开,自行配置根目录secret.yml文件。
 - **静态文件访问**: 前台静态文件（包括所有图片和上传的资源文件）访问，需要通过 Nginx 转发到网关。
 - **文件上传路径**:
   - 富文本编辑器的图片路径: `项目根目录/upload/editorImage`
