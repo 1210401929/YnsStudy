@@ -5,7 +5,7 @@
 2.GatewayServiceApplication
 3.PubApiApplication
 4.BlogApiApplication
-前端:
+前端: 进入目录
 进入yns-vue-web目录 -> 启动命令:npm run dev
 
 
