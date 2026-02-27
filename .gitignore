@@ -1,0 +1,7 @@
+#---------忽略本地私密配置文件--------
+#数据库 redis等配置信息
+secret.yml
+#笔记
+笔记(禁止上传git).txt
+#后台相关配置信息
+common_api/src/main/java/com/example/common_api/config/

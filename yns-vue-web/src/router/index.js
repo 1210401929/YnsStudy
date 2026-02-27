@@ -15,11 +15,8 @@ import personalCenter from "@/views/main/user/personalCenter.vue";
 import personInfomation from "@/views/main/user/personInformation.vue";
 
 import sso from "@/views/main/sso/sso.vue";
-import LoveStory from "@/views/detail/love/LoveStory.vue";
 
 const routes = [
-    //临时
-    {path:'/loveLY' ,name:'love',component: LoveStory},
     //后台管理
     {path:'/sso' ,name:'sso',component: sso},
     //根路径重定向到welcome
@@ -29,7 +26,7 @@ const routes = [
     {path: '/welcome', name: 'Welcome', component: Welcome},
     //个人信息
     {path: '/personalCenter', name: 'personalCenter', component: personalCenter},
-    //账号主页
+    //账号主页   u为传递的参数
     {path:'/personInfomation/:u',name:'personInfomation',component: personInfomation},
     //Ai
     {path: '/YnsStudyAi', name: 'YnsStudyAi', component: YnsStudyAi},
