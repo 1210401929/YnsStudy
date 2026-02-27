@@ -23,6 +23,7 @@
       <set>
         <option value="$PROJECT_DIR$/consumer/pom.xml" />
         <option value="$PROJECT_DIR$/provider/pom.xml" />
+        <option value="$PROJECT_DIR$/yns_portal/pom.xml" />
       </set>
     </option>
   </component>

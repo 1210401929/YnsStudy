@@ -8,7 +8,6 @@
         <outputRelativeToContentRoot value="true" />
         <module name="springcloud_demo" />
         <module name="gateway-service" />
-        <module name="yns_portal" />
         <module name="common_api" />
         <module name="ai_api" />
         <module name="pub_api" />
@@ -21,6 +20,7 @@
       <module name="provider" target="1.8" />
       <module name="pub_api (1)" target="1.8" />
       <module name="pub_api (2)" target="1.8" />
+      <module name="yns_portal" target="1.8" />
     </bytecodeTargetLevel>
   </component>
   <component name="JavacSettings">
