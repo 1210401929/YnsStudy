@@ -185,7 +185,6 @@ const submitApply = () => {
       Object.assign(target, applyForm);
       ElMessage.success("修改成功！");
     }
-    ElMessage.success("修改成功！");
     //新增
   } else {
     //如果不是管理员,则控制一个账户只能公开3个友链
