@@ -1,6 +1,6 @@
 <template>
   <div class="sso-page">
-    <div class="sso-container" v-if="userStore.userBean.code === adminUserCode">
+    <div class="sso-container" v-if="getCurrentUserAdminObject().adminLevel==='superAdmin'">
       <el-card class="sync-card">
         <template #header>
           <div class="card-header">检查一致性文件</div>
@@ -60,7 +60,14 @@
           </el-table>
         </div>
       </el-card>
-
+      <el-card class="sync-card">
+        <template #header>
+          <div class="card-header-row">
+            <div class="card-header">用户权限设置</div>
+          </div>
+        </template>
+        <user-list ISOPERATIONUSER="true"></user-list>
+      </el-card>
     </div>
     <div class="no-access" v-else>
       <el-empty description="禁止!只允许超级管理员访问"/>
@@ -71,10 +78,10 @@
 <script setup>
 import {ElMessage} from 'element-plus'
 import {useUserStore} from "@/stores/main/user.js";
-import {adminUserCode} from "@/config/vue-config.js";
-import {ele_confirm, getGuid, pubFormatDate, sendAxiosRequest} from "@/utils/common.js";
+import {ele_confirm, getCurrentUserAdminObject, getGuid, pubFormatDate, sendAxiosRequest} from "@/utils/common.js";
 import {getMenuItems} from "@/utils/menu.js";
 import {ref} from "vue";
+import UserList from "@/components/detail/Userlist.vue";
 
 document.title = "后台管理 - ynsStudy";
 const userStore = useUserStore();
@@ -159,6 +166,9 @@ const deleteAnnouncement = async (row) => {
     }
   })
 }
+//--------------------------------用户权限设置-------------------------------------------------------
+
+//--------------------------------公共-------------------------------------------------------
 
 </script>
 

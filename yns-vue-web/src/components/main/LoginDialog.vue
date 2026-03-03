@@ -1,3 +1,4 @@
+<!--登录组件-->
 <template>
   <div>
     <!-- 登录按钮区域 -->
@@ -42,7 +43,7 @@
             <template #dropdown>
               <el-dropdown-menu>
                 <el-dropdown-item command="profile">个人中心</el-dropdown-item>
-                <el-dropdown-item v-if="userStore.userBean.code==adminUserCode" command="sso">后台管理
+                <el-dropdown-item v-if="getCurrentUserAdminObject().adminLevel==='superAdmin'" command="sso">后台管理
                 </el-dropdown-item>
                 <el-dropdown-item command="logout">退出登录</el-dropdown-item>
               </el-dropdown-menu>
@@ -246,10 +247,9 @@
 import {ref} from 'vue';
 import {useRouter} from "vue-router";
 import {ElMessage} from 'element-plus';
-import {pubFormatDate, sendAxiosRequest} from '@/utils/common.js';
+import {getCurrentUserAdminObject, pubFormatDate, sendAxiosRequest} from '@/utils/common.js';
 import {useUserStore} from '@/stores/main/user.js';
 import {User, Bell} from '@element-plus/icons-vue';
-import {adminUserCode} from "@/config/vue-config.js";
 
 const router = useRouter();
 

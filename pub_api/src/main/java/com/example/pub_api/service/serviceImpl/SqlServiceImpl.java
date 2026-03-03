@@ -135,6 +135,7 @@ public class SqlServiceImpl implements SqlService {
                     stmt.setObject(i + 1, params.get(i));
                 }
             }
+            System.out.println("即将执行的 SQL: " + stmt.toString());
             try (ResultSet rs = stmt.executeQuery()) {
                 ResultSetMetaData metaData = rs.getMetaData();
                 int columnCount = metaData.getColumnCount();

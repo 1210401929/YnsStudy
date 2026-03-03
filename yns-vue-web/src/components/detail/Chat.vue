@@ -1,4 +1,4 @@
-<!-- Chat.vue -->
+<!-- 聊天窗口Chat.vue -->
 <template>
   <div class="chat-window">
     <div class="chat-header">

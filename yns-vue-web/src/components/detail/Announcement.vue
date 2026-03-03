@@ -1,3 +1,4 @@
+<!--横幅公共组件-->
 <template>
   <el-alert
       type="success"

@@ -1,6 +1,6 @@
 <template>
   <!-- 公告横幅 -->
-  <Announcement v-for="al in topAlert" :key="al.GUID" :TEXT="al.TEXT" :URL="al.URL" :URLNAME="al.URLNAME" />
+  <Announcement v-for="al in topAlert" :key="al.GUID" :TEXT="al.TEXT" :URL="al.URL" :URLNAME="al.URLNAME"/>
 
   <div class="community-page">
     <!-- 讨论区 -->
@@ -65,10 +65,14 @@
           <el-button text size="small" :icon="ChatDotSquare" @click="toggleComments(item)">
             {{ item.showComments ? '收起评论' : '评论' }}
           </el-button>
-          <el-button v-if="userStore.userBean.code == adminUserCode" text size="small" :icon="Star"
-                     @click="setTopCommunity(item)">{{ item.ISTOP == "1" ? "取消置顶" : "置顶" }}
+          <!-- 只有超级管理员有置顶权限 -->
+          <el-button v-if="getCurrentUserAdminObject().adminLevel==='superAdmin'" text size="small" :icon="Star"
+                     @click="setTopCommunity(item)">{{ item.ISTOP === "1" ? "取消置顶" : "置顶" }}
           </el-button>
-          <el-button v-if="userStore.userBean.code == item.USERCODE" text size="small" :icon="Delete"
+          <!-- 允许删除逻辑:1.非置顶 是登录用户自己的,允许删除  2.非置顶 且非超级管理员的发帖,允许普通管理员删除  3.当前登录用户是超级管理员  -->
+          <el-button v-if="getCurrentUserAdminObject().adminLevel==='superAdmin' || (item.ISTOP!=='1' && userStore.userBean.code === item.USERCODE)
+              || (getCurrentUserAdminObject().isAdmin && item.ISTOP!=='1' && item.USERCODE!==adminUserCode)" text
+                     size="small" :icon="Delete"
                      @click="deleteCommunity(item)">删除
           </el-button>
         </div>
@@ -204,35 +208,8 @@
     <Chat v-if="chatVisible" title="社区聊天" @closeChat="closeChat"/>
 
     <!-- 搜索用户对话框 -->
-    <el-dialog title="搜索用户" v-model="searchUserDialogVisible" width="400px">
-      <el-input
-          v-model="searchUserInput"
-          placeholder="输入用户名"
-          clearable
-          prefix-icon="el-icon-search"
-          size="small"
-          style="margin-bottom: 12px"
-      />
-      <div v-for="userInfo in searchUserArr" :key="userInfo.CODE">
-        <el-card class="user-card" shadow="hover" style="margin-bottom: 10px" @click="userInfoCLick(userInfo)">
-          <div class="user-card-content">
-            <el-avatar
-                :src="userInfo.AVATAR"
-                size="large"
-                class="author-avatar-search"
-                alt="评论用户头像"
-            >
-              {{ userInfo.NAME?.charAt(0) }}
-            </el-avatar>
-            <span class="user-name">{{ userInfo.NAME }}</span>
-            <span class="user-remark">{{ userInfo.REMARK }}</span>
-          </div>
-        </el-card>
-      </div>
-      <template #footer>
-        <el-button @click="searchUserDialogVisible = false" class="btn-cancel">取消</el-button>
-        <el-button type="primary" @click="searchUser" class="btn-search">搜索</el-button>
-      </template>
+    <el-dialog title="搜索用户" v-model="searchUserDialogVisible" width="60%">
+      <user-list></user-list>
     </el-dialog>
   </div>
 </template>
@@ -250,13 +227,14 @@ import {
   getGuid,
   buildChildrenData,
   ele_confirm,
-  loadScript, sendNotifications
+  loadScript, sendNotifications, getCurrentUserAdminObject, getUserAdminObjectByUserCode
 } from "@/utils/common.js";
 import {useUserStore} from "@/stores/main/user.js";
 import {adminUserCode} from "@/config/vue-config.js";
 import {useRouter} from "vue-router";
 import {marked} from 'marked';
 import {getAnnouncementByRouterName, pubOpenUser} from "@/utils/blogUtil.js";
+import UserList from "@/components/detail/UserList.vue";
 
 const router = useRouter();
 const userStore = useUserStore();
@@ -501,7 +479,7 @@ const loadAiFun = async () => {
 }
 //公告横幅内容
 const topAlert = ref([]);
-const setTopAlert = async ()=>{
+const setTopAlert = async () => {
   topAlert.value = await getAnnouncementByRouterName("Community");
 }
 setTopAlert();
@@ -509,309 +487,355 @@ const badges = ref(["原始股"]);
 </script>
 
 <style scoped>
-.author-avatar-comment {
-  width: 20px !important;
-  height: 20px !important;
-  cursor: pointer;
-}
-
+/* ==========================================
+   ✦ 设计令牌 (Design Tokens) - 核心变量
+   ========================================== */
 .community-page {
-  padding: 0 30px 30px 30px;
-  background: #f7f8fa;
+  /* 色彩系统 */
+  --brand-primary: #4f46e5;      /* 现代靛蓝，比普通蓝更高级 */
+  --brand-primary-hover: #4338ca;
+  --bg-page: #f8fafc;            /* 极浅蓝灰背景 */
+  --bg-card: #ffffff;
+  --bg-comment: #f1f5f9;
+  --text-main: #0f172a;          /* 深蓝灰，代替死板的纯黑 */
+  --text-regular: #334155;
+  --text-muted: #64748b;
+  --border-light: #e2e8f0;
+
+  /* 阴影系统 - 多层弥散阴影打造空间感 */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+  --shadow-hover: 0 20px 25px -5px rgba(0, 0, 0, 0.05), 0 10px 10px -5px rgba(0, 0, 0, 0.02);
+  --shadow-float: 0 10px 30px -5px rgba(79, 70, 229, 0.3);
+
+  /* 形状与动画 */
+  --radius-xl: 16px;
+  --radius-lg: 12px;
+  --radius-md: 8px;
+  --transition-spring: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* 页面基础设置 */
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 30px 20px 80px; /* 底部留白防止遮挡悬浮按钮 */
+  background-color: var(--bg-page);
+  min-height: 100vh;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  color: var(--text-main);
 }
 
-.section {
-  margin-top: 40px;
+/* ==========================================
+   ✦ 标题与基础区块
+   ========================================== */
+.section { margin-top: 40px; }
+
+h3 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-main);
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  letter-spacing: -0.02em;
 }
 
-.post-box {
-  padding: 20px;
-  border-radius: 8px;
-}
-
-.submit-btn {
-  margin-top: 10px;
-}
-
-.feed-card {
+/* ==========================================
+   ✦ 现代卡片设计 (发帖/帖子列表)
+   ========================================== */
+.post-box, .feed-card, .badge-card {
+  background: var(--bg-card) !important;
+  border-radius: var(--radius-xl) !important;
+  border: 1px solid rgba(255,255,255,0.8) !important; /* 配合阴影实现微刻线效果 */
+  box-shadow: var(--shadow-md) !important;
+  transition: var(--transition-smooth) !important;
+  padding: 24px !important;
   position: relative;
-  margin-bottom: 15px;
-  padding: 15px;
-  border-radius: 6px;
+  overflow: visible; /* 为了让头像和角标能突破边界一点点 */
 }
 
+.feed-card { margin-bottom: 24px; }
+
+.feed-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-hover) !important;
+}
+
+/* ==========================================
+   ✦ 发帖者头部信息
+   ========================================== */
 .feed-header {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 8px;
+  gap: 14px;
+  margin-bottom: 16px;
 }
 
 .author-avatar {
-  cursor: pointer;
+  border: 2px solid #fff;
+  box-shadow: var(--shadow-sm);
+  transition: var(--transition-spring);
 }
+.author-avatar:hover { transform: scale(1.1); }
 
-.author-info {
-  display: flex;
-  flex-direction: column;
-  font-size: 13px;
-  color: #555;
-}
+.author-info { display: flex; flex-direction: column; gap: 2px; }
 
 .author-name {
-  font-weight: bold;
-  font-size: 14px;
-  color: #333;
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: var(--text-main);
+  letter-spacing: -0.01em;
+}
+
+.author-meta { font-size: 0.85rem; color: var(--text-muted); }
+
+/* ==========================================
+   ✦ 帖子正文与展开逻辑
+   ========================================== */
+.feed-body {
+  font-size: 0.95rem;
+  line-height: 1.8;
+  color: var(--text-regular);
+  margin: 16px 0;
+  word-break: break-word;
 }
 
 .expand-btn-wrapper {
   display: flex;
   justify-content: center;
-  margin-top: 10px;
+  margin-top: -10px;
+  padding-top: 15px;
+  position: relative;
+}
+
+.expand-btn-wrapper::before {
+  content: '';
+  position: absolute;
+  top: -30px; left: 0; right: 0; height: 30px;
+  background: linear-gradient(to bottom, rgba(255,255,255,0), var(--bg-card));
+  pointer-events: none;
 }
 
 .expand-btn {
-  width: 100%;
-  max-width: 100%;
-  border: none; /* 去掉边框 */
-  border-radius: 0 0 6px 6px;
-  background-color: #f5f5f5; /* 默认灰色背景 */
-  color: #333; /* 字体颜色改深一点 */
-  font-weight: bold;
-  transition: background-color 0.3s;
+  background: var(--bg-comment) !important;
+  border: none !important;
+  color: var(--brand-primary) !important;
+  border-radius: 20px !important;
+  padding: 8px 24px !important;
+  font-weight: 600 !important;
+  font-size: 0.85rem !important;
+  transition: var(--transition-smooth) !important;
 }
-
 .expand-btn:hover {
-  background-color: #e0e0e0; /* 鼠标移入时变浅灰色 */
+  background: var(--brand-primary) !important;
+  color: #fff !important;
+  transform: translateY(-1px);
 }
 
-.author-meta {
-  font-size: 12px;
-  color: #999;
-}
-
-.feed-body {
-  font-size: 15px;
-  margin: 10px 0;
-}
-
+/* ==========================================
+   ✦ 交互操作区 (点赞/评论/删除按钮)
+   ========================================== */
 .feed-actions {
-  margin-top: 10px;
   display: flex;
-  gap: 10px;
+  gap: 8px;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-light);
 }
 
+.feed-actions .el-button {
+  color: var(--text-muted) !important;
+  font-weight: 600;
+  border-radius: var(--radius-md) !important;
+  padding: 8px 12px !important;
+  height: auto !important;
+  transition: var(--transition-smooth);
+}
+.feed-actions .el-button:hover {
+  background-color: var(--bg-comment) !important;
+  color: var(--brand-primary) !important;
+}
+.feed-actions .el-button:last-child:hover {
+  background-color: #fee2e2 !important; /* 删除按钮特型：浅红底 */
+  color: #ef4444 !important; /* 删除按钮特型：红字 */
+}
+
+/* ==========================================
+   ✦ 评论区 (极致的嵌套层级视觉)
+   ========================================== */
 .comment-section {
-  margin-top: 10px;
-  background-color: #f9f9f9;
-  border-radius: 6px;
-  padding: 10px;
+  margin-top: 20px;
+  background-color: #fff;
+  border-radius: var(--radius-lg);
+  padding: 0; /* 移除外框背景，融入卡片 */
 }
 
 .comment-item {
   display: flex;
   align-items: flex-start;
-  gap: 8px;
-  margin-bottom: 12px;
-  border-bottom: 1px solid #eee;
-  padding-bottom: 6px;
+  gap: 12px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--border-light);
+}
+.comment-item:last-child { border-bottom: none; }
+
+.author-avatar-comment {
+  width: 36px !important;
+  height: 36px !important;
+  box-shadow: var(--shadow-sm);
 }
 
 .comment-content {
   flex: 1;
+  background: var(--bg-comment);
+  padding: 14px 16px;
+  border-radius: 0 var(--radius-lg) var(--radius-lg) var(--radius-lg);
 }
 
 .comment-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 13px;
-  color: #333;
-  margin-bottom: 4px;
+  margin-bottom: 6px;
+}
+
+.comment-author {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-main);
 }
 
 .comment-text {
-  font-size: 14px;
-  color: #555;
-}
-
-.reply-box {
-  margin-top: 8px;
-}
-
-.children {
-  margin-top: 8px;
-  padding-left: 30px;
-  border-left: 2px solid #ddd;
-}
-
-.reply-item {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin: 4px 0;
-}
-
-.reply-avatar {
-  width: 22px;
-  height: 22px;
-}
-
-.reply-author {
-  font-size: 13px;
-  font-weight: bold;
-  color: #444;
-}
-
-.reply-text {
-  font-size: 13px;
-  color: #333;
-}
-
-.loading-text,
-.end-text {
-  text-align: center;
-  margin: 20px 0;
-  color: #888;
-}
-
-.ai-float-btn,
-.search-float-btn,
-.chat-float-btn {
-  position: fixed;
-  right: 20px;
-  padding: 10px 14px;
-  font-size: 24px;
-
-  color: white;
-  border-radius: 50%;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-  cursor: pointer;
-  z-index: 1000;
-}
-
-.ai-float-btn {
-  background: #1e1d1d;
-  bottom: 150px;
-}
-
-.search-float-btn {
-  background: #239b19;
-  bottom: 90px;
-}
-
-.chat-float-btn {
-  background: #409EFF;
-  bottom: 30px;
-}
-
-.chat-message.self .message-bubble {
-  background-color: #409eff;
-  color: white;
-  border-bottom-right-radius: 0;
-}
-
-.chat-message.other .message-bubble {
-  background-color: #e4e6eb;
-  color: #333;
-  border-bottom-left-radius: 0;
-}
-
-.badge-card {
-  padding: 15px;
-}
-
-.post-actions {
-  margin-top: 10px;
-}
-
-.preview-box {
-  margin-top: 15px;
-  padding: 12px;
-  border: 1px solid #ddd;
-  background-color: #f9f9f9;
-  border-radius: 6px;
+  font-size: 0.9rem;
+  color: var(--text-regular);
   line-height: 1.6;
 }
 
-/* 鼠标悬停按钮时为灰色 */
-.el-button:hover {
-  background-color: #e5e5e5 !important;
-  border-color: #dcdcdc !important;
-  color: #333 !important;
+/* 回复引导线 (Thread Line) */
+.children {
+  margin-top: 12px;
+  padding-left: 16px;
+  border-left: 2px solid var(--border-light);
+  position: relative;
 }
 
-.badge {
-  margin: 5px;
+.reply-item {
+  margin-bottom: 10px;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  background: rgba(255,255,255,0.5);
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+}
+.reply-item:last-child { margin-bottom: 0; }
+.reply-author { font-weight: 700; color: var(--brand-primary); }
+
+.comment-input, .reply-box { margin-top: 16px; }
+
+/* ==========================================
+   ✦ 输入框与发帖区增强
+   ========================================== */
+:deep(.el-textarea__inner), :deep(.el-input__inner) {
+  border-radius: var(--radius-md);
+  background-color: var(--bg-comment);
+  border: 1px solid transparent;
+  transition: var(--transition-smooth);
+  box-shadow: none !important;
+}
+:deep(.el-textarea__inner:focus), :deep(.el-input__inner:focus) {
+  background-color: #fff;
+  border-color: var(--brand-primary);
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1) !important; /* 现代Focus环 */
 }
 
+/* ==========================================
+   ✦ 悬浮操作按钮 (毛玻璃特效)
+   ========================================== */
+.search-float-btn, .chat-float-btn, .ai-float-btn {
+  position: fixed;
+  right: 32px;
+  width: 56px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  color: white;
+  border-radius: 50%;
+  backdrop-filter: blur(8px); /* 毛玻璃 */
+  -webkit-backdrop-filter: blur(8px);
+  cursor: pointer;
+  z-index: 1000;
+  transition: var(--transition-spring);
+  border: 1px solid rgba(255,255,255,0.2);
+}
+
+.search-float-btn:hover, .chat-float-btn:hover, .ai-float-btn:hover {
+  transform: translateY(-5px) scale(1.05);
+}
+
+.chat-float-btn { background: rgba(79, 70, 229, 0.9); box-shadow: var(--shadow-float); bottom: 40px; }
+.search-float-btn { background: rgba(16, 185, 129, 0.9); box-shadow: 0 10px 30px -5px rgba(16, 185, 129, 0.3); bottom: 112px; }
+.ai-float-btn { background: rgba(15, 23, 42, 0.9); box-shadow: 0 10px 30px -5px rgba(15, 23, 42, 0.3); bottom: 184px; }
+
+/* ==========================================
+   ✦ 精致的置顶角标 (无缝贴合圆角)
+   ========================================== */
 .ribbon-wrapper {
-  width: 75px;
-  height: 75px;
+  width: 85px; height: 85px;
   overflow: hidden;
   position: absolute;
-  top: 0;
-  right: 0;
+  top: 0; right: 0;
+  border-radius: 0 var(--radius-xl) 0 0;
   z-index: 10;
+  pointer-events: none;
 }
 
 .ribbon {
-  font: bold 12px sans-serif;
-  color: #1e1d1d;
+  font: bold 11px 'Inter', sans-serif;
+  color: #78350f;
   text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 1px;
   transform: rotate(45deg);
   position: absolute;
-  top: 12px;
-  right: -20px;
-  width: 100px;
-  background: #fadb14; /* 明亮黄色 */
-  box-shadow: 0 0 3px rgba(0, 0, 0, 0.3);
-  padding: 4px 0;
+  top: 18px; right: -24px;
+  width: 110px;
+  background: linear-gradient(135deg, #fde68a, #fbbf24);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  padding: 6px 0;
 }
 
-
-
-.user-card {
-  margin-bottom: 12px;
-  padding: 10px;
-  background-color: #fff;
-  border-radius: 8px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-  cursor: pointer;
+/* ==========================================
+   ✦ 其他组件补全
+   ========================================== */
+.badge-card { display: flex; flex-wrap: wrap; gap: 8px; }
+.badge {
+  border-radius: 20px;
+  padding: 4px 12px;
+  font-weight: 600;
+  border: none;
 }
 
-.user-card-content {
-  display: flex;
-  align-items: center;
-  gap: 15px; /* 增加头像与用户名之间的间距 */
-  flex-wrap: wrap; /* 允许内容换行 */
-  width: 100%;
+.preview-box {
+  margin-top: 16px;
+  padding: 20px;
+  background-color: var(--bg-comment);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-light);
+  line-height: 1.7;
 }
 
-.user-name {
-  font-size: 16px;
-  font-weight: bold;
-  color: #333;
-  max-width: 5em; /* 限制最大宽度为5个字符 */
-  white-space: nowrap; /* 禁止换行 */
-  overflow: hidden; /* 隐藏超出部分 */
-  text-overflow: ellipsis; /* 显示省略号 */
-  flex-shrink: 0; /* 防止用户名被压缩 */
+.loading-text, .end-text {
+  text-align: center;
+  margin: 40px 0;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  letter-spacing: 0.05em;
 }
 
-.user-remark {
-  font-size: 13px;
-  color: #888;
-  margin-top: 4px;
-  white-space: nowrap; /* 禁止换行 */
-  overflow: hidden; /* 隐藏超出部分 */
-  text-overflow: ellipsis; /* 显示省略号 */
-  flex-shrink: 1; /* 允许个性签名压缩 */
-}
-
-.author-avatar-search {
-  width: 40px !important;
-  height: 40px !important;
-  border-radius: 50%;
-}
+/* 淡入淡出动画过渡 */
+.fade-enter-active, .fade-leave-active { transition: opacity 0.3s ease, transform 0.3s ease; }
+.fade-enter-from, .fade-leave-to { opacity: 0; transform: translateY(-10px); }
 </style>

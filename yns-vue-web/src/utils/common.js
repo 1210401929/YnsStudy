@@ -2,25 +2,29 @@ import axios from 'axios'
 import {ElMessage, ElMessageBox, ElLoading} from 'element-plus'
 import CryptoJS from 'crypto-js'
 //获取配置的生产环境ip端口
-import {produceDevIpPort, crypCfg, isSendCrypto} from "@/config/vue-config.js";
+import {produceDevIpPort, crypCfg, isSendCrypto, adminUserCode} from "@/config/vue-config.js";
+import {useUserStore} from "@/stores/main/user.js";
 
 /**
- *  sendAxiosRequest        发送后台请求统一入口
- *  uploadFileWithProgress  上传文件调用后台接口
- *  getGuid                 获取随机32位码
- *  ele_confirm             弹出确认对话框
- *  buildChildrenData       构造上下级数组
- *  downloadFileByUrl       根据路径下载文件
- *  pubFormatDate           格式化日期字符串
- *  encrypt                 加密字符串
- *  decrypt                 解密字符串
- *  pubLoading              loading动画
- *  loadScript              动态加载外部脚本
- *  isProbablyCipher        判断字符串是否“看起来像” Base64 密文
- *  stripImages             删除html里的图片等内容
- *  extractFirstImage       提取html中的第一个图片
- *  extractPlainTextFromHTML 提取html中的纯文本
- *  sendNotifications       系统通用发送消息
+ *  sendAxiosRequest                发送后台请求统一入口
+ *  uploadFileWithProgress          上传文件调用后台接口
+ *  getUserInfoByCode               根据用户编码获取用户信息
+ *  getGuid                         获取随机32位码
+ *  ele_confirm                     弹出确认对话框
+ *  buildChildrenData               构造上下级数组
+ *  downloadFileByUrl               根据路径下载文件
+ *  pubFormatDate                   格式化日期字符串
+ *  encrypt                         加密字符串
+ *  decrypt                         解密字符串
+ *  pubLoading                      loading动画
+ *  loadScript                      动态加载外部脚本
+ *  isProbablyCipher                判断字符串是否“看起来像” Base64 密文
+ *  stripImages                     删除html里的图片等内容
+ *  extractFirstImage               提取html中的第一个图片
+ *  extractPlainTextFromHTML        提取html中的纯文本
+ *  sendNotifications               系统通用发送消息
+ *  getUserAdminObject              判断当前登录用户是否是管理员  以及管理员级别
+ *  getUserAdminObjectByUserCode    根据用户code,获取该用户是否是管理员  以及管理员级别
  */
 
 export const getSendAxiosUrl = (url) => {
@@ -156,6 +160,14 @@ export function uploadFileWithProgress({
     xhr.send(formData);
 }
 
+/**
+ * 根据用户编码获取用户信息
+ * @param userCode
+ * @returns {Promise<*|string|Object|(object&{data})>}
+ */
+export const getUserInfoByCode = async (userCode) => {
+    return await sendAxiosRequest("/pub-api/login/getUserInfoByCode", {userCode});
+}
 
 //获取随机32码
 export const getGuid = () => {
@@ -463,4 +475,53 @@ export async function sendNotifications(sendUserCode, receiverUserCode, type, ex
         console.error("通知用户失败");
         return false;
     }
+}
+
+/**
+ * 获取当前登录用户是否是管理员  以及管理员级别
+ * @returns {boolean}
+ */
+export const getCurrentUserAdminObject = () => {
+    let userAdminObject = {
+        isAdmin: false,
+        adminLevel: false
+    };
+    const userStore = useUserStore();
+    const userCode = userStore?.userBean?.code || false;
+    const userRole = userStore?.userBean?.role || "1";
+    //超级管理员  只允许存在一个账号
+    if (userCode === adminUserCode) {
+        userAdminObject.isAdmin = true;
+        userAdminObject.adminLevel = "superAdmin";
+    } else if (userRole === "admin") {
+        userAdminObject.isAdmin = true;
+        userAdminObject.adminLevel = userRole;
+    }
+    return userAdminObject;
+}
+
+/**
+ * 根据用户code,获取该用户是否是管理员  以及管理员级别
+ * @param userCode
+ */
+export const getUserAdminObjectByUserCode = async (userCode) => {
+    let userInfo;
+    let userAdminObject = {
+        isAdmin: false,
+        adminLevel: false
+    };
+    let result = await getUserInfoByCode(userCode);
+    if (result && !result.isError) {
+        userInfo = result.result;
+    }
+    const userRole = userInfo?.role || "1";
+    //超级管理员  只允许存在一个账号
+    if (userCode === adminUserCode) {
+        userAdminObject.isAdmin = true;
+        userAdminObject.adminLevel = "superAdmin";
+    } else if (userRole === "admin") {
+        userAdminObject.isAdmin = true;
+        userAdminObject.adminLevel = userRole;
+    }
+    return userAdminObject;
 }

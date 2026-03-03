@@ -101,14 +101,14 @@ const navigateTo = (routerName) => {
 onMounted(() => {
   const path = window.location.pathname.split('/')[2];
   activeMenu.value = path;
-  document.title = menuItems.value.filter(item => item.router == activeMenu.value)[0]["name"] + " - ynsStudy";
+  document.title = menuItems.value.filter(item => item.router === activeMenu.value)[0]["name"] + " - ynsStudy";
 });
 
 //监听路由  如果改变,则修改菜单栏选中内容
 //因路由名称  和菜单栏选中名称对应并完全一致,所以可以直接使用
 watch(() => route.name, (newValue) => {
   const routerNames = menuItems.value.map(item => item.router);
-  if (routerNames.indexOf(newValue) != -1) {
+  if (routerNames.indexOf(newValue) !== -1) {
     activeMenu.value = newValue;
     document.title = menuItems.value.filter(item => item.router == newValue)[0]["name"] + " - ynsStudy";
   }

@@ -51,11 +51,16 @@
 </template>
 
 <script setup>
-import {ref, onMounted} from "vue";
+import {ref} from "vue";
 import Chat from "@/components/detail/Chat.vue";
 import {useRoute, useRouter} from "vue-router";
 import ContentAndComment from "@/views/detail/blog/ContentAndComment.vue";
-import {sendAxiosRequest, decrypt, encrypt, sendNotifications, extractPlainTextFromHTML} from "@/utils/common";
+import {
+  sendAxiosRequest,
+  sendNotifications,
+  extractPlainTextFromHTML,
+  getUserInfoByCode
+} from "@/utils/common";
 import {useUserStore} from "@/stores/main/user.js";
 import {ElMessage} from "element-plus";
 import {pubOpenUser} from "@/utils/blogUtil.js";
@@ -89,7 +94,7 @@ const chatVisible = ref(false);
 async function getUserInfo2Data() {
   if (userCode) {
     //获取账号信息
-    let result = await sendAxiosRequest("/pub-api/login/getUserInfoByCode", {userCode});
+    let result = await getUserInfoByCode(userCode);
     if (result && !result.isError) {
       authorInfo.value = result.result;
     }
@@ -146,7 +151,7 @@ const messageAuthor = () => {
     ElMessage.error("用户过期,请返回主页面重新登录!");
     return false;
   }
-  if (userStore.userBean.code == authorInfo.value.code) {
+  if (userStore.userBean.code === authorInfo.value.code) {
     ElMessage.error("和自己就别聊了");
     return false;
   }

@@ -3,6 +3,7 @@ package com.example.pub_api.service.serviceImpl;
 import com.example.common_api.bean.ResultBody;
 import com.example.common_api.bean.UserBean;
 import com.example.common_api.config.LoginCfg;
+import com.example.common_api.util.FunToUrlUtil;
 import com.example.pub_api.service.ApiService;
 import com.example.pub_api.service.LoginService;
 import com.example.pub_api.service.SqlService;
@@ -96,6 +97,9 @@ public class LoginServiceImpl implements LoginService {
 
         if (result.result != null && ((ArrayList) result.result).size() > 0) {
             UserBean user = new UserBean((HashMap<String, Object>) ((ArrayList) result.result).get(0));
+            if (user.getISBAN() != null && user.getISBAN().equals("1")) {
+                return ResultBody.createErrorResult("该用户已被封禁终止登录,有疑问请联系管理员!");
+            }
             System.out.println("查询用户成功:" + ((ArrayList) result.result).get(0));
             //验证密码是否正确
             String passWordSalt = (String) ((HashMap<?, ?>) ((ArrayList) result.result).get(0)).get("PASSWORDSALT");
@@ -271,10 +275,91 @@ public class LoginServiceImpl implements LoginService {
         if (userName == null) {
             return ResultBody.createErrorResult("用户名不允许为空!");
         }
-        String sql = "select CODE,NAME,AVATAR,REMARK from userinfo where NAME like ? ";
+        String sql = "select CODE,NAME,AVATAR,REMARK from userinfo where NAME like ?";
         List<Object> listParams = Arrays.asList("%" + userName + "%");
         ResultBody result = sqlService.selectListByParams(sql, listParams);
         return result;
+    }
+
+
+    @Override
+    public ResultBody getAllUserInfo(int page, int pageSize, String keyWord) {
+        int offset = (page - 1) * pageSize;
+        // 1. 构建主查询 SQL 和参数
+        String listSql;
+        List<Object> listParams = new ArrayList<>();
+        if (keyWord != null && !keyWord.trim().isEmpty()) {
+            listSql = "SELECT u.* FROM userInfo u " +
+                    "WHERE (u.name LIKE ? OR u.remark LIKE ?)" +
+                    "order by role desc LIMIT ? OFFSET ?";
+            listParams.add("%" + keyWord + "%");
+            listParams.add("%" + keyWord + "%");
+        } else {
+            listSql = "SELECT u.* FROM userInfo u " +
+                    "order by role desc LIMIT ? OFFSET ?";
+        }
+        listParams.add(pageSize);
+        listParams.add(offset);
+        // 2. 构建总数查询 SQL 和参数
+        String countSql;
+        List<Object> countParams = new ArrayList<>();
+        if (keyWord != null && !keyWord.trim().isEmpty()) {
+            countSql = "SELECT COUNT(1) AS total FROM userInfo u " +
+                    "WHERE (u.name LIKE ? OR u.remark LIKE ?)";
+            countParams.add("%" + keyWord + "%");
+            countParams.add("%" + keyWord + "%");
+        } else {
+            countSql = "SELECT COUNT(1) AS total FROM userInfo";
+        }
+        // 3. 查询数据列表
+        Map<String, Object> params = new HashMap<>();
+        params.put("sql", listSql);
+        params.put("params", listParams);
+        ResultBody listResult = sqlService.selectListByParams(listSql, listParams);
+        if (listResult == null || listResult.isError) {
+            return listResult;
+        }
+        // 4. 查询总数
+        params = new HashMap<>();
+        params.put("sql", countSql);
+        params.put("params", countParams);
+        ResultBody countResult = sqlService.selectListByParams(countSql, countParams);
+        if (countResult == null || countResult.isError) {
+            return countResult;
+        }
+        // 5. 获取总数
+        int total = 0;
+        List<Map<String, Object>> countData = (List<Map<String, Object>>) countResult.result;
+        if (!countData.isEmpty() && countData.get(0).get("total") != null) {
+            total = Integer.parseInt(countData.get(0).get("total").toString());
+        }
+        // 6. 组装分页结果
+        Map<String, Object> result = new HashMap<>();
+        result.put("total", total);
+        result.put("data", listResult.result);
+
+        return ResultBody.createSuccessResult(result);
+    }
+
+    @Override
+    public ResultBody operationUser(String userId, String type) {
+        String updateSql = "select 1 from userinfo where guid = ?";
+        switch (type) {
+            case "setAdmin":
+                updateSql = "update userinfo set role = 'admin' where guid = ?";
+                break;
+            case "removeAdmin":
+                updateSql = "update userinfo set role = '1' where guid = ?";
+                break;
+            case "ban":
+                updateSql = "update userinfo set isBan = '1' where guid = ?";
+                break;
+            case "removeBan":
+                updateSql = "update userinfo set isBan = '' where guid = ?";
+                break;
+        }
+        List<Object> listParams = Arrays.asList(userId);
+        return sqlService.exeSqlByParams(updateSql, listParams);
     }
 
     //修改用户登录IP和登录城市

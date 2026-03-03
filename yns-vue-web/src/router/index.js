@@ -6,6 +6,7 @@ import MyBlog from '../views/detail/blog/MyBlog.vue'
 import OneBlog from '../views/detail/blog/OneBlog.vue'
 import Resources from '../views/detail/resources/Resources.vue'
 import Community from '../views/detail/community/Community.vue'
+import FriendLink from '../views/detail/friendLink/FriendLink.vue'
 import YnsStudyAi from '../views/detail/ai/YnsStudyAi.vue'
 
 import About from '../views/detail/about/About.vue'
@@ -49,6 +50,7 @@ const routes = [
             },
             {path: 'Resources', name: 'Resources', component: Resources},
             {path: 'Community', name: 'Community', component: Community},
+            {path: 'FriendLink', name: 'FriendLink', component: FriendLink},
             {path: 'About', name: 'About', component: About}
         ]
     }

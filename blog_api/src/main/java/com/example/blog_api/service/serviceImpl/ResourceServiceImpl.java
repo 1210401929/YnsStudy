@@ -62,10 +62,12 @@ public class ResourceServiceImpl implements ResourceService {
 
         // 关键字搜索
         if (keyWord != null && !keyWord.trim().isEmpty()) {
-            where = " WHERE (f.ORIGINALFILENAME LIKE ? OR f.REMARK LIKE ?) ";
+            where = " WHERE (f.ORIGINALFILENAME LIKE ? OR f.REMARK LIKE ? OR f.USERNAME like ?) ";
             String kw = "%" + keyWord.trim() + "%";
             listParams.add(kw);
             listParams.add(kw);
+            listParams.add(kw);
+            countParams.add(kw);
             countParams.add(kw);
             countParams.add(kw);
         }

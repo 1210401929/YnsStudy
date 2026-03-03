@@ -80,29 +80,50 @@ public class LoginController {
     @ResponseBody
     public ResultBody changeUserInfo(@RequestBody Map<String, Object> params, HttpSession session) {
         Map<String, Object> userInfo = (Map<String, Object>) params.get("userInfo");
-        ResultBody resultBody = loginService.changeUserInfo(userInfo,session);
+        ResultBody resultBody = loginService.changeUserInfo(userInfo, session);
         return resultBody;
     }
 
     @RequestMapping("/deleteUserAvatarFile")
     @ResponseBody
     public ResultBody deleteUserAvatarFile(@RequestBody Map<String, String> params, HttpSession session) {
-        String userCode =  params.get("userCode");
-        ResultBody resultBody = loginService.deleteUserAvatarFile(userCode,session);
+        String userCode = params.get("userCode");
+        ResultBody resultBody = loginService.deleteUserAvatarFile(userCode, session);
         return resultBody;
     }
+
     @RequestMapping("/getUserInfoByCode")
     @ResponseBody
     public ResultBody getUserInfoByCode(@RequestBody Map<String, String> params) {
-        String userCode =  params.get("userCode");
+        String userCode = params.get("userCode");
         ResultBody resultBody = loginService.getUserInfoByCode(userCode);
         return resultBody;
     }
+
     @RequestMapping("/getUserInfoByName")
     @ResponseBody
     public ResultBody getUserInfoByName(@RequestBody Map<String, String> params) {
-        String userName =  params.get("userName");
+        String userName = params.get("userName");
         ResultBody resultBody = loginService.getUserInfoByName(userName);
+        return resultBody;
+    }
+
+    @RequestMapping("/getAllUserInfo")
+    @ResponseBody
+    public ResultBody getAllUserInfo(@RequestBody Map<String, Object> params) {
+        int page = (int) params.get("page");
+        int pageSize = (int) params.get("pageSize");
+        String keyword = (String) params.get("keyword");
+        ResultBody resultBody = loginService.getAllUserInfo(page, pageSize, keyword);
+        return resultBody;
+    }
+
+    @RequestMapping("/operationUser")
+    @ResponseBody
+    public ResultBody operationUser(@RequestBody Map<String, Object> params) {
+        String userId = (String) params.get("userId");
+        String type = (String) params.get("type");
+        ResultBody resultBody = loginService.operationUser(userId, type);
         return resultBody;
     }
 }

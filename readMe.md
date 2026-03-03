@@ -46,13 +46,15 @@
 - `loginHistory` => 用户登录历史表
 - `personInfo` => 用户主页表
 - `noticeInfo` => 消息通知表
+- `fileCat` => 附件分类表
 - `fileInfo` => 附件表
 - `blogInfo` => 博客文章表
 - `blogComment` => 博客评论表
 - `blogGiveLike` => 博客点赞收藏表
 - `communityInfo` => 社区内容表
 - `communityComment` => 社区内容评论表
-
+- `announcementinfo` => 通知表
+- `friendlinkinfo` => 友链表
 > **⚠️ 建表规范**: `GUID` 是必须存在的字段，需设置为随机 32 位码。
 
 ---
@@ -64,3 +66,4 @@
 - **文件上传路径**:
   - 富文本编辑器的图片路径: `项目根目录/upload/editorImage`
   - 资源文件路径: `项目根目录/upload/resourcesFile`
+  - 用户头像路径: `项目根目录/upload/userAvatar`

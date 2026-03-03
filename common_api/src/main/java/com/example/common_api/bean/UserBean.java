@@ -26,6 +26,8 @@ public class UserBean implements Serializable {
     //头像
     private String AVATAR;
 
+    private String ISBAN;
+
     public String getPHONE() {
         return PHONE;
     }
@@ -83,6 +85,13 @@ public class UserBean implements Serializable {
     }
 
 
+    public String getISBAN() {
+        return ISBAN;
+    }
+
+    public void setISBAN(String ISBAN) {
+        this.ISBAN = ISBAN;
+    }
 
     public UserBean(HashMap<String, Object> userinfo) {
         this.GUID = (String) userinfo.get("GUID");
@@ -99,9 +108,11 @@ public class UserBean implements Serializable {
             this.LOGINADDRESS = (String) userinfo.get("LOGINADDRESS");
         if (userinfo.get("LOGINIP") != null)
             this.LOGINIP = (String) userinfo.get("LOGINIP");
+        if (userinfo.get("ISBAN") != null)
+            this.ISBAN = (String) userinfo.get("ISBAN");
     }
 
-    public UserBean(String GUID, String CODE, String NAME, String PASSWORD,  String PASSWORDSALT ,String ROLE, String REMARK) {
+    public UserBean(String GUID, String CODE, String NAME, String PASSWORD, String PASSWORDSALT, String ROLE, String REMARK, String LOGINADDRESS, String LOGINIP, String PHONE, String EMAIL, String AVATAR, String ISBAN) {
         this.GUID = GUID;
         this.CODE = CODE;
         this.NAME = NAME;
@@ -109,7 +120,14 @@ public class UserBean implements Serializable {
         this.PASSWORDSALT = PASSWORDSALT;
         this.ROLE = ROLE;
         this.REMARK = REMARK;
+        this.LOGINADDRESS = LOGINADDRESS;
+        this.LOGINIP = LOGINIP;
+        this.PHONE = PHONE;
+        this.EMAIL = EMAIL;
+        this.AVATAR = AVATAR;
+        this.ISBAN = ISBAN;
     }
+
 
     public String getPASSWORDSALT() {
         return PASSWORDSALT;

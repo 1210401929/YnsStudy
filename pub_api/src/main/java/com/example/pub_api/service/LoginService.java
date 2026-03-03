@@ -31,4 +31,8 @@ public interface LoginService {
     ResultBody getUserInfoByCode(String userCode);
     //根据名字模糊查询相关账号
     ResultBody getUserInfoByName(String userName);
+    //获取所有用户
+    ResultBody getAllUserInfo(int page, int pageSize, String keyWord);
+    //操作用户 例如:设置管理员,取消管理员,禁用或删除用户
+    ResultBody operationUser(String userId,String type);
 }

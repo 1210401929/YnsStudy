@@ -26,15 +26,21 @@
           <div style="display: flex; gap: 1px;"
           >
             <el-button size="small" type="primary" plain @click="openOneBlog"
-                       v-if="route.name!='oneBlog'">
+                       v-if="route.name!=='oneBlog'">
               专注模式
             </el-button>
+            <!-- 显示逻辑 1.自己发布的内容  2.非超级管理员的发帖,允许普通管理员编辑 3.当前登录用户是超级管理员 -->
             <el-button size="small" type="warning" plain @click="editorVisible = true"
-                       v-if="(userStore?.userBean?.code && blogContent.USERCODE==userStore.userBean.code)||userStore.userBean.code==adminUserCode">
+                       v-if="(userStore?.userBean?.code && blogContent.USERCODE===userStore.userBean.code)
+                            ||(getCurrentUserAdminObject().isAdmin && blogContent.USERCODE!==adminUserCode)
+                            ||getCurrentUserAdminObject().adminLevel==='superAdmin'">
               编辑文章
             </el-button>
+            <!-- 显示逻辑 1.自己发布的内容  2.非超级管理员的发帖,允许普通管理员删除 3.当前登录用户是超级管理员 -->
             <el-button size="small" type="danger" plain @click="deleteArticle"
-                       v-if="(userStore?.userBean?.code && blogContent.USERCODE==userStore.userBean.code)||userStore.userBean.code==adminUserCode">
+                       v-if="(userStore?.userBean?.code && blogContent.USERCODE===userStore.userBean.code)
+                            ||(getCurrentUserAdminObject().isAdmin && blogContent.USERCODE!==adminUserCode)
+                            ||getCurrentUserAdminObject().adminLevel==='superAdmin'">
               删除文章
             </el-button>
           </div>
@@ -42,7 +48,6 @@
         <ArticleEditor :isReadOnly="true" :content="blogContent.MAINTEXT"/>
       </el-card>
     </el-col>
-
     <!-- 评论或悬浮按钮 -->
     <el-col :xs="24" :sm="24" :md="showComment ? 9 : 1" :lg="showComment ? 9 : 1">
       <!-- 评论区 -->
@@ -77,10 +82,10 @@
                 link
                 type="primary"
                 size="small"
-                :class="comment.USERCODE == userStore.userBean.code ? 'reply-btn-red' : 'reply-btn'"
+                :class="comment.USERCODE === userStore.userBean.code ? 'reply-btn-red' : 'reply-btn'"
                 @click="toggleReplyInput(comment.GUID, comment.USERCODE)"
             >
-              {{ comment.USERCODE == userStore.userBean.code ? '删除' : '回复' }}
+              {{ comment.USERCODE === userStore.userBean.code ? '删除' : '回复' }}
             </el-button>
           </div>
           <div v-if="replyInputVisible[comment.GUID]" class="reply-input">
@@ -159,6 +164,38 @@
       <!-- 悬浮操作按钮（评论关闭时显示） -->
       <div v-else class="floating-buttons-top">
         <div class="floating-buttons">
+          <el-popover
+              placement="left"
+              :width="280"
+              trigger="click"
+              v-model:visible="isTocVisible"
+              popper-class="toc-popper"
+          >
+            <template #reference>
+                <el-button
+                    circle
+                    class="toc-main-btn"
+                    :icon="List"
+                    title="查看目录"
+                />
+            </template>
+
+            <div class="toc-container">
+              <div class="toc-title">文章目录</div>
+              <el-scrollbar max-height="400px">
+                <div v-if="tocList.length === 0" class="toc-empty">暂无目录或提取中...</div>
+                <div
+                    v-for="item in tocList"
+                    :key="item.id"
+                    class="toc-item"
+                    :class="'toc-level-' + item.level"
+                    @click="scrollToAnchor(item.id)"
+                >
+                  {{ item.text }}
+                </div>
+              </el-scrollbar>
+            </div>
+          </el-popover>
           <el-tooltip :content="'已点赞: ' + blogLikeNum" placement="left" effect="light">
             <el-button circle :class="blogContent.$userIsLike?'comment-btn-success':'comment-btn'" @click="handleLike">
               👍
@@ -195,7 +232,7 @@
         :title="blogContent.BLOG_TITLE"
         :content="blogContent.MAINTEXT"
         :save-type="'edit'"
-        :isPublic="blogContent.BLOG_TYPE == 'public' ? true : false"
+        :isPublic="blogContent.BLOG_TYPE === 'public' ? true : false"
         @submit="handleEditorSubmit"
         @cancel="editorVisible = false"
     />
@@ -209,16 +246,18 @@ import {useRoute, useRouter} from "vue-router";
 import {useUserStore} from "@/stores/main/user.js";
 import {useBlogContentStore} from "@/stores/detail/blog.js";
 import ArticleEditor from "@/components/detail/ArticleEditor.vue";
-import {Star, Comment, Right} from '@element-plus/icons-vue'
+import {Star, Comment, Right, List} from '@element-plus/icons-vue'
 import {ElMessage} from "element-plus";
 import debounce from 'lodash/debounce'
+// 1. 引入需要的图标
+
 import {
   buildChildrenData,
   ele_confirm,
   getGuid,
   sendAxiosRequest,
   pubFormatDate,
-  sendNotifications
+  sendNotifications, getCurrentUserAdminObject
 } from "@/utils/common.js";
 import {adminUserCode} from "@/config/vue-config.js";
 import {pubOpenOneBlog, pubOpenUser} from "@/utils/blogUtil.js";
@@ -294,7 +333,7 @@ const handleEditorSubmit = ({blog_type, title, content}) => {
     blogContent.value.MAINTEXT = content;
     blogContent.value.BLOG_TYPE = blog_type;
     blogContentStore.blogContents.forEach(item => {
-      if (item["GUID"] == contentGuid.value) {
+      if (item["GUID"] === contentGuid.value) {
         item["BLOG_TITLE"] = title;
         item["BLOG_TYPE"] = blog_type;
       }
@@ -327,15 +366,15 @@ const loadContentAndComments = async (guid) => {
     //处理该用户是否已经点赞该文章
     result.result.forEach(item => {
       //计算点赞,收藏数
-      if (item["TYPE"] == "like") likeNum++;
-      else if (item["TYPE"] == "collect") collectNum++;
+      if (item["TYPE"] === "like") likeNum++;
+      else if (item["TYPE"] === "collect") collectNum++;
       //判断是否是当前登录用户的点赞收藏
-      if (item["USERCODE"] == userBean.code) {
+      if (item["USERCODE"] === userBean.code) {
         //该用户已经点赞
-        if (item["TYPE"] == "like") {
+        if (item["TYPE"] === "like") {
           blogContent.value.$userIsLike = true;
           //该用户已经收藏
-        } else if (item["TYPE"] == "collect") {
+        } else if (item["TYPE"] === "collect") {
           blogContent.value.$userIsCollect = true;
         }
       }
@@ -344,11 +383,58 @@ const loadContentAndComments = async (guid) => {
     blogCollectNum.value = collectNum;
   }
   //加载数据后方法
-  emit('loaded', {blogContent:blogContent.value});
+  emit('loaded', {blogContent: blogContent.value});
   // 初始化控制状态
   replyInputVisible.value = {};
   replyInputs.value = {};
   isChildrenVisible.value = {};
+};
+//当博客内容有值时,提取正文内容标题 作为目录
+watch(() => blogContent.value.MAINTEXT, () => {
+  generateToc();
+});
+
+//目录
+//目录数据
+const tocList = ref([]);
+//默认是否显示目录
+const isTocVisible = ref(true);
+
+// 3. 提取文章内的标题 (h1-4)
+const generateToc = () => {
+  nextTick(() => {
+    //渲染的内容在 .editor-container 内部
+    const contentEl = document.querySelector('.editor-container');
+    if (!contentEl) return;
+
+    // 获取所有标题
+    const headings = contentEl.querySelectorAll('h1, h2,h3,h4');
+    const tempToc = [];
+    headings.forEach((el, index) => {
+      const titleId = `toc-anchor-${index}`;
+      el.id = titleId; // 为正文标题添加ID用于跳转
+      tempToc.push({
+        id: titleId,
+        text: el.innerText,
+        level: parseInt(el.tagName.replace('H', ''))
+      });
+    });
+    tocList.value = tempToc;
+  });
+};
+
+// 4. 监听文章内容变化时生成目录
+watch(() => blogContent.value.MAINTEXT, () => {
+  generateToc();
+}, {deep: true});
+
+// 5. 滚动跳转方法
+const scrollToAnchor = (anchorId) => {
+  const target = document.getElementById(anchorId);
+  if (target) {
+    target.scrollIntoView({behavior: 'smooth', block: 'start'});
+    isTocVisible.value = false; // 点击后关闭弹窗
+  }
 };
 
 //点赞
@@ -435,12 +521,12 @@ watch(
 
 //发表用户点击用户头像
 function avatarClick(blogContent) {
-  pubOpenUser(router,blogContent.USERCODE);
+  pubOpenUser(router, blogContent.USERCODE);
 }
 
 //评论用户点击用户头像
 function commentAvatarClick(comment) {
-  pubOpenUser(router,comment.USERCODE);
+  pubOpenUser(router, comment.USERCODE);
 }
 
 function toggleComments() {
@@ -542,7 +628,7 @@ function toggleChildren(commentId) {
 }
 
 function openOneBlog() {
-  pubOpenOneBlog(router,blogContent.value.GUID)
+  pubOpenOneBlog(router, blogContent.value.GUID)
 }
 
 
@@ -751,5 +837,79 @@ function deleteArticle() {
 
 .comment-btn-success:hover {
   background-color: #b7daee;
+}
+
+/* 目录主按钮：与点赞区分，使用品牌蓝或深色调 */
+.toc-main-btn {
+  width: 46px !important; /* 稍微大一点点 */
+  height: 46px !important;
+  font-size: 22px !important;
+  background-color: #409eff !important; /* 明显的蓝色 */
+  color: white !important;
+  border: 2px solid #fff !important;
+  box-shadow: 0 4px 12px rgba(64, 158, 255, 0.4) !important;
+  margin-bottom: 8px; /* 与下方按钮拉开间距 */
+  transition: all 0.3s;
+}
+
+.toc-main-btn:hover {
+  transform: scale(1.1);
+  background-color: #66b1ff !important;
+}
+
+/* 目录弹出卡片样式 */
+.toc-title {
+  font-weight: bold;
+  font-size: 16px;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #eee;
+  color: #333;
+}
+
+.toc-item {
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 14px;
+  color: #606266;
+  border-radius: 4px;
+  transition: background 0.2s;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.toc-item:hover {
+  background-color: #f5f7fa;
+  color: #409eff;
+}
+
+/* 根据 H 标签级别设置缩进 */
+.toc-level-2 {
+  padding-left: 12px;
+  font-weight: 500;
+}
+
+.toc-level-3 {
+  padding-left: 24px;
+  font-size: 13px;
+  color: #909399;
+}
+
+.toc-level-4 {
+  padding-left: 36px;
+  font-size: 12px;
+  color: #a8abb2;
+}
+
+.toc-empty {
+  text-align: center;
+  color: #999;
+  padding: 20px 0;
+}
+
+/* 让正文跳转时不要被顶部的导航栏遮挡（根据你项目是否有顶栏调整） */
+:deep(h1), :deep(h2), :deep(h3), :deep(h4) {
+  scroll-margin-top: 80px;
 }
 </style>

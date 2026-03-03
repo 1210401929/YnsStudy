@@ -133,7 +133,9 @@
             <div class="profile-details">
               <h2 class="username">
                 <span class="name">{{ user.name }}</span>
-                <span v-if="user.code == adminUserCode" class="admin-badge">管理员</span>
+                <span v-if="user.code === adminUserCode" class="public-badge superAdmin-badge">超级管理员</span>
+                <span v-if="user.role === 'admin'" class="public-badge admin-badge">管理员</span>
+                <span v-if="user.isban === '1'" class="public-badge ban-badge">已封禁</span>
               </h2>
               <p>邮箱: {{ user.email || "未知" }}</p>
               <p class="user-remark" :title="user.remark">个性签名: {{ user.remark || "这个人很神秘~" }}</p>
@@ -358,7 +360,7 @@ import {
   sendAxiosRequest,
   stripImages,
   downloadFileByUrl,
-  sendNotifications, extractPlainTextFromHTML
+  sendNotifications, extractPlainTextFromHTML, getUserInfoByCode
 } from '@/utils/common.js'
 import ContentAndComment from '@/views/detail/blog/ContentAndComment.vue'
 import {adminUserCode} from '@/config/vue-config.js'
@@ -485,7 +487,7 @@ async function getUserInfo2Data() {
     //获取用户发布内容  文章和社区
     fetchArticles(userCode);
     //获取用户信息
-    let result = await sendAxiosRequest('/pub-api/login/getUserInfoByCode', {userCode})
+    let result = await getUserInfoByCode(userCode);
     if (result && !result.isError) {
       user.value = result.result
     }
@@ -899,17 +901,32 @@ onMounted(() => {
   font-size: 24px;
   font-weight: bold;
 }
-
-.admin-badge {
-  background-color: #ffdf02;
+.public-badge{
   color: #000;
   font-size: 12px;
   font-weight: bold;
-  border-radius: 12px;
-  padding: 2px 8px;
-  line-height: 1;
+  border-radius: 10px;
+  padding: 2px 8px; /* 稍微增加了点左右内边距，更好看 */
+  line-height: 1.2;
+
+  /* --- 核心位置微调 --- */
+  margin-left: 4px; /* 和名字拉开一点距离 */
+  flex-shrink: 0;   /* 关键：保证名字再长，标签都不会被压缩变形 */
+  position: relative;
+  top: 0px;        /* 往上提一点，制造右上角上标的视觉效果 */
 }
 
+.superAdmin-badge {
+  background-color: #ffdf02;
+
+}
+
+.admin-badge {
+  background-color: #86ff93;
+}
+.ban-badge {
+  background-color: #ff5a5a;
+}
 .user-remark {
   font-size: 14px;
   color: #555;

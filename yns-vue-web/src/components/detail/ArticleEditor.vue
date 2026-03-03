@@ -1,3 +1,4 @@
+<!--编辑器公共组件-->
 <template>
   <div class="editor-container">
     <!-- 公开 / 私密 -->
