@@ -152,7 +152,6 @@ const userInfoCLick = (userInfo) => {
 
 //操作用户 例如:设置管理员,取消管理员,禁用或删除用户
 const handleUserAction = (command, userInfo) => {
-  debugger;
   let type = command;
   switch (command) {
     case 'setAdmin':

@@ -142,7 +142,6 @@ const addAnnouncement = () => {
 };
 //保存
 const saveAnnouncement = async (row) => {
-  debugger;
   let announcement = {...row};
   delete announcement.CREATE_TIME;
   let result = await sendAxiosRequest("/blog-api/sso/editAnnouncement", {announcement});

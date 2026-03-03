@@ -82,7 +82,7 @@
         <el-form-item label="网站地址" required>
           <el-input v-model="applyForm.LINK" placeholder="例如：https://www.example.com" clearable/>
         </el-form-item>
-        <el-form-item label="网站头像" required>
+        <el-form-item label="网站头像">
           <el-input v-model="applyForm.AVATAR" placeholder="图片 URL，建议正方形比例" clearable/>
         </el-form-item>
         <el-form-item label="一句话描述" required>
@@ -176,7 +176,6 @@ const submitApply = () => {
   }
   //编辑
   if (isEditMode.value) {
-    debugger;
     sendAxiosRequest("/blog-api/friendLink/updateFriendLink", {friendLink: applyForm});
     //修改前台展示数据
     const target = friendLinks.value.find(oneLink => oneLink.GUID === applyForm.GUID);
