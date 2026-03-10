@@ -1,5 +1,30 @@
 <template>
   <div class="person-info" :style="bgStyle">
+    <!--欢迎页面-->
+    <transition name="fade">
+      <div v-if=" !isSelf && showWelcome" class="welcome-overlay">
+        <div class="welcome-content">
+          <el-avatar
+              :src="user.avatar"
+              size="large"
+              class="welcome-avatar"
+          >
+            {{ user.name?.charAt(0) }}
+          </el-avatar>
+          <h2 class="welcome-title">
+            欢迎来到
+            <span class="random-name" :style="{ color: randomNameColor }">
+              {{ user.name || '' }}
+            </span>
+            的主页
+          </h2>
+          <p class="welcome-desc">个性签名：{{ user.remark }}</p>
+          <el-button type="primary" size="large" round @click="enterHomepage" class="enter-btn">
+            进入主页
+          </el-button>
+        </div>
+      </div>
+    </transition>
     <!-- 左侧悬浮设置面板（不占文档流） -->
     <div class="left-dock"
          v-if="isSelf"
@@ -351,7 +376,7 @@
 </template>
 
 <script setup>
-import {ref, onMounted, computed,nextTick} from 'vue'
+import {ref, onMounted, computed, nextTick} from 'vue'
 import {ElMessage} from 'element-plus'
 import {useRoute, useRouter} from 'vue-router'
 import {
@@ -629,10 +654,10 @@ const bgStyle = computed(() => {
   if (!v) return {}; // 用你 .person-info 里的默认图
   // 如果是 gradient(...) 或多层背景字符串，直接塞进去
   if (/gradient\(/i.test(v) || v.includes(',')) {
-    return { backgroundImage: v };
+    return {backgroundImage: v};
   }
   // 其他情况按 URL 处理
-  return { backgroundImage: `url('${v}')` };
+  return {backgroundImage: `url('${v}')`};
 });
 
 // 左侧面板
@@ -649,21 +674,22 @@ const audioMuted = ref(false);
 // ==== 背景图片：文件/URL/重置 ====
 
 const applyBgImageUrl = () => {
-  if (!bgImageInput.value) {
-    ElMessage.error("无效路径!");
-    return false;
-  }
+  // if (!bgImageInput.value) {
+  //   ElMessage.error("无效路径!");
+  //   return false;
+  // }
   bgImage.value = bgImageInput.value.trim();
   let result = sendAxiosRequest("/blog-api/userInformation/setPersonInfo", {
     userCode: userStore.userBean.code,
     fieldName: "BGIMAGEURL",
     fieldValue: bgImage.value
   });
-  ElMessage.success("背景图片已应用");
+  ElMessage.success("已应用");
 };
 
 const resetBgImage = () => {
-  bgImage.value = "";
+  bgImageInput.value = "";
+  applyBgImageUrl();
   ElMessage.success("已恢复默认背景");
 };
 
@@ -674,10 +700,10 @@ const previewBgImage = () => {
 
 // ==== 背景音乐：文件/URL/控制 ====
 const applyBgAudioUrl = () => {
-  if (!bgAudioInput.value) {
-    ElMessage.error("无效路径!");
-    return false;
-  }
+  // if (!bgAudioInput.value) {
+  //   ElMessage.error("无效路径!");
+  //   return false;
+  // }
   let result = sendAxiosRequest("/blog-api/userInformation/setPersonInfo", {
     userCode: userStore.userBean.code,
     fieldName: "BGMUSICURL",
@@ -704,7 +730,8 @@ const toggleAudio = async () => {
       await el.play();
       isAudioPlaying.value = true;
     } catch (e) {
-      ElMessage.error("浏览器阻止自动播放，请手动点击播放");
+      //ElMessage.error("浏览器阻止自动播放，请手动点击播放");
+      console.error("播放音乐失败,音乐链接或已失效");
     }
   }
 };
@@ -731,12 +758,18 @@ const nextTickPlayIfWanted = async () => {
 };
 
 async function setBgImageSafely(url) {
-  if (!url) { bgImage.value = ''; return; }
+  if (!url) {
+    bgImage.value = '';
+    return;
+  }
   const img = new Image();
   img.src = url;
   try {
     if (img.decode) await img.decode();
-    else await new Promise(r => { img.onload = r; img.onerror = r; });
+    else await new Promise(r => {
+      img.onload = r;
+      img.onerror = r;
+    });
   } finally {
     bgImage.value = url;
     await nextTick();
@@ -748,6 +781,41 @@ async function setBgImageSafely(url) {
   }
 }
 
+// 新增：控制欢迎页显示隐藏的变量
+const showWelcome = ref(true);
+
+// 生成随机的亮色 (高饱和度，中高亮度，确保在暗色背景上清晰)
+const getRandomBrightColor = () => {
+  const h = Math.floor(Math.random() * 360); // 色相：0-360随机
+  const s = Math.floor(Math.random() * 30) + 70; // 饱和度：70%-100% (鲜艳)
+  const l = Math.floor(Math.random() * 20) + 65; // 亮度：65%-85% (明亮但不刺眼)
+  return `hsl(${h}, ${s}%, ${l}%)`;
+};
+
+// 绑定到模板的响应式颜色变量
+const randomNameColor = ref(getRandomBrightColor());
+
+// 新增：点击进入主页的逻辑
+const enterHomepage = async () => {
+  showWelcome.value = false; // 关闭欢迎页
+
+  const el = bgAudioRef.value;
+  // 如果有背景音乐，直接播放（因为已经有了明确的用户点击，浏览器不会再拦截）
+  if (el && bgAudio.value) {
+    el.volume = Math.min(1, Math.max(0, audioVolume.value / 100));
+    el.muted = !!audioMuted.value;
+    el.currentTime = 0; // 保证从头开始
+
+    try {
+      await el.play();
+      isAudioPlaying.value = true;
+    } catch (e) {
+      //ElMessage.warning("播放音乐失败，可尝试手动点击播放");
+      console.error("播放音乐失败,音乐链接或已失效");
+    }
+  }
+};
+
 //获取用户主页信息  背景图片 背景音乐等等
 const setPersonInfo = async () => {
   let result = await sendAxiosRequest("/blog-api/userInformation/getPersonInfo", {userCode: user.value.code});
@@ -757,7 +825,8 @@ const setPersonInfo = async () => {
     bgAudioInput.value = result.BGMUSICURL || "";
     bgAudio.value = result.BGMUSICURL || "";
     if (bgAudio.value) {
-      attemptAutoplay();
+      //进入页面自动播放
+      //attemptAutoplay();
     }
     //背景图片
     await setBgImageSafely(result.BGIMAGEURL || "");
@@ -789,6 +858,7 @@ async function attemptAutoplay() {
 
       // 等用户第一次交互后再恢复你设定的静音状态
       const unmuteOnce = () => {
+        el.currentTime = 0;
         el.muted = !!audioMuted.value;
         document.removeEventListener('pointerdown', unmuteOnce);
       };
@@ -796,6 +866,7 @@ async function attemptAutoplay() {
     } catch (e2) {
       // ③ 最后兜底：等待一次用户手势再播放
       const resume = () => {
+        el.currentTime = 0; // 保证万无一失从头开始
         el.play().then(() => {
           isAudioPlaying.value = true;
           document.removeEventListener('pointerdown', resume);
@@ -837,9 +908,14 @@ onMounted(() => {
 .person-info.bg-fade {
   animation: bgfade .25s ease;
 }
+
 @keyframes bgfade {
-  from { opacity: .6; }
-  to   { opacity: 1; }
+  from {
+    opacity: .6;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 .inner-container {
@@ -901,7 +977,8 @@ onMounted(() => {
   font-size: 24px;
   font-weight: bold;
 }
-.public-badge{
+
+.public-badge {
   color: #000;
   font-size: 12px;
   font-weight: bold;
@@ -911,9 +988,9 @@ onMounted(() => {
 
   /* --- 核心位置微调 --- */
   margin-left: 4px; /* 和名字拉开一点距离 */
-  flex-shrink: 0;   /* 关键：保证名字再长，标签都不会被压缩变形 */
+  flex-shrink: 0; /* 关键：保证名字再长，标签都不会被压缩变形 */
   position: relative;
-  top: 0px;        /* 往上提一点，制造右上角上标的视觉效果 */
+  top: 0px; /* 往上提一点，制造右上角上标的视觉效果 */
 }
 
 .superAdmin-badge {
@@ -924,9 +1001,11 @@ onMounted(() => {
 .admin-badge {
   background-color: #86ff93;
 }
+
 .ban-badge {
   background-color: #ff5a5a;
 }
+
 .user-remark {
   font-size: 14px;
   color: #555;
@@ -1270,6 +1349,83 @@ onMounted(() => {
   width: 10px;
   height: 10px; /* 小滑块 */
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+
+/* ====== 欢迎引导页样式 ====== */
+.welcome-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.4); /* 半透明黑底 */
+  backdrop-filter: blur(12px); /* 毛玻璃模糊效果 */
+  z-index: 9999; /* 保证在最顶层 */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.welcome-content {
+  text-align: center;
+  color: #ffffff;
+  animation: slideUp 0.6s ease cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.welcome-avatar {
+  width: 100px !important;
+  height: 100px !important;
+  font-size: 32px;
+  border: 4px solid rgba(255, 255, 255, 0.3);
+  margin-bottom: 20px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.welcome-title {
+  font-size: 28px;
+  font-weight: bold;
+  margin: 0 0 12px 0;
+  letter-spacing: 1px;
+}
+
+.welcome-desc {
+  font-size: 16px;
+  color: rgba(255, 255, 255, 0.85);
+  margin-bottom: 30px;
+}
+
+.enter-btn {
+  font-size: 16px;
+  padding: 12px 36px;
+  box-shadow: 0 4px 15px rgba(64, 158, 255, 0.4);
+  transition: transform 0.2s;
+}
+
+.enter-btn:hover {
+  transform: scale(1.05);
+}
+
+/* Vue 的 transition 动画类 */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.5s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
+/* 欢迎内容轻微上浮的进场动画 */
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @media (max-width: 768px) {

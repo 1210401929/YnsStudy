@@ -172,12 +172,12 @@
               popper-class="toc-popper"
           >
             <template #reference>
-                <el-button
-                    circle
-                    class="toc-main-btn"
-                    :icon="List"
-                    title="查看目录"
-                />
+              <el-button
+                  circle
+                  class="toc-main-btn"
+                  :icon="List"
+                  title="查看目录"
+              />
             </template>
 
             <div class="toc-container">
@@ -188,7 +188,10 @@
                     v-for="item in tocList"
                     :key="item.id"
                     class="toc-item"
-                    :class="'toc-level-' + item.level"
+                    :class="[
+                      'toc-level-' + item.level,
+                      { 'is-active': activeTocId === item.id }
+                    ]"
                     @click="scrollToAnchor(item.id)"
                 >
                   {{ item.text }}
@@ -241,7 +244,7 @@
 
 
 <script setup>
-import {ref, computed, watch, nextTick} from "vue";
+import {ref, computed, onUnmounted, watch, nextTick} from "vue";
 import {useRoute, useRouter} from "vue-router";
 import {useUserStore} from "@/stores/main/user.js";
 import {useBlogContentStore} from "@/stores/detail/blog.js";
@@ -400,19 +403,17 @@ const tocList = ref([]);
 //默认是否显示目录
 const isTocVisible = ref(true);
 
-// 3. 提取文章内的标题 (h1-4)
+// 3. 修改 generateToc在生成目录后启动观察
 const generateToc = () => {
   nextTick(() => {
-    //渲染的内容在 .editor-container 内部
     const contentEl = document.querySelector('.editor-container');
     if (!contentEl) return;
 
-    // 获取所有标题
-    const headings = contentEl.querySelectorAll('h1, h2,h3,h4');
+    const headings = contentEl.querySelectorAll('h1, h2, h3, h4');
     const tempToc = [];
     headings.forEach((el, index) => {
       const titleId = `toc-anchor-${index}`;
-      el.id = titleId; // 为正文标题添加ID用于跳转
+      el.id = titleId;
       tempToc.push({
         id: titleId,
         text: el.innerText,
@@ -420,6 +421,11 @@ const generateToc = () => {
       });
     });
     tocList.value = tempToc;
+
+    // 目录生成后，初始化监听
+    if (tempToc.length > 0) {
+      initObserver();
+    }
   });
 };
 
@@ -428,14 +434,79 @@ watch(() => blogContent.value.MAINTEXT, () => {
   generateToc();
 }, {deep: true});
 
-// 5. 滚动跳转方法
+const activeTocId = ref(''); // 新增：记录当前激活的目录ID
+let observer = null; // 用于存储观察者实例
+
+// 2. 定义滚动监听核心逻辑
+const initObserver = () => {
+  // 如果之前有观察者，先断开（防止重复绑定）
+  if (observer) observer.disconnect();
+
+  observer = new IntersectionObserver((entries) => {
+    entries.forEach((entry) => {
+      // 当标题进入视口（这里设定距离顶部 100px 就算激活）
+      if (entry.isIntersecting) {
+        activeTocId.value = entry.target.id;
+      }
+    });
+  }, {
+    // 根元素为 null 表示 viewport，rootMargin 调整触发位置
+    // "0px 0px -80% 0px" 表示标题滚动到视口上半部分时触发
+    rootMargin: '-80px 0px -70% 0px'
+  });
+
+  // 开始观察所有的标题元素
+  tocList.value.forEach((item) => {
+    const el = document.getElementById(item.id);
+    if (el) observer.observe(el);
+  });
+};
+
+//滚动跳转方法
 const scrollToAnchor = (anchorId) => {
   const target = document.getElementById(anchorId);
   if (target) {
+    // 1. 设置当前激活的ID
+    activeTocId.value = anchorId;
+
+    // 2. 执行平滑滚动
     target.scrollIntoView({behavior: 'smooth', block: 'start'});
-    isTocVisible.value = false; // 点击后关闭弹窗
+
+    // 3. 延迟关闭目录（给用户一个看到高亮反馈的时间，或者直接关闭）
+    // setTimeout(() => {
+    //   isTocVisible.value = false;
+    // }, 900);
   }
 };
+
+/**
+ * 监听当前激活的目录项 ID 变化
+ * 用于自动滑动右侧目录到可视窗口
+ */
+watch(activeTocId, (newId) => {
+  if (!newId) return;
+
+  // 必须在 nextTick 确保 DOM 已经渲染/更新
+  nextTick(() => {
+    // 找到当前高亮的那个目录 DOM 元素
+    // 注意：这里的选择器要匹配你模板里的 class
+    const activeItemEl = document.querySelector(`.toc-item.is-active`);
+
+    if (activeItemEl) {
+      // 让目录列表平滑滚动，使高亮项出现在视野内
+      activeItemEl.scrollIntoView({
+        behavior: 'smooth', // 平滑滚动
+        block: 'nearest',   // 如果已经在视野内就不动，不在就滚到最近的边缘
+        inline: 'start'
+      });
+    }
+  });
+});
+
+// 4. 组件卸载前断开连接
+onUnmounted(() => {
+  if (observer) observer.disconnect();
+});
 
 //点赞
 function handleLike() {
@@ -533,6 +604,7 @@ function toggleComments() {
   showAllComments.value = !showAllComments.value;
 }
 
+//提交评论
 function submitComment() {
 
   let userBean = userStore.userBean;
@@ -568,11 +640,12 @@ function submitComment() {
   }
 }
 
+//删除评论
 function toggleReplyInput(commentId, commentUserCode) {
   //如果该评论是用户本身的,则处理删除逻辑
-  if (commentUserCode == userStore.userBean.code) {
+  if (commentUserCode === userStore.userBean.code) {
     ele_confirm("是否删除评论?", () => {
-      blogComment.value = blogComment.value.filter(item => item["GUID"] != commentId);
+      blogComment.value = blogComment.value.filter(item => item["GUID"] !== commentId);
       //调用后台删除评论接口
       let result = sendAxiosRequest("/blog-api/blog/deleteComment", {blogGuid: commentId});
     })
@@ -585,6 +658,7 @@ function toggleReplyInput(commentId, commentUserCode) {
   }
 }
 
+//新增评论
 function submitReply(commentId) {
   let userBean = userStore.userBean;
   if (!userBean || !userBean.code) {
@@ -911,5 +985,32 @@ function deleteArticle() {
 /* 让正文跳转时不要被顶部的导航栏遮挡（根据你项目是否有顶栏调整） */
 :deep(h1), :deep(h2), :deep(h3), :deep(h4) {
   scroll-margin-top: 80px;
+}
+
+
+/* 调整不同层级的缩进补偿（可选） */
+.toc-level-2.is-active {
+  padding-left: 9px;
+}
+
+.toc-level-3.is-active {
+  padding-left: 21px;
+}
+
+.toc-level-4.is-active {
+  padding-left: 33px;
+}
+.toc-item {
+  /* 基础样式中增加过渡 */
+  transition: all 0.2s ease-in-out;
+  border-left: 3px solid transparent; /* 预留边框位置防止抖动 */
+}
+
+.toc-item.is-active {
+  color: #409eff;
+  background-color: #ecf5ff;
+  font-weight: bold;
+  border-left: 3px solid #409eff;
+  /* 根据层级微调 padding，确保文字对齐 */
 }
 </style>
