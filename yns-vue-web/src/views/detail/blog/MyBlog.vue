@@ -1,19 +1,29 @@
 <template>
   <!-- 公告横幅 -->
-  <Announcement v-for="al in topAlert" :key="al.GUID" :TEXT="al.TEXT" :URL="al.URL" :URLNAME="al.URLNAME" />
+  <Announcement v-for="al in topAlert" :key="al.GUID" :TEXT="al.TEXT" :URL="al.URL" :URLNAME="al.URLNAME"/>
 
-  <el-container class="blog-container">
+  <el-container class="blog-container" :style="currentBgStyle">
+    <!-- 背景图片/音乐组件-->
+    <BackgroundAndMusic
+        ref="bgMusicComponentRef"
+        :is-self="false"
+        :user-name="userStore.userBean.name"
+        :init-bg-image="serverBgImage"
+        :init-bg-audio="serverBgAudio"
+        @update-bg-style="handleBgStyleUpdate"
+    />
     <!-- 左侧目录 -->
     <el-aside width="220px" class="sidebar" v-if="blogContentStore.blogContents.length>0">
-      <el-menu :default-active="selectedIndex.toString()" @select="handleSelect">
+      <el-menu style="background-color: rgba(14,165,233,0)" :default-active="selectedIndex.toString()"
+               @select="handleSelect">
         <el-menu-item
             v-for="(blogContent, index) in blogContentStore.blogContents"
             :key="blogContent.GUID"
             :index="index.toString()"
             class="el-menu_"
         >
-          <el-tag :type="blogContent.BLOG_TYPE == 'public'?'success':'danger'" effect="plain" size="small">{{
-              blogContent.BLOG_TYPE == "public" ? "公开" : "私密"
+          <el-tag :type="blogContent.BLOG_TYPE === 'public'?'success':'danger'" effect="plain" size="small">{{
+              blogContent.BLOG_TYPE === "public" ? "公开" : "私密"
             }}
           </el-tag>
           {{ blogContent.BLOG_TITLE }}
@@ -70,6 +80,7 @@ import {sendAxiosRequest} from "@/utils/common.js";
 import {ElMessage} from 'element-plus';
 import Announcement from "@/components/detail/Announcement.vue";
 import {getAnnouncementByRouterName} from "@/utils/blogUtil.js";
+import BackgroundAndMusic from "@/components/detail/personInformation/BackgroundAndMusic.vue";
 
 const router = useRouter()
 const userStore = useUserStore();
@@ -98,19 +109,15 @@ function handleSelect(index) {
 }
 
 router.push({name: 'BlogContent', query: {g: "YouDontNeedToPayAttention"}});
-onMounted(async () => {
-  await blogContentStore.initBlogContent();
-  handleSelect(selectedIndex.value);
-  isInitialized.value = true;
-})
 
-async function handleEditorSubmit({blog_type,title, content}) {
+
+async function handleEditorSubmit({blog_type, title, content}) {
   let userBean = userStore.userBean;
   let blogContent = {
     GUID: getGuid(),
     BLOG_TITLE: title,
     MAINTEXT: content,
-    BLOG_TYPE:blog_type,
+    BLOG_TYPE: blog_type,
     USERCODE: userBean.code,
     USERNAME: userBean.name
   };
@@ -122,9 +129,43 @@ async function handleEditorSubmit({blog_type,title, content}) {
   editorVisible.value = false
 }
 
+// ==== 背景与音乐：父组件状态对接 ====
+const bgMusicComponentRef = ref(null);
+const serverBgImage = ref('');
+const serverBgAudio = ref('');
+const currentBgStyle = ref({});
+
+const handleBgStyleUpdate = (style) => {
+  currentBgStyle.value = style;
+}
+
+function getUserInfo2Data() {
+  //获取用户设置信息 ，例如：背景图片，音乐
+  const setPersonInfo = async () => {
+
+    let result = await sendAxiosRequest("/blog-api/userInformation/getPersonInfo", {userCode: userStore.userBean.code});
+    if (result && !result.isError) {
+      result = result.result[0] || {};
+      // 直接赋值给响应式变量，子组件的 watch 会接收到
+      //博客阅读界面不适用背景音乐功能，暂时注释
+      // serverBgAudio.value = result.BGMUSICURL || "";
+      serverBgImage.value = result.BGIMAGEURL || "";
+    }
+  }
+  setPersonInfo();
+}
+
+onMounted(async () => {
+
+  await blogContentStore.initBlogContent();
+  handleSelect(selectedIndex.value);
+  getUserInfo2Data();
+  isInitialized.value = true;
+})
+
 //公告横幅内容
 const topAlert = ref([]);
-const setTopAlert = async ()=>{
+const setTopAlert = async () => {
   topAlert.value = await getAnnouncementByRouterName("MyBlog");
 }
 setTopAlert();
@@ -136,15 +177,19 @@ setTopAlert();
   justify-content: center;
   align-items: flex-start;
   padding: 15px 10px;
-  background-color: #f2f3f5;
   gap: 16px;
   min-height: 100vh;
   box-sizing: border-box;
   position: relative;
+  /* 新增：确保背景图片能完美铺满并固定 */
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+  transition: background-image .3s ease; /* 柔和的切换动画 */
 }
 
 .sidebar {
-  background: #fff;
+  background-color: rgba(255, 255, 255, 0.9);
   border-radius: 12px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
   padding: 20px 10px;
@@ -157,7 +202,7 @@ setTopAlert();
 
 .content {
   flex: 1;
-  background: #fff;
+  background: rgba(255, 255, 255, 0.5);
   border-radius: 12px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
   padding: 24px;

@@ -327,6 +327,7 @@ watch(() => props.content, (v) => (localContent.value = v))
   padding: 0 16px; /* 或者 padding-left: 16px; */
   box-sizing: border-box;
   overflow-x: auto; /* 防止代码块等超长内容被裁掉 */
+  background-color:rgba(255, 255, 255, 0)/*设置完全透明的背景颜色，背景颜色完全依照父组件来*/
 }
 
 /* 1) 真正的内容容器是 .w-e-text —— 在这里加“护边”最稳 */

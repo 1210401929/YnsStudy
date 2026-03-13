@@ -1,5 +1,15 @@
 <template>
-  <div class="blog-detail-page">
+
+  <div class="blog-detail-page" :style="currentBgStyle">
+    <!-- 背景图片/音乐组件-->
+    <BackgroundAndMusic
+        ref="bgMusicComponentRef"
+        :is-self="false"
+        :user-name="authorInfo.name"
+        :init-bg-image="serverBgImage"
+        :init-bg-audio="serverBgAudio"
+        @update-bg-style="handleBgStyleUpdate"
+    />
     <!-- 顶部信息栏 -->
     <div class="blog-top-bar">
       <div class="back-btn" @click="goBack">← 回到主页</div>
@@ -64,6 +74,7 @@ import {
 import {useUserStore} from "@/stores/main/user.js";
 import {ElMessage} from "element-plus";
 import {pubOpenUser} from "@/utils/blogUtil.js";
+import BackgroundAndMusic from "@/components/detail/personInformation/BackgroundAndMusic.vue";
 
 const userStore = useUserStore();
 userStore.initFromLocal();
@@ -87,8 +98,18 @@ const followingNum = ref(0);
 const chatVisible = ref(false);
 
 
+// ==== 背景与音乐：父组件状态对接 ====
+const bgMusicComponentRef = ref(null);
+const serverBgImage = ref('');
+const serverBgAudio = ref('');
+const currentBgStyle = ref({});
+
+const handleBgStyleUpdate = (style) => {
+  currentBgStyle.value = style;
+}
+
 function getUserInfo2Data() {
-  debugger;
+
   //获取账号信息
   const getAuthorInfo = async () => {
 
@@ -110,9 +131,22 @@ function getUserInfo2Data() {
       isFollowing.value = isFollowCount > 0;
     }
   }
+  //获取用户设置信息 ，例如：背景图片，音乐
+  const setPersonInfo = async () => {
+
+    let result = await sendAxiosRequest("/blog-api/userInformation/getPersonInfo", {userCode});
+    if (result && !result.isError) {
+      result = result.result[0] || {};
+      // 直接赋值给响应式变量，子组件的 watch 会接收到
+      //博客阅读界面不适用背景音乐功能，暂时注释
+      // serverBgAudio.value = result.BGMUSICURL || "";
+      serverBgImage.value = result.BGIMAGEURL || "";
+    }
+  }
 
   getAuthorInfo();
   fetchFollows();
+  setPersonInfo();
 }
 
 const toggleFollow = () => {
@@ -191,9 +225,28 @@ onMounted(() => {
 <style scoped>
 .blog-detail-page {
   min-height: 100vh;
-  background-color: #f5f6f9;
   display: flex;
   flex-direction: column;
+
+  /* 新增：确保背景图片能完美铺满并固定 */
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+  transition: background-image .3s ease; /* 柔和的切换动画 */
+}
+
+/* 如果你的子组件切图动画还在找 .bg-fade，加上这个类名防止报错 */
+.blog-detail-page.bg-fade {
+  animation: bgfade .25s ease;
+}
+
+@keyframes bgfade {
+  from {
+    opacity: .6;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 /* 顶部信息栏 */
@@ -201,9 +254,8 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background-color: #ffffff;
+  background-color: rgba(255, 255, 255, 0.15);
   padding: 20px 20px;
-  border-bottom: 1px solid #eee;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
 }
 
@@ -256,8 +308,8 @@ onMounted(() => {
   padding: 24px 20px;
   text-align: center;
   border-radius: 12px;
-  box-shadow: 0 2px 10px rgb(0 0 0 / 0.06);
-  background-color: #fff;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.21);
+  background-color: rgba(255, 255, 255, 0.15);
 }
 
 .author-avatar-wrapper {
@@ -367,7 +419,7 @@ onMounted(() => {
 
 .content-side {
   flex: 1;
-  background: #fff;
+  background: rgba(255, 255, 255, 0.5);
   border-radius: 12px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
   padding: 24px;

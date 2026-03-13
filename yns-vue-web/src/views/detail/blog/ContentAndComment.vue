@@ -4,7 +4,9 @@
     <el-col :xs="24" :sm="24"
             :md="showComment ? 15 : 23"
             :lg="showComment ? 15 : 23">
-      <el-card shadow="hover" class="article-card">
+<!-- 暂时去掉卡片鼠标移入效果
+      <el-card shadow="hover" class="article-card">-->
+      <el-card class="article-card">
         <div class="author-info">
           <el-avatar
               :src="blogContent.AVATAR"
@@ -361,7 +363,6 @@ const loadContentAndComments = async (guid) => {
   }
   //获取评论
   result = await sendAxiosRequest("/blog-api/blog/getComment", {blogId: guid});
-  debugger;
   if (result && !result.isError) {
     blogComment.value = buildChildrenData(result.result);
   }
@@ -805,6 +806,7 @@ function deleteArticle() {
   display: flex;
   flex-direction: column;
   overflow-y: auto;
+  background-color: rgba(255, 255, 255, 0.8);
 }
 
 .article-header {
@@ -820,6 +822,7 @@ function deleteArticle() {
   justify-content: flex-start;
   max-height: 70vh; /* 设置最大高度 */
   overflow-y: auto; /* 超出部分滚动显示 */
+  background-color: rgba(255, 255, 255, 0.9);
 }
 
 .comment-item {
@@ -963,8 +966,8 @@ function deleteArticle() {
   font-size: 16px;
   margin-bottom: 12px;
   padding-bottom: 8px;
-  border-bottom: 1px solid #eee;
-  color: #333;
+  border-bottom: 1px solid rgb(238, 238, 238);
+  color: rgba(51, 51, 51, 0.86);
 }
 
 .toc-item {
@@ -1004,7 +1007,7 @@ function deleteArticle() {
 
 .toc-empty {
   text-align: center;
-  color: #999;
+  color: rgb(153, 153, 153);
   padding: 20px 0;
 }
 
