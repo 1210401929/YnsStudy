@@ -12,7 +12,7 @@
     />
     <!-- 顶部信息栏 -->
     <div class="blog-top-bar">
-      <div class="back-btn" @click="goBack">← 回到主页</div>
+<!--      <div class="back-btn" @click="goBack">← 回到主页</div>-->
       <div class="blog-title">{{ articleTitle || '博客详情' }}</div>
     </div>
     <!-- 主体内容 -->
