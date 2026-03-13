@@ -41,7 +41,7 @@ public interface BlogService {
     //获取收藏和点赞  根据博客ID
     ResultBody getLikeAndCollectByBlogId(String blogId);
     //获取收藏和点赞  根据用户
-    ResultBody getLikeAndCollectByUserCode(String userCode);
+    ResultBody getLikeAndCollectByUserCode(String userCode, String isCountOnly,String type);
 
 
 }

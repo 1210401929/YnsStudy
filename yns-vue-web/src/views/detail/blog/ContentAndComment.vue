@@ -60,81 +60,74 @@
         </div>
 
         <div v-for="(comment, i) in visibleComments" :key="comment.GUID || i" class="comment-item">
-          <div class="comment-main-row">
-            <el-tooltip
-                :content="'评论于: '+pubFormatDate(comment.CREATE_TIME)"
-                placement="top"
-                effect="light"
-            >
-              <el-avatar
-                  :src="comment.AVATAR"
-                  size="large"
-                  class="author-avatar-comment"
-                  @click="commentAvatarClick(comment)"
-                  alt="评论用户头像"
-              >
-                {{ comment.USERNAME?.charAt(0) }}
+          <div class="comment-main-row" @click="toggleAction(comment.GUID)">
+            <el-tooltip :content="'评论于: '+pubFormatDate(comment.CREATE_TIME)" placement="top" effect="light">
+              <el-avatar :src="comment.AVATAR" size="large" class="author-avatar-comment"
+                         @click.stop="commentAvatarClick(comment)"> {{ comment.USERNAME?.charAt(0) }}
               </el-avatar>
             </el-tooltip>
             <el-tag type="info" size="small">{{ comment.USERNAME }}</el-tag>
             <span class="comment-text">{{ comment.TEXT }}</span>
-            <el-button
-                link
-                type="primary"
-                size="small"
-                :class="comment.USERCODE === userStore.userBean.code ? 'reply-btn-red' : 'reply-btn'"
-                @click="toggleReplyInput(comment.GUID, comment.USERCODE)"
-            >
-              {{ comment.USERCODE === userStore.userBean.code ? '删除' : '回复' }}
-            </el-button>
+
+            <div class="comment-actions" v-show="activeCommentId === comment.GUID">
+              <el-button link type="primary" size="small" class="reply-btn"
+                         @click.stop="replyComment(comment.GUID, comment)"> 回复
+              </el-button>
+              <el-button link type="primary" size="small" class="reply-btn-red"
+                         @click.stop="deleteComment(comment.GUID)"
+                         v-if="(userStore?.userBean?.code && comment.USERCODE===userStore.userBean.code) ||(getCurrentUserAdminObject().isAdmin && comment.USERCODE!==adminUserCode) ||getCurrentUserAdminObject().adminLevel==='superAdmin'">
+                删除
+              </el-button>
+            </div>
           </div>
+
           <div v-if="replyInputVisible[comment.GUID]" class="reply-input">
             <el-input
                 v-model="replyInputs[comment.GUID]"
-                placeholder="写下你的回复..."
+                :placeholder="replyTargets[comment.GUID] ? `回复 @${replyTargets[comment.GUID].USERNAME}：` : '写下你的回复...'"
                 size="small"
                 @keyup.enter="submitReply(comment.GUID)"
                 clearable
             />
-            <el-button
-                type="primary"
-                size="small"
-                @click="submitReply(comment.GUID)"
-                style="margin-top: 6px; width: 100%"
-            >
+            <el-button type="primary" size="small" @click="submitReply(comment.GUID)"
+                       style="margin-top: 6px; width: 100%">
               发送
             </el-button>
           </div>
 
           <div class="children-comments" v-if="comment.children?.length">
-            <el-button
-                link
-                type="primary"
-                size="small"
-                class="toggle-children-btn"
-                @click="toggleChildren(comment.GUID)"
-            >
+            <el-button link type="primary" size="small" class="toggle-children-btn"
+                       @click="toggleChildren(comment.GUID)">
               {{ isChildrenVisible[comment.GUID] ? '收起回复' : `查看回复 (${comment.children.length})` }}
             </el-button>
+
             <div v-show="isChildrenVisible[comment.GUID]" class="children-list">
-              <div v-for="(child, idx) in comment.children" :key="child.GUID || idx" class="comment-child">
-                <el-tooltip
-                    :content="'评论于: ' + pubFormatDate(child.CREATE_TIME)"
-                    placement="top"
-                    effect="light"
-                >
-                  <el-avatar
-                      :src="child.AVATAR"
-                      size="large"
-                      class="author-avatar-comment"
-                      @click="commentAvatarClick(child)"
-                      alt="评论用户头像"
-                  >
-                    {{ child.USERNAME?.charAt(0) }}
+              <div v-for="(child, idx) in comment.children" :key="child.GUID || idx" class="comment-child"
+                   @click="toggleAction(child.GUID)">
+                <el-tooltip :content="'评论于: ' + pubFormatDate(child.CREATE_TIME)" placement="top" effect="light">
+                  <el-avatar :src="child.AVATAR" size="large" class="author-avatar-comment"
+                             @click.stop="commentAvatarClick(child)"> {{ child.USERNAME?.charAt(0) }}
                   </el-avatar>
                 </el-tooltip>
                 <el-tag type="success" size="small">{{ child.USERNAME }}</el-tag>
+
+                <span v-if="child.RECEIVE_USERNAME && child.RECEIVE_USERCODE !== comment.USERCODE"
+                      class="reply-to-text">
+    回复 <span class="reply-to-name">@{{ child.RECEIVE_USERNAME }}</span>：
+  </span>
+
                 <span class="comment-text">{{ child.TEXT }}</span>
+
+                <div class="comment-actions" v-show="activeCommentId === child.GUID">
+                  <el-button link type="primary" size="small" class="reply-btn"
+                             @click.stop="replyComment(comment.GUID, child)"> 回复
+                  </el-button>
+                  <el-button link type="primary" size="small" class="reply-btn-red"
+                             @click.stop="deleteComment(child.GUID, comment.GUID)"
+                             v-if="(userStore?.userBean?.code && child.USERCODE===userStore.userBean.code) ||(getCurrentUserAdminObject().isAdmin && child.USERCODE!==adminUserCode) ||getCurrentUserAdminObject().adminLevel==='superAdmin'">
+                    删除
+                  </el-button>
+                </div>
               </div>
             </div>
           </div>
@@ -314,6 +307,17 @@ const showCommentFun = () => {
     }
   });
 }
+// 记录当前点击(激活)的评论ID，用于控制操作按钮的显示
+const activeCommentId = ref("");
+
+// 切换按钮显隐状态
+function toggleAction(id) {
+  if (activeCommentId.value === id) {
+    activeCommentId.value = ""; // 再次点击同一个，收起按钮
+  } else {
+    activeCommentId.value = id; // 展开当前点击的按钮
+  }
+}
 
 // 控制回复输入框显示，key:评论id，value:bool
 const replyInputVisible = ref({});
@@ -321,7 +325,6 @@ const replyInputVisible = ref({});
 const replyInputs = ref({});
 // 子评论是否展开
 const isChildrenVisible = ref({});
-
 
 const handleEditorSubmit = ({blog_type, title, content}) => {
 
@@ -358,6 +361,7 @@ const loadContentAndComments = async (guid) => {
   }
   //获取评论
   result = await sendAxiosRequest("/blog-api/blog/getComment", {blogId: guid});
+  debugger;
   if (result && !result.isError) {
     blogComment.value = buildChildrenData(result.result);
   }
@@ -604,9 +608,11 @@ function toggleComments() {
   showAllComments.value = !showAllComments.value;
 }
 
-//提交评论
-function submitComment() {
+// 记录当前输入框正在回复的目标对象。key: 顶级评论GUID, value: 被回复的评论(可能是顶级也可能是子级)
+const replyTargets = ref({});
 
+// 1. 发起顶级评论时，一并把 RECEIVE 字段给到文章作者
+function submitComment() {
   let userBean = userStore.userBean;
   if (!userBean || !userBean.code) {
     ElMessage.error("请先登录!");
@@ -619,83 +625,103 @@ function submitComment() {
       BLOGID: contentGuid.value,
       USERNAME: userBean.name || "游客",
       USERCODE: userBean.code || "user",
+      RECEIVE_USERCODE: blogContent.value.USERCODE, // 发给文章作者
+      RECEIVE_USERNAME: blogContent.value.USERNAME,
       TEXT: value,
       CREATE_TIME: "刚刚",
       AVATAR: userBean.avatar,
       children: [],
     }
     blogComment.value.unshift(oneComment);
-    //克隆
     let comment = {...oneComment};
-    //没有children字段,只是前台需要,所有传递到后台之前删除该字段
     delete comment.children;
-    //删除更新日期,后台自动生成
     delete comment.CREATE_TIME;
-    //清除头像,评论表没有该字段
     delete comment.AVATAR;
-    let result = sendAxiosRequest("/blog-api/blog/addComment", {blogComment: comment})
+    sendAxiosRequest("/blog-api/blog/addComment", {blogComment: comment})
     newComment.value = "";
-    //发送消息
     sendNotifications(userBean.code, blogContent.value.USERCODE, "comment", null, `${userBean.name}评论了你的作品《${blogContent.value.BLOG_TITLE}》`)
   }
 }
 
-//删除评论
-function toggleReplyInput(commentId, commentUserCode) {
-  //如果该评论是用户本身的,则处理删除逻辑
-  if (commentUserCode === userStore.userBean.code) {
-    ele_confirm("是否删除评论?", () => {
-      blogComment.value = blogComment.value.filter(item => item["GUID"] !== commentId);
-      //调用后台删除评论接口
-      let result = sendAxiosRequest("/blog-api/blog/deleteComment", {blogGuid: commentId});
-    })
-    //如果评论是其他用户的,则控制回复的显示逻辑
+// 2. 点击回复按钮：记录目标是谁
+function replyComment(parentGuid, targetComment) {
+  // 如果再次点击同一个人的回复按钮，且当前输入框开着，则收起
+  if (replyInputVisible.value[parentGuid] && replyTargets.value[parentGuid]?.GUID === targetComment.GUID) {
+    replyInputVisible.value[parentGuid] = false;
+    replyInputs.value[parentGuid] = "";
+    replyTargets.value[parentGuid] = null;
   } else {
-    replyInputVisible.value[commentId] = !replyInputVisible.value[commentId];
-    if (!replyInputVisible.value[commentId]) {
-      replyInputs.value[commentId] = "";
-    }
+    // 展开并记录被回复的目标
+    replyInputVisible.value[parentGuid] = true;
+    replyTargets.value[parentGuid] = targetComment;
+    isChildrenVisible.value[parentGuid] = true; // 顺便把子列表展开
   }
 }
 
-//新增评论
-function submitReply(commentId) {
+
+// 3. 提交回复：带上 RECEIVE 字段
+function submitReply(parentGuid) {
   let userBean = userStore.userBean;
   if (!userBean || !userBean.code) {
     ElMessage.error("请先登录!");
     return false;
   }
-  const value = (replyInputs.value[commentId] || "").trim();
+  const value = (replyInputs.value[parentGuid] || "").trim();
   if (!value) return;
-  const parentComment = blogComment.value.find((c) => c.GUID === commentId);
+
+  const parentComment = blogComment.value.find((c) => c.GUID === parentGuid);
+  // 获取刚刚记录的回复目标（保底是顶级评论）
+  const targetUser = replyTargets.value[parentGuid] || parentComment;
+
   if (parentComment) {
     if (!parentComment.children) parentComment.children = [];
     const oneComment = {
       GUID: getGuid(),
       BLOGID: contentGuid.value,
-      SUPERGUID: parentComment.GUID,
+      SUPERGUID: parentComment.GUID, // 依然挂在顶级评论下，保持两层嵌套
       USERNAME: userBean.name || "游客",
       USERCODE: userBean.code || "user",
+      RECEIVE_USERCODE: targetUser.USERCODE, // 重点：接收方编码
+      RECEIVE_USERNAME: targetUser.USERNAME, // 重点：接收方名字
       CREATE_TIME: "刚刚",
       AVATAR: userBean.avatar,
       TEXT: value,
     }
     parentComment.children.push(oneComment);
-    //克隆
+
     let comment = {...oneComment};
-    //删除更新日期,后台自动生成
     delete comment.CREATE_TIME;
-    //清除头像,评论表没有该字段
     delete comment.AVATAR;
-    let result = sendAxiosRequest("/blog-api/blog/addComment", {blogComment: comment})
-    replyInputs.value[commentId] = "";
-    replyInputVisible.value[commentId] = false;
-    isChildrenVisible.value[commentId] = true;
-    //发送通知
-    sendNotifications(oneComment.USERCODE, parentComment.USERCODE, "comment", null, `${oneComment.USERNAME}回复了你的评论《${parentComment.TEXT}》`);
+    sendAxiosRequest("/blog-api/blog/addComment", {blogComment: comment})
+
+    // 清理状态
+    replyInputs.value[parentGuid] = "";
+    replyInputVisible.value[parentGuid] = false;
+    replyTargets.value[parentGuid] = null;
+    isChildrenVisible.value[parentGuid] = true;
+
+    // 发送通知：通知目标被回复了
+    sendNotifications(oneComment.USERCODE, targetUser.USERCODE, "comment", null, `${oneComment.USERNAME}回复了你的评论《${targetUser.TEXT}》`);
   }
 }
 
+// 4. 删除评论：兼容删除子评论的情况
+function deleteComment(commentId, parentId = null) {
+  ele_confirm("是否删除评论?", () => {
+    if (parentId) {
+      // 如果传了 parentId，说明删的是子评论
+      let parent = blogComment.value.find(c => c.GUID === parentId);
+      if (parent) {
+        parent.children = parent.children.filter(item => item["GUID"] !== commentId);
+      }
+    } else {
+      // 删顶级评论
+      blogComment.value = blogComment.value.filter(item => item["GUID"] !== commentId);
+    }
+    //调用后台删除评论接口
+    sendAxiosRequest("/blog-api/blog/deleteComment", {blogGuid: commentId});
+  })
+}
 
 function toggleChildren(commentId) {
   isChildrenVisible.value[commentId] = !isChildrenVisible.value[commentId];
@@ -1000,6 +1026,7 @@ function deleteArticle() {
 .toc-level-4.is-active {
   padding-left: 33px;
 }
+
 .toc-item {
   /* 基础样式中增加过渡 */
   transition: all 0.2s ease-in-out;
@@ -1012,5 +1039,54 @@ function deleteArticle() {
   font-weight: bold;
   border-left: 3px solid #409eff;
   /* 根据层级微调 padding，确保文字对齐 */
+}
+
+.comment-child {
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap; /* 允许换行 */
+  gap: 6px;
+}
+
+/* 针对 回复 @xxx 的文字修饰 */
+.reply-to-text {
+  font-size: 13px;
+  color: #909399;
+  margin: 0 2px;
+}
+
+.reply-to-name {
+  color: #409eff;
+  cursor: pointer;
+}
+
+.reply-to-name:hover {
+  text-decoration: underline;
+}
+
+/* 让整行鼠标变成小手，并给一点点悬浮底色反馈 */
+.comment-main-row, .comment-child {
+  cursor: pointer;
+  border-radius: 4px;
+  padding: 4px;
+  transition: background-color 0.2s ease;
+}
+
+.comment-main-row:hover, .comment-child:hover {
+  background-color: #f7f9fc; /* 非常浅的蓝色/灰色，提升交互感 */
+}
+
+/* 控制按钮组靠右对齐 */
+.comment-actions {
+  margin-left: auto;
+  display: flex;
+  gap: 8px; /* 按钮之间的间距 */
+  align-items: center;
+}
+
+/* 覆盖你原本的左边距，因为外层 wrapper 已经做过排版了 */
+.reply-btn, .reply-btn-red {
+  margin-left: 0 !important;
 }
 </style>

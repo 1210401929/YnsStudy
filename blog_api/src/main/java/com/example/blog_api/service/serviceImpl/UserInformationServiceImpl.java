@@ -5,6 +5,7 @@ import com.example.common_api.bean.ResultBody;
 import com.example.common_api.bean.UserBean;
 import com.example.common_api.service.CallService;
 import com.example.common_api.util.FunToUrlUtil;
+import org.apache.catalina.User;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -50,42 +51,66 @@ public class UserInformationServiceImpl implements UserInformationService {
     }
 
     @Override
-    public ResultBody getFollowUser(String userCode) {
+    public ResultBody getFollowUser(String userCode, String isCountOnly, HttpSession session) {
+        UserBean userBean = (UserBean) session.getAttribute("userInfo");
+        String currentUserCode = userBean != null ? userBean.getCODE() : "";
         Map<String, Object> res = new HashMap<>();
-        //关注用户
-        String sql = "SELECT CODE\n" +
-                "  ,\n" +
-                "  NAME,\n" +
-                "  role,\n" +
-                "  avatar \n" +
-                "FROM\n" +
-                "  userInfo u\n" +
-                "  LEFT JOIN userFollow f ON u.code = f.FOLLOWUSERCODE \n" +
-                "WHERE\n" +
-                "  f.USERCODE = ? order by f.create_time";
         List<Object> listParams = Arrays.asList(userCode);
         Map<String, Object> params = new HashMap<>();
-        params.put("sql", sql);
-        params.put("params", listParams);
-        ResultBody result = callService.callFunWithParams(FunToUrlUtil.selectListByParamsUrl, params);
-        if (result != null && !result.isError) {
-            res.put("followingUser", result.result);
-        }
-        //粉丝用户
-        sql = "SELECT CODE\n" +
-                "  ,\n" +
-                "  NAME,\n" +
-                "  role,\n" +
-                "  avatar \n" +
-                "FROM\n" +
-                "  userInfo u\n" +
-                "  LEFT JOIN userFollow f ON u.code = f.USERCODE \n" +
-                "WHERE\n" +
-                "  f.FOLLOWUSERCODE = ? order by f.create_time";
-        params.put("sql", sql);
-        result = callService.callFunWithParams(FunToUrlUtil.selectListByParamsUrl, params);
-        if (result != null && !result.isError) {
-            res.put("followersUser", result.result);
+
+        boolean countOnly = "true".equalsIgnoreCase(isCountOnly);
+
+        if (countOnly) {
+            // 1. 统计他关注了多少人
+            String sql = "SELECT COUNT(1) AS TOTAL FROM userFollow WHERE USERCODE = ?";
+            params.put("sql", sql);
+            params.put("params", listParams);
+            ResultBody result = callService.callFunWithParams(FunToUrlUtil.selectListByParamsUrl, params);
+            if (result != null && !result.isError) {
+                res.put("followingNum", ((Map<String, Object>) ((List<?>) result.result).get(0)).get("TOTAL"));
+            }
+
+            // 2. 统计他有多少粉丝
+            sql = "SELECT COUNT(1) AS TOTAL FROM userFollow WHERE FOLLOWUSERCODE = ?";
+            params.put("sql", sql);
+            result = callService.callFunWithParams(FunToUrlUtil.selectListByParamsUrl, params);
+            if (result != null && !result.isError) {
+                res.put("followersNum", ((Map<String, Object>) ((List<?>) result.result).get(0)).get("TOTAL"));
+            }
+
+            // 3. ✨ 核心新增：判断当前登录用户是否关注了他
+            if (currentUserCode != null && !currentUserCode.trim().isEmpty()) {
+                String checkSql = "SELECT COUNT(1) AS IS_FOLLOW FROM userFollow WHERE USERCODE = ? AND FOLLOWUSERCODE = ?";
+                // 注意参数顺序：USERCODE 是发起关注的人（当前用户），FOLLOWUSERCODE 是被关注的人（目标用户）
+                List<Object> checkParams = Arrays.asList(currentUserCode, userCode);
+                params.put("sql", checkSql);
+                params.put("params", checkParams);
+                ResultBody checkResult = callService.callFunWithParams(FunToUrlUtil.selectListByParamsUrl, params);
+
+                if (checkResult != null && !checkResult.isError) {
+                    // 将查询结果直接放入 res，前端拿到这个数字判断 > 0 即可
+                    res.put("isFollowingCount", ((Map<String, Object>) ((List<?>) checkResult.result).get(0)).get("IS_FOLLOW"));
+                }
+            }
+
+        } else {
+            // ==========================================================
+            // 原生逻辑（拉取完整列表）保持不变...
+            // ==========================================================
+            String sql = "SELECT CODE, NAME, REMARK, role, avatar FROM userInfo u LEFT JOIN userFollow f ON u.code = f.FOLLOWUSERCODE WHERE f.USERCODE = ? ORDER BY f.create_time";
+            params.put("sql", sql);
+            params.put("params", listParams);
+            ResultBody result = callService.callFunWithParams(FunToUrlUtil.selectListByParamsUrl, params);
+            if (result != null && !result.isError) {
+                res.put("followingUser", result.result);
+            }
+
+            sql = "SELECT CODE, NAME, REMARK, role, avatar FROM userInfo u LEFT JOIN userFollow f ON u.code = f.USERCODE WHERE f.FOLLOWUSERCODE = ? ORDER BY f.create_time";
+            params.put("sql", sql);
+            result = callService.callFunWithParams(FunToUrlUtil.selectListByParamsUrl, params);
+            if (result != null && !result.isError) {
+                res.put("followersUser", result.result);
+            }
         }
 
         return ResultBody.createSuccessResult(res);
@@ -209,7 +234,7 @@ public class UserInformationServiceImpl implements UserInformationService {
         //如果存在记录   update
         if (result != null && !result.isError && ((ArrayList) result.result).size() > 0) {
             saveType = "edit";
-            map.put("GUID",((LinkedHashMap) ((ArrayList) result.result).get(0)).get("GUID"));
+            map.put("GUID", ((LinkedHashMap) ((ArrayList) result.result).get(0)).get("GUID"));
         }
 
         List<Map<String, Object>> data = new ArrayList<>();

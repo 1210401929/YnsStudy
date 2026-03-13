@@ -13,7 +13,7 @@ public interface UserInformationService {
     ResultBody noFollowUser(String followUserCode, HttpSession session);
 
     //获取关注用户和粉丝
-    ResultBody getFollowUser(String userCode);
+    ResultBody getFollowUser(String userCode,String isCountOnly,HttpSession session);
 
     ResultBody getBlogAndResourceByUserCode(String userCode);
 

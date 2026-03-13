@@ -68,10 +68,10 @@ public class BlogServiceImpl implements BlogService {
                 "FROM blogInfo b " +
                 "LEFT JOIN userinfo u ON b.userCode = u.code " +
                 "WHERE b.guid = ? AND (b.userCode = ? OR b.blog_type = 'public')";
-        List<Object> listParam = Arrays.asList(blogId,userCode);
+        List<Object> listParam = Arrays.asList(blogId, userCode);
         Map<String, Object> params_ = new HashMap<>();
         params_.put("sql", sql);
-        params_.put("params",listParam);
+        params_.put("params", listParam);
         //对于使用访问网关  推荐先接收返回结果,再返回,否则会有未知问题
         ResultBody result = callService.callFunWithParams(FunToUrlUtil.selectListByParamsUrl, params_);
         if (result != null && result.result != null && ((ArrayList) result.result).size() > 0) {
@@ -155,10 +155,9 @@ public class BlogServiceImpl implements BlogService {
     }
 
 
-
     @Override
     @Transactional//开启事务
-    public ResultBody updateBlog(String guid, String title, String content,String blog_type) {
+    public ResultBody updateBlog(String guid, String title, String content, String blog_type) {
         //查询修改前的数据
         String sql = "select MAINTEXT from blogInfo where guid = '" + guid + "'";
         Map<String, Object> params_ = new HashMap<>();
@@ -182,7 +181,7 @@ public class BlogServiceImpl implements BlogService {
                     removedUrls.add(url);
                 }
             }
-            System.out.println("修改文章内容=>需要删除的图片:"+removedUrls);
+            System.out.println("修改文章内容=>需要删除的图片:" + removedUrls);
             Map<String, Object> params = new HashMap<>();
             params.put("urls", removedUrls);
             //发送网关请求,删除图片
@@ -190,7 +189,7 @@ public class BlogServiceImpl implements BlogService {
             //删除图片后,修改文章主体内容
             if (result != null && !result.isError) {
                 sql = "update blogInfo set blog_title = ? , mainText = ?,blog_type = ? where guid = ?";
-                List<Object> listParams = Arrays.asList(title, content,blog_type, guid);
+                List<Object> listParams = Arrays.asList(title, content, blog_type, guid);
                 params = new HashMap<>();
                 params.put("sql", sql);
                 params.put("params", listParams);
@@ -263,6 +262,7 @@ public class BlogServiceImpl implements BlogService {
 
     @Override
     public ResultBody getComment(String blogId) {
+        // 通过 LEFT JOIN 关联同一张表，获取父评论（主评论）的时间信息用于排序
         String sql = "SELECT \n" +
                 "  bc.*, \n" +
                 "  ui.AVATAR \n" +
@@ -272,10 +272,20 @@ public class BlogServiceImpl implements BlogService {
                 "  userinfo ui \n" +
                 "ON \n" +
                 "  bc.usercode = ui.code\n" +
+                "LEFT JOIN \n" +
+                "  BLOGCOMMENT p \n" + // 关联父评论
+                "ON \n" +
+                "  bc.SUPERGUID = p.GUID\n" +
                 "WHERE \n" +
                 "  bc.blogId = '" + blogId + "'\n" +
                 "ORDER BY \n" +
-                "  bc.create_time DESC\n";
+                // 1. 把主评论和它的所有子评论作为一个“组”，按主评论的时间倒序排（最新的话题在最上）
+                "  COALESCE(p.create_time, bc.create_time) DESC, \n" +
+                // 2. 确保在一个“组”内，主评论永远排在第一位（0在前，1在后）
+                "  CASE WHEN bc.SUPERGUID IS NULL OR bc.SUPERGUID = '' THEN 0 ELSE 1 END ASC, \n" +
+                // 3. 子评论之间，按照它们自己的发布时间正序排（像正常聊天一样从上往下读）
+                "  bc.create_time ASC";
+
         Map<String, Object> params_ = new HashMap<>();
         params_.put("sql", sql);
         //对于使用访问网关  推荐先接收返回结果,再返回,否则会有未知问题
@@ -295,34 +305,34 @@ public class BlogServiceImpl implements BlogService {
     }
 
     @Override
-    public ResultBody giveLikeBlog(String blogId,HttpSession session) {
-        UserBean userBean = (UserBean)session.getAttribute("userInfo");
-        List<Map<String,Object>> data = new ArrayList<>();
-        Map<String,Object> map = new HashMap<>();
-        map.put("BLOGID",blogId);
-        map.put("USERCODE",userBean.getCODE());
-        map.put("USERNAME",userBean.getNAME());
-        map.put("TYPE","like");
+    public ResultBody giveLikeBlog(String blogId, HttpSession session) {
+        UserBean userBean = (UserBean) session.getAttribute("userInfo");
+        List<Map<String, Object>> data = new ArrayList<>();
+        Map<String, Object> map = new HashMap<>();
+        map.put("BLOGID", blogId);
+        map.put("USERCODE", userBean.getCODE());
+        map.put("USERNAME", userBean.getNAME());
+        map.put("TYPE", "like");
         data.add(map);
-        Map<String,Object> params = new HashMap<>();
-        params.put("saveType","add");
-        params.put("tableName","blogGiveLike");
-        params.put("data",data);
-        params.put("key","GUID");
-        ResultBody  result = callService.callFunWithParams(FunToUrlUtil.saveAllTableDataByParamsUrl,params);
+        Map<String, Object> params = new HashMap<>();
+        params.put("saveType", "add");
+        params.put("tableName", "blogGiveLike");
+        params.put("data", data);
+        params.put("key", "GUID");
+        ResultBody result = callService.callFunWithParams(FunToUrlUtil.saveAllTableDataByParamsUrl, params);
         return result;
     }
 
     @Override
     public ResultBody noGiveLikeBlog(String blogId, HttpSession session) {
-        UserBean userBean = (UserBean)session.getAttribute("userInfo");
+        UserBean userBean = (UserBean) session.getAttribute("userInfo");
         String userCode = userBean.getCODE();
         String sql = "delete from blogGiveLike where blogId = ? and userCode = ? and type = 'like'";
-        List<Object> listParams = Arrays.asList(blogId,userCode);
-        Map<String,Object> params = new HashMap<>();
-        params.put("sql",sql);
-        params.put("params",listParams);
-        ResultBody  result = callService.callFunWithParams(FunToUrlUtil.exeSqlByParamsUrl,params);
+        List<Object> listParams = Arrays.asList(blogId, userCode);
+        Map<String, Object> params = new HashMap<>();
+        params.put("sql", sql);
+        params.put("params", listParams);
+        ResultBody result = callService.callFunWithParams(FunToUrlUtil.exeSqlByParamsUrl, params);
         return result;
     }
 
@@ -330,42 +340,42 @@ public class BlogServiceImpl implements BlogService {
     public ResultBody getGiveLikeByBlogId(String blogId) {
         String sql = "select * from blogGiveLike where blogId = ? and type = 'like'";
         List<Object> listParams = Arrays.asList(blogId);
-        Map<String,Object> params = new HashMap<>();
-        params.put("sql",sql);
-        params.put("params",listParams);
-        ResultBody result = callService.callFunWithParams(FunToUrlUtil.selectListByParamsUrl,params);
+        Map<String, Object> params = new HashMap<>();
+        params.put("sql", sql);
+        params.put("params", listParams);
+        ResultBody result = callService.callFunWithParams(FunToUrlUtil.selectListByParamsUrl, params);
         return result;
     }
 
     @Override
-    public ResultBody collectBlog(String blogId,HttpSession session) {
-        UserBean userBean = (UserBean)session.getAttribute("userInfo");
-        List<Map<String,Object>> data = new ArrayList<>();
-        Map<String,Object> map = new HashMap<>();
-        map.put("BLOGID",blogId);
-        map.put("USERCODE",userBean.getCODE());
-        map.put("USERNAME",userBean.getNAME());
-        map.put("TYPE","collect");
+    public ResultBody collectBlog(String blogId, HttpSession session) {
+        UserBean userBean = (UserBean) session.getAttribute("userInfo");
+        List<Map<String, Object>> data = new ArrayList<>();
+        Map<String, Object> map = new HashMap<>();
+        map.put("BLOGID", blogId);
+        map.put("USERCODE", userBean.getCODE());
+        map.put("USERNAME", userBean.getNAME());
+        map.put("TYPE", "collect");
         data.add(map);
-        Map<String,Object> params = new HashMap<>();
-        params.put("saveType","add");
-        params.put("tableName","blogGiveLike");
-        params.put("data",data);
-        params.put("key","GUID");
-        ResultBody  result = callService.callFunWithParams(FunToUrlUtil.saveAllTableDataByParamsUrl,params);
+        Map<String, Object> params = new HashMap<>();
+        params.put("saveType", "add");
+        params.put("tableName", "blogGiveLike");
+        params.put("data", data);
+        params.put("key", "GUID");
+        ResultBody result = callService.callFunWithParams(FunToUrlUtil.saveAllTableDataByParamsUrl, params);
         return result;
     }
 
     @Override
     public ResultBody noCollectBlog(String blogId, HttpSession session) {
-        UserBean userBean = (UserBean)session.getAttribute("userInfo");
+        UserBean userBean = (UserBean) session.getAttribute("userInfo");
         String userCode = userBean.getCODE();
         String sql = "delete from blogGiveLike where blogId = ? and userCode = ? and type = 'collect'";
-        List<Object> listParams = Arrays.asList(blogId,userCode);
-        Map<String,Object> params = new HashMap<>();
-        params.put("sql",sql);
-        params.put("params",listParams);
-        ResultBody  result = callService.callFunWithParams(FunToUrlUtil.exeSqlByParamsUrl,params);
+        List<Object> listParams = Arrays.asList(blogId, userCode);
+        Map<String, Object> params = new HashMap<>();
+        params.put("sql", sql);
+        params.put("params", listParams);
+        ResultBody result = callService.callFunWithParams(FunToUrlUtil.exeSqlByParamsUrl, params);
         return result;
     }
 
@@ -373,10 +383,10 @@ public class BlogServiceImpl implements BlogService {
     public ResultBody getCollectByBlogId(String blogId) {
         String sql = "select * from blogGiveLike where blogId = ? and type = 'collect'";
         List<Object> listParams = Arrays.asList(blogId);
-        Map<String,Object> params = new HashMap<>();
-        params.put("sql",sql);
-        params.put("params",listParams);
-        ResultBody result = callService.callFunWithParams(FunToUrlUtil.selectListByParamsUrl,params);
+        Map<String, Object> params = new HashMap<>();
+        params.put("sql", sql);
+        params.put("params", listParams);
+        ResultBody result = callService.callFunWithParams(FunToUrlUtil.selectListByParamsUrl, params);
         return result;
     }
 
@@ -384,10 +394,10 @@ public class BlogServiceImpl implements BlogService {
     public ResultBody getCollectByUserCode(String userCode) {
         String sql = "select * from blogGiveLike where userCode = ? and type = 'collect'";
         List<Object> listParams = Arrays.asList(userCode);
-        Map<String,Object> params = new HashMap<>();
-        params.put("sql",sql);
-        params.put("params",listParams);
-        ResultBody result = callService.callFunWithParams(FunToUrlUtil.selectListByParamsUrl,params);
+        Map<String, Object> params = new HashMap<>();
+        params.put("sql", sql);
+        params.put("params", listParams);
+        ResultBody result = callService.callFunWithParams(FunToUrlUtil.selectListByParamsUrl, params);
         return result;
     }
 
@@ -395,32 +405,59 @@ public class BlogServiceImpl implements BlogService {
     public ResultBody getLikeAndCollectByBlogId(String blogId) {
         String sql = "select * from blogGiveLike where blogId = ?";
         List<Object> listParams = Arrays.asList(blogId);
-        Map<String,Object> params = new HashMap<>();
-        params.put("sql",sql);
-        params.put("params",listParams);
-        ResultBody result = callService.callFunWithParams(FunToUrlUtil.selectListByParamsUrl,params);
+        Map<String, Object> params = new HashMap<>();
+        params.put("sql", sql);
+        params.put("params", listParams);
+        ResultBody result = callService.callFunWithParams(FunToUrlUtil.selectListByParamsUrl, params);
         return result;
     }
 
     @Override
-    public ResultBody getLikeAndCollectByUserCode(String userCode) {
-        String sql = "SELECT\n" +
-                "  b.GUID,b.BLOG_TITLE,b.BLOG_TYPE,b.USERCODE,b.USERNAME,b.VIEW_PAGE,b.CREATE_TIME,g.TYPE\n" +
-                "FROM\n" +
-                "  bloginfo b\n" +
-                "  LEFT JOIN blogGiveLike g ON g.BLOGID = b.GUID\n" +
-                "WHERE\n" +
-                "  g.userCode = ?";
-        List<Object> listParams = Arrays.asList(userCode);
-        Map<String,Object> params = new HashMap<>();
-        params.put("sql",sql);
-        params.put("params",listParams);
-        ResultBody result = callService.callFunWithParams(FunToUrlUtil.selectListByParamsUrl,params);
-        return result;
+    public ResultBody getLikeAndCollectByUserCode(String userCode, String isCountOnly, String type) {
+        Map<String, Object> params = new HashMap<>();
+        List<Object> listParams = new ArrayList<>();
+        listParams.add(userCode);
+
+        // 判断是否仅查询数字
+        boolean countOnly = "true".equalsIgnoreCase(isCountOnly);
+
+        if (countOnly) {
+            // ==========================================================
+            // 模式 1：仅获取数量（极速响应，不连表）
+            // ==========================================================
+            // 直接根据 TYPE (通常是 'like' 和 'collect') 分组统计数量
+            String sql = "SELECT TYPE, COUNT(1) AS TOTAL FROM blogGiveLike WHERE userCode = ? GROUP BY TYPE";
+            params.put("sql", sql);
+            params.put("params", listParams);
+            ResultBody result = callService.callFunWithParams(FunToUrlUtil.selectListByParamsUrl, params);
+            // 返回的结果通常是一个包含 TYPE 和 TOTAL 的 List 集合，例如：
+            // [{"TYPE": "like", "TOTAL": 15}, {"TYPE": "collect", "TOTAL": 8}]
+            return result;
+
+        } else {
+            // ==========================================================
+            // 模式 2：获取完整内容（原逻辑保持不变）
+            // ==========================================================
+            String sql = "SELECT\n" +
+                    "  b.GUID,b.BLOG_TITLE,b.BLOG_TYPE,b.USERCODE,b.USERNAME,b.VIEW_PAGE,b.CREATE_TIME,g.TYPE\n" +
+                    "FROM\n" +
+                    "  bloginfo b\n" +
+                    "  JOIN blogGiveLike g ON g.BLOGID = b.GUID\n" + // 这里最好用 JOIN，因为是从 g 表过滤的
+                    "WHERE\n" +
+                    "  g.userCode = ?";
+            if (type != null) {
+                sql += " AND g.TYPE = ?";
+                listParams.add(type);
+            }
+            params.put("sql", sql);
+            params.put("params", listParams);
+            ResultBody result = callService.callFunWithParams(FunToUrlUtil.selectListByParamsUrl, params);
+            return result;
+        }
     }
 
     //根据博客ID,删除关于该博客的所有点赞和收藏
-    private ResultBody deleteLikeAndCollectByBlogId(String blogId){
+    private ResultBody deleteLikeAndCollectByBlogId(String blogId) {
         String sql = "delete from blogGiveLike where blogId = ?";
         List<Object> listParams = Arrays.asList(blogId);
         Map<String, Object> params = new HashMap<>();

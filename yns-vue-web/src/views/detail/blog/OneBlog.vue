@@ -51,7 +51,7 @@
 </template>
 
 <script setup>
-import {ref} from "vue";
+import {onMounted, ref} from "vue";
 import Chat from "@/components/detail/Chat.vue";
 import {useRoute, useRouter} from "vue-router";
 import ContentAndComment from "@/views/detail/blog/ContentAndComment.vue";
@@ -80,38 +80,39 @@ const authorInfo = ref({});
 const isFollowing = ref(false);
 //粉丝数
 const followersNum = ref(0);
-//粉丝列表
-const followersUser = ref([]);
 //关注数
 const followingNum = ref(0);
-//关注列表
-const followingUser = ref([]);
 
 // 聊天相关
 const chatVisible = ref(false);
 
 
-async function getUserInfo2Data() {
-  if (userCode) {
-    //获取账号信息
+function getUserInfo2Data() {
+  debugger;
+  //获取账号信息
+  const getAuthorInfo = async () => {
+
     let result = await getUserInfoByCode(userCode);
     if (result && !result.isError) {
       authorInfo.value = result.result;
     }
-
-    result = await sendAxiosRequest("/blog-api/userInformation/getFollowUser", {userCode});
+  }
+  // 4. 获取粉丝和关注数量
+  const fetchFollows = async () => {
+    const result = await sendAxiosRequest('/blog-api/userInformation/getFollowUser', {userCode, isCountOnly: "true"});
     if (result && !result.isError) {
-      followersNum.value = result.result.followersUser.length;
-      followersUser.value = result.result.followersUser;
-      followingNum.value = result.result.followingUser.length;
-      followingUser.value = result.result.followingUser;
-      //粉丝列表包含当前登录用户,表示已经关注
-      let arr = result.result.followersUser.filter(item => item["CODE"] == userStore.userBean.code);
-      if (arr.length > 0) {
-        isFollowing.value = true;
-      }
+      // 1. 赋值数量（这里假设你的底层把 COUNT(1) 包装成了数组里的对象，具体需要根据你控制台打印的实际结构调整）
+      followersNum.value = result.result.followersNum || 0;
+      followingNum.value = result.result.followingNum || 0;
+
+      // 2. ✨ 判断当前用户是否关注
+      const isFollowCount = result.result.isFollowingCount || 0;
+      isFollowing.value = isFollowCount > 0;
     }
   }
+
+  getAuthorInfo();
+  fetchFollows();
 }
 
 const toggleFollow = () => {
@@ -182,7 +183,9 @@ const contentAndCommentIsLoad = ({blogContent}) => {
     }
   }
 }
+onMounted(() => {
 
+})
 </script>
 
 <style scoped>

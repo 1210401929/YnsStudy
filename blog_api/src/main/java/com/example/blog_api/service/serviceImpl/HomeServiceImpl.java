@@ -85,16 +85,12 @@ public class HomeServiceImpl implements HomeService {
     }
 
     @Override
-    public ResultBody getAllBlogGuids() {
-        String sql = "select GUID from blogInfo";
+    public ResultBody getAllBlogGuidAndTime() {
+        String sql = "select GUID,CREATE_TIME from blogInfo";
         Map<String, Object> params = new HashMap<>();
         params.put("sql", sql);
         ResultBody result = callService.callFunWithParams(FunToUrlUtil.selectListUrl, params);
-        List<String> guids = new ArrayList<>();
-        for (Map<String, Object> item : (List<Map<String, Object>>) result.result) {
-            guids.add((String) item.get("GUID"));
-        }
-        return ResultBody.createSuccessResult(guids);
+        return ResultBody.createSuccessResult(result.result);
     }
 
     //获取热门下载内容

@@ -117,7 +117,9 @@ public class BlogController {
     @ResponseBody
     public ResultBody getLikeAndCollectByUserCode(@RequestBody Map<String, Object> params) {
         String userCode = (String) params.get("userCode");
-        return blogService.getLikeAndCollectByUserCode(userCode);
+        String isCountOnly = (String) params.get("isCountOnly");
+        String type = (String) params.get("type");
+        return blogService.getLikeAndCollectByUserCode(userCode, isCountOnly,type);
     }
     @RequestMapping("/collectBlog")
     @ResponseBody

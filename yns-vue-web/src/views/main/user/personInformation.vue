@@ -1,151 +1,30 @@
 <template>
-  <div class="person-info" :style="bgStyle">
-    <!--欢迎页面-->
-    <transition name="fade">
-      <div v-if=" !isSelf && showWelcome" class="welcome-overlay">
-        <div class="welcome-content">
-          <el-avatar
-              :src="user.avatar"
-              size="large"
-              class="welcome-avatar"
-          >
-            {{ user.name?.charAt(0) }}
-          </el-avatar>
-          <h2 class="welcome-title">
-            欢迎来到
-            <span class="random-name" :style="{ color: randomNameColor }">
-              {{ user.name || '' }}
-            </span>
-            的主页
-          </h2>
-          <p class="welcome-desc">个性签名：{{ user.remark }}</p>
-          <el-button type="primary" size="large" round @click="enterHomepage" class="enter-btn">
-            进入主页
-          </el-button>
-        </div>
-      </div>
-    </transition>
-    <!-- 左侧悬浮设置面板（不占文档流） -->
-    <div class="left-dock"
-         v-if="isSelf"
-         :class="{ collapsed: dockCollapsed }">
-      <el-card shadow="hover" class="dock-card">
-        <div class="dock-title">🎨 背景设置</div>
+  <div class="person-info" :style="currentBgStyle">
+    <WelcomeOverlay
+        :visible="showWelcome"
+        :is-self="isSelf"
+        :user="user"
+        @enter="enterHomepage"
+    />
 
-        <!-- 背景图片 -->
-        <div class="dock-block">
-          <div class="dock-subtitle">图片</div>
-          <el-input
-              v-model="bgImageInput"
-              size="small"
-              placeholder="粘贴图片URL后回车"
-              @keyup.enter="applyBgImageUrl"
-              style="margin-top:8px"/>
-          <div class="dock-actions">
-            <el-button size="small" @click="resetBgImage">恢复默认</el-button>
-            <el-button size="small" link @click="previewBgImage" :disabled="!bgImage">预览</el-button>
-          </div>
-        </div>
-
-        <el-divider/>
-
-        <!-- 背景音乐 -->
-        <div class="dock-title">
-          {{ isSelf ? "🎵 音乐设置" : `${user.name}的背景音乐` }}
-        </div>
-        <div class="dock-block">
-          <el-input
-              v-model="bgAudioInput"
-              size="small"
-              placeholder="粘贴音频URL后回车"
-              @keyup.enter="applyBgAudioUrl"
-              style="margin-top:8px"/>
-
-          <div class="audio-row">
-            <el-button size="small" :type="isAudioPlaying ? 'danger' : 'primary'" @click="toggleAudio">
-              {{ isAudioPlaying ? '暂停' : '播放' }}
-            </el-button>
-            <el-switch
-                v-model="audioMuted"
-                size="small"
-                active-text="静音"
-                style="margin-left:12px"
-                @change="applyMute"/>
-          </div>
-
-          <div class="audio-row" style="margin-top:8px">
-            <span class="vol-label">音量</span>
-            <el-slider v-model="audioVolume" :min="0" :max="100" :step="1" style="flex:1" @change="applyVolume"/>
-          </div>
-        </div>
-      </el-card>
-
-      <!-- 折叠按钮 -->
-      <button class="dock-toggle" @click="dockCollapsed = !dockCollapsed">
-        {{ dockCollapsed ? '▶' : '◀' }}
-      </button>
-    </div>
-    <!-- 隐藏原生控件的播放器 -->
-    <audio
-        ref="bgAudioRef"
-        :src="bgAudio || ''"
-        loop
-        preload="auto"
-        playsinline
-    ></audio>
-    <!-- 访客迷你音乐控制（仅当不是本人 & 有音乐地址时出现） -->
-    <div class="music-mini" v-if="!isSelf && bgAudio">
-      <div class="music-mini__title">🎵 {{ user.name || 'Ta' }} 的音乐</div>
-      <div class="music-mini__row mini-controls">
-        <!-- 播放 / 暂停 -->
-        <el-button
-            class="icon-btn"
-            circle
-            size="small"
-            :title="isAudioPlaying ? '暂停' : '播放'"
-            :type="isAudioPlaying ? 'danger' : 'primary'"
-            @click="toggleAudio"
-        >
-          {{ isAudioPlaying ? '⏸' : '▶' }}
-        </el-button>
-
-        <!-- 静音切换 -->
-        <el-button
-            class="icon-btn"
-            circle
-            size="small"
-            :title="audioMuted ? '取消静音' : '静音'"
-            @click="audioMuted = !audioMuted; applyMute()"
-        >
-          {{ audioMuted ? '🔇' : '🔊' }}
-        </el-button>
-
-        <!-- 精简音量条 -->
-        <el-slider
-            class="mini-slider"
-            v-model="audioVolume"
-            :min="0"
-            :max="100"
-            :step="1"
-            :show-tooltip="false"
-            @input="applyVolume"
-        />
-      </div>
-    </div>
-
+    <BackgroundAndMusic
+        ref="bgMusicComponentRef"
+        :is-self="isSelf"
+        :user-name="user.name"
+        :init-bg-image="serverBgImage"
+        :init-bg-audio="serverBgAudio"
+        @update-bg-style="handleBgStyleUpdate"
+    />
 
     <div class="inner-container">
-      <!-- 顶部跳转按钮 -->
       <div class="toolbar">
         <el-button type="success" size="small" @click="scrollToFiles">
           📁 跳转到文件列表
         </el-button>
       </div>
 
-      <!-- 用户信息卡片 -->
       <el-card class="profile-card">
         <div class="profile-header">
-          <!-- 左侧：头像和基础信息 -->
           <div class="left-info">
             <el-avatar
                 :src="user.avatar"
@@ -168,7 +47,6 @@
             </div>
           </div>
 
-          <!-- 右侧：互动信息 -->
           <div class="right-info">
             <div class="stats">
               <span @click="followingUserClick" style="cursor: pointer;">关注 <strong>{{ followingNum }}</strong></span>
@@ -194,7 +72,6 @@
         </div>
       </el-card>
 
-      <!-- 博客内容 -->
       <el-card class="section-card">
         <div class="section-header">
           <h3 class="section-title">📚 发表内容</h3>
@@ -234,7 +111,6 @@
         <div v-if="noMore" class="end-text">没有更多内容了</div>
       </el-card>
 
-      <!-- 上传的文件 -->
       <el-card class="section-card" ref="fileSection">
         <h3 class="section-title">📁 上传的文件</h3>
         <el-empty v-if="files.length === 0" description="暂无上传文件"/>
@@ -261,6 +137,7 @@
         </el-table>
       </el-card>
     </div>
+
     <el-dialog
         v-model="showDialog"
         width="80%"
@@ -270,113 +147,42 @@
     >
       <ContentAndComment :blogId="selectedBlogId"/>
     </el-dialog>
-    <!-- 通用卡片结构（点赞/收藏列表都用） -->
-    <el-dialog v-model="showLikeDialog" title="👍 点赞列表" width="60%" :modal-class="'fixed-dialog-height'" top="6vh">
-      <div class="card-list-scroll">
-        <div class="card-list">
-          <!-- 卡片内容保持统一结构 -->
-          <el-card
-              v-for="item in likeList"
-              :key="item.GUID"
-              class="list-card"
-              shadow="hover"
-              @click="blogMainClick(item)"
-          >
-            <div class="card-top">
-              <span class="author-name" style="color: #0029fc">作者:{{ item.USERNAME }}</span>
-              <span class="card-time">{{ formatDate(item.CREATE_TIME) }}</span>
-            </div>
-            <div class="card-body">
-              <h4 class="card-title">{{ item.BLOG_TITLE }}</h4>
-            </div>
-          </el-card>
-        </div>
-      </div>
-    </el-dialog>
+    <InteractionListDialog
+        v-model="showLikeDialog"
+        title="👍 点赞列表"
+        :list-data="likeList"
+        type="blog"
+        @item-click="blogMainClick"
+    />
 
-    <el-dialog v-model="showCollectDialog" title="⭐ 收藏列表" width="60%" :modal-class="'fixed-dialog-height'"
-               top="6vh">
-      <div class="card-list-scroll">
-        <div class="card-list">
-          <!-- 卡片内容保持统一结构 -->
-          <el-card
-              v-for="item in collectList"
-              :key="item.GUID"
-              class="list-card"
-              shadow="hover"
-              @click="blogMainClick(item)"
-          >
-            <div class="card-top">
-              <span class="author-name" style="color: #0029fc">作者:{{ item.USERNAME }}</span>
-              <span class="card-time">{{ formatDate(item.CREATE_TIME) }}</span>
-            </div>
-            <div class="card-body">
-              <h4 class="card-title">{{ item.BLOG_TITLE }}</h4>
-            </div>
-          </el-card>
+    <InteractionListDialog
+        v-model="showCollectDialog"
+        title="⭐ 收藏列表"
+        :list-data="collectList"
+        type="blog"
+        @item-click="blogMainClick"
+    />
 
-        </div>
-      </div>
-    </el-dialog>
-    <!-- 粉丝列表-->
-    <el-dialog v-model="showFollowersUser" title="🙋粉丝列表" width="60%" :modal-class="'fixed-dialog-height'" top="6vh">
-      <div class="card-list-scroll">
-        <div class="card-list">
-          <!-- 卡片内容保持统一结构 -->
-          <el-card
-              v-for="item in followersUser"
-              :key="item.CODE"
-              class="list-card-follow"
-              shadow="hover"
-              @click="openFollowersUser(item)"
-          >
-            <div class="follower-card-content">
-              <el-avatar
-                  :src="item.avatar"
-                  size="large"
-                  class="author-avatar-follow"
-                  alt="用户头像"
-              >
-                {{ item.NAME?.charAt(0) }}
-              </el-avatar>
-              <span class="author-name">{{ item.NAME }}</span>
-            </div>
-          </el-card>
-        </div>
-      </div>
-    </el-dialog>
-    <!-- 关注列表-->
-    <el-dialog v-model="showFollowingUser" title="👀关注列表" width="60%" :modal-class="'fixed-dialog-height'" top="6vh">
-      <div class="card-list-scroll">
-        <div class="card-list">
-          <!-- 卡片内容保持统一结构 -->
-          <el-card
-              v-for="item in followingUser"
-              :key="item.CODE"
-              class="list-card-follow"
-              shadow="hover"
-              @click="openFollowingUser(item)"
-          >
-            <div class="follower-card-content">
-              <el-avatar
-                  :src="item.avatar"
-                  size="large"
-                  class="author-avatar-follow"
-                  alt="用户头像"
-              >
-                {{ item.NAME?.charAt(0) }}
-              </el-avatar>
-              <span class="author-name">{{ item.NAME }}</span>
-            </div>
-          </el-card>
-        </div>
-      </div>
-    </el-dialog>
+    <InteractionListDialog
+        v-model="showFollowersUser"
+        title="🙋粉丝列表"
+        :list-data="followersUser"
+        type="user"
+        @item-click="openFollowersUser"
+    />
+
+    <InteractionListDialog
+        v-model="showFollowingUser"
+        title="👀关注列表"
+        :list-data="followingUser"
+        type="user"
+        @item-click="openFollowingUser"
+    />
   </div>
 </template>
 
 <script setup>
-import {ref, onMounted, computed, nextTick} from 'vue'
+import {ref, onMounted, computed, defineAsyncComponent} from 'vue'
 import {ElMessage} from 'element-plus'
 import {useRoute, useRouter} from 'vue-router'
 import {
@@ -385,9 +191,17 @@ import {
   sendAxiosRequest,
   stripImages,
   downloadFileByUrl,
-  sendNotifications, extractPlainTextFromHTML, getUserInfoByCode
+  sendNotifications, getUserInfoByCode
 } from '@/utils/common.js'
-import ContentAndComment from '@/views/detail/blog/ContentAndComment.vue'
+
+//引入背景和音乐相关组件
+import BackgroundAndMusic from "@/components/detail/personInformation/BackgroundAndMusic.vue";
+//引入欢迎页相关组件
+import WelcomeOverlay from "@/components/detail/personInformation/WelcomeOverlay.vue";
+//引入正文和评论相关组件  改成动态获取组件=>defineAsyncComponent：当真正调用这个组件时，才会调用
+const ContentAndComment = defineAsyncComponent(() => import('@/views/detail/blog/ContentAndComment.vue'))
+//引入列表组件（收藏，点赞列表；关注，被关注列表）
+const InteractionListDialog = defineAsyncComponent(() => import("@/components/detail/personInformation/InteractionListDialog.vue"))
 import {adminUserCode} from '@/config/vue-config.js'
 import {useUserStore} from '@/stores/main/user.js'
 import {pubOpenUser} from "@/utils/blogUtil.js";
@@ -421,6 +235,17 @@ const isSelf = computed(() =>
     !!targetUserCode.value &&
     targetUserCode.value === userStore.userBean.code
 );
+
+// ==== 背景与音乐：父组件状态对接 ====
+const bgMusicComponentRef = ref(null);
+const serverBgImage = ref('');
+const serverBgAudio = ref('');
+const currentBgStyle = ref({});
+
+const handleBgStyleUpdate = (style) => {
+  currentBgStyle.value = style;
+}
+
 // 关注相关
 const isFollowing = ref(false)
 const followersNum = ref(0)
@@ -442,7 +267,6 @@ const toggleFollow = () => {
       followUserCode: user.value.code,
       followUserName: user.value.name
     })
-    //发送消息
     sendNotifications(userStore.userBean.code, user.value.code, "followUser", null, `${userStore.userBean.name}关注了你`)
 
   } else {
@@ -452,32 +276,53 @@ const toggleFollow = () => {
   ElMessage.success(isFollowing.value ? '已关注' : '已取消关注')
 }
 
-const followingUserClick = () => {
-  if (followingUser.value.length === 0) {
-    ElMessage.success('他很高冷,没有关注任何人')
-    return false
+// 获取关注列表
+const loadFollowingList = async () => {
+  if (followingUser.value.length > 0) return;
+  const result = await sendAxiosRequest('/blog-api/userInformation/getFollowUser', {userCode: targetUserCode.value});
+  if (result && !result.isError) {
+    followingUser.value = result.result.followingUser;
   }
-  showFollowingUser.value = true
 }
 
-const followersUserClick = () => {
-  if (followersUser.value.length === 0) {
-    ElMessage.success('他没有粉丝,仍需努力')
-    return false
+// 获取粉丝列表
+const loadFollowersList = async () => {
+  if (followersUser.value.length > 0) return; // 已经有数据就不再请求（缓存）
+  // 注意：真实场景中，如果数据极多，这里还需要加上 page 和 pageSize 做分页
+  const result = await sendAxiosRequest('/blog-api/userInformation/getFollowUser', {userCode: targetUserCode.value});
+  if (result && !result.isError) {
+    followersUser.value = result.result.followersUser;
   }
-  showFollowersUser.value = true
+}
+
+
+const followingUserClick = async () => {
+  // if (followingUser.value.length === 0) {
+  //ElMessage.success('他很高冷,没有关注任何人')
+  //   return false
+  // }
+  showFollowingUser.value = true;
+  await loadFollowingList();
+}
+
+const followersUserClick = async () => {
+  // if (followersUser.value.length === 0) {
+  //ElMessage.success('他没有粉丝,仍需努力')
+  //   return false
+  // }
+  showFollowersUser.value = true;
+  await loadFollowersList();
 }
 
 const openFollowersUser = (item) => {
   pubOpenUser(router, item.CODE);
 }
-
 const openFollowingUser = (item) => {
   pubOpenUser(router, item.CODE);
 }
 
 const page = ref(1)
-const pageSize = 5
+const pageSize = 2
 const loading = ref(false)
 const noMore = ref(false)
 
@@ -505,62 +350,92 @@ const fetchArticles = async (userCode) => {
   }
 }
 
+//获取用户信息
 async function getUserInfo2Data() {
-  let userCode = route.params.u;
-  if (userCode) {
-    userCode = decrypt(userCode)
-    //获取用户发布内容  文章和社区
-    fetchArticles(userCode);
-    //获取用户信息
-    let result = await getUserInfoByCode(userCode);
+  const userCode = targetUserCode.value;
+  if (!userCode) return;
+
+
+  // 1. 获取核心用户信息 (独立运行)
+  const fetchBasicInfo = async () => {
+    const result = await getUserInfoByCode(userCode);
     if (result && !result.isError) {
-      user.value = result.result
+      user.value = result.result;
+
+      // 用户名拿到后再去修改浏览器标签页标题
+      document.title = user.value.name + "的主页";
+      const metaDesc = document.querySelector('meta[name="description"]');
+      if (metaDesc) {
+        metaDesc.setAttribute("content", document.title);
+      } else {
+        const desc = document.createElement('meta');
+        desc.name = "description";
+        desc.content = document.title;
+        document.head.appendChild(desc);
+      }
     }
-    //获取用户上传的文件
-    result = await sendAxiosRequest('/blog-api/userInformation/getResourceByUserCode', {userCode})
+  };
+
+  // 2. 获取上传的文件列表 (独立运行)
+  const fetchFilesList = async () => {
+    const result = await sendAxiosRequest('/blog-api/userInformation/getResourceByUserCode', {userCode});
     if (result && !result.isError) {
       files.value = result.result;
     }
-    //获取用户点赞作品和收藏作品
-    result = await sendAxiosRequest('/blog-api/blog/getLikeAndCollectByUserCode', {userCode})
+  };
+
+  // 3. 获取点赞和收藏数据 (独立运行)
+  const fetchInteractions = async () => {
+    const result = await sendAxiosRequest('/blog-api/blog/getLikeAndCollectByUserCode', {
+      userCode,
+      isCountOnly: "true"
+    });
     if (result && !result.isError) {
       result.result.forEach(item => {
+        //点赞数
         if (item.TYPE === 'like') {
-          likeNum.value++
-          likeList.value.push(item)
+          likeNum.value = item.TOTAL;
+          //收藏数
         } else if (item.TYPE === 'collect') {
-          collectNum.value++
-          collectList.value.push(item)
+          collectNum.value = item.TOTAL;
         }
-      })
+      });
     }
-    //获取用户的关注列表和粉丝列表
-    result = await sendAxiosRequest('/blog-api/userInformation/getFollowUser', {userCode})
+  };
+
+  // 4. 获取粉丝和关注数量(独立运行)
+  const fetchFollows = async () => {
+    const result = await sendAxiosRequest('/blog-api/userInformation/getFollowUser', {userCode, isCountOnly: "true"});
     if (result && !result.isError) {
-      followersNum.value = result.result.followersUser.length
-      followersUser.value = result.result.followersUser
-      followingNum.value = result.result.followingUser.length
-      followingUser.value = result.result.followingUser
-      const arr = result.result.followersUser.filter(item => item.CODE === userStore.userBean.code)
-      if (arr.length > 0) isFollowing.value = true
+      // 1. 赋值数量（这里假设你的底层把 COUNT(1) 包装成了数组里的对象，具体需要根据你控制台打印的实际结构调整）
+      followersNum.value = result.result.followersNum || 0;
+      followingNum.value = result.result.followingNum || 0;
+
+      // 2. ✨ 判断当前用户是否关注
+      const isFollowCount = result.result.isFollowingCount || 0;
+      isFollowing.value = isFollowCount > 0;
     }
-    //设置用户主页信息  :背景图片,背景音乐等等
-    setPersonInfo();
+  };
+  //5.获取背景和音乐
+  const setPersonInfo = async () => {
+    let result = await sendAxiosRequest("/blog-api/userInformation/getPersonInfo", {userCode: userCode});
+    if (result && !result.isError) {
+      result = result.result[0] || {};
+      // 直接赋值给响应式变量，子组件的 watch 会接收到
+      serverBgAudio.value = result.BGMUSICURL || "";
+      serverBgImage.value = result.BGIMAGEURL || "";
+    }
   }
-  //修改浏览器title和meta,有助于搜索排名
-  document.title = user.value.name + "的主页";
-  const metaDesc = document.querySelector('meta[name="description"]');
-  if (metaDesc) {
-    metaDesc.setAttribute("content", document.title);
-  } else {
-    const desc = document.createElement('meta')
-    desc.name = "description";
-    desc.content = document.title;
-    document.head.appendChild(desc)
-  }
+  // 【核心改变】：同时发射所有请求！不要加 await 让他们排队了
+  fetchBasicInfo();
+  fetchArticles(userCode); // 文章分页本来就是独立的
+  fetchFilesList();
+  fetchInteractions();
+  fetchFollows();
+  setPersonInfo(); // 获取背景和音乐也是独立的
 }
 
-getUserInfo2Data()
+
 
 const blogs = ref([])
 const files = ref([])
@@ -572,12 +447,12 @@ const showBlogs = computed(() => {
   if (!onlyArticle.value)
     return blogs.value;
   else {
-    return blogs.value.filter(item => item.TYPE == "blog");
+    return blogs.value.filter(item => item.TYPE === "blog");
   }
 })
 
 function blogMainClick(blog) {
-  if (blog.TYPE == "community") {
+  if (blog.TYPE === "community") {
     ElMessage.success('社区发起内容不用查看详情')
     return false
   }
@@ -604,307 +479,58 @@ const scrollToFiles = () => {
   }
 }
 
-const goToLiked = () => {
-  if (likeList.value.length === 0) {
-    ElMessage.success('他没有点赞的文章,也没有喜欢的人')
-    return false
+// 获取关注或收藏列表
+const loadLikeAndFavoritesList = async (type) => {
+  const result = await sendAxiosRequest('/blog-api/blog/getLikeAndCollectByUserCode', {
+    userCode: targetUserCode.value,
+    isCountOnly: "false",
+    type
+  });
+  if (result && !result.isError) {
+    return result.result || []; // 防御
   }
-  showLikeDialog.value = true
+  return [];
 }
 
-const goToFavorites = () => {
-  if (collectList.value.length === 0) {
-    ElMessage.success('他没有收藏的文章,也没有喜欢的人')
-    return false
-  }
-  showCollectDialog.value = true
+//显示点赞列表
+const goToLiked = async () => {
+  showLikeDialog.value = true;
+  //有值则直接返回
+  if (likeList.value.length > 0) return;
+  likeList.value = await loadLikeAndFavoritesList("like");
+}
+
+//显示收藏列表
+const goToFavorites = async () => {
+  showCollectDialog.value = true;
+  //有值则直接返回
+  if (collectList.value.length > 0) return;
+  collectList.value = await loadLikeAndFavoritesList("collect");
 }
 
 const messageAuthor = () => {
   ElMessage.success('私信作者:' + user.value.name)
 }
 
-// ==== 背景与音乐：状态 ====
-const defaultBg = ""; // 你的默认背景
-const bgImage = ref("");
-const bgImageInput = ref("");
-
-const bgPresets = {
-  // 贴近你默认的天空蓝 → 更亮的白，带两处很淡的蓝色光斑
-  softSky:
-      "radial-gradient(1000px 700px at 20% 15%, rgba(210,235,255,.90) 0%, rgba(210,235,255,0) 60%),\
-       radial-gradient(800px 600px at 80% 70%, rgba(180,205,230,.35) 0%, rgba(180,205,230,0) 60%),\
-       linear-gradient(180deg,#f8fbff 0%, #ffffff 68%)",
-
-  // 暖白纸感 → 对内容最友好，基本不喧宾夺主
-  warmPaper:
-      "radial-gradient(900px 600px at 25% 20%, rgba(255,244,223,.85) 0%, rgba(255,244,223,0) 55%),\
-       linear-gradient(180deg,#fffaf2 0%, #ffffff 72%)",
-
-  // 夜间柔和深蓝（不是纯黑，阅读友好）
-  nightSoft:
-      "radial-gradient(900px 650px at 30% 20%, rgba(60,85,120,.45) 0%, rgba(60,85,120,0) 55%),\
-       linear-gradient(180deg,#1a2430 0%, #202b38 70%)"
-};
-//加载自定义背景图片前的背景
-bgImage.value = bgPresets.softSky;
-
-const bgStyle = computed(() => {
-  const v = (bgImage.value || '').trim();
-  if (!v) return {}; // 用你 .person-info 里的默认图
-  // 如果是 gradient(...) 或多层背景字符串，直接塞进去
-  if (/gradient\(/i.test(v) || v.includes(',')) {
-    return {backgroundImage: v};
-  }
-  // 其他情况按 URL 处理
-  return {backgroundImage: `url('${v}')`};
-});
-
-// 左侧面板
-const dockCollapsed = ref(false);
-
-// 音频
-const bgAudioRef = ref(null);
-const bgAudio = ref("");
-const bgAudioInput = ref("");
-const isAudioPlaying = ref(false);
-const audioVolume = ref(70);
-const audioMuted = ref(false);
-
-// ==== 背景图片：文件/URL/重置 ====
-
-const applyBgImageUrl = () => {
-  // if (!bgImageInput.value) {
-  //   ElMessage.error("无效路径!");
-  //   return false;
-  // }
-  bgImage.value = bgImageInput.value.trim();
-  let result = sendAxiosRequest("/blog-api/userInformation/setPersonInfo", {
-    userCode: userStore.userBean.code,
-    fieldName: "BGIMAGEURL",
-    fieldValue: bgImage.value
-  });
-  ElMessage.success("已应用");
-};
-
-const resetBgImage = () => {
-  bgImageInput.value = "";
-  applyBgImageUrl();
-  ElMessage.success("已恢复默认背景");
-};
-
-const previewBgImage = () => {
-  if (!bgImage.value) return;
-  window.open(bgImage.value, "_blank");
-};
-
-// ==== 背景音乐：文件/URL/控制 ====
-const applyBgAudioUrl = () => {
-  // if (!bgAudioInput.value) {
-  //   ElMessage.error("无效路径!");
-  //   return false;
-  // }
-  let result = sendAxiosRequest("/blog-api/userInformation/setPersonInfo", {
-    userCode: userStore.userBean.code,
-    fieldName: "BGMUSICURL",
-    fieldValue: bgAudioInput.value.trim()
-  });
-  setAudioSrc(bgAudioInput.value.trim());
-  ElMessage.success("背景音乐已设置");
-};
-
-function setAudioSrc(src) {
-  bgAudio.value = src;
-  // 若已在播放，切换后继续播
-  nextTickPlayIfWanted();
-}
-
-const toggleAudio = async () => {
-  const el = bgAudioRef.value;
-  if (!el) return;
-  if (isAudioPlaying.value) {
-    el.pause();
-    isAudioPlaying.value = false;
-  } else {
-    try {
-      await el.play();
-      isAudioPlaying.value = true;
-    } catch (e) {
-      //ElMessage.error("浏览器阻止自动播放，请手动点击播放");
-      console.error("播放音乐失败,音乐链接或已失效");
-    }
-  }
-};
-
-const applyVolume = () => {
-  const el = bgAudioRef.value;
-  if (!el) return;
-  el.volume = Math.min(1, Math.max(0, audioVolume.value / 100));
-};
-
-const applyMute = () => {
-  const el = bgAudioRef.value;
-  if (!el) return;
-  el.muted = !!audioMuted.value;
-};
-
-const nextTickPlayIfWanted = async () => {
-  await Promise.resolve();
-  const el = bgAudioRef.value;
-  if (!el) return;
-  el.volume = Math.min(1, Math.max(0, audioVolume.value / 100));
-  el.muted = !!audioMuted.value;
-  // 不强制自动播放，尊重用户交互；保留按钮控制
-};
-
-async function setBgImageSafely(url) {
-  if (!url) {
-    bgImage.value = '';
-    return;
-  }
-  const img = new Image();
-  img.src = url;
-  try {
-    if (img.decode) await img.decode();
-    else await new Promise(r => {
-      img.onload = r;
-      img.onerror = r;
-    });
-  } finally {
-    bgImage.value = url;
-    await nextTick();
-    const root = document.querySelector('.person-info');
-    if (root) {
-      root.classList.add('bg-fade');
-      setTimeout(() => root.classList.remove('bg-fade'), 260);
-    }
-  }
-}
-
-// 新增：控制欢迎页显示隐藏的变量
 const showWelcome = ref(true);
 
-// 生成随机的亮色 (高饱和度，中高亮度，确保在暗色背景上清晰)
-const getRandomBrightColor = () => {
-  const h = Math.floor(Math.random() * 360); // 色相：0-360随机
-  const s = Math.floor(Math.random() * 30) + 70; // 饱和度：70%-100% (鲜艳)
-  const l = Math.floor(Math.random() * 20) + 65; // 亮度：65%-85% (明亮但不刺眼)
-  return `hsl(${h}, ${s}%, ${l}%)`;
-};
 
-// 绑定到模板的响应式颜色变量
-const randomNameColor = ref(getRandomBrightColor());
-
-// 新增：点击进入主页的逻辑
 const enterHomepage = async () => {
-  showWelcome.value = false; // 关闭欢迎页
-
-  const el = bgAudioRef.value;
-  // 如果有背景音乐，直接播放（因为已经有了明确的用户点击，浏览器不会再拦截）
-  if (el && bgAudio.value) {
-    el.volume = Math.min(1, Math.max(0, audioVolume.value / 100));
-    el.muted = !!audioMuted.value;
-    el.currentTime = 0; // 保证从头开始
-
-    try {
-      await el.play();
-      isAudioPlaying.value = true;
-    } catch (e) {
-      //ElMessage.warning("播放音乐失败，可尝试手动点击播放");
-      console.error("播放音乐失败,音乐链接或已失效");
-    }
+  showWelcome.value = false;
+  // 调用子组件的播放方法
+  if (bgMusicComponentRef.value) {
+    bgMusicComponentRef.value.playMusicForce();
   }
 };
 
-//获取用户主页信息  背景图片 背景音乐等等
-const setPersonInfo = async () => {
-  let result = await sendAxiosRequest("/blog-api/userInformation/getPersonInfo", {userCode: user.value.code});
-  if (result && !result.isError) {
-    result = result.result[0];
-    //背景音乐
-    bgAudioInput.value = result.BGMUSICURL || "";
-    bgAudio.value = result.BGMUSICURL || "";
-    if (bgAudio.value) {
-      //进入页面自动播放
-      //attemptAutoplay();
-    }
-    //背景图片
-    await setBgImageSafely(result.BGIMAGEURL || "");
-    bgImageInput.value = result.BGIMAGEURL || "";
-    bgImage.value = result.BGIMAGEURL || "";
 
-  }
-}
-
-
-async function attemptAutoplay() {
-  const el = bgAudioRef.value;
-  if (!el || !bgAudio.value) return;
-
-  // 先同步应用音量/静音
-  el.volume = Math.min(1, Math.max(0, audioVolume.value / 100));
-  el.muted = !!audioMuted.value;
-
-  try {
-    // ① 正常尝试
-    await el.play();
-    isAudioPlaying.value = true;
-  } catch (e1) {
-    try {
-      // ② 静音自动播（大多数浏览器允许）
-      el.muted = true;
-      await el.play();
-      isAudioPlaying.value = true;
-
-      // 等用户第一次交互后再恢复你设定的静音状态
-      const unmuteOnce = () => {
-        el.currentTime = 0;
-        el.muted = !!audioMuted.value;
-        document.removeEventListener('pointerdown', unmuteOnce);
-      };
-      document.addEventListener('pointerdown', unmuteOnce, {once: true});
-    } catch (e2) {
-      // ③ 最后兜底：等待一次用户手势再播放
-      const resume = () => {
-        el.currentTime = 0; // 保证万无一失从头开始
-        el.play().then(() => {
-          isAudioPlaying.value = true;
-          document.removeEventListener('pointerdown', resume);
-        }).catch(() => {
-        });
-      };
-      document.addEventListener('pointerdown', resume, {once: true});
-    }
-  }
-}
-
-// 恢复播放状态
 onMounted(() => {
-
-  // 初始化音量/静音
-  applyVolume();
-  applyMute();
+  // 正常调用
+  getUserInfo2Data();
 });
 </script>
 
 <style scoped>
-
-.person-info {
-  width: 100%;
-  height: 100%;
-  overflow-y: auto;
-  max-height: 100%;
-  padding: 24px 0;
-  box-sizing: border-box;
-  position: relative;
-  /*background-color: #f8f8f8;*/
-  background: url('/picture/user/default.webp') no-repeat center center fixed;
-  background-size: cover; /* 关键：保持比例并填满容器 */
-  background-attachment: fixed; /* 在手机上可能会失效，可根据需求调整 */
-
-  transition: background-image .001s; /* 防止重排，几乎无感 */
-}
-
 .person-info.bg-fade {
   animation: bgfade .25s ease;
 }
@@ -917,6 +543,21 @@ onMounted(() => {
     opacity: 1;
   }
 }
+
+.person-info {
+  width: 100%;
+  height: 100%;
+  overflow-y: auto;
+  max-height: 100%;
+  padding: 24px 0;
+  box-sizing: border-box;
+  position: relative;
+  background: url('/picture/user/default.webp') no-repeat center center fixed;
+  background-size: cover;
+  background-attachment: fixed;
+  transition: background-image .001s;
+}
+
 
 .inner-container {
   max-width: 900px;
@@ -935,7 +576,7 @@ onMounted(() => {
   background-color: rgba(255, 255, 255) !important;
   border-radius: 12px;
   box-shadow: 0 4px 18px rgba(0, 0, 0, 0.08);
-  opacity: 0.9; /*透明度*/
+  opacity: 0.9;
 }
 
 .profile-card {
@@ -983,19 +624,16 @@ onMounted(() => {
   font-size: 12px;
   font-weight: bold;
   border-radius: 10px;
-  padding: 2px 8px; /* 稍微增加了点左右内边距，更好看 */
+  padding: 2px 8px;
   line-height: 1.2;
-
-  /* --- 核心位置微调 --- */
-  margin-left: 4px; /* 和名字拉开一点距离 */
-  flex-shrink: 0; /* 关键：保证名字再长，标签都不会被压缩变形 */
+  margin-left: 4px;
+  flex-shrink: 0;
   position: relative;
-  top: 0px; /* 往上提一点，制造右上角上标的视觉效果 */
+  top: 0px;
 }
 
 .superAdmin-badge {
   background-color: #ffdf02;
-
 }
 
 .admin-badge {
@@ -1065,7 +703,6 @@ onMounted(() => {
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
 }
 
-/* 新增：标题 + 仅文章开关区域 */
 .section-header {
   display: flex;
   align-items: center;
@@ -1104,98 +741,6 @@ onMounted(() => {
   font-weight: bold;
 }
 
-.collapse-toggle {
-  margin-top: 12px;
-  text-align: center;
-}
-
-/* 弹窗卡片列表通用 */
-.card-list-scroll {
-  max-height: 560px;
-  overflow-y: auto;
-  padding: 12px 16px;
-  box-sizing: border-box;
-}
-
-.card-list {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.list-card {
-  padding: 12px 16px;
-  border-radius: 8px;
-  background-color: #edf8f4;
-  border: 1px solid #e4e7ed;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.list-card:hover {
-  transform: scale(1.01);
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
-}
-
-.card-top {
-  display: flex;
-  justify-content: space-between;
-  font-size: 13px;
-  color: #666;
-}
-
-.card-body {
-  margin-top: 6px;
-}
-
-.card-title {
-  font-size: 16px;
-  font-weight: 600;
-  margin-bottom: 6px;
-  color: #333;
-}
-
-.card-summary {
-  font-size: 13px;
-  line-height: 1.6;
-  color: #555;
-  -webkit-line-clamp: 2;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.list-card-follow {
-  padding: 12px 16px;
-  background-color: #ffffff;
-  border: 1px solid #e4e7ed;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  cursor: pointer;
-}
-
-.follower-card-content {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.author-avatar-follow {
-  width: 60px !important;
-  height: 60px !important;
-  font-size: 20px;
-  background-color: #f2f2f2;
-  flex-shrink: 0;
-}
-
-.author-name {
-  font-size: 14px;
-  font-weight: bold;
-  color: #333;
-}
-
 .loading-text,
 .end-text {
   text-align: center;
@@ -1203,258 +748,24 @@ onMounted(() => {
   margin: 16px 0;
 }
 
-/* 左侧悬浮设置面板 */
-.left-dock {
-  position: fixed;
-  left: 20px;
-  top: 120px;
-  width: 260px;
-  z-index: 20;
-  transition: transform 0.25s ease, opacity 0.25s ease;
-}
-
-.left-dock.collapsed {
-  transform: translateX(-280px);
-}
-
-.dock-card {
-  background: rgba(255, 255, 255, 0.88);
-  backdrop-filter: saturate(180%) blur(6px);
-  border-radius: 12px;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
-  padding-bottom: 12px;
-}
-
-.dock-title {
-  font-weight: 700;
-  color: #333;
-  margin-bottom: 8px;
-}
-
-.dock-subtitle {
-  font-weight: 600;
-  font-size: 13px;
-  color: #666;
-  margin-bottom: 6px;
-}
-
-.dock-block {
-  margin-bottom: 12px;
-}
-
-.dock-upload {
-  display: inline-block;
-}
-
-.dock-actions {
-  display: flex;
-  gap: 8px;
-  margin-top: 8px;
-  flex-wrap: wrap;
-}
-
-.audio-row {
-  padding-top: 10px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.vol-label {
-  font-size: 12px;
-  color: #666;
-  width: 36px;
-}
-
-/* 折叠按钮 */
-.dock-toggle {
-  position: absolute;
-  right: -18px;
-  top: 10px;
-  width: 22px;
-  height: 28px;
-  border-radius: 0 6px 6px 0;
-  border: 1px solid #dcdfe6;
-  background: #fff;
-  color: #666;
-  cursor: pointer;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-/* —— 更小更精致的迷你音乐条 —— */
-.music-mini {
-  position: fixed;
-  left: 20px;
-  top: 20px;
-  width: 220px; /* 更窄 */
-  z-index: 19;
-  padding: 8px 10px; /* 更小的内边距 */
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.94);
-  backdrop-filter: saturate(180%) blur(6px);
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
-  transition: transform .18s ease, box-shadow .18s ease, background .18s ease;
-}
-
-.music-mini__title {
-  font-size: 12px; /* 更小字号 */
-  font-weight: 600;
-  color: #333;
-  margin-bottom: 6px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.music-mini__row {
-  display: flex;
-  align-items: center;
-  gap: 8px; /* 更紧凑 */
-}
-
-/* 圆形图标按钮（更小巧） */
-.icon-btn {
-  width: 28px;
-  height: 28px;
-  padding: 0;
-  font-size: 14px;
-  line-height: 1;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-/* 精简滑条：更细更小的滑块 */
-.mini-slider {
-  flex: 1;
-  margin-left: 6px;
-}
-
-.mini-slider :deep(.el-slider__runway) {
-  height: 3px; /* 细一些 */
-  border-radius: 999px;
-}
-
-.mini-slider :deep(.el-slider__bar) {
-  height: 3px;
-  border-radius: 999px;
-}
-
-.mini-slider :deep(.el-slider__button-wrapper) {
-  width: 12px;
-  height: 12px;
-}
-
-.mini-slider :deep(.el-slider__button) {
-  width: 10px;
-  height: 10px; /* 小滑块 */
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
-}
-
-/* ====== 欢迎引导页样式 ====== */
-.welcome-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  background: rgba(0, 0, 0, 0.4); /* 半透明黑底 */
-  backdrop-filter: blur(12px); /* 毛玻璃模糊效果 */
-  z-index: 9999; /* 保证在最顶层 */
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-.welcome-content {
-  text-align: center;
-  color: #ffffff;
-  animation: slideUp 0.6s ease cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-
-.welcome-avatar {
-  width: 100px !important;
-  height: 100px !important;
-  font-size: 32px;
-  border: 4px solid rgba(255, 255, 255, 0.3);
-  margin-bottom: 20px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-}
-
-.welcome-title {
-  font-size: 28px;
-  font-weight: bold;
-  margin: 0 0 12px 0;
-  letter-spacing: 1px;
-}
-
-.welcome-desc {
-  font-size: 16px;
-  color: rgba(255, 255, 255, 0.85);
-  margin-bottom: 30px;
-}
-
-.enter-btn {
-  font-size: 16px;
-  padding: 12px 36px;
-  box-shadow: 0 4px 15px rgba(64, 158, 255, 0.4);
-  transition: transform 0.2s;
-}
-
-.enter-btn:hover {
-  transform: scale(1.05);
-}
-
-/* Vue 的 transition 动画类 */
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.5s ease;
-}
-
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
-}
-
-/* 欢迎内容轻微上浮的进场动画 */
-@keyframes slideUp {
-  from {
-    opacity: 0;
-    transform: translateY(30px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
 
 @media (max-width: 768px) {
-  /* 时间线整体去掉左边距和内边距 */
-  .person-info :deep(.el-timeline) {
-    padding-left: 0 !important;
-    margin-left: 0 !important;
-  }
-
-  /* 时间线每一项去除左内边距和左边距 */
-  .person-info :deep(.el-timeline-item) {
-    padding-left: 0 !important;
-    margin-left: 0 !important;
-  }
-
-  /* 去除内容wrapper左边距，宽度撑满 */
+  .person-info :deep(.el-timeline),
+  .person-info :deep(.el-timeline-item),
   .person-info :deep(.el-timeline-item__wrapper) {
-    margin-left: 0 !important;
-    width: 100% !important;
     padding-left: 0 !important;
+    margin-left: 0 !important;
   }
 
-  /* 隐藏竖线和节点 */
+  .person-info :deep(.el-timeline-item__wrapper) {
+    width: 100% !important;
+  }
+
   .person-info :deep(.el-timeline-item__tail),
   .person-info :deep(.el-timeline-item__node) {
     display: none !important;
   }
 
-  /* 个人信息头部布局调整 */
   .profile-header {
     flex-direction: column;
     align-items: center;
@@ -1494,45 +805,5 @@ onMounted(() => {
     text-align: center;
   }
 
-  .list-card, .list-card-follow {
-    height: auto;
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .card-top {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 4px;
-  }
-
-  .card-body {
-    width: 100%;
-  }
-
-  .card-summary {
-    -webkit-line-clamp: 4;
-  }
-
-  .left-dock {
-    transform: translateX(-280px);
-  }
-
-  .left-dock.collapsed {
-    transform: translateX(-280px); /* 保持折叠 */
-  }
-
-  .left-dock .dock-toggle {
-    transform: translateX(0px);
-  }
-
-  .music-mini {
-    left: 50%;
-    transform: translateX(-50%);
-    top: 12px;
-    width: calc(100vw - 100px);
-    padding: 8px 10px;
-  }
 }
 </style>
-

@@ -36,9 +36,10 @@ public class UserInformationController {
 
     @RequestMapping("/getFollowUser")
     @ResponseBody
-    public ResultBody getFollowUser(@RequestBody Map<String, String> params) {
+    public ResultBody getFollowUser(@RequestBody Map<String, String> params, HttpSession session) {
         String userCode = params.get("userCode");
-        return userInformationService.getFollowUser(userCode);
+        String isCountOnly = params.get("isCountOnly");
+        return userInformationService.getFollowUser(userCode,isCountOnly,session);
     }
 
     @RequestMapping("/getBlogAndResourceByUserCode")
