@@ -17,210 +17,200 @@
     />
 
     <div class="inner-container">
-      <div class="toolbar">
-        <el-button type="success" size="small" @click="scrollToFiles">
-          📁 跳转到文件列表
-        </el-button>
-      </div>
+      <div class="content-columns">
 
-      <el-card class="profile-card">
-        <div class="profile-header">
-          <div class="left-info">
-            <el-avatar
-                :src="user.avatar"
-                size="large"
-                class="author-avatar"
-                alt="用户头像"
-            >
-              {{ user.name?.charAt(0) }}
-            </el-avatar>
-            <div class="profile-details">
-              <h2 class="username">
-                <span class="name">{{ user.name }}</span>
-                <span v-if="user.code === adminUserCode" class="public-badge superAdmin-badge">超级管理员</span>
-                <span v-if="user.role === 'admin'" class="public-badge admin-badge">管理员</span>
-                <span v-if="user.isban === '1'" class="public-badge ban-badge">已封禁</span>
-              </h2>
-              <p>邮箱: {{ user.email || "未知" }}</p>
-              <p class="user-remark" :title="user.remark">个性签名: {{ user.remark || "这个人很神秘~" }}</p>
-              <p class="userip">IP: {{ user.loginaddress || "未知" }}</p>
-            </div>
+        <div class="person-left-wrapper">
+          <UserInfo
+              :user="user"
+              :target-user-code="targetUserCode"
+              @blog-click="blogMainClick"
+          />
+        </div>
+
+        <div class="main-content">
+          <!-- 工具栏 -->
+          <div class="toolbar">
+            <button class="jump-btn" @click="scrollToFiles">
+              <span class="jump-btn-icon">📁</span>
+              <span>跳转到文件列表</span>
+            </button>
           </div>
 
-          <div class="right-info">
-            <div class="stats">
-              <span @click="followingUserClick" style="cursor: pointer;">关注 <strong>{{ followingNum }}</strong></span>
-              <span @click="followersUserClick" style="cursor: pointer;">粉丝 <strong>{{ followersNum }}</strong></span>
+          <!-- 发表内容卡片 -->
+          <div class="section-card publish-card">
+            <div class="section-header">
+              <div class="section-title-group">
+                <span class="section-icon">📚</span>
+                <h3 class="section-title">发表内容</h3>
+                <span class="section-count" v-if="showBlogs.length">{{ showBlogs.length }}+</span>
+              </div>
+              <label class="toggle-switch">
+                <input type="checkbox" v-model="onlyArticle" />
+                <span class="toggle-track">
+                  <span class="toggle-thumb"></span>
+                </span>
+                <span class="toggle-label">仅文章</span>
+              </label>
             </div>
-            <div class="author-actions">
-              <el-button
-                  :type="isFollowing ? 'danger' : 'primary'"
-                  size="small"
-                  round
-                  @click="toggleFollow"
-                  class="follow-button"
+
+            <div v-if="showBlogs.length > 0" class="blog-timeline">
+              <div
+                  v-for="(blog, index) in showBlogs"
+                  :key="blog.GUID"
+                  class="timeline-item"
+                  :style="{ animationDelay: index * 0.06 + 's' }"
               >
-                {{ isFollowing ? '取消关注' : '关注' }}
-              </el-button>
-              <el-button size="small" class="follow-button" round @click="messageAuthor">私信</el-button>
+                <div class="timeline-connector">
+                  <div class="timeline-dot" :class="blog.TYPE === 'blog' ? 'dot-article' : 'dot-community'"></div>
+                  <div class="timeline-line" v-if="index < showBlogs.length - 1"></div>
+                </div>
+                <div class="timeline-content">
+                  <div class="timeline-meta">
+                    <span class="meta-tag" :class="blog.TYPE === 'blog' ? 'tag-article' : 'tag-community'">
+                      {{ blog.TYPE === 'blog' ? '文章' : '社区' }}
+                    </span>
+                    <span class="meta-time">{{ formatDate(blog.CREATE_TIME) }}</span>
+                  </div>
+                  <div class="blog-card" @click="blogMainClick(blog)">
+                    <h4 class="blog-title">{{ blog.BLOG_TITLE }}</h4>
+                    <p class="blog-summary" v-html="stripImages(blog.MAINTEXT)"></p>
+                    <div class="blog-card-footer">
+                      <span class="read-more">阅读全文 →</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
-            <div class="interaction-buttons">
-              <el-button type="primary" link @click="goToLiked">👍 点赞数:{{ likeNum }}</el-button>
-              <el-button type="warning" link @click="goToFavorites">⭐ 收藏数:{{ collectNum }}</el-button>
+
+            <div v-if="!showBlogs.length && !loading" class="empty-state">
+              <div class="empty-icon">✦</div>
+              <p class="empty-text">暂无内容</p>
+            </div>
+
+            <button
+                v-if="!noMore && !loading"
+                class="load-more-btn"
+                @click="fetchArticles(null)"
+            >
+              <span>加载更多</span>
+              <span class="load-more-arrow">↓</span>
+            </button>
+            <div v-if="loading" class="loading-row">
+              <span class="loading-dot"></span>
+              <span class="loading-dot"></span>
+              <span class="loading-dot"></span>
+            </div>
+            <div v-if="noMore && showBlogs.length" class="end-line">
+              <span class="end-dash"></span>
+              <span class="end-text">已到末尾</span>
+              <span class="end-dash"></span>
+            </div>
+          </div>
+
+          <!-- 文件列表卡片 -->
+          <div class="section-card file-card" ref="fileSection">
+            <div class="section-header">
+              <div class="section-title-group">
+                <span class="section-icon">📁</span>
+                <h3 class="section-title">上传的文件</h3>
+                <span class="section-count" v-if="files.length">{{ files.length }}</span>
+              </div>
+            </div>
+
+            <div v-if="files.length === 0" class="empty-state">
+              <div class="empty-icon">◇</div>
+              <p class="empty-text">暂无上传文件</p>
+            </div>
+
+            <div v-else class="file-list">
+              <div
+                  v-for="(file, index) in files"
+                  :key="index"
+                  class="file-item"
+                  :style="{ animationDelay: index * 0.05 + 's' }"
+              >
+                <div class="file-icon-wrap">
+                  <span class="file-icon">{{ getFileIcon(file.ORIGINALFILENAME) }}</span>
+                </div>
+                <div class="file-info">
+                  <span class="file-name">{{ file.ORIGINALFILENAME }}</span>
+                  <span class="file-meta">{{ formatDate(file.CREATE_TIME) }} · 下载 {{ file.DOWNNUM }} 次</span>
+                </div>
+                <button class="download-btn" @click="downloadFile(file)">
+                  <span>↓</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
-      </el-card>
 
-      <el-card class="section-card">
-        <div class="section-header">
-          <h3 class="section-title">📚 发表内容</h3>
-          <el-switch
-              v-model="onlyArticle"
-              size="small"
-              active-text="仅文章"
-              style="margin-left: auto;"
-          />
-        </div>
-        <el-timeline v-if="showBlogs.length>0">
-          <el-timeline-item
-              v-for="(blog, index) in showBlogs"
-              :key="blog.GUID"
-              :timestamp="(blog.TYPE=='blog' ? '发表文章：' : '社区发起：') + formatDate(blog.CREATE_TIME)"
-              placement="top"
-              type="primary"
-          >
-            <el-card shadow="hover" class="blog-card" @click="blogMainClick(blog)">
-              <h4>{{ blog.BLOG_TITLE }}</h4>
-              <p class="blog-summary" v-html="stripImages(blog.MAINTEXT)"></p>
-            </el-card>
-          </el-timeline-item>
-        </el-timeline>
+        <div class="right-sidebar">
+          <div class="align-spacer"></div>
 
-        <el-empty v-if="!showBlogs.length && !loading" description="暂无内容"/>
-        <el-button
-            v-if="!noMore && !loading"
-            type="primary"
-            link
-            @click="fetchArticles(null)"
-            style="margin: 20px auto; display: block;"
-        >
-          加载更多
-        </el-button>
-        <div v-if="loading" class="loading-text">加载中...</div>
-        <div v-if="noMore" class="end-text">没有更多内容了</div>
-      </el-card>
-
-      <el-card class="section-card" ref="fileSection">
-        <h3 class="section-title">📁 上传的文件</h3>
-        <el-empty v-if="files.length === 0" description="暂无上传文件"/>
-        <el-table
-            v-else
-            :data="files"
-            stripe
-            border
-            style="width: 100%"
-            class="file-table"
-        >
-          <el-table-column prop="ORIGINALFILENAME" label="文件名"/>
-          <el-table-column prop="DOWNNUM" label="下载次数" width="100"/>
-          <el-table-column
-              prop="CREATE_TIME"
-              label="上传时间"
-              :formatter="(row) => formatDate(row.CREATE_TIME)"
-          />
-          <el-table-column label="操作" width="100">
-            <template #default="scope">
-              <el-button type="primary" link @click="downloadFile(scope.row)">下载</el-button>
+          <el-card class="sidebar-card recent-articles">
+            <template #header>
+              <div class="sidebar-card-title">
+                <span style="display: flex; align-items: center; gap: 6px;">
+                  🔥 <span>最近文章</span>
+                </span>
+              </div>
             </template>
-          </el-table-column>
-        </el-table>
-      </el-card>
+            <div class="recent-articles-placeholder">
+              <el-skeleton :rows="3" animated />
+              <div style="margin-top: 15px;">
+                <el-skeleton :rows="2" animated />
+              </div>
+            </div>
+          </el-card>
+
+          <div class="sticky-category">
+            <BlogSidebar
+                :view_title="'归档'"
+                :user-code="targetUserCode"
+                @click-blog="blogMainClick"
+                v-model:selected-index="selectedCategory"
+            />
+          </div>
+        </div>
+
+      </div>
     </div>
 
-    <el-dialog
-        v-model="showDialog"
-        width="80%"
-        destroy-on-close
-        top="4vh"
-        @close="onDialogClose"
-    >
+    <el-dialog v-model="showDialog" width="80%" destroy-on-close top="4vh" @close="onDialogClose">
       <ContentAndComment :blogId="selectedBlogId"/>
     </el-dialog>
-    <InteractionListDialog
-        v-model="showLikeDialog"
-        title="👍 点赞列表"
-        :list-data="likeList"
-        type="blog"
-        @item-click="blogMainClick"
-    />
-
-    <InteractionListDialog
-        v-model="showCollectDialog"
-        title="⭐ 收藏列表"
-        :list-data="collectList"
-        type="blog"
-        @item-click="blogMainClick"
-    />
-
-    <InteractionListDialog
-        v-model="showFollowersUser"
-        title="🙋粉丝列表"
-        :list-data="followersUser"
-        type="user"
-        @item-click="openFollowersUser"
-    />
-
-    <InteractionListDialog
-        v-model="showFollowingUser"
-        title="👀关注列表"
-        :list-data="followingUser"
-        type="user"
-        @item-click="openFollowingUser"
-    />
   </div>
 </template>
 
 <script setup>
-import {ref, onMounted, computed, defineAsyncComponent} from 'vue'
-import {ElMessage} from 'element-plus'
-import {useRoute, useRouter} from 'vue-router'
+import { ref, onMounted, computed, defineAsyncComponent } from 'vue'
+import { ElMessage } from 'element-plus'
+import { useRoute } from 'vue-router'
 import {
   pubFormatDate,
   decrypt,
   sendAxiosRequest,
   stripImages,
   downloadFileByUrl,
-  sendNotifications, getUserInfoByCode
+  getUserInfoByCode
 } from '@/utils/common.js'
 
-//引入背景和音乐相关组件
 import BackgroundAndMusic from "@/components/detail/personInformation/BackgroundAndMusic.vue";
-//引入欢迎页相关组件
 import WelcomeOverlay from "@/components/detail/personInformation/WelcomeOverlay.vue";
-//引入正文和评论相关组件  改成动态获取组件=>defineAsyncComponent：当真正调用这个组件时，才会调用
+import BlogSidebar from "@/components/detail/myblog/BlogSidebar.vue";
+import UserInfo from "@/components/main/UserInfo.vue";
+
 const ContentAndComment = defineAsyncComponent(() => import('@/views/detail/blog/ContentAndComment.vue'))
-//引入列表组件（收藏，点赞列表；关注，被关注列表）
-const InteractionListDialog = defineAsyncComponent(() => import("@/components/detail/personInformation/InteractionListDialog.vue"))
-import {adminUserCode} from '@/config/vue-config.js'
-import {useUserStore} from '@/stores/main/user.js'
-import {pubOpenUser} from "@/utils/blogUtil.js";
+
+import { useUserStore } from '@/stores/main/user.js'
 
 const userStore = useUserStore()
 userStore.initFromLocal()
 
-const showLikeDialog = ref(false)
-const showCollectDialog = ref(false)
-const likeNum = ref(0)
-const likeList = ref([])
-const collectNum = ref(0)
-const collectList = ref([])
-
 const route = useRoute()
-const router = useRouter()
 const user = ref({})
+const selectedCategory = ref('')
 
-//当前打开用户code
 const targetUserCode = ref('');
 try {
   const raw = route.params.u;
@@ -229,106 +219,27 @@ try {
   targetUserCode.value = '';
 }
 
-// 是否访问自己的主页
 const isSelf = computed(() =>
     !!userStore.userBean.code &&
     !!targetUserCode.value &&
     targetUserCode.value === userStore.userBean.code
 );
 
-// ==== 背景与音乐：父组件状态对接 ====
 const bgMusicComponentRef = ref(null);
 const serverBgImage = ref('');
 const serverBgAudio = ref('');
 const currentBgStyle = ref({});
 
-const handleBgStyleUpdate = (style) => {
-  currentBgStyle.value = style;
-}
-
-// 关注相关
-const isFollowing = ref(false)
-const followersNum = ref(0)
-const followersUser = ref([])
-const followingNum = ref(0)
-const followingUser = ref([])
-
-const showFollowersUser = ref(false)
-const showFollowingUser = ref(false)
-const toggleFollow = () => {
-  if (!userStore.userBean.code) {
-    ElMessage.error('用户过期,请返回主页面重新登录!')
-    return false
-  }
-  isFollowing.value = !isFollowing.value
-  if (isFollowing.value) {
-    followersNum.value++
-    sendAxiosRequest('/blog-api/userInformation/followUser', {
-      followUserCode: user.value.code,
-      followUserName: user.value.name
-    })
-    sendNotifications(userStore.userBean.code, user.value.code, "followUser", null, `${userStore.userBean.name}关注了你`)
-
-  } else {
-    followersNum.value--
-    sendAxiosRequest('/blog-api/userInformation/noFollowUser', {followUserCode: user.value.code})
-  }
-  ElMessage.success(isFollowing.value ? '已关注' : '已取消关注')
-}
-
-// 获取关注列表
-const loadFollowingList = async () => {
-  if (followingUser.value.length > 0) return;
-  const result = await sendAxiosRequest('/blog-api/userInformation/getFollowUser', {userCode: targetUserCode.value});
-  if (result && !result.isError) {
-    followingUser.value = result.result.followingUser;
-  }
-}
-
-// 获取粉丝列表
-const loadFollowersList = async () => {
-  if (followersUser.value.length > 0) return; // 已经有数据就不再请求（缓存）
-  // 注意：真实场景中，如果数据极多，这里还需要加上 page 和 pageSize 做分页
-  const result = await sendAxiosRequest('/blog-api/userInformation/getFollowUser', {userCode: targetUserCode.value});
-  if (result && !result.isError) {
-    followersUser.value = result.result.followersUser;
-  }
-}
-
-
-const followingUserClick = async () => {
-  // if (followingUser.value.length === 0) {
-  //ElMessage.success('他很高冷,没有关注任何人')
-  //   return false
-  // }
-  showFollowingUser.value = true;
-  await loadFollowingList();
-}
-
-const followersUserClick = async () => {
-  // if (followersUser.value.length === 0) {
-  //ElMessage.success('他没有粉丝,仍需努力')
-  //   return false
-  // }
-  showFollowersUser.value = true;
-  await loadFollowersList();
-}
-
-const openFollowersUser = (item) => {
-  pubOpenUser(router, item.CODE);
-}
-const openFollowingUser = (item) => {
-  pubOpenUser(router, item.CODE);
-}
+const handleBgStyleUpdate = (style) => currentBgStyle.value = style;
 
 const page = ref(1)
-const pageSize = 2
+const pageSize = 3
 const loading = ref(false)
 const noMore = ref(false)
 
 const fetchArticles = async (userCode) => {
   if (loading.value || noMore.value) return;
-  if (!userCode) userCode = decrypt(route.params.u);
+  if (!userCode) userCode = targetUserCode.value;
   loading.value = true
   try {
     const res = await sendAxiosRequest('/blog-api/userInformation/getBlogAndCommunityByUserCode', {
@@ -338,9 +249,7 @@ const fetchArticles = async (userCode) => {
       keyword: ""
     })
     const newData = res.result.data
-    if (newData.length < pageSize) {
-      noMore.value = true
-    }
+    if (newData.length < pageSize) noMore.value = true
     blogs.value.push(...newData)
     page.value++
   } catch (e) {
@@ -350,19 +259,14 @@ const fetchArticles = async (userCode) => {
   }
 }
 
-//获取用户信息
 async function getUserInfo2Data() {
   const userCode = targetUserCode.value;
   if (!userCode) return;
 
-
-  // 1. 获取核心用户信息 (独立运行)
   const fetchBasicInfo = async () => {
     const result = await getUserInfoByCode(userCode);
     if (result && !result.isError) {
       user.value = result.result;
-
-      // 用户名拿到后再去修改浏览器标签页标题
       document.title = user.value.name + "的主页";
       const metaDesc = document.querySelector('meta[name="description"]');
       if (metaDesc) {
@@ -376,66 +280,25 @@ async function getUserInfo2Data() {
     }
   };
 
-  // 2. 获取上传的文件列表 (独立运行)
   const fetchFilesList = async () => {
     const result = await sendAxiosRequest('/blog-api/userInformation/getResourceByUserCode', {userCode});
-    if (result && !result.isError) {
-      files.value = result.result;
-    }
+    if (result && !result.isError) files.value = result.result;
   };
 
-  // 3. 获取点赞和收藏数据 (独立运行)
-  const fetchInteractions = async () => {
-    const result = await sendAxiosRequest('/blog-api/blog/getLikeAndCollectByUserCode', {
-      userCode,
-      isCountOnly: "true"
-    });
-    if (result && !result.isError) {
-      result.result.forEach(item => {
-        //点赞数
-        if (item.TYPE === 'like') {
-          likeNum.value = item.TOTAL;
-          //收藏数
-        } else if (item.TYPE === 'collect') {
-          collectNum.value = item.TOTAL;
-        }
-      });
-    }
-  };
-
-  // 4. 获取粉丝和关注数量(独立运行)
-  const fetchFollows = async () => {
-    const result = await sendAxiosRequest('/blog-api/userInformation/getFollowUser', {userCode, isCountOnly: "true"});
-    if (result && !result.isError) {
-      // 1. 赋值数量（这里假设你的底层把 COUNT(1) 包装成了数组里的对象，具体需要根据你控制台打印的实际结构调整）
-      followersNum.value = result.result.followersNum || 0;
-      followingNum.value = result.result.followingNum || 0;
-
-      // 2. ✨ 判断当前用户是否关注
-      const isFollowCount = result.result.isFollowingCount || 0;
-      isFollowing.value = isFollowCount > 0;
-    }
-  };
-  //5.获取背景和音乐
   const setPersonInfo = async () => {
-    let result = await sendAxiosRequest("/blog-api/userInformation/getPersonInfo", {userCode: userCode});
+    let result = await sendAxiosRequest("/blog-api/userInformation/getPersonInfo", {userCode});
     if (result && !result.isError) {
       result = result.result[0] || {};
-      // 直接赋值给响应式变量，子组件的 watch 会接收到
       serverBgAudio.value = result.BGMUSICURL || "";
       serverBgImage.value = result.BGIMAGEURL || "";
     }
   }
-  // 【核心改变】：同时发射所有请求！不要加 await 让他们排队了
+
   fetchBasicInfo();
-  fetchArticles(userCode); // 文章分页本来就是独立的
+  fetchArticles(userCode);
   fetchFilesList();
-  fetchInteractions();
-  fetchFollows();
-  setPersonInfo(); // 获取背景和音乐也是独立的
+  setPersonInfo();
 }
-
-
 
 const blogs = ref([])
 const files = ref([])
@@ -444,11 +307,8 @@ const showDialog = ref(false)
 const selectedBlogId = ref('')
 
 const showBlogs = computed(() => {
-  if (!onlyArticle.value)
-    return blogs.value;
-  else {
-    return blogs.value.filter(item => item.TYPE === "blog");
-  }
+  if (!onlyArticle.value) return blogs.value;
+  return blogs.value.filter(item => item.TYPE === "blog");
 })
 
 function blogMainClick(blog) {
@@ -472,78 +332,58 @@ const downloadFile = (file) => {
   downloadFileByUrl(file.FILEVIEWURL, file.ORIGINALFILENAME)
 }
 
+const getFileIcon = (filename) => {
+  if (!filename) return '📄'
+  const ext = filename.split('.').pop().toLowerCase()
+  const map = {
+    pdf: '📕', doc: '📘', docx: '📘', xls: '📗', xlsx: '📗',
+    ppt: '📙', pptx: '📙', zip: '🗜️', rar: '🗜️', jpg: '🖼️',
+    jpeg: '🖼️', png: '🖼️', gif: '🖼️', mp4: '🎬', mp3: '🎵',
+    txt: '📄', md: '📝', js: '📜', ts: '📜', py: '📜'
+  }
+  return map[ext] || '📄'
+}
+
 const fileSection = ref(null)
 const scrollToFiles = () => {
   if (fileSection.value?.$el) {
-    fileSection.value.$el.scrollIntoView({behavior: 'smooth'})
+    fileSection.value.$el.scrollIntoView({ behavior: 'smooth' })
+  } else if (fileSection.value) {
+    fileSection.value.scrollIntoView({ behavior: 'smooth' })
   }
-}
-
-// 获取关注或收藏列表
-const loadLikeAndFavoritesList = async (type) => {
-  const result = await sendAxiosRequest('/blog-api/blog/getLikeAndCollectByUserCode', {
-    userCode: targetUserCode.value,
-    isCountOnly: "false",
-    type
-  });
-  if (result && !result.isError) {
-    return result.result || []; // 防御
-  }
-  return [];
-}
-
-//显示点赞列表
-const goToLiked = async () => {
-  showLikeDialog.value = true;
-  //有值则直接返回
-  if (likeList.value.length > 0) return;
-  likeList.value = await loadLikeAndFavoritesList("like");
-}
-
-//显示收藏列表
-const goToFavorites = async () => {
-  showCollectDialog.value = true;
-  //有值则直接返回
-  if (collectList.value.length > 0) return;
-  collectList.value = await loadLikeAndFavoritesList("collect");
-}
-
-const messageAuthor = () => {
-  ElMessage.success('私信作者:' + user.value.name)
 }
 
 const showWelcome = ref(true);
 
-
 const enterHomepage = async () => {
   showWelcome.value = false;
-  // 调用子组件的播放方法
   if (bgMusicComponentRef.value) {
     bgMusicComponentRef.value.playMusicForce();
   }
 };
 
-
 onMounted(() => {
-  // 正常调用
   getUserInfo2Data();
 });
 </script>
 
 <style scoped>
-.person-info.bg-fade {
-  animation: bgfade .25s ease;
+/* ===== CSS 变量 ===== */
+:root {
+  --card-bg: rgba(255, 255, 255, 0.82);
+  --card-border: rgba(255, 255, 255, 0.6);
+  --card-shadow: 0 8px 32px rgba(0, 0, 0, 0.10);
+  --accent: #4f7cff;
+  --accent-warm: #ff7043;
+  --text-primary: #1a1f2e;
+  --text-secondary: #6b7280;
+  --text-muted: #adb5bd;
+  --radius-lg: 18px;
+  --radius-md: 12px;
+  --radius-sm: 8px;
 }
 
-@keyframes bgfade {
-  from {
-    opacity: .6;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
+/* ===== 页面根 ===== */
 .person-info {
   width: 100%;
   height: 100%;
@@ -555,255 +395,596 @@ onMounted(() => {
   background: url('/picture/user/default.webp') no-repeat center center fixed;
   background-size: cover;
   background-attachment: fixed;
-  transition: background-image .001s;
+  transition: background-image 0.001s;
 }
 
-
+/* ===== 布局 ===== */
 .inner-container {
-  max-width: 900px;
+  max-width: 1440px;
   margin: 0 auto;
-  padding: 0 16px;
+  padding: 0 24px;
   box-sizing: border-box;
 }
 
-.toolbar {
-  text-align: right;
-  margin-bottom: 12px;
-}
-
-.section-card,
-.profile-card {
-  background-color: rgba(255, 255, 255) !important;
-  border-radius: 12px;
-  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.08);
-  opacity: 0.9;
-}
-
-.profile-card {
-  margin-bottom: 24px;
-  padding: 24px;
-  border-radius: 12px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
-  background-color: #ffffff;
-}
-
-.profile-header {
+.content-columns {
   display: flex;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 20px;
+  gap: 40px;
+  align-items: flex-start;
 }
 
-.left-info {
-  display: flex;
-  align-items: center;
-}
-
-.author-avatar {
-  width: 100px !important;
-  height: 100px !important;
-  font-size: 20px;
-  background-color: #f2f2f2;
-}
-
-.profile-details {
-  margin-left: 24px;
-}
-
-.username {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 0;
-  font-size: 24px;
-  font-weight: bold;
-}
-
-.public-badge {
-  color: #000;
-  font-size: 12px;
-  font-weight: bold;
-  border-radius: 10px;
-  padding: 2px 8px;
-  line-height: 1.2;
-  margin-left: 4px;
+.person-left-wrapper {
+  position: sticky;
+  top: 20px;
+  width: 280px;
   flex-shrink: 0;
-  position: relative;
-  top: 0px;
+  margin-top: 36px;
 }
 
-.superAdmin-badge {
-  background-color: #ffdf02;
+.main-content {
+  flex: 1;
+  min-width: 0;
 }
 
-.admin-badge {
-  background-color: #86ff93;
+.right-sidebar {
+  width: 280px;
+  flex-shrink: 0;
 }
 
-.ban-badge {
-  background-color: #ff5a5a;
-}
-
-.user-remark {
-  font-size: 14px;
-  color: #555;
-  margin: 4px 0;
-  max-width: 300px;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  background-color: #f8f8f8;
-  padding: 4px 8px;
-  border-radius: 6px;
-  font-style: italic;
-}
-
-.userip {
-  color: #888;
-  margin: 4px 0;
-}
-
-.right-info {
+/* ===== 工具栏 ===== */
+.toolbar {
   display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: flex-end;
-  gap: 10px;
+  justify-content: flex-end;
+  height: 32px;
+  margin-bottom: 14px;
 }
 
-.stats {
-  font-size: 14px;
-  color: #666;
-  display: flex;
-  gap: 24px;
+.jump-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 16px;
+  height: 32px;
+  background: rgba(255, 255, 255, 0.75);
+  border: 1px solid rgba(255,255,255,0.7);
+  border-radius: 20px;
+  font-size: 13px;
+  color: #4f7cff;
+  cursor: pointer;
+  font-weight: 500;
+  letter-spacing: 0.3px;
+  backdrop-filter: blur(8px);
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 12px rgba(79,124,255,0.10);
 }
 
-.author-actions {
-  display: flex;
-  gap: 12px;
-  justify-content: center;
+.jump-btn:hover {
+  background: rgba(79,124,255,0.12);
+  border-color: rgba(79,124,255,0.3);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(79,124,255,0.18);
 }
 
-.author-actions .el-button {
-  box-shadow: 0 2px 8px rgb(64 158 255 / 0.3);
-  font-weight: 600;
-  user-select: none;
+.jump-btn-icon {
+  font-size: 15px;
 }
 
-.follow-button {
-  margin-top: 12px;
-  transition: all 0.3s ease;
-}
-
+/* ===== 通用卡片 ===== */
 .section-card {
-  margin-bottom: 30px;
-  padding: 16px 20px;
-  border-radius: 12px;
-  background-color: #ffffff;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--card-shadow);
+  margin-bottom: 28px;
+  padding: 24px 28px;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  transition: box-shadow 0.25s ease;
 }
 
+.section-card:hover {
+  box-shadow: 0 12px 40px rgba(0,0,0,0.13);
+}
+
+/* ===== 区块标题 ===== */
 .section-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 16px;
+  margin-bottom: 22px;
+  padding-bottom: 16px;
+  border-bottom: 1.5px solid rgba(0,0,0,0.055);
+}
+
+.section-title-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.section-icon {
+  font-size: 20px;
+  line-height: 1;
 }
 
 .section-title {
-  font-size: 18px;
-  font-weight: bold;
-  color: #333;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+  letter-spacing: 0.2px;
 }
 
-.blog-card {
-  transition: 0.3s;
+.section-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 20px;
+  padding: 0 7px;
+  background: rgba(79,124,255,0.12);
+  color: #4f7cff;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+/* ===== 自定义开关 ===== */
+.toggle-switch {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   cursor: pointer;
+  user-select: none;
+}
+
+.toggle-switch input {
+  display: none;
+}
+
+.toggle-track {
+  position: relative;
+  width: 36px;
+  height: 20px;
+  background: #d1d5db;
+  border-radius: 10px;
+  transition: background 0.2s;
+}
+
+.toggle-switch input:checked + .toggle-track {
+  background: #4f7cff;
+}
+
+.toggle-thumb {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 14px;
+  height: 14px;
+  background: #fff;
+  border-radius: 50%;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.18);
+  transition: transform 0.2s;
+}
+
+.toggle-switch input:checked + .toggle-track .toggle-thumb {
+  transform: translateX(16px);
+}
+
+.toggle-label {
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+/* ===== 时间线 ===== */
+.blog-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.timeline-item {
+  display: flex;
+  gap: 16px;
+  animation: fadeSlideUp 0.45s ease both;
+}
+
+@keyframes fadeSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 连接线 */
+.timeline-connector {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
+  width: 18px;
+  padding-top: 14px;
+}
+
+.timeline-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  border: 2.5px solid #fff;
+  box-shadow: 0 0 0 2px currentColor;
+  transition: transform 0.2s;
+}
+
+.dot-article {
+  background: #4f7cff;
+  color: #4f7cff;
+}
+
+.dot-community {
+  background: #ff7043;
+  color: #ff7043;
+}
+
+.timeline-line {
+  flex: 1;
+  width: 2px;
+  background: linear-gradient(to bottom, rgba(79,124,255,0.2), rgba(79,124,255,0.06));
+  margin: 6px 0;
+  min-height: 24px;
+}
+
+/* 时间线内容 */
+.timeline-content {
+  flex: 1;
+  min-width: 0;
+  padding-bottom: 20px;
+}
+
+.timeline-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.meta-tag {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+.tag-article {
+  background: rgba(79,124,255,0.12);
+  color: #4f7cff;
+}
+
+.tag-community {
+  background: rgba(255,112,67,0.12);
+  color: #ff7043;
+}
+
+.meta-time {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* ===== 博客卡片 ===== */
+.blog-card {
+  background: rgba(255,255,255,0.6);
+  border: 1px solid rgba(255,255,255,0.8);
+  border-radius: var(--radius-md);
+  padding: 16px 18px;
+  cursor: pointer;
+  transition: all 0.22s ease;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.04);
 }
 
 .blog-card:hover {
-  transform: scale(1.01);
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+  background: rgba(255,255,255,0.92);
+  box-shadow: 0 6px 24px rgba(79,124,255,0.10);
+  transform: translateY(-2px);
+  border-color: rgba(79,124,255,0.25);
+}
+
+.blog-card:hover .timeline-dot {
+  transform: scale(1.2);
+}
+
+.blog-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 8px 0;
+  line-height: 1.45;
+  transition: color 0.2s;
+}
+
+.blog-card:hover .blog-title {
+  color: #4f7cff;
 }
 
 .blog-summary {
   display: -webkit-box;
-  -webkit-line-clamp: 4;
+  -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
   text-overflow: ellipsis;
-  line-height: 1.6;
-  color: #666;
-  margin-top: 8px;
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--text-secondary);
+  margin: 0 0 10px 0;
 }
 
-.file-table :deep(.el-button) {
-  font-weight: bold;
+.blog-card-footer {
+  display: flex;
+  justify-content: flex-end;
 }
 
-.loading-text,
+.read-more {
+  font-size: 12px;
+  color: #4f7cff;
+  font-weight: 500;
+  opacity: 0;
+  transform: translateX(-6px);
+  transition: all 0.2s;
+}
+
+.blog-card:hover .read-more {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+/* ===== 加载更多 ===== */
+.load-more-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  margin-top: 16px;
+  padding: 11px 0;
+  background: transparent;
+  border: 1.5px dashed rgba(79,124,255,0.3);
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  color: #4f7cff;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.load-more-btn:hover {
+  background: rgba(79,124,255,0.06);
+  border-style: solid;
+  border-color: rgba(79,124,255,0.45);
+}
+
+.load-more-arrow {
+  font-size: 16px;
+  animation: bounce 1.4s ease infinite;
+}
+
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(4px); }
+}
+
+/* ===== 加载动画 ===== */
+.loading-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 20px 0;
+}
+
+.loading-dot {
+  width: 8px;
+  height: 8px;
+  background: #4f7cff;
+  border-radius: 50%;
+  animation: loadPulse 1.2s ease infinite;
+  opacity: 0.7;
+}
+
+.loading-dot:nth-child(2) { animation-delay: 0.2s; }
+.loading-dot:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes loadPulse {
+  0%, 100% { transform: scale(0.7); opacity: 0.4; }
+  50% { transform: scale(1); opacity: 1; }
+}
+
+/* ===== 结尾 ===== */
+.end-line {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 20px;
+  padding: 8px 0;
+}
+
+.end-dash {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(to right, transparent, rgba(0,0,0,0.1), transparent);
+}
+
 .end-text {
-  text-align: center;
-  color: #999;
-  margin: 16px 0;
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  letter-spacing: 0.5px;
 }
 
+/* ===== 空状态 ===== */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 40px 20px;
+  gap: 12px;
+}
+
+.empty-icon {
+  font-size: 32px;
+  color: #c9d0da;
+  line-height: 1;
+}
+
+.empty-text {
+  font-size: 14px;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+/* ===== 文件列表 ===== */
+.file-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.file-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  background: rgba(255,255,255,0.45);
+  border: 1px solid transparent;
+  transition: all 0.2s;
+  animation: fadeSlideUp 0.4s ease both;
+}
+
+.file-item:hover {
+  background: rgba(255,255,255,0.85);
+  border-color: rgba(79,124,255,0.18);
+  box-shadow: 0 3px 14px rgba(79,124,255,0.07);
+}
+
+.file-icon-wrap {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-sm);
+  background: rgba(79,124,255,0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.file-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.file-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.file-meta {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.download-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(79,124,255,0.25);
+  background: rgba(79,124,255,0.07);
+  color: #4f7cff;
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.download-btn:hover {
+  background: #4f7cff;
+  border-color: #4f7cff;
+  color: #fff;
+  transform: translateY(1px);
+  box-shadow: 0 4px 12px rgba(79,124,255,0.3);
+}
+
+/* ===== 右侧栏 ===== */
+.sidebar-card {
+  background-color: rgba(255, 255, 255, 0.88) !important;
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.07);
+  margin-bottom: 22px;
+}
+
+.sidebar-card-title {
+  font-size: 15px;
+  font-weight: bold;
+  color: var(--text-primary);
+}
+
+.sticky-category {
+  position: sticky;
+  top: 20px;
+}
+
+.align-spacer {
+  height: 36px;
+}
+
+/* ===== 响应式 ===== */
+@media (max-width: 1024px) {
+  .content-columns {
+    flex-direction: column;
+    gap: 24px;
+  }
+  .person-left-wrapper {
+    position: static;
+    width: 100%;
+    margin-top: 0;
+  }
+  .right-sidebar {
+    width: 100%;
+    position: static;
+  }
+  .align-spacer {
+    display: none;
+  }
+}
 
 @media (max-width: 768px) {
-  .person-info :deep(.el-timeline),
-  .person-info :deep(.el-timeline-item),
-  .person-info :deep(.el-timeline-item__wrapper) {
-    padding-left: 0 !important;
-    margin-left: 0 !important;
+  .section-card {
+    padding: 16px;
   }
-
-  .person-info :deep(.el-timeline-item__wrapper) {
-    width: 100% !important;
+  .timeline-connector {
+    display: none;
   }
-
-  .person-info :deep(.el-timeline-item__tail),
-  .person-info :deep(.el-timeline-item__node) {
-    display: none !important;
+  .timeline-item {
+    gap: 0;
   }
-
-  .profile-header {
-    flex-direction: column;
-    align-items: center;
-    text-align: center;
+  .timeline-content {
+    padding-bottom: 16px;
   }
-
-  .left-info {
-    flex-direction: column;
-    align-items: center;
-  }
-
-  .profile-details {
-    margin-left: 0;
-    margin-top: 12px;
-  }
-
-  .right-info {
-    align-items: center;
-    justify-content: center;
-    margin-top: 12px;
-  }
-
-  .stats {
-    justify-content: center;
-  }
-
-  .interaction-buttons {
-    flex-direction: column;
-    align-items: center;
-  }
-
-  .follow-button {
-    width: 100%;
-  }
-
-  .section-title {
-    text-align: center;
-  }
-
 }
 </style>
