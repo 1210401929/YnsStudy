@@ -1,9 +1,7 @@
 <template>
-  <!-- 公告横幅 -->
   <Announcement v-for="al in topAlert" :key="al.GUID" :TEXT="al.TEXT" :URL="al.URL" :URLNAME="al.URLNAME"/>
 
   <el-container class="blog-container" :style="currentBgStyle">
-    <!-- 背景图片/音乐组件-->
     <BackgroundAndMusic
         ref="bgMusicComponentRef"
         :is-self="false"
@@ -12,32 +10,24 @@
         :init-bg-audio="serverBgAudio"
         @update-bg-style="handleBgStyleUpdate"
     />
-    <!-- 左侧目录 -->
-    <el-aside width="220px" class="sidebar" v-if="blogContentStore.blogContents.length>0">
-      <el-menu style="background-color: rgba(14,165,233,0)" :default-active="selectedIndex.toString()"
-               @select="handleSelect">
-        <el-menu-item
-            v-for="(blogContent, index) in blogContentStore.blogContents"
-            :key="blogContent.GUID"
-            :index="index.toString()"
-            class="el-menu_"
-        >
-          <el-tag :type="blogContent.BLOG_TYPE === 'public'?'success':'danger'" effect="plain" size="small">{{
-              blogContent.BLOG_TYPE === "public" ? "公开" : "私密"
-            }}
-          </el-tag>
-          {{ blogContent.BLOG_TITLE }}
-        </el-menu-item>
-      </el-menu>
-    </el-aside>
 
-    <!-- 正文和评论部分 -->
-    <el-main class="content" v-if="blogContentStore.blogContents.length>0">
-      <RouterView/>
-    </el-main>
+    <div class="layout-wrapper">
+
+      <div class="sidebar-wrapper" v-if="blogContentStore.blogContents.length > 0">
+        <BlogSidebar
+            :user-code="userStore.userBean.code"
+            :is-router="true"
+            v-model:selectedIndex="selectedIndex"
+        />
+      </div>
+
+      <el-main class="content" v-if="blogContentStore.blogContents.length > 0">
+        <RouterView/>
+      </el-main>
+
+    </div>
   </el-container>
 
-  <!-- 引导提示（仅在没有内容时显示） -->
   <div v-if="isInitialized && blogContentStore.blogContents.length === 0" class="guide-tip">
     <div class="guide-box">
       <span>暂无文章，点击右下角按钮发布你的第一篇文章！</span>
@@ -45,7 +35,6 @@
     </div>
   </div>
 
-  <!-- 悬浮按钮 -->
   <el-button
       type="primary"
       :icon="Edit"
@@ -56,60 +45,46 @@
     发布文章
   </el-button>
 
-  <!-- 编辑器弹窗 -->
-  <el-dialog
-      v-model="editorVisible"
-      title="文章编辑"
-      width="900px"
-      top="2vh"
-      :close-on-click-modal="false"
-  >
+  <el-dialog v-model="editorVisible" title="文章编辑" width="900px" top="2vh" :close-on-click-modal="false">
     <ArticleEditor @submit="handleEditorSubmit" :is-public="true" :save-type="'add'" @cancel="editorVisible = false"/>
   </el-dialog>
 </template>
 
 <script setup>
-import {ref, onMounted} from 'vue'
-import {useRouter} from 'vue-router'
-import {useBlogContentStore} from '@/stores/detail/blog.js'
-import {useUserStore} from "@/stores/main/user.js";
-import {Edit} from '@element-plus/icons-vue'
-import {getGuid} from '@/utils/common.js'
+import { ref, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+import { useBlogContentStore } from '@/stores/detail/blog.js'
+import { useUserStore } from "@/stores/main/user.js"
+import { Edit } from '@element-plus/icons-vue'
+import { getGuid, sendAxiosRequest } from '@/utils/common.js'
 import ArticleEditor from '@/components/detail/ArticleEditor.vue'
-import {sendAxiosRequest} from "@/utils/common.js";
-import {ElMessage} from 'element-plus';
-import Announcement from "@/components/detail/Announcement.vue";
-import {getAnnouncementByRouterName} from "@/utils/blogUtil.js";
-import BackgroundAndMusic from "@/components/detail/personInformation/BackgroundAndMusic.vue";
+import { ElMessage } from 'element-plus'
+import Announcement from "@/components/detail/Announcement.vue"
+import { getAnnouncementByRouterName } from "@/utils/blogUtil.js"
+import BackgroundAndMusic from "@/components/detail/personInformation/BackgroundAndMusic.vue"
+
+// 分类归档目录组件
+import BlogSidebar from "@/components/detail/myblog/BlogSidebar.vue";
 
 const router = useRouter()
-const userStore = useUserStore();
+const userStore = useUserStore()
 const blogContentStore = useBlogContentStore()
-blogContentStore.blogContents = [];
 
-const selectedIndex = ref(0)
+blogContentStore.blogContents = []
+const selectedIndex = ref('')
 const editorVisible = ref(false)
 const isInitialized = ref(false)
 
+// ================= 基础交互 =================
 function subButtonClick() {
   let userBean = userStore.userBean;
   if (!userBean || !userBean.code) {
-    ElMessage.error("请先登录!");
-    return false;
+    return ElMessage.error("请先登录!");
   }
   editorVisible.value = true
 }
 
-function handleSelect(index) {
-  const item = blogContentStore.blogContents[index]
-  if (item) {
-    router.push({name: 'BlogContent', query: {g: item.GUID}})
-    selectedIndex.value = parseInt(index)
-  }
-}
-
 router.push({name: 'BlogContent', query: {g: "YouDontNeedToPayAttention"}});
-
 
 async function handleEditorSubmit({blog_type, title, content}) {
   let userBean = userStore.userBean;
@@ -119,97 +94,105 @@ async function handleEditorSubmit({blog_type, title, content}) {
     MAINTEXT: content,
     BLOG_TYPE: blog_type,
     USERCODE: userBean.code,
-    USERNAME: userBean.name
+    USERNAME: userBean.name,
+    CATEGORY_ID: null // 默认新文章暂不分类
   };
 
-  let result = await sendAxiosRequest("/blog-api/blog/addBlog", {blogContent});
+  await sendAxiosRequest("/blog-api/blog/addBlog", {blogContent});
   blogContentStore.blogContents.push(blogContent);
-  selectedIndex.value = blogContentStore.blogContents.length - 1
-  handleSelect(selectedIndex.value)
-  editorVisible.value = false
+
+  // 更新选中项并跳转
+  selectedIndex.value = blogContent.GUID;
+  router.push({name: 'BlogContent', query: {g: blogContent.GUID}});
+  editorVisible.value = false;
 }
 
-// ==== 背景与音乐：父组件状态对接 ====
+// ================= 背景与公告 =================
 const bgMusicComponentRef = ref(null);
 const serverBgImage = ref('');
 const serverBgAudio = ref('');
 const currentBgStyle = ref({});
 
-const handleBgStyleUpdate = (style) => {
-  currentBgStyle.value = style;
-}
+const handleBgStyleUpdate = (style) => currentBgStyle.value = style;
 
 function getUserInfo2Data() {
-  //获取用户设置信息 ，例如：背景图片，音乐
   const setPersonInfo = async () => {
-
     let result = await sendAxiosRequest("/blog-api/userInformation/getPersonInfo", {userCode: userStore.userBean.code});
     if (result && !result.isError) {
-      result = result.result[0] || {};
-      // 直接赋值给响应式变量，子组件的 watch 会接收到
-      //博客阅读界面不适用背景音乐功能，暂时注释
-      // serverBgAudio.value = result.BGMUSICURL || "";
-      serverBgImage.value = result.BGIMAGEURL || "";
+      serverBgImage.value = (result.result[0] || {}).BGIMAGEURL || "";
     }
   }
   setPersonInfo();
 }
 
-onMounted(async () => {
-
-  await blogContentStore.initBlogContent();
-  handleSelect(selectedIndex.value);
-  getUserInfo2Data();
-  isInitialized.value = true;
-})
-
-//公告横幅内容
 const topAlert = ref([]);
 const setTopAlert = async () => {
   topAlert.value = await getAnnouncementByRouterName("MyBlog");
 }
-setTopAlert();
+
+onMounted( () => {
+  blogContentStore.initBlogContent();
+
+  if (blogContentStore.blogContents.length > 0) {
+    // 默认选中第一篇并跳转
+    // selectedIndex.value = blogContentStore.blogContents[0].GUID;
+    // router.push({name: 'BlogContent', query: {g: selectedIndex.value}});
+  }
+
+  getUserInfo2Data();
+  setTopAlert();
+  isInitialized.value = true;
+})
 </script>
 
 <style scoped>
+/* 最外层容器，只负责背景 */
 .blog-container {
-  display: flex;
-  justify-content: center;
-  align-items: flex-start;
-  padding: 15px 10px;
-  gap: 16px;
   min-height: 100vh;
   box-sizing: border-box;
   position: relative;
-  /* 新增：确保背景图片能完美铺满并固定 */
   background-size: cover;
   background-position: center;
   background-attachment: fixed;
-  transition: background-image .3s ease; /* 柔和的切换动画 */
+  transition: background-image .3s ease;
 }
 
-.sidebar {
-  background-color: rgba(255, 255, 255, 0.9);
-  border-radius: 12px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-  padding: 20px 10px;
-  height: fit-content;
+/* 🎯 核心布局层：限制最大宽度并居中 */
+.layout-wrapper {
+  width: 100%;
+  max-width: 1440px; /* 和个人主页保持一致的大气宽屏 */
+  margin: 0 auto;
+  padding: 24px 16px;
+  display: flex;
+  align-items: flex-start;
+  gap: 32px; /* 左边侧边栏和右侧正文的间距 */
+  box-sizing: border-box;
+}
+
+/* 🎯 侧边栏约束容器 */
+.sidebar-wrapper {
+  width: 280px;    /* 死死锁住 280px 宽度 */
+  flex-shrink: 0;  /* 绝对不允许被挤压变窄 */
   position: sticky;
-  top: 15px;
-  will-change: transform;
-  transition: top 0.1s ease;
+  top: 24px;       /* 开启独立吸顶 */
 }
 
+/* 右侧正文区域 */
 .content {
-  flex: 1;
-  background: rgba(255, 255, 255, 0.5);
+  flex: 1; /* 占据剩余全部空间 */
+  min-width: 0; /* 防止内容过长撑破 Flex 布局 */
+
+  /* 统一卡片美化风格 */
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.5);
   border-radius: 12px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.08);
+
   padding: 24px;
   min-height: 82vh;
 }
 
-/* 发布按钮 */
+/* =============== 悬浮按钮和提示框保持不变 =============== */
 .fab-button {
   position: fixed;
   bottom: 30px;
@@ -231,26 +214,19 @@ setTopAlert();
 }
 
 @keyframes pulse {
-  0%, 100% {
-    box-shadow: 0 0 20px rgba(64, 158, 255, 0.8);
-    transform: scale(1);
-  }
-  50% {
-    box-shadow: 0 0 40px rgba(64, 158, 255, 1);
-    transform: scale(1.08);
-  }
+  0%, 100% { box-shadow: 0 0 20px rgba(64, 158, 255, 0.8); transform: scale(1); }
+  50% { box-shadow: 0 0 40px rgba(64, 158, 255, 1); transform: scale(1.08); }
 }
 
-/* 引导提示框 */
 .guide-tip {
   position: fixed;
-  bottom: 100px; /* 距离页面底部的距离 */
-  right: 60px; /* 微调靠近按钮 */
+  bottom: 100px;
+  right: 60px;
   z-index: 1001;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  pointer-events: none; /* 防止遮挡点击 */
+  pointer-events: none;
 }
 
 .guide-box {
@@ -262,54 +238,35 @@ setTopAlert();
   color: #333;
   position: relative;
   max-width: 240px;
-  pointer-events: auto; /* 引导框内部可交互 */
+  pointer-events: auto;
 }
 
 .arrow-down {
   position: absolute;
   bottom: -10px;
-  right: 20px; /* 精准指向按钮的右边中心点 */
+  right: 20px;
   width: 0;
   height: 0;
   border-left: 8px solid transparent;
   border-right: 8px solid transparent;
   border-top: 10px solid #fff;
-  transform: translateX(50%); /* 让箭头尖端指向按钮中心 */
+  transform: translateX(50%);
 }
 
-.el-menu_ {
-  /* 🌟 新增：文字过长省略 */
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  max-width: 100%;
-  display: block;
-}
-
-/* 移动端优化 */
-@media screen and (max-width: 768px) {
-  .blog-container {
+/* 响应式：屏幕较小时变成上下结构 */
+@media screen and (max-width: 992px) {
+  .layout-wrapper {
     flex-direction: column;
-    padding: 10px;
+    padding: 16px;
+    gap: 20px;
   }
-
-  .sidebar {
+  .sidebar-wrapper {
     width: 100%;
-    margin-top: 0;
-    position: static;
-    border-radius: 8px;
+    position: static; /* 手机端取消吸顶 */
   }
-
   .content {
     width: 100%;
-    margin-top: 16px;
-    border-radius: 8px;
-  }
-
-  .guide-tip {
-    bottom: 120px;
-    right: 20px;
-    font-size: 12px;
+    margin-top: 0;
   }
 }
 </style>

@@ -24,7 +24,7 @@ public class BlogController {
     @ResponseBody
     public ResultBody addBlog(@RequestBody Map<String, Object> params) {
         Map<String, String> blogMap = (Map<String, String>) params.get("blogContent");
-        BlogBean blogBean = new BlogBean(blogMap.get("GUID"), blogMap.get("BLOG_TITLE"), blogMap.get("BLOG_TYPE"), blogMap.get("MAINTEXT"), blogMap.get("USERCODE"), blogMap.get("USERNAME"));
+        BlogBean blogBean = new BlogBean(blogMap.get("GUID"), blogMap.get("BLOG_TITLE"), blogMap.get("BLOG_TYPE"), blogMap.get("MAINTEXT"), blogMap.get("USERCODE"), blogMap.get("USERNAME"), blogMap.get("CAT_ID"));
         return blogService.addBlog(blogBean);
     }
 
@@ -42,13 +42,26 @@ public class BlogController {
         String blog_type = params.get("blog_type");
         String title = params.get("title");
         String content = params.get("content");
-        return blogService.updateBlog(guid, title, content,blog_type);
+        return blogService.updateBlog(guid, title, content, blog_type);
     }
 
     @RequestMapping("/getUserBlog")
     @ResponseBody
     public ResultBody getUserBlog(HttpSession session) {
         return blogService.getUserBlog(session);
+    }
+    @RequestMapping("/getUserBlogByUserCode")
+    @ResponseBody
+    public ResultBody getUserBlogByUserCode(@RequestBody Map<String, String> params) {
+        String userCode = params.get("userCode");
+        return blogService.getUserBlogByUserCode(userCode,"public");
+    }
+    @RequestMapping("/updateBlogCatId")
+    @ResponseBody
+    public ResultBody updateBlogCatId(@RequestBody Map<String, String> params) {
+        String blogId = params.get("blogId");
+        String catId = params.get("catId");
+        return blogService.updateBlogCatId(blogId, catId);
     }
 
     @RequestMapping("/getBlog")
@@ -61,10 +74,38 @@ public class BlogController {
     @RequestMapping("/getAllBlog")
     @ResponseBody
     public ResultBody getAllBlog(@RequestBody Map<String, Object> params) {
-        int page = (int)params.get("page");
-        int pageSize = (int)params.get("pageSize");
+        int page = (int) params.get("page");
+        int pageSize = (int) params.get("pageSize");
         String keyword = (String) params.get("keyword");
         return blogService.getAllBlog(page, pageSize, keyword);
+    }
+
+    @RequestMapping("/addBlogCat")
+    @ResponseBody
+    public ResultBody addBlogCat(@RequestBody Map<String, Object> params) {
+        Map<String, String> blogCat = (Map<String, String>) params.get("blogCat");
+        return blogService.addBlogCat(blogCat);
+    }
+
+    @RequestMapping("/updateBlogCat")
+    @ResponseBody
+    public ResultBody updateBlogCat(@RequestBody Map<String, Object> params) {
+        Map<String, String> blogCat = (Map<String, String>) params.get("blogCat");
+        return blogService.updateBlogCat(blogCat);
+    }
+
+    @RequestMapping("/getUserBlogCat")
+    @ResponseBody
+    public ResultBody getUserBlogCat(@RequestBody Map<String, Object> params) {
+        String userCode = (String) params.get("userCode");
+        return blogService.getUserBlogCat(userCode);
+    }
+
+    @RequestMapping("/deleteBlogCat")
+    @ResponseBody
+    public ResultBody deleteBlogCat(@RequestBody Map<String, String> params) {
+        String guid = params.get("guid");
+        return blogService.deleteBlogCat(guid);
     }
 
     @RequestMapping("/addComment")
@@ -90,16 +131,18 @@ public class BlogController {
 
     @RequestMapping("/giveLikeBlog")
     @ResponseBody
-    public ResultBody giveLikeBlog(@RequestBody Map<String, Object> params,HttpSession session) {
+    public ResultBody giveLikeBlog(@RequestBody Map<String, Object> params, HttpSession session) {
         String blogId = (String) params.get("blogId");
-        return blogService.giveLikeBlog(blogId,session);
+        return blogService.giveLikeBlog(blogId, session);
     }
+
     @RequestMapping("/noGiveLikeBlog")
     @ResponseBody
-    public ResultBody noGiveLikeBlog(@RequestBody Map<String, Object> params,HttpSession session) {
+    public ResultBody noGiveLikeBlog(@RequestBody Map<String, Object> params, HttpSession session) {
         String blogId = (String) params.get("blogId");
-        return blogService.noGiveLikeBlog(blogId,session);
+        return blogService.noGiveLikeBlog(blogId, session);
     }
+
     @RequestMapping("/getGiveLikeByBlogId")
     @ResponseBody
     public ResultBody getGiveLikeByBlogId(@RequestBody Map<String, Object> params) {
@@ -113,25 +156,27 @@ public class BlogController {
         String blogId = (String) params.get("blogId");
         return blogService.getLikeAndCollectByBlogId(blogId);
     }
+
     @RequestMapping("/getLikeAndCollectByUserCode")
     @ResponseBody
     public ResultBody getLikeAndCollectByUserCode(@RequestBody Map<String, Object> params) {
         String userCode = (String) params.get("userCode");
         String isCountOnly = (String) params.get("isCountOnly");
         String type = (String) params.get("type");
-        return blogService.getLikeAndCollectByUserCode(userCode, isCountOnly,type);
+        return blogService.getLikeAndCollectByUserCode(userCode, isCountOnly, type);
     }
+
     @RequestMapping("/collectBlog")
     @ResponseBody
-    public ResultBody collectBlog(@RequestBody Map<String, Object> params,HttpSession session) {
+    public ResultBody collectBlog(@RequestBody Map<String, Object> params, HttpSession session) {
         String blogId = (String) params.get("blogId");
-        return blogService.collectBlog(blogId,session);
+        return blogService.collectBlog(blogId, session);
     }
 
     @RequestMapping("/noCollectBlog")
     @ResponseBody
-    public ResultBody noCollectBlog(@RequestBody Map<String, Object> params,HttpSession session) {
+    public ResultBody noCollectBlog(@RequestBody Map<String, Object> params, HttpSession session) {
         String blogId = (String) params.get("blogId");
-        return blogService.noCollectBlog(blogId,session);
+        return blogService.noCollectBlog(blogId, session);
     }
 }

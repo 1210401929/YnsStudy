@@ -5,18 +5,11 @@ public class BlogBean {
     private String GUID;
     private String BLOG_TITLE;
     private String BLOG_TYPE;
+
     private String MAINTEXT;
     private String USERCODE;
     private String USERNAME;
-
-    public BlogBean(String GUID, String BLOG_TITLE, String BLOG_TYPE, String MAINTEXT, String USERCODE, String USERNAME) {
-        this.GUID = GUID;
-        this.BLOG_TITLE = BLOG_TITLE;
-        this.BLOG_TYPE = BLOG_TYPE;
-        this.MAINTEXT = MAINTEXT;
-        this.USERCODE = USERCODE;
-        this.USERNAME = USERNAME;
-    }
+    private String CAT_ID;
 
     public String getGUID() {
         return GUID;
@@ -64,5 +57,24 @@ public class BlogBean {
 
     public void setUSERNAME(String USERNAME) {
         this.USERNAME = USERNAME;
+    }
+
+    public String getCAT_ID() {
+        return CAT_ID;
+    }
+
+    public void setCAT_ID(String CAT_ID) {
+        this.CAT_ID = CAT_ID;
+    }
+
+
+    public BlogBean(String GUID, String BLOG_TITLE, String BLOG_TYPE, String MAINTEXT, String USERCODE, String USERNAME, String CAT_ID) {
+        this.GUID = GUID;
+        this.BLOG_TITLE = BLOG_TITLE;
+        this.BLOG_TYPE = BLOG_TYPE;
+        this.MAINTEXT = MAINTEXT;
+        this.USERCODE = USERCODE;
+        this.USERNAME = USERNAME;
+        this.CAT_ID = CAT_ID;
     }
 }

@@ -244,6 +244,46 @@ public class SqlServiceImpl implements SqlService {
         }
     }
 
+    // 执行多条 SQL，支持事务
+    @Override
+    @Transactional(rollbackFor = Exception.class) // 显式指定异常回滚
+    public ResultBody exeSqlListByParams(List<String> sqls, List<List<Object>> paramsList) {
+        if (sqls == null || paramsList == null || sqls.size() != paramsList.size()) {
+            return ResultBody.createErrorResult("SQL 语句与参数列表数量不匹配");
+        }
+
+        // 获取数据库链接（Spring 会管理这里的事务连接）
+        try (Connection conn = dataSource.getConnection()) {
+            int totalUpdateCount = 0;
+
+            for (int i = 0; i < sqls.size(); i++) {
+                String sql = sqls.get(i);
+                List<Object> params = paramsList.get(i);
+
+                // 简单的安全校验
+                if (!checkSql(sql, "exe")) {
+                    throw new SQLException("禁止执行危险 SQL: " + sql);
+                }
+
+                try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+                    // 设置参数
+                    if (params != null) {
+                        for (int j = 0; j < params.size(); j++) {
+                            stmt.setObject(j + 1, params.get(j));
+                        }
+                    }
+
+                    // 执行更新操作
+                    totalUpdateCount += stmt.executeUpdate();
+                }
+            }
+            return ResultBody.createSuccessResult("批量执行成功，总影响行数：" + totalUpdateCount);
+        } catch (SQLException e) {
+            // 在 @Transactional 下，抛出 RuntimeException 会触发回滚
+            throw new RuntimeException("数据库执行失败，事务已回滚: " + e.getMessage());
+        }
+    }
+
     private boolean checkSql(String sql, String type) {
         String checkSql = sql.toLowerCase();
         if (type != "exe") {

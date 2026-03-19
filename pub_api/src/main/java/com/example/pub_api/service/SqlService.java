@@ -21,4 +21,6 @@ public interface SqlService {
 
     //参数形式的exeSql  更安全 更完善
     ResultBody exeSqlByParams(String sql, List<Object> params);
+    // 执行多条 SQL，支持事务
+    ResultBody exeSqlListByParams(List<String> sqls, List<List<Object>> paramsList);
 }

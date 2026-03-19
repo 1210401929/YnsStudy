@@ -42,10 +42,25 @@ public class BlogServiceImpl implements BlogService {
         if (userBean == null) {
             return ResultBody.createErrorResult("用户未登录!");
         } else {
-            String userCode = userBean.getCODE();
-            String sql = "select GUID,BLOG_TITLE,BLOG_TYPE,USERCODE,USERNAME,VIEW_PAGE,CREATE_TIME from blogInfo " +
-                    "where userCode = '" + userCode + "' " +
-                    "order by (case BLOG_TYPE when 'public' then 0 when 'privacy' then 1 else 2 end), create_time DESC";
+            ResultBody result = getUserBlogByUserCode(userBean.getCODE(), null);
+            return result;
+        }
+    }
+
+    @Override
+    public ResultBody getUserBlogByUserCode(String userCode, String blogType) {
+        Boolean isAll = blogType == null ? true : false;
+        if (userCode == null) {
+            return ResultBody.createErrorResult("用户编码出错!");
+        } else {
+            String sql = "select GUID,BLOG_TITLE,BLOG_TYPE,USERCODE,USERNAME,VIEW_PAGE,CREATE_TIME,CAT_ID from blogInfo " +
+                    "where userCode = '" + userCode + "' " ;
+            //如果不是查询该用户所有文章,则根据文章类型过滤    私密/公开
+            if(!isAll){
+                sql += "and blog_type = 'public'";
+            }
+            //排序
+            sql += "order by (case BLOG_TYPE when 'public' then 0 when 'privacy' then 1 else 2 end), create_time DESC";
             Map<String, Object> params_ = new HashMap<>();
             params_.put("sql", sql);
             //对于使用访问网关  推荐先接收返回结果,再返回,否则会有未知问题
@@ -56,6 +71,32 @@ public class BlogServiceImpl implements BlogService {
                 return ResultBody.createErrorResult("查询异常!");
             }
         }
+    }
+
+    @Override
+    public ResultBody getUserBlogTitle(HttpSession session) {
+        return null;
+    }
+
+    @Override
+    public ResultBody getUserBlogNum(HttpSession session) {
+        return null;
+    }
+
+    @Override
+    public ResultBody getBlogTitleByCatId(String catId) {
+        return null;
+    }
+
+    @Override
+    public ResultBody updateBlogCatId(String blogId, String catId) {
+        String updateSql = "update blogInfo set CAT_ID = ? where GUID = ?";
+        List<Object> listParmas = Arrays.asList(catId, blogId);
+        Map<String, Object> params = new HashMap<>();
+        params.put("sql", updateSql);
+        params.put("params", listParmas);
+        ResultBody result = callService.callFunWithParams(FunToUrlUtil.exeSqlByParamsUrl, params);
+        return result;
     }
 
     @Override
@@ -245,6 +286,74 @@ public class BlogServiceImpl implements BlogService {
             }
         }
         return ResultBody.createErrorResult("删除异常!");
+    }
+
+    @Override
+    public ResultBody addBlogCat(Map<String, String> blogCat) {
+        Map<String, Object> params = new HashMap<>();
+        List<Map<String, String>> data = new ArrayList<>();
+        data.add(blogCat);
+        params.put("saveType", "add");
+        params.put("tableName", "BLOGCATINFO");
+        params.put("data", data);
+        params.put("key", "GUID");
+        ResultBody result = callService.callFunWithParams(FunToUrlUtil.saveAllTableDataUrl, params);
+        return result;
+    }
+
+    @Override
+    public ResultBody updateBlogCat(Map<String, String> blogCat) {
+        Map<String, Object> params = new HashMap<>();
+        List<Map<String, String>> data = new ArrayList<>();
+        data.add(blogCat);
+        params.put("saveType", "edit");
+        params.put("tableName", "BLOGCATINFO");
+        params.put("data", data);
+        params.put("key", "GUID");
+        ResultBody result = callService.callFunWithParams(FunToUrlUtil.saveAllTableDataUrl, params);
+        return result;
+    }
+
+    public ResultBody deleteBlogCat(String guid) {
+        // 准备 SQL 列表
+        List<String> sqls = Arrays.asList(
+                //删除前，先把属于该分类以及下级分类的文章的分类id清除
+                "update blogInfo set cat_id = null where cat_id in (select guid from BLOGCATINFO where guid = ? or superguid = ?)",
+                //删除分类sql
+                "delete from BLOGCATINFO where guid = ? or superguid = ?"
+        );
+
+        // 准备对应的参数列表
+        List<List<Object>> paramsList = Arrays.asList(
+                Arrays.asList(guid, guid), // 第一条 SQL 的参数
+                Arrays.asList(guid, guid)  // 第二条 SQL 的参数
+        );
+
+        // 封装成 Map 传给网关
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("sqls", sqls);
+        payload.put("params", paramsList);
+
+        // 调用服务端新增的方法
+        return callService.callFunWithParams(FunToUrlUtil.exeSqlListByParamsUrl, payload);
+    }
+
+    @Override
+    public ResultBody getUserBlogCat(String userCode) {
+
+        String sql = "select * from blogCatInfo " +
+                "where userCode = '" + userCode + "' " +
+                "order by orderNo ";
+        Map<String, Object> params_ = new HashMap<>();
+        params_.put("sql", sql);
+        //对于使用访问网关  推荐先接收返回结果,再返回,否则会有未知问题
+        ResultBody result = callService.callFunWithParams(FunToUrlUtil.selectListUrl, params_);
+        if (result != null && !result.isError) {
+            return result;
+        } else {
+            return ResultBody.createErrorResult("查询异常!");
+        }
+
     }
 
     @Override
