@@ -14,7 +14,7 @@ import ContentAndComment from "@/views/detail/blog/ContentAndComment.vue";
 
 import personalCenter from "@/views/main/user/personalCenter.vue";
 import personInfomation from "@/views/main/user/personInformation.vue";
-
+import personInfomationV2 from "@/views/main/user/personInformationV2.vue";
 import sso from "@/views/main/sso/sso.vue";
 
 const routes = [
@@ -29,6 +29,8 @@ const routes = [
     {path: '/personalCenter', name: 'personalCenter', component: personalCenter},
     //账号主页   u为传递的参数
     {path:'/personInfomation/:u',name:'personInfomation',component: personInfomation},
+    //账号主页   u为传递的参数
+    {path:'/personInfomationV2/:u',name:'personInfomationV2',component: personInfomationV2},
     //Ai
     {path: '/YnsStudyAi', name: 'YnsStudyAi', component: YnsStudyAi},
     //展示一条博客内容

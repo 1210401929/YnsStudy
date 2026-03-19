@@ -476,7 +476,7 @@ onMounted(() => {
   box-shadow: var(--card-shadow);
   margin-bottom: 28px;
   padding: 24px 28px;
-  backdrop-filter: blur(12px);
+  /*backdrop-filter: blur(12px);/*中间发表内容区域模糊效果*/
   -webkit-backdrop-filter: blur(12px);
   transition: box-shadow 0.25s ease;
 }
@@ -678,7 +678,7 @@ onMounted(() => {
 
 /* ===== 博客卡片 ===== */
 .blog-card {
-  background: rgba(255,255,255,0.6);
+  background: rgba(255,255,255,0.8);
   border: 1px solid rgba(255,255,255,0.8);
   border-radius: var(--radius-md);
   padding: 16px 18px;
@@ -755,7 +755,8 @@ onMounted(() => {
   border: 1.5px dashed rgba(79,124,255,0.3);
   border-radius: var(--radius-md);
   font-size: 14px;
-  color: #4f7cff;
+  color: #000000;
+  background-color: rgba(14, 165, 233, 0.22);
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s;
@@ -933,7 +934,8 @@ onMounted(() => {
 .sidebar-card {
   background-color: rgba(255, 255, 255, 0.88) !important;
   border: 1px solid rgba(255, 255, 255, 0.6);
-  border-radius: var(--radius-lg);
+  border-radius: 12px;
+
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.07);
   margin-bottom: 22px;
 }
