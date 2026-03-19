@@ -45,7 +45,7 @@
                 <span class="section-count" v-if="showBlogs.length">{{ showBlogs.length }}+</span>
               </div>
               <label class="toggle-switch">
-                <input type="checkbox" v-model="onlyArticle" />
+                <input type="checkbox" v-model="onlyArticle"/>
                 <span class="toggle-track">
                   <span class="toggle-thumb"></span>
                 </span>
@@ -155,12 +155,17 @@
                 </span>
               </div>
             </template>
-            <div class="recent-articles-placeholder">
-              <el-skeleton :rows="3" animated />
-              <div style="margin-top: 15px;">
-                <el-skeleton :rows="2" animated />
-              </div>
-            </div>
+            <ul class="recent-articles-list">
+              <li
+                  v-for="article in recentArticles"
+                  :key="article.GUID"
+                  class="recent-article-item"
+                  :title="article.BLOG_TITLE"
+                  @click="blogMainClick(article)"
+              >
+                {{ article.BLOG_TITLE }}
+              </li>
+            </ul>
           </el-card>
 
           <div class="sticky-category">
@@ -183,9 +188,9 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed, defineAsyncComponent } from 'vue'
-import { ElMessage } from 'element-plus'
-import { useRoute } from 'vue-router'
+import {ref, onMounted, computed, defineAsyncComponent} from 'vue'
+import {ElMessage} from 'element-plus'
+import {useRoute} from 'vue-router'
 import {
   pubFormatDate,
   decrypt,
@@ -202,11 +207,12 @@ import UserInfo from "@/components/main/UserInfo.vue";
 
 const ContentAndComment = defineAsyncComponent(() => import('@/views/detail/blog/ContentAndComment.vue'))
 
-import { useUserStore } from '@/stores/main/user.js'
+import {useUserStore} from '@/stores/main/user.js'
 
 const userStore = useUserStore()
 userStore.initFromLocal()
-
+// 模拟的最近文章数据
+const recentArticles = ref([])
 const route = useRoute()
 const user = ref({})
 const selectedCategory = ref('')
@@ -233,7 +239,7 @@ const currentBgStyle = ref({});
 const handleBgStyleUpdate = (style) => currentBgStyle.value = style;
 
 const page = ref(1)
-const pageSize = 3
+const pageSize = 5
 const loading = ref(false)
 const noMore = ref(false)
 
@@ -252,6 +258,10 @@ const fetchArticles = async (userCode) => {
     if (newData.length < pageSize) noMore.value = true
     blogs.value.push(...newData)
     page.value++
+    //给最近文章区域赋值
+    if (recentArticles.value.length < 5) {
+      recentArticles.value = [...blogs.value].filter(item=>item.TYPE==='blog').splice(0, 5);
+    }
   } catch (e) {
     console.error('获取内容失败', e)
   } finally {
@@ -347,9 +357,9 @@ const getFileIcon = (filename) => {
 const fileSection = ref(null)
 const scrollToFiles = () => {
   if (fileSection.value?.$el) {
-    fileSection.value.$el.scrollIntoView({ behavior: 'smooth' })
+    fileSection.value.$el.scrollIntoView({behavior: 'smooth'})
   } else if (fileSection.value) {
-    fileSection.value.scrollIntoView({ behavior: 'smooth' })
+    fileSection.value.scrollIntoView({behavior: 'smooth'})
   }
 }
 
@@ -430,6 +440,38 @@ onMounted(() => {
   flex-shrink: 0;
 }
 
+/* 最近文章列表样式 */
+.recent-articles-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.recent-article-item {
+  padding: 10px 0;
+  font-size: 14px;
+  color: #333; /* 可以根据你的主题颜色自行调整 */
+  cursor: pointer;
+  border-bottom: 1px dashed #ebeef5; /* 分割线 */
+  transition: color 0.3s ease;
+
+  /* 核心逻辑：单行超出显示省略号 */
+  white-space: nowrap; /* 强制不换行 */
+  overflow: hidden; /* 超出部分隐藏 */
+  text-overflow: ellipsis; /* 显示省略号 */
+}
+
+/* 最后一项去掉底部边框 */
+.recent-article-item:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+/* 鼠标悬浮时的交互颜色 */
+.recent-article-item:hover {
+  color: #409EFF;
+}
+
 /* ===== 工具栏 ===== */
 .toolbar {
   display: flex;
@@ -445,7 +487,7 @@ onMounted(() => {
   padding: 0 16px;
   height: 32px;
   background: rgba(255, 255, 255, 0.75);
-  border: 1px solid rgba(255,255,255,0.7);
+  border: 1px solid rgba(255, 255, 255, 0.7);
   border-radius: 20px;
   font-size: 13px;
   color: #4f7cff;
@@ -454,14 +496,14 @@ onMounted(() => {
   letter-spacing: 0.3px;
   backdrop-filter: blur(8px);
   transition: all 0.2s ease;
-  box-shadow: 0 2px 12px rgba(79,124,255,0.10);
+  box-shadow: 0 2px 12px rgba(79, 124, 255, 0.10);
 }
 
 .jump-btn:hover {
-  background: rgba(79,124,255,0.12);
-  border-color: rgba(79,124,255,0.3);
+  background: rgba(79, 124, 255, 0.12);
+  border-color: rgba(79, 124, 255, 0.3);
   transform: translateY(-1px);
-  box-shadow: 0 4px 16px rgba(79,124,255,0.18);
+  box-shadow: 0 4px 16px rgba(79, 124, 255, 0.18);
 }
 
 .jump-btn-icon {
@@ -482,7 +524,7 @@ onMounted(() => {
 }
 
 .section-card:hover {
-  box-shadow: 0 12px 40px rgba(0,0,0,0.13);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.13);
 }
 
 /* ===== 区块标题 ===== */
@@ -492,7 +534,7 @@ onMounted(() => {
   justify-content: space-between;
   margin-bottom: 22px;
   padding-bottom: 16px;
-  border-bottom: 1.5px solid rgba(0,0,0,0.055);
+  border-bottom: 1.5px solid rgba(0, 0, 0, 0.055);
 }
 
 .section-title-group {
@@ -521,7 +563,7 @@ onMounted(() => {
   min-width: 24px;
   height: 20px;
   padding: 0 7px;
-  background: rgba(79,124,255,0.12);
+  background: rgba(79, 124, 255, 0.12);
   color: #4f7cff;
   border-radius: 20px;
   font-size: 11px;
@@ -562,7 +604,7 @@ onMounted(() => {
   height: 14px;
   background: #fff;
   border-radius: 50%;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.18);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
   transition: transform 0.2s;
 }
 
@@ -633,7 +675,7 @@ onMounted(() => {
 .timeline-line {
   flex: 1;
   width: 2px;
-  background: linear-gradient(to bottom, rgba(79,124,255,0.2), rgba(79,124,255,0.06));
+  background: linear-gradient(to bottom, rgba(79, 124, 255, 0.2), rgba(79, 124, 255, 0.06));
   margin: 6px 0;
   min-height: 24px;
 }
@@ -662,12 +704,12 @@ onMounted(() => {
 }
 
 .tag-article {
-  background: rgba(79,124,255,0.12);
+  background: rgba(79, 124, 255, 0.12);
   color: #4f7cff;
 }
 
 .tag-community {
-  background: rgba(255,112,67,0.12);
+  background: rgba(255, 112, 67, 0.12);
   color: #ff7043;
 }
 
@@ -678,20 +720,20 @@ onMounted(() => {
 
 /* ===== 博客卡片 ===== */
 .blog-card {
-  background: rgba(255,255,255,0.8);
-  border: 1px solid rgba(255,255,255,0.8);
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.8);
   border-radius: var(--radius-md);
   padding: 16px 18px;
   cursor: pointer;
   transition: all 0.22s ease;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.04);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
 }
 
 .blog-card:hover {
-  background: rgba(255,255,255,0.92);
-  box-shadow: 0 6px 24px rgba(79,124,255,0.10);
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 6px 24px rgba(79, 124, 255, 0.10);
   transform: translateY(-2px);
-  border-color: rgba(79,124,255,0.25);
+  border-color: rgba(79, 124, 255, 0.25);
 }
 
 .blog-card:hover .timeline-dot {
@@ -752,7 +794,7 @@ onMounted(() => {
   margin-top: 16px;
   padding: 11px 0;
   background: transparent;
-  border: 1.5px dashed rgba(79,124,255,0.3);
+  border: 1.5px dashed rgba(79, 124, 255, 0.3);
   border-radius: var(--radius-md);
   font-size: 14px;
   color: #000000;
@@ -763,9 +805,9 @@ onMounted(() => {
 }
 
 .load-more-btn:hover {
-  background: rgba(79,124,255,0.06);
+  background: rgba(79, 124, 255, 0.06);
   border-style: solid;
-  border-color: rgba(79,124,255,0.45);
+  border-color: rgba(79, 124, 255, 0.45);
 }
 
 .load-more-arrow {
@@ -774,8 +816,12 @@ onMounted(() => {
 }
 
 @keyframes bounce {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(4px); }
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(4px);
+  }
 }
 
 /* ===== 加载动画 ===== */
@@ -796,12 +842,23 @@ onMounted(() => {
   opacity: 0.7;
 }
 
-.loading-dot:nth-child(2) { animation-delay: 0.2s; }
-.loading-dot:nth-child(3) { animation-delay: 0.4s; }
+.loading-dot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.loading-dot:nth-child(3) {
+  animation-delay: 0.4s;
+}
 
 @keyframes loadPulse {
-  0%, 100% { transform: scale(0.7); opacity: 0.4; }
-  50% { transform: scale(1); opacity: 1; }
+  0%, 100% {
+    transform: scale(0.7);
+    opacity: 0.4;
+  }
+  50% {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 
 /* ===== 结尾 ===== */
@@ -816,7 +873,7 @@ onMounted(() => {
 .end-dash {
   flex: 1;
   height: 1px;
-  background: linear-gradient(to right, transparent, rgba(0,0,0,0.1), transparent);
+  background: linear-gradient(to right, transparent, rgba(0, 0, 0, 0.1), transparent);
 }
 
 .end-text {
@@ -860,23 +917,23 @@ onMounted(() => {
   gap: 14px;
   padding: 12px 14px;
   border-radius: var(--radius-sm);
-  background: rgba(255,255,255,0.45);
+  background: rgba(255, 255, 255, 0.45);
   border: 1px solid transparent;
   transition: all 0.2s;
   animation: fadeSlideUp 0.4s ease both;
 }
 
 .file-item:hover {
-  background: rgba(255,255,255,0.85);
-  border-color: rgba(79,124,255,0.18);
-  box-shadow: 0 3px 14px rgba(79,124,255,0.07);
+  background: rgba(255, 255, 255, 0.85);
+  border-color: rgba(79, 124, 255, 0.18);
+  box-shadow: 0 3px 14px rgba(79, 124, 255, 0.07);
 }
 
 .file-icon-wrap {
   width: 36px;
   height: 36px;
   border-radius: var(--radius-sm);
-  background: rgba(79,124,255,0.08);
+  background: rgba(79, 124, 255, 0.08);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -910,8 +967,8 @@ onMounted(() => {
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  border: 1.5px solid rgba(79,124,255,0.25);
-  background: rgba(79,124,255,0.07);
+  border: 1.5px solid rgba(79, 124, 255, 0.25);
+  background: rgba(79, 124, 255, 0.07);
   color: #4f7cff;
   font-size: 16px;
   cursor: pointer;
@@ -927,7 +984,7 @@ onMounted(() => {
   border-color: #4f7cff;
   color: #fff;
   transform: translateY(1px);
-  box-shadow: 0 4px 12px rgba(79,124,255,0.3);
+  box-shadow: 0 4px 12px rgba(79, 124, 255, 0.3);
 }
 
 /* ===== 右侧栏 ===== */
@@ -961,15 +1018,18 @@ onMounted(() => {
     flex-direction: column;
     gap: 24px;
   }
+
   .person-left-wrapper {
     position: static;
     width: 100%;
     margin-top: 0;
   }
+
   .right-sidebar {
     width: 100%;
     position: static;
   }
+
   .align-spacer {
     display: none;
   }
@@ -979,12 +1039,15 @@ onMounted(() => {
   .section-card {
     padding: 16px;
   }
+
   .timeline-connector {
     display: none;
   }
+
   .timeline-item {
     gap: 0;
   }
+
   .timeline-content {
     padding-bottom: 16px;
   }
