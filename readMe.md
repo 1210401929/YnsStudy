@@ -48,6 +48,7 @@
 - `noticeInfo` => 消息通知表
 - `fileCat` => 附件分类表
 - `fileInfo` => 附件表
+- `blogCatInfo` => 博客文章分类表
 - `blogInfo` => 博客文章表
 - `blogComment` => 博客评论表
 - `blogGiveLike` => 博客点赞收藏表
