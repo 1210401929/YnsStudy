@@ -83,7 +83,7 @@ const props = defineProps({
     default: () => ({})
   },
   targetUserCode: {
-    type: String,
+    type: [String, Number],
     required: true
   }
 })

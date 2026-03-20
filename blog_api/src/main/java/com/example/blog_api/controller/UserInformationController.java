@@ -52,7 +52,7 @@ public class UserInformationController {
     @RequestMapping("/getBlogAndCommunityByUserCode")
     @ResponseBody
     public ResultBody getBlogAndCommunityByUserCode(@RequestBody Map<String, Object> params) {
-        String userCode = (String) params.get("userCode");
+        String userCode = String.valueOf(params.get("userCode"));
         int page = (int) params.get("page");
         int pageSize = (int) params.get("pageSize");
         String keyword = (String) params.get("keyword");

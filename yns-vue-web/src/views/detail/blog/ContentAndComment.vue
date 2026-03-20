@@ -255,7 +255,7 @@ import {
   getGuid,
   sendAxiosRequest,
   pubFormatDate,
-  sendNotifications, getCurrentUserAdminObject
+  sendNotifications, getCurrentUserAdminObject, encrypt
 } from "@/utils/common.js";
 import {adminUserCode} from "@/config/vue-config.js";
 import {pubOpenOneBlog, pubOpenUser} from "@/utils/blogUtil.js";
@@ -532,7 +532,8 @@ function handleLike() {
     blogContent.value.$userIsLike = true;
     sendAxiosRequest("/blog-api/blog/giveLikeBlog", {blogId: contentGuid.value});
     //发送消息
-    sendNotifications(userBean.code, blogContent.value.USERCODE, "giveLike", null, `${userBean.name}点赞了你的作品《${blogContent.value.BLOG_TITLE}》`)
+    const routeUrl = router.resolve({name: 'oneBlog', params: {g: contentGuid.value}}).href;
+    sendNotifications(userBean.code, blogContent.value.USERCODE, "giveLike", routeUrl, `${userBean.name}点赞了你的作品《${blogContent.value.BLOG_TITLE}》`)
   }
 }
 
@@ -555,7 +556,8 @@ function handleCollect() {
     blogContent.value.$userIsCollect = true;
     sendAxiosRequest("/blog-api/blog/collectBlog", {blogId: contentGuid.value});
     //发送消息
-    sendNotifications(userBean.code, blogContent.value.USERCODE, "collect", null, `${userBean.name}收藏了你的作品《${blogContent.value.BLOG_TITLE}》`)
+    const routeUrl = router.resolve({name: 'oneBlog', params: {g: contentGuid.value}}).href;
+    sendNotifications(userBean.code, blogContent.value.USERCODE, "collect", routeUrl, `${userBean.name}收藏了你的作品《${blogContent.value.BLOG_TITLE}》`)
   }
 }
 
@@ -614,6 +616,7 @@ const replyTargets = ref({});
 
 // 1. 发起顶级评论时，一并把 RECEIVE 字段给到文章作者
 function submitComment() {
+  debugger
   let userBean = userStore.userBean;
   if (!userBean || !userBean.code) {
     ElMessage.error("请先登录!");
@@ -640,7 +643,8 @@ function submitComment() {
     delete comment.AVATAR;
     sendAxiosRequest("/blog-api/blog/addComment", {blogComment: comment})
     newComment.value = "";
-    sendNotifications(userBean.code, blogContent.value.USERCODE, "comment", null, `${userBean.name}评论了你的作品《${blogContent.value.BLOG_TITLE}》`)
+    const routeUrl = router.resolve({name: 'oneBlog', params: {g: contentGuid.value}}).href;
+    sendNotifications(userBean.code, blogContent.value.USERCODE, "comment", routeUrl, `${userBean.name}评论了你的作品《${blogContent.value.BLOG_TITLE}》`)
   }
 }
 
@@ -702,7 +706,8 @@ function submitReply(parentGuid) {
     isChildrenVisible.value[parentGuid] = true;
 
     // 发送通知：通知目标被回复了
-    sendNotifications(oneComment.USERCODE, targetUser.USERCODE, "comment", null, `${oneComment.USERNAME}回复了你的评论《${targetUser.TEXT}》`);
+    const routeUrl = router.resolve({name: 'oneBlog', params: {g: contentGuid.value}}).href;
+    sendNotifications(oneComment.USERCODE, targetUser.USERCODE, "comment", routeUrl, `${oneComment.USERNAME}回复了你的评论《${targetUser.TEXT}》`);
   }
 }
 

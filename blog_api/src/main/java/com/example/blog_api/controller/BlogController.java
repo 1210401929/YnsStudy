@@ -97,7 +97,7 @@ public class BlogController {
     @RequestMapping("/getUserBlogCat")
     @ResponseBody
     public ResultBody getUserBlogCat(@RequestBody Map<String, Object> params) {
-        String userCode = (String) params.get("userCode");
+        String userCode = String.valueOf(params.get("userCode"));
         return blogService.getUserBlogCat(userCode);
     }
 
@@ -160,7 +160,7 @@ public class BlogController {
     @RequestMapping("/getLikeAndCollectByUserCode")
     @ResponseBody
     public ResultBody getLikeAndCollectByUserCode(@RequestBody Map<String, Object> params) {
-        String userCode = (String) params.get("userCode");
+        String userCode = String.valueOf(params.get("userCode"));
         String isCountOnly = (String) params.get("isCountOnly");
         String type = (String) params.get("type");
         return blogService.getLikeAndCollectByUserCode(userCode, isCountOnly, type);

@@ -297,7 +297,7 @@ public class BlogServiceImpl implements BlogService {
         params.put("tableName", "BLOGCATINFO");
         params.put("data", data);
         params.put("key", "GUID");
-        ResultBody result = callService.callFunWithParams(FunToUrlUtil.saveAllTableDataUrl, params);
+        ResultBody result = callService.callFunWithParams(FunToUrlUtil.saveAllTableDataByParamsUrl, params);
         return result;
     }
 
@@ -310,7 +310,7 @@ public class BlogServiceImpl implements BlogService {
         params.put("tableName", "BLOGCATINFO");
         params.put("data", data);
         params.put("key", "GUID");
-        ResultBody result = callService.callFunWithParams(FunToUrlUtil.saveAllTableDataUrl, params);
+        ResultBody result = callService.callFunWithParams(FunToUrlUtil.saveAllTableDataByParamsUrl, params);
         return result;
     }
 
@@ -365,7 +365,7 @@ public class BlogServiceImpl implements BlogService {
         params.put("tableName", "BLOGCOMMENT");
         params.put("data", data);
         params.put("key", "GUID");
-        ResultBody result = callService.callFunWithParams(FunToUrlUtil.saveAllTableDataUrl, params);
+        ResultBody result = callService.callFunWithParams(FunToUrlUtil.saveAllTableDataByParamsUrl, params);
         return result;
     }
 

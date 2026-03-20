@@ -1012,22 +1012,21 @@ onMounted(() => {
   height: 36px;
 }
 
-/* ===== 响应式 ===== */
+/* ================= 响应式 ================= */
 @media (max-width: 1024px) {
   .content-columns {
     flex-direction: column;
     gap: 24px;
+    align-items: stretch; /* 关键修复：让内部的栏目自动撑满屏幕宽度 */
   }
 
-  .person-left-wrapper {
-    position: static;
-    width: 100%;
-    margin-top: 0;
-  }
-
+  /* 关键修复：把 main-content 也加进来，强制 100% 宽度 */
+  .person-left-wrapper,
+  .main-content,
   .right-sidebar {
     width: 100%;
     position: static;
+    margin-top: 0;
   }
 
   .align-spacer {
@@ -1036,8 +1035,17 @@ onMounted(() => {
 }
 
 @media (max-width: 768px) {
+  .inner-container {
+    padding: 0 12px; /* 缩小整体页面的左右留白 */
+  }
+
   .section-card {
-    padding: 16px;
+    padding: 16px 12px; /* 缩小卡片内部的边距，把空间还给内容 */
+  }
+
+  .section-header {
+    flex-wrap: wrap; /* 防止“仅文章”开关和标题挤在一起重叠 */
+    gap: 12px;
   }
 
   .timeline-connector {
@@ -1050,6 +1058,16 @@ onMounted(() => {
 
   .timeline-content {
     padding-bottom: 16px;
+  }
+
+  /* 优化文件列表在手机端的显示，防止文件名过长撑破卡片 */
+  .file-item {
+    padding: 12px 10px;
+    gap: 10px;
+  }
+
+  .file-name {
+    font-size: 13px;
   }
 }
 </style>

@@ -188,7 +188,7 @@ import {ele_confirm, getGuid, sendAxiosRequest} from "@/utils/common.js";
 const props = defineProps({
   view_title: {type: String, default: '归档目录'},
   selectedIndex: {type: String, default: ''},
-  userCode: {type: String, default: ''},
+  userCode: {type: [String, Number],default: ''},
   isRouter: {type: Boolean, default: false}
 })
 
