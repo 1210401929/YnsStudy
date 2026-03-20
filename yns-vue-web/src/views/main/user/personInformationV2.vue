@@ -260,7 +260,7 @@ async function getUserInfo2Data() {
     const result = await getUserInfoByCode(userCode);
     if (result && !result.isError) {
       user.value = result.result;
-      document.title = user.value.name + "的主页";
+      document.title = user.value.name + "的个人博客";
       const metaDesc = document.querySelector('meta[name="description"]');
       if (metaDesc) {
         metaDesc.setAttribute("content", document.title);
