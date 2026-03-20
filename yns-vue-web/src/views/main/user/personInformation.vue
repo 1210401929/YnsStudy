@@ -428,6 +428,7 @@ onMounted(() => {
   width: 280px;
   flex-shrink: 0;
   margin-top: 36px;
+  z-index: 10;
 }
 
 .main-content {
