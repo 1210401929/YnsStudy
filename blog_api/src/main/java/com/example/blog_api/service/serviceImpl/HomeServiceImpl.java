@@ -86,7 +86,7 @@ public class HomeServiceImpl implements HomeService {
 
     @Override
     public ResultBody getAllBlogGuidAndTime() {
-        String sql = "select GUID,CREATE_TIME from blogInfo";
+        String sql = "select GUID,CREATE_TIME from blogInfo where blog_type = 'public'";
         Map<String, Object> params = new HashMap<>();
         params.put("sql", sql);
         ResultBody result = callService.callFunWithParams(FunToUrlUtil.selectListUrl, params);
