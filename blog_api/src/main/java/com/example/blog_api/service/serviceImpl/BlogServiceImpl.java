@@ -27,8 +27,30 @@ public class BlogServiceImpl implements BlogService {
     public ResultBody addBlog(BlogBean blogBean) {
         Map<String, Object> params = new HashMap<>();
         List<Map<String, Object>> data = new ArrayList<>();
+        Map<String, Object> blogData = BeanUtil.beanToMap(blogBean);
+        //如果没有传递GUID,则根据记录表(bloginfo_guid_sequence) 记录最大条数 +1 后赋值给guid
+        if (blogData.get("GUID") == null) {
+            String selectSql = "select TABLE_NAME,CURRENT_VALUE from bloginfo_guid_sequence";
+            Map<String, Object> params_ = new HashMap<>();
+            params_.put("sql", selectSql);
+            ResultBody result = callService.callFunWithParams(FunToUrlUtil.selectListUrl, params_);
+            // 1. 先安全地拿到 List
+            List<Map<String, Object>> list = (List<Map<String, Object>>) result.result;
+            if (list != null && !list.isEmpty()) {
+                // 2. 拿到 CURRENT_VALUE 的 Object 值
+                Object currentValueObj = list.get(0).get("CURRENT_VALUE");
+                // 3. 转换为 long 并 +1 (用 String.valueOf 兜底，防止直接强转报错)
+                long nextGuid = Long.parseLong(String.valueOf(currentValueObj)) + 1L;
+                // 4. 放入 blogData
+                blogData.put("GUID", nextGuid);
+            }
+            //把记录表的记录值加1
+            String updateSql = "UPDATE bloginfo_guid_sequence SET current_value = current_value + 1 WHERE table_name = 'bloginfo'";
+            //对于使用访问网关  推荐先接收返回结果,再返回,否则会有未知问题
+            result = callService.callFunOneParams(FunToUrlUtil.exeSqlUrl, "sql", updateSql);
+        }
         //通过封装的bean映射,把bean转换为map类型
-        data.add(BeanUtil.beanToMap(blogBean));
+        data.add(blogData);
         params.put("saveType", "add");
         params.put("tableName", "BLOGINFO");
         params.put("data", data);
@@ -54,9 +76,9 @@ public class BlogServiceImpl implements BlogService {
             return ResultBody.createErrorResult("用户编码出错!");
         } else {
             String sql = "select GUID,BLOG_TITLE,BLOG_TYPE,USERCODE,USERNAME,VIEW_PAGE,CREATE_TIME,CAT_ID from blogInfo " +
-                    "where userCode = '" + userCode + "' " ;
+                    "where userCode = '" + userCode + "' ";
             //如果不是查询该用户所有文章,则根据文章类型过滤    私密/公开
-            if(!isAll){
+            if (!isAll) {
                 sql += "and blog_type = 'public'";
             }
             //排序

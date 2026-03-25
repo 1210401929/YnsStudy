@@ -56,6 +56,7 @@
 - `communityComment` => 社区内容评论表
 - `announcementinfo` => 通知表
 - `friendlinkinfo` => 友链表
+- `bloginfo_guid_sequence` => 博客数量记载表,记录blogInfo表的GUID字段最大数值  blogInfo表的guid自增生成依赖于该表
 > **⚠️ 建表规范**: `GUID` 是必须存在的字段，需设置为随机 32 位码。
 
 ---

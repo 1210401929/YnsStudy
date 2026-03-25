@@ -56,20 +56,39 @@ public class SqlServiceImpl implements SqlService {
     @Override
     @Transactional//开启事务
     public ResultBody saveAllTableDataByParams(String saveType, String tableName, ArrayList<HashMap<String, Object>> data, String key) {
+        // 用于存放最终查询出来的完整数据库记录
+        List<Map<String, Object>> resultDataList = new ArrayList<>();
+
         try (Connection conn = dataSource.getConnection()) {
             for (HashMap<String, Object> oneData : data) {
+                Object primaryKeyValue = null; // 用于记录当前操作数据的主键值
+
                 if ("add".equalsIgnoreCase(saveType)) {
                     // 构建 INSERT SQL
                     List<String> columns = new ArrayList<>(oneData.keySet());
                     String placeholders = String.join(", ", Collections.nCopies(columns.size(), "?"));
                     String sql = "INSERT INTO " + tableName + " (" + String.join(", ", columns) + ") VALUES (" + placeholders + ")";
 
-                    try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+                    // 判断传入的数据中是否已经包含了主键
+                    boolean hasKey = oneData.containsKey(key) && oneData.get(key) != null;
+
+                    // 重点：使用 Statement.RETURN_GENERATED_KEYS 以便获取数据库生成的自增主键
+                    try (PreparedStatement stmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
                         for (int i = 0; i < columns.size(); i++) {
-                            //替换参数  把值放到对应得?上
                             stmt.setObject(i + 1, oneData.get(columns.get(i)));
                         }
                         stmt.executeUpdate();
+
+                        if (hasKey) {
+                            primaryKeyValue = oneData.get(key);
+                        } else {
+                            // 如果没有传主键，说明可能是自增主键，从 ResultSet 获取
+                            try (ResultSet generatedKeys = stmt.getGeneratedKeys()) {
+                                if (generatedKeys.next()) {
+                                    primaryKeyValue = generatedKeys.getObject(1);
+                                }
+                            }
+                        }
                     }
 
                 } else if ("edit".equalsIgnoreCase(saveType)) {
@@ -89,15 +108,40 @@ public class SqlServiceImpl implements SqlService {
                         for (Object val : values) {
                             stmt.setObject(i++, val);
                         }
-                        stmt.setObject(i, oneData.get(key)); // 最后一个是 where key = ?
+                        primaryKeyValue = oneData.get(key); // 更新操作必定有主键
+                        stmt.setObject(i, primaryKeyValue);
                         stmt.executeUpdate();
                     }
                 } else {
                     return ResultBody.createErrorResult("不支持的操作类型: " + saveType);
                 }
+
+                // 核心新增逻辑：拿到主键后，去数据库反查这条完整的数据
+                if (primaryKeyValue != null) {
+                    String selectSql = "SELECT * FROM " + tableName + " WHERE " + key + " = ?";
+                    try (PreparedStatement selectStmt = conn.prepareStatement(selectSql)) {
+                        selectStmt.setObject(1, primaryKeyValue);
+                        try (ResultSet rs = selectStmt.executeQuery()) {
+                            if (rs.next()) {
+                                ResultSetMetaData metaData = rs.getMetaData();
+                                int columnCount = metaData.getColumnCount();
+                                Map<String, Object> rowData = new HashMap<>();
+                                // 遍历列，将一整条数据组装成 Map
+                                for (int i = 1; i <= columnCount; i++) {
+                                    rowData.put(metaData.getColumnLabel(i), rs.getObject(i));
+                                }
+                                resultDataList.add(rowData);
+                            }
+                        }
+                    }
+                } else {
+                    // 兜底方案：如果因为某些原因没有获取到主键，则直接返回传入的参数
+                    resultDataList.add(oneData);
+                }
             }
 
-            return ResultBody.createSuccessResult("操作成功");
+            // 修改返回结果：将包含完整数据库记录的 List 返回（请确保您的 ResultBody 有接收数据对象的方法，例如传入 resultDataList）
+            return ResultBody.createSuccessResult(resultDataList);
 
         } catch (SQLException e) {
             return ResultBody.createErrorResult("执行失败: " + e.getMessage());

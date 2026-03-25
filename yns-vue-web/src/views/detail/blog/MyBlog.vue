@@ -87,9 +87,10 @@ function subButtonClick() {
 router.push({name: 'BlogContent', query: {g: "YouDontNeedToPayAttention"}});
 
 async function handleEditorSubmit({blog_type, title, content}) {
+  debugger;
   let userBean = userStore.userBean;
   let blogContent = {
-    GUID: getGuid(),
+    GUID: null,//不传递guid,后台构造
     BLOG_TITLE: title,
     MAINTEXT: content,
     BLOG_TYPE: blog_type,
@@ -98,8 +99,9 @@ async function handleEditorSubmit({blog_type, title, content}) {
     CATEGORY_ID: null // 默认新文章暂不分类
   };
 
-  await sendAxiosRequest("/blog-api/blog/addBlog", {blogContent});
-  blogContentStore.blogContents.push(blogContent);
+  let result = await sendAxiosRequest("/blog-api/blog/addBlog", {blogContent});
+  blogContent = result.result[0];
+  blogContentStore.blogContents.unshift(blogContent);
 
   // 更新选中项并跳转
   selectedIndex.value = blogContent.GUID;
