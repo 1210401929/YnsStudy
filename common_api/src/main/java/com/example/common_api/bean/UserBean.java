@@ -2,9 +2,12 @@ package com.example.common_api.bean;
 
 
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+
 import java.io.Serializable;
 import java.util.HashMap;
 
+@JsonInclude(JsonInclude.Include.NON_NULL) // 关键：只有不为 null 的字段才包含在 JSON 中
 public class UserBean implements Serializable {
 
     private String GUID;
@@ -91,6 +94,25 @@ public class UserBean implements Serializable {
 
     public void setISBAN(String ISBAN) {
         this.ISBAN = ISBAN;
+    }
+
+    public UserBean(UserBean userinfo) {
+        this.GUID =  userinfo.getGUID();
+        this.CODE =  userinfo.getCODE();
+        this.NAME =  userinfo.getNAME();
+        this.PASSWORD =  userinfo.getPASSWORD();
+        this.PASSWORDSALT =  userinfo.getPASSWORDSALT();
+        this.ROLE =  userinfo.getROLE();
+        this.REMARK = userinfo.getREMARK();
+        this.PHONE=userinfo.getPHONE();
+        this.EMAIL= userinfo.getEMAIL();
+        this.AVATAR= userinfo.getAVATAR();
+        if (userinfo.getLOGINADDRESS() != null)
+            this.LOGINADDRESS = userinfo.getLOGINADDRESS();
+        if (userinfo.getLOGINIP() != null)
+            this.LOGINIP =  userinfo.getLOGINIP();
+        if (userinfo.getISBAN() != null)
+            this.ISBAN = userinfo.getISBAN();
     }
 
     public UserBean(HashMap<String, Object> userinfo) {

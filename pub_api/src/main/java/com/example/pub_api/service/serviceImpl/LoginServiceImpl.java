@@ -129,8 +129,13 @@ public class LoginServiceImpl implements LoginService {
 
     @Override
     public ResultBody checkUserLogin(HttpSession session) {
-        if (session.getAttribute("userInfo") != null) {
-            return ResultBody.createSuccessResult(session.getAttribute("userInfo"));
+        UserBean sessionUser = (UserBean) session.getAttribute("userInfo");
+        if ( sessionUser!= null) {
+            UserBean user = new UserBean(sessionUser);
+            user.setPASSWORD(null);
+            user.setPASSWORDSALT(null);
+            user.setLOGINIP(null);
+            return ResultBody.createSuccessResult(user);
         } else {
             //如果未登录,设置游客身份
             HashMap<String, Object> userInfo = new HashMap<>();
@@ -257,6 +262,7 @@ public class LoginServiceImpl implements LoginService {
 
     @Override
     public ResultBody getUserInfoByCode(String userCode) {
+
         if (userCode == null) {
             return ResultBody.createErrorResult("请传入正确账号!");
         }
@@ -264,6 +270,9 @@ public class LoginServiceImpl implements LoginService {
         ResultBody result = sqlService.selectList(sql);
         if (result != null && !result.isError && ((ArrayList) result.result).size() > 0) {
             UserBean userBean = new UserBean((HashMap<String, Object>) (((ArrayList) result.result).get(0)));
+            userBean.setPASSWORD(null);
+            userBean.setPASSWORDSALT(null);
+            userBean.setLOGINIP(null);
             return ResultBody.createSuccessResult(userBean);
         } else {
             return ResultBody.createErrorResult("未查询到账号信息!");

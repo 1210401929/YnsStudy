@@ -616,7 +616,6 @@ const replyTargets = ref({});
 
 // 1. 发起顶级评论时，一并把 RECEIVE 字段给到文章作者
 function submitComment() {
-  debugger
   let userBean = userStore.userBean;
   if (!userBean || !userBean.code) {
     ElMessage.error("请先登录!");

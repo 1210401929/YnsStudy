@@ -12,6 +12,17 @@ export default defineConfig(({ mode }) => {
             alias: {
                 '@': fileURLToPath(new URL('./src', import.meta.url))
             }
+        },
+        //打包混淆
+        esbuild: {
+            pure: isDev ? [] : ['console.log', 'console.info'],
+            drop: isDev ? [] : ['debugger'],
+            legalComments: 'none', // 移除所有的备注/版权注释
+        },
+        build: {
+            sourcemap: false, // 生产环境务必关闭，防止源码泄露
+            minify: 'esbuild', // 确保开启压缩
+            chunkSizeWarningLimit: 1500, // 优化打包体验
         }
     };
 

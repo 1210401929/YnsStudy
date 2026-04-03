@@ -10,6 +10,8 @@
               size="large"
               class="author-avatar"
               alt="用户头像"
+              @click="avatarClick(user)"
+              title="进入主页"
           >
             {{ user.name?.charAt(0) }}
           </el-avatar>
@@ -167,6 +169,11 @@ const toggleFollow = () => {
   ElMessage.success(isFollowing.value ? '已关注' : '已取消关注')
 }
 
+//用户头像点击
+const avatarClick = (userInfo)=>{
+  pubOpenUser(router, userInfo.code);
+}
+
 // 列表数据加载
 const loadFollowingList = async () => {
   if (followingUser.value.length > 0) return;
@@ -276,6 +283,7 @@ const handleBlogClick = (blog) => {
   border: 3px solid rgba(255,255,255,0.8);
   box-shadow: 0 4px 12px rgba(0,0,0,0.1);
   margin-bottom: 12px;
+  cursor: pointer;
 }
 
 .profile-details-vertical {

@@ -87,7 +87,6 @@ function subButtonClick() {
 router.push({name: 'BlogContent', query: {g: "YouDontNeedToPayAttention"}});
 
 async function handleEditorSubmit({blog_type, title, content}) {
-  debugger;
   let userBean = userStore.userBean;
   let blogContent = {
     GUID: null,//不传递guid,后台构造
