@@ -56,7 +56,7 @@ import { useRouter } from 'vue-router'
 import { useBlogContentStore } from '@/stores/detail/blog.js'
 import { useUserStore } from "@/stores/main/user.js"
 import { Edit } from '@element-plus/icons-vue'
-import { getGuid, sendAxiosRequest } from '@/utils/common.js'
+import { sendAxiosRequest } from '@/utils/common.js'
 import ArticleEditor from '@/components/detail/ArticleEditor.vue'
 import { ElMessage } from 'element-plus'
 import Announcement from "@/components/detail/Announcement.vue"
