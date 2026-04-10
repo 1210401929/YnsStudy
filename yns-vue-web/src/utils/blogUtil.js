@@ -5,9 +5,14 @@ export const pubOpenOneBlog = (router, blogGuid) => {
     window.open(routeUrl, blogGuid);
 }
 
-export const pubOpenUser = (router, userCode) => {
-    const routeUrl = router.resolve({name: 'personInfomation', params: {u: encrypt(userCode)}}).href;
-    window.open(routeUrl, userCode);
+export const pubOpenUser = async (router, userCode) => {
+    debugger;
+    let result = await sendAxiosRequest("/pub-api/login/getUserInfoByCode", {userCode});
+    if(result && result.result){
+        //const routeUrl = router.resolve({name: 'user', params: {u: encrypt(userCode)}}).href;
+        const routeUrl = router.resolve({name: 'user', params: {u: result.result.usernum}}).href;
+        window.open(routeUrl, userCode);
+    }
 }
 
 export const getAnnouncementByRouterName = async (routerName) => {

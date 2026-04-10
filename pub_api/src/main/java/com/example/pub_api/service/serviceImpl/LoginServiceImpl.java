@@ -280,6 +280,24 @@ public class LoginServiceImpl implements LoginService {
     }
 
     @Override
+    public ResultBody getUserInfoByNum(String userNum) {
+        if (userNum == null) {
+            return ResultBody.createErrorResult("请传入正确用户唯一数字!");
+        }
+        String sql = "select * from userinfo where userNum = '" + userNum + "'";
+        ResultBody result = sqlService.selectList(sql);
+        if (result != null && !result.isError && ((ArrayList) result.result).size() > 0) {
+            UserBean userBean = new UserBean((HashMap<String, Object>) (((ArrayList) result.result).get(0)));
+            userBean.setPASSWORD(null);
+            userBean.setPASSWORDSALT(null);
+            userBean.setLOGINIP(null);
+            return ResultBody.createSuccessResult(userBean);
+        } else {
+            return ResultBody.createErrorResult("未查询到账号信息!");
+        }
+    }
+
+    @Override
     public ResultBody getUserInfoByName(String userName) {
         if (userName == null) {
             return ResultBody.createErrorResult("用户名不允许为空!");

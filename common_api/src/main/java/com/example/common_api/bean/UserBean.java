@@ -28,8 +28,10 @@ public class UserBean implements Serializable {
     private String EMAIL;
     //头像
     private String AVATAR;
-
+    //是否禁用
     private String ISBAN;
+    //用户唯一数字
+    private int USERNUM;
 
     public String getPHONE() {
         return PHONE;
@@ -64,93 +66,6 @@ public class UserBean implements Serializable {
     public String getLOGINIP() {
         return LOGINIP;
     }
-
-    @Override
-    public String toString() {
-        return "UserBean{" +
-                "GUID='" + GUID + '\'' +
-                ", CODE='" + CODE + '\'' +
-                ", NAME='" + NAME + '\'' +
-                ", PASSWORD='" + PASSWORD + '\'' +
-                ", PASSWORDSALT='" + PASSWORDSALT + '\'' +
-                ", ROLE='" + ROLE + '\'' +
-                ", REMARK='" + REMARK + '\'' +
-                ", LOGINADDRESS='" + LOGINADDRESS + '\'' +
-                ", LOGINIP='" + LOGINIP + '\'' +
-                ", PHONE='" + PHONE + '\'' +
-                ", EMAIL='" + EMAIL + '\'' +
-                ", AVATAR='" + AVATAR + '\'' +
-                '}';
-    }
-
-    public void setLOGINIP(String LOGINIP) {
-        this.LOGINIP = LOGINIP;
-    }
-
-
-    public String getISBAN() {
-        return ISBAN;
-    }
-
-    public void setISBAN(String ISBAN) {
-        this.ISBAN = ISBAN;
-    }
-
-    public UserBean(UserBean userinfo) {
-        this.GUID =  userinfo.getGUID();
-        this.CODE =  userinfo.getCODE();
-        this.NAME =  userinfo.getNAME();
-        this.PASSWORD =  userinfo.getPASSWORD();
-        this.PASSWORDSALT =  userinfo.getPASSWORDSALT();
-        this.ROLE =  userinfo.getROLE();
-        this.REMARK = userinfo.getREMARK();
-        this.PHONE=userinfo.getPHONE();
-        this.EMAIL= userinfo.getEMAIL();
-        this.AVATAR= userinfo.getAVATAR();
-        if (userinfo.getLOGINADDRESS() != null)
-            this.LOGINADDRESS = userinfo.getLOGINADDRESS();
-        if (userinfo.getLOGINIP() != null)
-            this.LOGINIP =  userinfo.getLOGINIP();
-        if (userinfo.getISBAN() != null)
-            this.ISBAN = userinfo.getISBAN();
-    }
-
-    public UserBean(HashMap<String, Object> userinfo) {
-        this.GUID = (String) userinfo.get("GUID");
-        this.CODE = (String) userinfo.get("CODE");
-        this.NAME = (String) userinfo.get("NAME");
-        this.PASSWORD = (String) userinfo.get("PASSWORD");
-        this.PASSWORDSALT = (String) userinfo.get("PASSWORDSALT");
-        this.ROLE = (String) userinfo.get("ROLE");
-        this.REMARK = (String) userinfo.get("REMARK");
-        this.PHONE=(String) userinfo.get("PHONE");
-        this.EMAIL=(String) userinfo.get("EMAIL");
-        this.AVATAR=(String) userinfo.get("AVATAR");
-        if (userinfo.get("LOGINADDRESS") != null)
-            this.LOGINADDRESS = (String) userinfo.get("LOGINADDRESS");
-        if (userinfo.get("LOGINIP") != null)
-            this.LOGINIP = (String) userinfo.get("LOGINIP");
-        if (userinfo.get("ISBAN") != null)
-            this.ISBAN = (String) userinfo.get("ISBAN");
-    }
-
-    public UserBean(String GUID, String CODE, String NAME, String PASSWORD, String PASSWORDSALT, String ROLE, String REMARK, String LOGINADDRESS, String LOGINIP, String PHONE, String EMAIL, String AVATAR, String ISBAN) {
-        this.GUID = GUID;
-        this.CODE = CODE;
-        this.NAME = NAME;
-        this.PASSWORD = PASSWORD;
-        this.PASSWORDSALT = PASSWORDSALT;
-        this.ROLE = ROLE;
-        this.REMARK = REMARK;
-        this.LOGINADDRESS = LOGINADDRESS;
-        this.LOGINIP = LOGINIP;
-        this.PHONE = PHONE;
-        this.EMAIL = EMAIL;
-        this.AVATAR = AVATAR;
-        this.ISBAN = ISBAN;
-    }
-
-
     public String getPASSWORDSALT() {
         return PASSWORDSALT;
     }
@@ -206,5 +121,106 @@ public class UserBean implements Serializable {
     public void setREMARK(String REMARK) {
         this.REMARK = REMARK;
     }
+
+
+    public void setLOGINIP(String LOGINIP) {
+        this.LOGINIP = LOGINIP;
+    }
+
+
+    public String getISBAN() {
+        return ISBAN;
+    }
+
+    public void setISBAN(String ISBAN) {
+        this.ISBAN = ISBAN;
+    }
+
+    public int getUSERNUM() {
+        return USERNUM;
+    }
+
+    public void setUSERNUM(int USERNUM) {
+        this.USERNUM = USERNUM;
+    }
+
+    @Override
+    public String toString() {
+        return "UserBean{" +
+                "GUID='" + GUID + '\'' +
+                ", CODE='" + CODE + '\'' +
+                ", NAME='" + NAME + '\'' +
+                ", PASSWORD='" + PASSWORD + '\'' +
+                ", PASSWORDSALT='" + PASSWORDSALT + '\'' +
+                ", ROLE='" + ROLE + '\'' +
+                ", REMARK='" + REMARK + '\'' +
+                ", LOGINADDRESS='" + LOGINADDRESS + '\'' +
+                ", LOGINIP='" + LOGINIP + '\'' +
+                ", PHONE='" + PHONE + '\'' +
+                ", EMAIL='" + EMAIL + '\'' +
+                ", AVATAR='" + AVATAR + '\'' +
+                '}';
+    }
+
+    public UserBean(UserBean userinfo) {
+        this.GUID =  userinfo.getGUID();
+        this.CODE =  userinfo.getCODE();
+        this.NAME =  userinfo.getNAME();
+        this.PASSWORD =  userinfo.getPASSWORD();
+        this.PASSWORDSALT =  userinfo.getPASSWORDSALT();
+        this.ROLE =  userinfo.getROLE();
+        this.REMARK = userinfo.getREMARK();
+        this.PHONE=userinfo.getPHONE();
+        this.EMAIL= userinfo.getEMAIL();
+        this.AVATAR= userinfo.getAVATAR();
+        if (userinfo.getLOGINADDRESS() != null)
+            this.LOGINADDRESS = userinfo.getLOGINADDRESS();
+        if (userinfo.getLOGINIP() != null)
+            this.LOGINIP =  userinfo.getLOGINIP();
+        if (userinfo.getISBAN() != null)
+            this.ISBAN = userinfo.getISBAN();
+        this.USERNUM = userinfo.getUSERNUM();
+    }
+
+    public UserBean(HashMap<String, Object> userinfo) {
+        this.GUID = (String) userinfo.get("GUID");
+        this.CODE = (String) userinfo.get("CODE");
+        this.NAME = (String) userinfo.get("NAME");
+        this.PASSWORD = (String) userinfo.get("PASSWORD");
+        this.PASSWORDSALT = (String) userinfo.get("PASSWORDSALT");
+        this.ROLE = (String) userinfo.get("ROLE");
+        this.REMARK = (String) userinfo.get("REMARK");
+        this.PHONE=(String) userinfo.get("PHONE");
+        this.EMAIL=(String) userinfo.get("EMAIL");
+        this.AVATAR=(String) userinfo.get("AVATAR");
+        if (userinfo.get("LOGINADDRESS") != null)
+            this.LOGINADDRESS = (String) userinfo.get("LOGINADDRESS");
+        if (userinfo.get("LOGINIP") != null)
+            this.LOGINIP = (String) userinfo.get("LOGINIP");
+        if (userinfo.get("ISBAN") != null)
+            this.ISBAN = (String) userinfo.get("ISBAN");
+        if (userinfo.get("USERNUM") != null)
+            this.USERNUM = (int) userinfo.get("USERNUM");
+    }
+
+    public UserBean(String GUID, String CODE, String NAME, String PASSWORD, String PASSWORDSALT, String ROLE, String REMARK, String LOGINADDRESS, String LOGINIP, String PHONE, String EMAIL, String AVATAR, String ISBAN,int USERNUM) {
+        this.GUID = GUID;
+        this.CODE = CODE;
+        this.NAME = NAME;
+        this.PASSWORD = PASSWORD;
+        this.PASSWORDSALT = PASSWORDSALT;
+        this.ROLE = ROLE;
+        this.REMARK = REMARK;
+        this.LOGINADDRESS = LOGINADDRESS;
+        this.LOGINIP = LOGINIP;
+        this.PHONE = PHONE;
+        this.EMAIL = EMAIL;
+        this.AVATAR = AVATAR;
+        this.ISBAN = ISBAN;
+        this.USERNUM = USERNUM;
+    }
+
+
+
 
 }

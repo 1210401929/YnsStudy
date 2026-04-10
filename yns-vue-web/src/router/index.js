@@ -31,6 +31,8 @@ const routes = [
     {path: '/personalCenter', name: 'personalCenter', component: personalCenter},
     //账号主页   u为传递的参数
     {path:'/personInfomation/:u',name:'personInfomation',component: personInfomation},
+    //简短路径
+    {path:'/user/:u',name:'user',component: personInfomation},
     //账号主页   u为传递的参数
     {path:'/personInfomationV2/:u',name:'personInfomationV2',component: personInfomationV2},
     //Ai

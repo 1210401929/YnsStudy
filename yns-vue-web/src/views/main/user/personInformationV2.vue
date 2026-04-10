@@ -394,7 +394,6 @@ onMounted(() => {
   max-height: 100%;
   box-sizing: border-box;
   position: relative;
-  background: url('/picture/user/default.webp') no-repeat center center fixed;
   background-size: cover;
   background-attachment: fixed;
 }
