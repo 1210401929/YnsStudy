@@ -10,5 +10,8 @@ public interface HomeService {
     ResultBody getWebsiteStatistics();
     //获取优质作者
     ResultBody getHigAuthor(String num);
+    //获取所有博客文章的guid和最新时间
     ResultBody getAllBlogGuidAndTime();
+    //获取前五条博客文章的信息
+    ResultBody getBlogDetail5();
 }

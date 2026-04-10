@@ -16,6 +16,8 @@ import personalCenter from "@/views/main/user/personalCenter.vue";
 import personInfomation from "@/views/main/user/personInformation.vue";
 import personInfomationV2 from "@/views/main/user/personInformationV2.vue";
 import sso from "@/views/main/sso/sso.vue";
+import RssDetailView from "@/views/detail/rss/RssDetailView.vue";
+
 
 const routes = [
     //后台管理
@@ -35,6 +37,8 @@ const routes = [
     {path: '/YnsStudyAi', name: 'YnsStudyAi', component: YnsStudyAi},
     //展示一条博客内容
     {path:'/oneBlog/:g', name: 'oneBlog', component: OneBlog},
+    //展示一条博客内容
+    {path:'/rss', name: 'rss', component: RssDetailView},
     //导航栏菜单
     {
         path: '/ynsStudy',

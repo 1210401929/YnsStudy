@@ -10,8 +10,11 @@
       <div class="beian-container">
         <div class="beian-text">
           <div class="footer-contact">
-            <p>作者：YuNanSong | 联系方式：<a href="mailto:yvnansong@qq.com">yvnansong@qq.com</a> |
-              <a href="https://github.com/1210401929/YnsStudy" target="_blank">访问作者 GitHub</a></p>
+            <p>作者：YuNanSong | 联系方式：
+              <a href="mailto:yvnansong@qq.com">yvnansong@qq.com</a> |
+              <a href="https://github.com/1210401929/YnsStudy" target="_blank">访问作者 GitHub</a> |
+              <a href="/rss">RSS订阅</a>
+            </p>
           </div>
           <div class="footer-records">
             <a href="https://beian.miit.gov.cn/" target="_blank" rel="noreferrer">
@@ -36,11 +39,10 @@
 </template>
 
 
-
-
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue';
-import { Top } from "@element-plus/icons-vue"; // 引入 Top 图标
+import { Top } from "@element-plus/icons-vue";// 引入 Top 图标
+import {getSendAxiosUrl} from "@/utils/common.js";
 
 const showScrollButton = ref(false);
 const hover = ref(false); // 用于控制鼠标移入移出时的透明度变化

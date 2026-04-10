@@ -93,6 +93,15 @@ public class HomeServiceImpl implements HomeService {
         return ResultBody.createSuccessResult(result.result);
     }
 
+    @Override
+    public ResultBody getBlogDetail5() {
+        String sql = "select * from bloginfo where blog_type = 'public' order by create_time desc LIMIT 5";
+        Map<String, Object> params = new HashMap<>();
+        params.put("sql", sql);
+        ResultBody result = callService.callFunWithParams(FunToUrlUtil.selectListUrl, params);
+        return result;
+    }
+
     //获取热门下载内容
     private ResultBody getHotFileData() {
         String sql = "select * from fileinfo order by DOWNNUM DESC limit 5";
