@@ -30,11 +30,11 @@ const routes = [
     //个人信息
     {path: '/personalCenter', name: 'personalCenter', component: personalCenter},
     //账号主页   u为传递的参数
-    {path:'/personInfomation/:u',name:'personInfomation',component: personInfomation},
+    {path:'/personInfomation/:userId',name:'personInfomation',component: personInfomation},
     //简短路径
-    {path:'/user/:u',name:'user',component: personInfomation},
+    {path:'/user/:u/:blogId?',name:'user',component: personInfomation},
     //账号主页   u为传递的参数
-    {path:'/personInfomationV2/:u',name:'personInfomationV2',component: personInfomationV2},
+    {path:'/personInfomationV2/:userId',name:'personInfomationV2',component: personInfomationV2},
     //Ai
     {path: '/YnsStudyAi', name: 'YnsStudyAi', component: YnsStudyAi},
     //展示一条博客内容

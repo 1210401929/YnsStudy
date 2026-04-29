@@ -237,6 +237,7 @@ const targetUserCode = ref('');
 // 新增：核心页面渲染锁
 const isPageReady = ref(false);
 
+
 const isSelf = computed(() =>
     !!userStore.userBean.code &&
     !!targetUserCode.value &&
@@ -260,7 +261,8 @@ const onlyArticle = ref(false)
 const showDialog = ref(false)
 const selectedBlogId = ref('')
 const fileSection = ref(null)
-const showWelcome = ref(true);
+//控制是否显示欢迎页
+const showWelcome = ref(false);
 
 // ----------------------------------------------------
 // 核心优化区
@@ -304,6 +306,15 @@ const initPageData = async () => {
     console.error("加载主页数据失败", e);
   } finally {
     loading.value = false;
+  }
+}
+
+const openUserBlog = ()=>{
+  debugger;
+  const blogId = route.params.blogId;
+  if(blogId){
+    selectedBlogId.value = blogId;
+    showDialog.value = true
   }
 }
 
@@ -360,13 +371,17 @@ function blogMainClick(blog) {
     ElMessage.success('社区发起内容不用查看详情')
     return false
   }
-  selectedBlogId.value = blog.GUID
-  showDialog.value = true
+  const userNum = route.params.u;
+  //改变路由地址   watch会监听route.params.blogId  自动打开/关闭文章
+  router.push({name: 'user', params: {u: userNum,blogId:blog.GUID}});
 }
 
 const onDialogClose = () => {
-  selectedBlogId.value = ''
-  showDialog.value = false
+  //改变路由地址   watch会监听route.params.blogId  自动打开/关闭文章
+    router.push({
+      name: 'user',
+      params: { u: route.params.u }
+    });
 }
 
 const formatDate = (dateStr) => pubFormatDate(dateStr)
@@ -413,13 +428,24 @@ onMounted(() => {
   initPageData();
 });
 
-watch(() => route.params.u, () => {
+watch(() => route.params.userId, () => {
   page.value = 1;
   blogs.value = [];
   files.value = [];
   noMore.value = false;
   initPageData();
 });
+
+watch(() => route.params.blogId, (newBlogId) => {
+      if (newBlogId) {
+        selectedBlogId.value = newBlogId;
+        showDialog.value = true;
+      } else {
+        selectedBlogId.value = '';
+        showDialog.value = false;
+      }
+    }, { immediate: true } // immediate 确保刷新页面时也能触发
+);
 </script>
 <style scoped>
 /* ===== CSS 变量 ===== */

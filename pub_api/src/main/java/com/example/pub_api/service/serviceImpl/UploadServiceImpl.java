@@ -2,16 +2,14 @@ package com.example.pub_api.service.serviceImpl;
 
 import com.example.common_api.bean.ResultBody;
 import com.example.common_api.config.CommonFileCfg;
+import com.example.common_api.config.PublicCfg;
 import com.example.pub_api.service.UploadService;
 import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 
 @Component
 public class UploadServiceImpl implements UploadService {
@@ -22,42 +20,49 @@ public class UploadServiceImpl implements UploadService {
         if (file.isEmpty()) {
             throw new IllegalArgumentException("上传文件不能为空");
         }
-        String baseUploadPath = getUploadPath();  // 物理路径根目录
 
-        String relativeDir = ""; //前端传过来的附加路径
-        if (spliceUrl != null) {
-            relativeDir = spliceUrl;  // 相对目录，比如 "editorImage/"
+        //后缀校验逻辑
+        String originalFilename = file.getOriginalFilename();
+        if (originalFilename == null || !originalFilename.contains(".")) {
+            throw new IllegalArgumentException("非法文件名，缺少扩展名");
         }
-
+        // 提取后缀并转为小写
+        String ext = originalFilename.substring(originalFilename.lastIndexOf('.')).toLowerCase();
+        // 定义允许的白名单（建议根据业务需求调整）
+        Set<String> allowedExtensions = PublicCfg.allowedExtensions;
+        //判断allowedExtensions数组是否包含ext后缀  如果不包含->报错
+        if (!allowedExtensions.contains(ext)) {
+            return ResultBody.createErrorResult("不支持的文件类型：" + ext);
+        }
+        // -----------------------
+        String relativeDir = (spliceUrl != null) ? spliceUrl : "";
+        //判断是否包含..这种非法路径
+        if (relativeDir.contains("..")) {
+            return ResultBody.createErrorResult("目录路径包含非法字符");
+        }
+        String baseUploadPath = getUploadPath();
         String fullUploadPath = baseUploadPath + relativeDir;
 
-        // 创建上传目录（如果不存在）
         File dir = new File(fullUploadPath);
         if (!dir.exists()) {
             dir.mkdirs();
         }
 
-        // 原始文件名
-        String originalFilename = file.getOriginalFilename();
         // 生成唯一文件名
-        String ext = originalFilename.substring(originalFilename.lastIndexOf('.'));
-        String fileName = UUID.randomUUID() + ext;
+        String fileName = UUID.randomUUID().toString() + ext;
         File dest = new File(dir, fileName);
         file.transferTo(dest);
-        //获取网关IP端口号
-        String gateWayIpPort = getIsDev() ? commonCfg.getGateWayDevUrl() : commonCfg.getGateWayProduceUrl();
-        //文件用来访问的路径  这里返回的是映射路径(映射文件在../../config/StaticResourceConfig.java)，用于前端访问
-        //String fileViewUrl = gateWayIpPort + commonCfg.getMappingStaticUrl() + relativeDir + "/" + fileName;
+
+        // 映射路径处理
         String fileViewUrl = commonCfg.getMappingStaticUrl() + relativeDir + "/" + fileName;
-        //文件真实存储的路径
         String fileRealUrl = fullUploadPath + "/" + fileName;
-        // 返回数据
+
         Map<String, String> fileInfo = new HashMap<>();
         fileInfo.put("originalFileName", originalFilename);
         fileInfo.put("savedFileName", fileName);
         fileInfo.put("fileViewUrl", fileViewUrl);
         fileInfo.put("fileRealUrl", fileRealUrl);
-        System.out.println("已上传文件,文件信息:" + fileInfo);
+
         return ResultBody.createSuccessResult(fileInfo);
     }
 

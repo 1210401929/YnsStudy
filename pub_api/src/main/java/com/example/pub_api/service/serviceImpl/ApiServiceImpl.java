@@ -1,6 +1,7 @@
 package com.example.pub_api.service.serviceImpl;
 
 import com.example.common_api.bean.ResultBody;
+import com.example.common_api.config.PublicCfg;
 import com.example.pub_api.service.ApiService;
 import com.google.gson.Gson;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -57,8 +58,8 @@ public class ApiServiceImpl implements ApiService {
     }
 
     public String getCurrentLocation(String ipAddress) throws IOException {
-        String apiKey = "d95187e862803e5cfd2d43a87b7e6a11"; // 替换为你的高德地图API Key
-        String url = "https://restapi.amap.com/v3/ip?output=json&key=" + apiKey + "&ip=" + ipAddress;
+        String apiKey = PublicCfg.autoNaviApiKey; // 替换为你的高德地图API Key
+        String url = PublicCfg.autoNaviUrl + "?output=json&key=" + apiKey + "&ip=" + ipAddress;
 
         HttpURLConnection connection = (HttpURLConnection) new URL(url).openConnection();
         connection.setRequestMethod("GET");
