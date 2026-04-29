@@ -71,6 +71,14 @@ public class SqlController {
         return sqlService.exeSqlListByParams(sqls, param);
     }
 
+    @RequestMapping("/exeSqlComposite")
+    @ResponseBody
+    public ResultBody exeSqlComposite(@RequestBody Map<String, Object> params) {
+        List<String> sqls = (List<String>) params.get("sqls");
+        List<List<Object>> param = (List<List<Object>>) params.get("params");
+        return sqlService.exeSqlComposite(sqls, param);
+    }
+
     @RequestMapping("/saveAllTableData")
     @ResponseBody
     public ResultBody saveAllTableData(@RequestBody Map<String, Object> params) {

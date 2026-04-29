@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 import javax.servlet.http.HttpSession;
 import javax.xml.transform.Result;
 import java.util.*;
+import java.util.concurrent.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -23,31 +24,52 @@ public class BlogServiceImpl implements BlogService {
     @Autowired
     CallService callService;
 
+    //定义线程池
+    private static final Executor myExecutor = new ThreadPoolExecutor(
+            10,                      // 核心线程数：平时保留 10 个线程
+            20,                      // 最大线程数：高峰期最多扩容到 20 个
+            60L, TimeUnit.SECONDS,   // 空闲线程存活时间
+            new LinkedBlockingQueue<>(1000), // 任务队列：超过核心线程的任务先排队
+            new ThreadPoolExecutor.CallerRunsPolicy() // 拒绝策略：如果队列满了，让主线程自己跑，防止丢失请求
+    );
+
     @Override
+    @Transactional
+    //todo  以下代码存在问题  guid获取因数据库连接池不在一个连接池  导致guid获取有问题,看ai回答
     public ResultBody addBlog(BlogBean blogBean) {
         Map<String, Object> params = new HashMap<>();
         List<Map<String, Object>> data = new ArrayList<>();
         Map<String, Object> blogData = BeanUtil.beanToMap(blogBean);
         //如果没有传递GUID,则根据记录表(bloginfo_guid_sequence) 记录最大条数 +1 后赋值给guid
         if (blogData.get("GUID") == null) {
-            String selectSql = "select TABLE_NAME,CURRENT_VALUE from bloginfo_guid_sequence";
-            Map<String, Object> params_ = new HashMap<>();
-            params_.put("sql", selectSql);
-            ResultBody result = callService.callFunWithParams(FunToUrlUtil.selectListUrl, params_);
-            // 1. 先安全地拿到 List
-            List<Map<String, Object>> list = (List<Map<String, Object>>) result.result;
-            if (list != null && !list.isEmpty()) {
-                // 2. 拿到 CURRENT_VALUE 的 Object 值
-                Object currentValueObj = list.get(0).get("CURRENT_VALUE");
-                // 3. 转换为 long 并 +1 (用 String.valueOf 兜底，防止直接强转报错)
-                long nextGuid = Long.parseLong(String.valueOf(currentValueObj)) + 1L;
-                // 4. 放入 blogData
-                blogData.put("GUID", nextGuid);
+            // 准备两条 SQL：一条更新，一条查询
+            List<String> sqls = Arrays.asList(
+                    "UPDATE bloginfo_guid_sequence SET current_value = LAST_INSERT_ID(current_value + 1) WHERE table_name = ?",
+                    "SELECT LAST_INSERT_ID() AS NEXTID"
+            );
+
+            // 准备对应的参数
+            List<List<Object>> paramsList = Arrays.asList(
+                    Arrays.asList("bloginfo"), // 第一条 SQL 的参数
+                    new ArrayList<>()          // 第二条 SQL 无参数
+            );
+
+            // 调用通用的复合执行方法
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("sqls", sqls);
+            payload.put("params", paramsList);
+            ResultBody compositeRes = callService.callFunWithParams(FunToUrlUtil.exeSqlCompositeUrl, payload);
+
+            if (compositeRes != null && !compositeRes.isError) {
+                // compositeRes.result 此时是一个 List，第二个元素是 SELECT 的结果
+                List<Object> results = (List<Object>) compositeRes.result;
+                List<Map<String, Object>> selectData = (List<Map<String, Object>>) results.get(1);
+
+                if (!selectData.isEmpty()) {
+                    Object nextId = selectData.get(0).get("NEXTID");
+                    blogData.put("GUID", String.valueOf(nextId));
+                }
             }
-            //把记录表的记录值加1
-            String updateSql = "UPDATE bloginfo_guid_sequence SET current_value = current_value + 1 WHERE table_name = 'bloginfo'";
-            //对于使用访问网关  推荐先接收返回结果,再返回,否则会有未知问题
-            result = callService.callFunOneParams(FunToUrlUtil.exeSqlUrl, "sql", updateSql);
         }
         //通过封装的bean映射,把bean转换为map类型
         data.add(blogData);
@@ -183,38 +205,47 @@ public class BlogServiceImpl implements BlogService {
         } else {
             countSql = "SELECT COUNT(*) AS total FROM blogInfo where blog_type = 'public'";
         }
+        //启动线程池:CompletableFuture 并行执行
 
         // 3. 查询数据列表
-        Map<String, Object> params = new HashMap<>();
-        params.put("sql", listSql);
-        params.put("params", listParams);
-        ResultBody listResult = callService.callFunWithParams(FunToUrlUtil.selectListByParamsUrl, params);
-        if (listResult == null || listResult.isError) {
-            return listResult;
-        }
+        CompletableFuture<ResultBody> listFuture = CompletableFuture.supplyAsync(() -> {
+            Map<String, Object> params = new HashMap<>();
+            params.put("sql", listSql);
+            params.put("params", listParams);
+            return callService.callFunWithParams(FunToUrlUtil.selectListByParamsUrl, params);
+        },myExecutor);
 
         // 4. 查询总数
-        params = new HashMap<>();
-        params.put("sql", countSql);
-        params.put("params", countParams);
-        ResultBody countResult = callService.callFunWithParams(FunToUrlUtil.selectListByParamsUrl, params);
-        if (countResult == null || countResult.isError) {
-            return countResult;
+        CompletableFuture<ResultBody> countFuture = CompletableFuture.supplyAsync(()->{
+            Map<String, Object> params = new HashMap<>();
+            params = new HashMap<>();
+            params.put("sql", countSql);
+            params.put("params", countParams);
+            return callService.callFunWithParams(FunToUrlUtil.selectListByParamsUrl, params);
+        },myExecutor);
+
+        // 等待数据列表,总数两个线程都执行完毕
+        CompletableFuture.allOf(listFuture, countFuture).join();
+
+        try{
+            ResultBody listResult = listFuture.get();
+            ResultBody countResult = countFuture.get();
+            // 5. 获取总数
+            int total = 0;
+            List<Map<String, Object>> countData = (List<Map<String, Object>>) countResult.result;
+            if (!countData.isEmpty() && countData.get(0).get("total") != null) {
+                total = Integer.parseInt(countData.get(0).get("total").toString());
+            }
+
+            // 6. 组装分页结果
+            Map<String, Object> result = new HashMap<>();
+            result.put("total", total);
+            result.put("data", listResult.result);
+
+            return ResultBody.createSuccessResult(result);
+        } catch (Exception e) {
+            return ResultBody.createErrorResult("并行查询数据异常");
         }
-
-        // 5. 获取总数
-        int total = 0;
-        List<Map<String, Object>> countData = (List<Map<String, Object>>) countResult.result;
-        if (!countData.isEmpty() && countData.get(0).get("total") != null) {
-            total = Integer.parseInt(countData.get(0).get("total").toString());
-        }
-
-        // 6. 组装分页结果
-        Map<String, Object> result = new HashMap<>();
-        result.put("total", total);
-        result.put("data", listResult.result);
-
-        return ResultBody.createSuccessResult(result);
     }
 
 

@@ -327,6 +327,59 @@ public class SqlServiceImpl implements SqlService {
             throw new RuntimeException("数据库执行失败，事务已回滚: " + e.getMessage());
         }
     }
+    @Override
+    @Transactional
+    public ResultBody exeSqlComposite(List<String> sqls, List<List<Object>> paramsList) {
+        if (sqls == null || paramsList == null || sqls.size() != paramsList.size()) {
+            return ResultBody.createErrorResult("SQL与参数数量不匹配");
+        }
+
+        List<Object> allResults = new ArrayList<>();
+
+        try (Connection conn = dataSource.getConnection()) {
+            for (int i = 0; i < sqls.size(); i++) {
+                String sql = sqls.get(i);
+                List<Object> params = paramsList.get(i);
+
+                // 简单安全校验
+                if (!checkSql(sql, "exe") && !checkSql(sql, "select")) {
+                    throw new SQLException("禁止执行危险 SQL: " + sql);
+                }
+                try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+                    if (params != null) {
+                        for (int j = 0; j < params.size(); j++) {
+                            stmt.setObject(j + 1, params.get(j));
+                        }
+                    }
+                    // 判断是查询还是更新
+                    boolean hasResultSet = stmt.execute();
+                    // 如果是查询语句，解析结果集
+                    if (hasResultSet) {
+                        try (ResultSet rs = stmt.getResultSet()) {
+                            List<Map<String, Object>> tableData = new ArrayList<>();
+                            ResultSetMetaData metaData = rs.getMetaData();
+                            int columnCount = metaData.getColumnCount();
+                            while (rs.next()) {
+                                Map<String, Object> row = new HashMap<>();
+                                for (int k = 1; k <= columnCount; k++) {
+                                    row.put(metaData.getColumnLabel(k), rs.getObject(k));
+                                }
+                                tableData.add(row);
+                            }
+                            allResults.add(tableData); // 放入总结果列表
+                        }
+                    } else {
+                        // 如果是更新语句，记录影响行数
+                        allResults.add(stmt.getUpdateCount());
+                    }
+                }
+            }
+            // 返回包含所有执行结果的列表（包含更新行数和查询到的数据）
+            return ResultBody.createSuccessResult(allResults);
+        } catch (SQLException e) {
+            throw new RuntimeException("复合SQL执行失败，事务回滚: " + e.getMessage());
+        }
+    }
 
     private boolean checkSql(String sql, String type) {
         String checkSql = sql.toLowerCase();

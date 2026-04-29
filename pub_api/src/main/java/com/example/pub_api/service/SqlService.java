@@ -23,4 +23,6 @@ public interface SqlService {
     ResultBody exeSqlByParams(String sql, List<Object> params);
     // 执行多条 SQL，支持事务
     ResultBody exeSqlListByParams(List<String> sqls, List<List<Object>> paramsList);
+    // 执行多条 SQL，允许同时执行udpate delte select语句  并返回select的结果集
+    ResultBody exeSqlComposite(List<String> sqls, List<List<Object>> paramsList);
 }
