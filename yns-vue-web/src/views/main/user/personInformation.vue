@@ -42,8 +42,9 @@
           <div class="main-content">
             <div class="toolbar">
               <button class="toolbar-btn link-btn" @click="handleFriendLinkClick">
-                <span class="toolbar-btn-icon">🤝</span>
-                <span>友链</span>
+                <span v-if="!showFriendLink" class="toolbar-btn-icon">🤝</span>
+                <span v-if="showFriendLink" class="toolbar-btn-icon">🚫</span>
+                <span>{{!showFriendLink ? "查看友链" : "回到文章"}}</span>
               </button>
 
               <button class="toolbar-btn jump-btn" @click="scrollToFiles">
@@ -51,7 +52,7 @@
                 <span>跳转到文件列表</span>
               </button>
             </div>
-
+            <FriendLink :is-embed="true" v-if="showFriendLink" />
             <div class="section-card publish-card">
               <div class="section-header">
                 <div class="section-title-group">
@@ -221,6 +222,8 @@ import UserInfo from "@/components/main/UserInfo.vue";
 
 //正文与评论组件
 const ContentAndComment = defineAsyncComponent(() => import('@/views/detail/blog/ContentAndComment.vue'))
+//友链组件
+const FriendLink = defineAsyncComponent(() => import('@/views/detail/friendLink/FriendLink.vue'))
 
 import {useUserStore} from '@/stores/main/user.js'
 
@@ -411,10 +414,11 @@ const scrollToFiles = () => {
   }
 }
 
+const showFriendLink = ref(false);
+
 // 友链点击事件
 const handleFriendLinkClick = () => {
-  const routeUrl = router.resolve({name: "FriendLink"}).href;
-  window.open(routeUrl,"FriendLink");
+  showFriendLink.value = !showFriendLink.value;
 };
 
 const enterHomepage = async () => {

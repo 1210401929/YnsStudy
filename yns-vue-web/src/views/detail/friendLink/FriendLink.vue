@@ -1,13 +1,27 @@
 <template>
-  <!-- 公告横幅 -->
-  <Announcement v-for="al in topAlert" :key="al.GUID" :TEXT="al.TEXT" :URL="al.URL" :URLNAME="al.URLNAME"/>
-  <div class="friend-link-container">
+  <Announcement
+      v-if="!isEmbed"
+      v-for="al in topAlert"
+      :key="al.GUID"
+      :TEXT="al.TEXT"
+      :URL="al.URL"
+      :URLNAME="al.URLNAME"
+  />
+
+  <div :class="['friend-link-container', { 'is-embed': isEmbed }]">
     <div class="page-header">
       <div class="header-left">
         <h2 class="page-title">✨ 发现宝藏站点</h2>
-        <span class="page-subtitle">与优秀的人同行，让互联网更开放</span>
+        <span class="page-subtitle" v-if="!isEmbed">与优秀的人同行，让互联网更开放</span>
       </div>
-      <el-button type="primary" round size="large" class="apply-btn" @click="pushFriendLink">
+      <el-button
+          v-if="!isEmbed"
+          type="primary"
+          round
+          :size="isEmbed ? 'default' : 'large'"
+          class="apply-btn"
+          @click="pushFriendLink"
+      >
         <el-icon class="el-icon--left">
           <Plus/>
         </el-icon>
@@ -15,9 +29,9 @@
       </el-button>
     </div>
 
-    <el-row :gutter="24" class="link-grid">
+    <el-row :gutter="isEmbed ? 16 : 24" class="link-grid">
       <el-col
-          :xs="24" :sm="12" :md="8" :lg="6"
+          :xs="24" :sm="12" :md="isEmbed ? 12 : 8" :lg="isEmbed ? 8 : 6"
           v-for="(item, index) in friendLinks"
           :key="index"
       >
@@ -28,7 +42,7 @@
             :style="{ animationDelay: `${index * 0.1}s` }"
         >
           <div class="card-avatar-box">
-            <el-avatar :src="item.AVATAR" :size="56" class="site-avatar">
+            <el-avatar :src="item.AVATAR" :size="isEmbed ? 48 : 56" class="site-avatar">
               {{ item.NAME?.charAt(0) }}
             </el-avatar>
           </div>
@@ -45,16 +59,10 @@
               <template #dropdown>
                 <el-dropdown-menu>
                   <el-dropdown-item command="edit">
-                    <el-icon>
-                      <Edit/>
-                    </el-icon>
-                    编辑
+                    <el-icon><Edit/></el-icon>编辑
                   </el-dropdown-item>
                   <el-dropdown-item command="delete" class="danger-item">
-                    <el-icon>
-                      <Delete/>
-                    </el-icon>
-                    删除
+                    <el-icon><Delete/></el-icon>删除
                   </el-dropdown-item>
                 </el-dropdown-menu>
               </template>
@@ -109,24 +117,27 @@
 </template>
 
 <script setup>
-import {ref, reactive, onMounted} from "vue";
+import {ref, reactive, onMounted, defineProps} from "vue";
 import {useUserStore} from "@/stores/main/user.js";
-import {ElMessage, ElMessageBox} from "element-plus";
+import {ElMessage} from "element-plus";
 import {Plus, MoreFilled, Edit, Delete} from '@element-plus/icons-vue';
 import {ele_confirm, getCurrentUserAdminObject, getGuid, sendAxiosRequest} from "@/utils/common.js";
 import Announcement from "@/components/detail/Announcement.vue";
 import {getAnnouncementByRouterName} from "@/utils/blogUtil.js";
 
+const props = defineProps({
+  isEmbed: {
+    type: Boolean,
+    default: false
+  }
+});
+
 const userStore = useUserStore();
-
-// --- 状态控制 ---
 const dialogVisible = ref(false);
-const isEditMode = ref(false); // 区分是新增申请还是编辑
-
-// 友链数据
+const isEditMode = ref(false);
 const friendLinks = ref([]);
+const topAlert = ref([]);
 
-// --- 表单数据 ---
 const applyForm = reactive({
   NAME: "",
   LINK: "",
@@ -134,38 +145,32 @@ const applyForm = reactive({
   REMARK: ""
 });
 
-// --- 方法 ---
 const pushFriendLink = () => {
   if (!userStore?.userBean?.code) {
     ElMessage.error('请先登录后再尝试发布友链吧!');
     return false;
   }
   isEditMode.value = false;
-  Object.assign(applyForm, {NAME: "", LINK: "", AVATAR: "", REMARK: ""}); // 清空表单
+  Object.assign(applyForm, {NAME: "", LINK: "", AVATAR: "", REMARK: ""});
   dialogVisible.value = true;
 };
 
-// 处理卡片下拉菜单点击
 const handleCommand = (command, item) => {
   if (command === 'edit') {
     isEditMode.value = true;
-    // 将当前项数据回显到表单（深拷贝以免直接修改列表数据）
     Object.assign(applyForm, JSON.parse(JSON.stringify(item)));
     dialogVisible.value = true;
   } else if (command === 'delete') {
-    ele_confirm(`是否确认删除该友链?`, () => {
-      sendAxiosRequest("/blog-api/friendLink/deleteFriendLink", {friendLinkId: item.GUID});
-      //删除前台显示数据
+    ele_confirm(`是否确认删除该友链?`, async () => {
+      await sendAxiosRequest("/blog-api/friendLink/deleteFriendLink", {friendLinkId: item.GUID});
       const index = friendLinks.value.findIndex(link => link.GUID === item.GUID);
-      if (index !== -1) {
-        friendLinks.value.splice(index, 1);
-      }
+      if (index !== -1) friendLinks.value.splice(index, 1);
       ElMessage.success("删除成功!");
     })
   }
 };
 
-const submitApply = () => {
+const submitApply = async () => {
   if (!userStore?.userBean?.code) {
     ElMessage.error('请先登录后再尝试发布友链吧!');
     return false;
@@ -174,19 +179,15 @@ const submitApply = () => {
     ElMessage.warning('请将必填项填写完整');
     return false;
   }
-  //编辑
+
   if (isEditMode.value) {
-    sendAxiosRequest("/blog-api/friendLink/updateFriendLink", {friendLink: applyForm});
-    //修改前台展示数据
+    await sendAxiosRequest("/blog-api/friendLink/updateFriendLink", {friendLink: applyForm});
     const target = friendLinks.value.find(oneLink => oneLink.GUID === applyForm.GUID);
     if (target) {
-      // 将 applyForm 的所有属性同步到 target 对象中
       Object.assign(target, applyForm);
       ElMessage.success("修改成功！");
     }
-    //新增
   } else {
-    //如果不是管理员,则控制一个账户只能公开3个友链
     if (!getCurrentUserAdminObject().isAdmin) {
       let currentUserLinks = friendLinks.value.filter(oneLink => oneLink.USERCODE === userStore.userBean.code);
       if (currentUserLinks.length >= 3) {
@@ -198,12 +199,10 @@ const submitApply = () => {
     addData.GUID = getGuid();
     addData.USERCODE = userStore.userBean.code;
     addData.USERNAME = userStore.userBean.name;
-    //调用后台插入数据库
-    sendAxiosRequest("/blog-api/friendLink/addFriendLink", {friendLink: addData})
+    await sendAxiosRequest("/blog-api/friendLink/addFriendLink", {friendLink: addData})
     friendLinks.value.push(addData);
     ElMessage.success("提交成功！");
   }
-
   dialogVisible.value = false;
 };
 
@@ -211,15 +210,17 @@ const getFriendLinks = async () => {
   const result = await sendAxiosRequest("/blog-api/friendLink/getFriendLinks");
   friendLinks.value = result.result;
 }
-onMounted(() => {
-  getFriendLinks();
-});
-//公告横幅内容
-const topAlert = ref([]);
+
 const setTopAlert = async () => {
+  // 嵌入模式下不重复显示全局公告
+  if (props.isEmbed) return;
   topAlert.value = await getAnnouncementByRouterName("FriendLink");
 }
-setTopAlert();
+
+onMounted(() => {
+  getFriendLinks();
+  setTopAlert();
+});
 </script>
 
 <style scoped>
@@ -227,9 +228,37 @@ setTopAlert();
   padding: 30px 20px;
   max-width: 1200px;
   margin: 0 auto;
+  transition: all 0.3s;
 }
 
-/* --- 头部区域 --- */
+/* --- 嵌入模式适配样式 --- */
+.friend-link-container.is-embed {
+  padding: 0;
+  max-width: 100%;
+  margin: 0;
+}
+
+.is-embed .page-header {
+  margin-bottom: 20px;
+  padding-bottom: 10px;
+}
+
+.is-embed .page-title {
+  font-size: 18px;
+}
+
+.is-embed .modern-card {
+  padding: 12px;
+  height: 90px;
+  margin-bottom: 16px;
+  border-radius: 12px;
+}
+
+.is-embed .site-avatar {
+  border: 1px solid #f0f2f5;
+}
+
+/* --- 原有样式 --- */
 .page-header {
   display: flex;
   justify-content: space-between;
@@ -241,7 +270,6 @@ setTopAlert();
 
 .header-left .page-title {
   margin: 0 0 8px 0;
-  font-size: 24px;
   font-weight: 700;
   color: #303133;
 }
@@ -252,7 +280,7 @@ setTopAlert();
 }
 
 .apply-btn {
-  box-shadow: 0 4px 12px rgba(64, 158, 255, 0.3);
+  box-shadow: 0 4px 12px rgba(64, 158, 255, 0.2);
   transition: transform 0.2s;
 }
 
@@ -260,20 +288,13 @@ setTopAlert();
   transform: translateY(-2px);
 }
 
-/* --- 卡片网格区域 --- */
 .link-grid {
   margin-bottom: 30px;
 }
 
 @keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .fade-in-up {
@@ -290,7 +311,7 @@ setTopAlert();
   border-radius: 16px;
   border: 1px solid #ebeef5;
   text-decoration: none;
-  transition: box-shadow 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), border-color 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
   height: 110px;
   box-sizing: border-box;
   position: relative;
@@ -300,67 +321,52 @@ setTopAlert();
 .modern-card:hover {
   top: -6px;
   box-shadow: 0 12px 24px rgba(0, 0, 0, 0.08);
-  border-color: #c0c4cc;
+  border-color: #409eff33;
 }
 
 .card-avatar-box {
   flex-shrink: 0;
   margin-right: 16px;
-  border-radius: 50%;
-  border: 2px solid #f5f7fa;
-  padding: 2px;
 }
 
 .site-avatar {
   background-color: #ecf5ff;
   color: #409eff;
   font-weight: bold;
-  font-size: 24px;
 }
 
 .card-content {
   flex: 1;
   min-width: 0;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
 }
 
 .site-name {
-  margin: 0 0 6px 0;
-  font-size: 16px;
+  margin: 0 0 4px 0;
+  font-size: 15px;
   font-weight: 600;
   color: #303133;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  transition: color 0.3s;
-  padding-right: 24px; /* 防止标题过长与右上角菜单重叠 */
-}
-
-.modern-card:hover .site-name {
-  color: #409eff;
 }
 
 .site-desc {
   margin: 0;
-  font-size: 13px;
+  font-size: 12px;
   color: #909399;
-  line-height: 1.5;
+  line-height: 1.4;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
-  padding-right: 10px;
 }
 
-/* --- 卡片右上角操作菜单 --- */
 .card-action-menu {
   position: absolute;
-  top: 12px;
-  right: 12px;
-  opacity: 0; /* 默认隐藏，悬浮显示。如果在移动端你需要它常显，把这行改为 opacity: 1; color: #c0c4cc; */
-  transition: opacity 0.3s;
+  top: 8px;
+  right: 8px;
+  opacity: 0;
+  transition: opacity 0.2s;
 }
 
 .modern-card:hover .card-action-menu {
@@ -368,34 +374,22 @@ setTopAlert();
 }
 
 .action-btn {
+  width: 24px;
+  height: 24px;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
   border-radius: 50%;
-  color: #909399;
-  font-size: 18px;
-  cursor: pointer;
-  transition: all 0.2s;
+  color: #c0c4cc;
 }
 
 .action-btn:hover {
-  background-color: #f4f4f5;
+  background: #f0f2f5;
   color: #409eff;
 }
 
-/* 删除按钮标红 */
-.danger-item {
-  color: #f56c6c !important;
-}
+.danger-item { color: #f56c6c !important; }
 
-.danger-item:hover {
-  background-color: #fef0f0 !important;
-  color: #f56c6c !important;
-}
-
-/* --- 弹窗美化 --- */
 .dialog-tip {
   background-color: #f0f9eb;
   color: #67c23a;
