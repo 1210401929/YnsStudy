@@ -739,17 +739,22 @@ function openOneBlog() {
 
 function deleteArticle() {
   ele_confirm("确定要删除这篇文章吗？此操作不可撤销。", () => {
+    debugger;
     blogContentStore.blogContents = blogContentStore.blogContents.filter(
         item => item["GUID"] !== contentGuid.value
     );
     sendAxiosRequest("/blog-api/blog/deleteBlog", {guid: contentGuid.value});
     blogComment.value = [];
     ElMessage.success("文章已删除");
-    //跳转路由到第一篇文章
-    router.push({
-      name: "BlogContent",
-      query: {g: blogContentStore?.blogContents?.[0]?.GUID || ""},
-    });
+    if(route.name==="BlogContent"){
+      //跳转路由到第一篇文章
+      router.push({
+        name: "BlogContent",
+        query: {g: blogContentStore?.blogContents?.[0]?.GUID || ""},
+      });
+    }else{
+      location.reload();
+    }
   })
 }
 
