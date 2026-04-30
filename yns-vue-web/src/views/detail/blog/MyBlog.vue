@@ -51,7 +51,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import {ref, onMounted, watch} from 'vue'
 import { useRouter } from 'vue-router'
 import { useBlogContentStore } from '@/stores/detail/blog.js'
 import { useUserStore } from "@/stores/main/user.js"
@@ -117,6 +117,7 @@ const currentBgStyle = ref({});
 const handleBgStyleUpdate = (style) => currentBgStyle.value = style;
 
 function getUserInfo2Data() {
+
   const setPersonInfo = async () => {
     let result = await sendAxiosRequest("/blog-api/userInformation/getPersonInfo", {userCode: userStore.userBean.code});
     if (result && !result.isError) {
@@ -140,10 +141,13 @@ onMounted( () => {
     // router.push({name: 'BlogContent', query: {g: selectedIndex.value}});
   }
 
-  getUserInfo2Data();
   setTopAlert();
   isInitialized.value = true;
 })
+
+watch(()=>userStore.userBean.code,()=>{
+  getUserInfo2Data();
+},{ immediate: true } )
 </script>
 
 <style scoped>
