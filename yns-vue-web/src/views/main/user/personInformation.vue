@@ -166,19 +166,19 @@
               <template #header>
                 <div class="sidebar-card-title">
                   <span style="display: flex; align-items: center; gap: 6px;">
-                    🔥 <span>最近文章</span>
+                     <span>最近文章</span>
                   </span>
                 </div>
               </template>
               <ul class="recent-articles-list">
                 <li
-                    v-for="article in recentArticles"
+                    v-for="(article,index) in recentArticles"
                     :key="article.GUID"
                     class="recent-article-item"
                     :title="article.BLOG_TITLE"
                     @click="blogMainClick(article)"
                 >
-                  {{ article.BLOG_TITLE }}
+                  <span style="font-weight: bold;color:rgba(0,0,0,0.5)">{{(index+1) + "："}}</span> {{article.BLOG_TITLE }}
                 </li>
               </ul>
             </el-card>
@@ -371,7 +371,7 @@ const showBlogs = computed(() => {
 
 function blogMainClick(blog) {
   if (blog.TYPE === "community") {
-    ElMessage.success('社区发起内容不用查看详情')
+    ElMessage.info('该内容为社区留言,非文章');
     return false
   }
   const userNum = route.params.u;
