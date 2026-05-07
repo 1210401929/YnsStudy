@@ -19,7 +19,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.nio.charset.StandardCharsets;
-
+//该类用于实现前后端数据传输加密
 @Component
 public class AesCryptoFilter implements GlobalFilter, Ordered {
 

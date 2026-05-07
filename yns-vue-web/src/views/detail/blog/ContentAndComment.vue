@@ -31,18 +31,14 @@
                        v-if="route.name!=='oneBlog'">
               专注模式
             </el-button>
-            <!-- 显示逻辑 1.自己发布的内容  2.非超级管理员的发帖,允许普通管理员编辑 3.当前登录用户是超级管理员 -->
+
             <el-button size="small" type="warning" plain @click="editorVisible = true"
-                       v-if="(userStore?.userBean?.code && blogContent.USERCODE===userStore.userBean.code)
-                            ||(getCurrentUserAdminObject().isAdmin && blogContent.USERCODE!==adminUserCode)
-                            ||getCurrentUserAdminObject().adminLevel==='superAdmin'">
+                       v-if="canEditOrDelete">
               编辑文章
             </el-button>
-            <!-- 显示逻辑 1.自己发布的内容  2.非超级管理员的发帖,允许普通管理员删除 3.当前登录用户是超级管理员 -->
+
             <el-button size="small" type="danger" plain @click="deleteArticle"
-                       v-if="(userStore?.userBean?.code && blogContent.USERCODE===userStore.userBean.code)
-                            ||(getCurrentUserAdminObject().isAdmin && blogContent.USERCODE!==adminUserCode)
-                            ||getCurrentUserAdminObject().adminLevel==='superAdmin'">
+                       v-if="canEditOrDelete">
               删除文章
             </el-button>
           </div>
@@ -247,7 +243,6 @@ import ArticleEditor from "@/components/detail/ArticleEditor.vue";
 import {Star, Comment, Right, List} from '@element-plus/icons-vue'
 import {ElMessage} from "element-plus";
 import debounce from 'lodash/debounce'
-// 1. 引入需要的图标
 
 import {
   buildChildrenData,
@@ -257,8 +252,10 @@ import {
   pubFormatDate,
   sendNotifications, getCurrentUserAdminObject, encrypt
 } from "@/utils/common.js";
+
 import {adminUserCode} from "@/config/vue-config.js";
 import {pubOpenOneBlog, pubOpenUser} from "@/utils/blogUtil.js";
+
 
 const route = useRoute();
 const router = useRouter();
@@ -354,6 +351,7 @@ const handleEditorSubmit = ({blog_type, title, content}) => {
 };
 
 const loadContentAndComments = async (guid) => {
+
   let result = await sendAxiosRequest("/blog-api/blog/getBlog", {blogId: guid});
   if (result && !result.isError && result?.result?.[0]) {
     blogContent.value = result.result[0];
@@ -400,6 +398,21 @@ const loadContentAndComments = async (guid) => {
 //当博客内容有值时,提取正文内容标题 作为目录
 watch(() => blogContent.value.MAINTEXT, () => {
   generateToc();
+});
+
+//显示逻辑 1.自己发布的内容  2.非超级管理员的发帖,允许普通管理员编辑 3.当前登录用户是超级管理员
+const canEditOrDelete = computed(() => {
+  // 如果数据还没加载出来，直接返回 false
+  if (!blogContent.value.USERCODE || !userStore.userBean?.code) {
+    return false;
+  }
+  const currentUser = userStore.userBean;
+  const adminObj = getCurrentUserAdminObject();
+  const isOwner = blogContent.value.USERCODE === currentUser.code;
+  const isSuperAdmin = adminObj.adminLevel === 'superAdmin';
+  const isNormalAdminPermitted = adminObj.isAdmin && blogContent.value.USERCODE !== adminUserCode;
+
+  return isOwner || isSuperAdmin || isNormalAdminPermitted;
 });
 
 //目录

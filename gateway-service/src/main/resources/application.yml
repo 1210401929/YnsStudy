@@ -1,8 +1,11 @@
+# 引入公共配置文件,用于脱敏数据库密码等重要信息
+spring.config.import: optional:file:secret.yml
+
 eureka:
   client:
     service-url:
       # 指定 eureka 注册中心地址
-      defaultZone: http://localhost:8888/eureka/
+      defaultZone: ${my-secret.eureka.defaultZone}
 
 server:
   # 当前网关服务的端口
@@ -49,3 +52,13 @@ spring:
 logging:
   level:
     org.springframework.cloud.gateway: DEBUG  # 开启网关 debug 日志（方便排查问题）
+
+#接口白名单  无需token就能访问的接口
+auth:
+  whitelist:
+    # pub_api
+    - /pub-api/login/**
+    # blog_api
+    - /blog-api/home/** # 首页
+    - /blog-api/userInformation/**  #用户主页
+

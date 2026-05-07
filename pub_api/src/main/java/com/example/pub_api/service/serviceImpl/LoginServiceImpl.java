@@ -4,6 +4,7 @@ import com.example.common_api.bean.ResultBody;
 import com.example.common_api.bean.UserBean;
 import com.example.common_api.config.LoginCfg;
 import com.example.common_api.util.FunToUrlUtil;
+import com.example.common_api.util.JwtUtils;
 import com.example.pub_api.service.ApiService;
 import com.example.pub_api.service.LoginService;
 import com.example.pub_api.service.SqlService;
@@ -119,7 +120,8 @@ public class LoginServiceImpl implements LoginService {
                 updateUserIpAndAddress(user.getCODE(), user.getLOGINIP(), user.getLOGINADDRESS());
                 session.setAttribute("userInfo", user);
                 System.out.println("已存入session");
-                return ResultBody.createSuccessResult(user);
+
+                return ResultBody.createSuccessResult(buildUserReturnValue(user));
             } else {
                 return ResultBody.createErrorResult("用户名或密码错误,请重试!");
             }
@@ -135,7 +137,8 @@ public class LoginServiceImpl implements LoginService {
             user.setPASSWORD(null);
             user.setPASSWORDSALT(null);
             user.setLOGINIP(null);
-            return ResultBody.createSuccessResult(user);
+
+            return ResultBody.createSuccessResult(buildUserReturnValue(user));
         } else {
             //如果未登录,设置游客身份
             HashMap<String, Object> userInfo = new HashMap<>();
@@ -387,6 +390,15 @@ public class LoginServiceImpl implements LoginService {
         }
         List<Object> listParams = Arrays.asList(userId);
         return sqlService.exeSqlByParams(updateSql, listParams);
+    }
+
+    private Map<String,Object> buildUserReturnValue(UserBean user) {
+        //生成用户token  该token用户访问后台敏感接口
+        String userToken = JwtUtils.generateToken(user.getGUID());
+        Map<String,Object> userInfo = new HashMap<>();
+        userInfo.put("userToken", userToken);
+        userInfo.put("user", user);
+        return userInfo;
     }
 
     //修改用户登录IP和登录城市

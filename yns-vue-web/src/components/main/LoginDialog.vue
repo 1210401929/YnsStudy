@@ -304,6 +304,7 @@ const onLogin = async () => {
         userName: username,
         passWord: password
       });
+      debugger;
       if (result && result.result && !result.isError) {
         userStore.setUser(result.result);
         ElMessage.success('登录成功！');

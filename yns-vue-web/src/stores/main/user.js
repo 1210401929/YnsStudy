@@ -9,14 +9,18 @@ export const useUserStore = defineStore('user', () => {
     const userUnreadArr = ref([]);
 
     const setUser = (userObj) => {
-        userBean.value = userObj;
-        localStorage.setItem('userBean', JSON.stringify(userObj));
+        const user = userObj.user;
+        const userToken = userObj.userToken;
+        userBean.value = user;
+        localStorage.setItem('userBean', JSON.stringify(user));
+        localStorage.setItem('userToken', userToken);
     };
 
     const clearUser = async () => {
         await sendAxiosRequest('/pub-api/login/logout');
         userBean.value = {};
         localStorage.removeItem('userBean');
+        localStorage.removeItem('userToken');
     };
 
     const initFromLocal = async () => {

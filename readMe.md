@@ -33,6 +33,7 @@
 ## ⚙️ 关于配置说明
 
 - **跨域请求**: 由统一网关 (`gateway`) 处理。
+- **后台接口**: 接口白名单配置在gateway服务的`application.yml` 文件,不需要验证token的接口以get打头
 - **新增子项目**: 如需增加子项目，需要配置网关配置文件和 Vue 项目的 `vite.config.js` 文件。
 - **资源文件映射**: 配置路径为 `pub_api/src/main/java/com/example/pub_api/config/StaticResourceConfig.java`。
 - **Nginx 依赖**: 项目**必须**依赖 Nginx 进行静态文件跳转以及端口跳转。

@@ -56,7 +56,18 @@ export const sendAxiosRequest = async function (
 
     method = method.toLowerCase()
 
-    const config = {withCredentials: true}
+    // 默认配置
+    const config = {
+        withCredentials: true,
+        headers: {} // 初始化 headers 对象，方便后续追加
+    }
+    debugger;
+    // ================= 加入 Token 验证 =================
+    const userToken = localStorage.getItem('userToken');
+    if (userToken) {
+        // 后端网关通过获取 Authorization 头来验证token
+        config.headers['Authorization'] = userToken;
+    }
     const isForm = typeof FormData !== 'undefined' && data instanceof FormData
 
     /* ---------- 构造 payload ---------- */
@@ -68,7 +79,7 @@ export const sendAxiosRequest = async function (
         // GET / DELETE / multipart / 不需要加密 —— 原样发送
         payload = data
         if (isForm && (method === 'post' || method === 'put')) {
-            config.headers = {'Content-Type': 'multipart/form-data'}
+            config.headers['Content-Type'] = 'multipart/form-data'
         }
     }
 
@@ -126,14 +137,22 @@ export function uploadFileWithProgress({
     Object.entries(extraData).forEach(([key, value]) => {
         formData.append(key, value);
     });
-    const xhr = new XMLHttpRequest();
-    // 加上这个！
-    xhr.withCredentials = true;
-    // 自动拼接生产路径（模仿你的封装）
-    const realUrl =
-        import.meta.env.MODE === "development" ? url : produceDevIpPort + url;
 
+    const xhr = new XMLHttpRequest();
+    xhr.withCredentials = true;
+    // 环境判断
+    const realUrl = getSendAxiosUrl(url);
+
+    // 必须先 open
     xhr.open("POST", realUrl, true);
+
+    // ================= 新增：加入 Token 验证 =================
+    const userToken = localStorage.getItem('userToken');
+    if (userToken) {
+        // 使用 setRequestHeader 设置 Token
+        xhr.setRequestHeader('Authorization', userToken);
+    }
+    // =======================================================
 
     xhr.upload.onprogress = (event) => {
         if (event.lengthComputable) {
@@ -151,12 +170,19 @@ export function uploadFileWithProgress({
                 onError("返回结果解析失败");
             }
         } else {
-            onError(`上传失败：${xhr.statusText}`);
+            // 如果返回 401，这里也能拦截到
+            if(xhr.status === 401) {
+                onError("登录凭证已过期，请重新登录");
+            } else {
+                onError(`上传失败：${xhr.statusText}`);
+            }
         }
     };
     xhr.onerror = () => {
         onError("上传失败，请检查网络连接");
     };
+
+    // 最后 send
     xhr.send(formData);
 }
 

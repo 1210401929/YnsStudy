@@ -34,7 +34,7 @@ const routes = [
     //简短路径
     {path:'/user/:u/:blogId?',name:'user',component: personInfomation},
     //账号主页   u为传递的参数
-    {path:'/personInfomationV2/:userId',name:'personInfomationV2',component: personInfomationV2},
+    {path:'/userV2/:u/:blogId?',name:'userV2',component: personInfomationV2},
     //Ai
     {path: '/YnsStudyAi', name: 'YnsStudyAi', component: YnsStudyAi},
     //展示一条博客内容

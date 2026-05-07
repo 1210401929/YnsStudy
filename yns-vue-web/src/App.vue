@@ -32,7 +32,7 @@
     </footer>
 
     <!-- 回到顶部按钮 -->
-    <div class="scroll-to-top" :class="{ hidden: !showScrollButton }" @click="scrollToTop" @mouseenter="hover = true" @mouseleave="hover = false">
+    <div class="scroll-to-top" :class="{ hidden: !showScrollButton }" @click="scrollToTop" >
       <el-icon><Top/></el-icon>
     </div>
   </div>
@@ -49,9 +49,9 @@ const hover = ref(false); // 用于控制鼠标移入移出时的透明度变化
 
 // 判断是否显示回到顶部按钮
 const handleScroll = () => {
-  const scrollY = window.scrollY;  // 获取页面滚动的垂直距离
+  const scrollY = window.scrollY;
 
-  // 当页面滚动超过300px时，显示回到顶部按钮
+  // 当页面滚动超过300px时
   if (scrollY > 300) {
     showScrollButton.value = true;
   } else {
@@ -159,60 +159,61 @@ html, body {
   margin-top: 8px;
 }
 
-/* 回到顶部按钮 */
+/* 回到顶部按钮 - 简约现代风 */
 .scroll-to-top {
   position: fixed;
-  left: 20px;
-  bottom: 20px;
-  width: 30px; /* 设置按钮宽度 */
-  height: 80px; /* 设置按钮高度，使其纵向 */
-  background-color: rgba(64, 158, 255, 0.4); /* 半透明 */
-  color: #fff;
-  border-radius: 20px; /* 圆柱形 */
+  left: 20px; /* 保持在左侧 */
+  bottom: 30px; /* 距离底部稍远一点 */
+  width: 48px;  /* 固定的圆形 */
+  height: 48px;
+  background-color: #ffffff; /* 默认白色背景 */
+  color: #606266; /* 默认图标颜色 */
+  border-radius: 50%; /* 完美的圆形 */
   display: flex;
   justify-content: center;
   align-items: center;
   cursor: pointer;
-  box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
-  opacity: 0.4; /* 初始透明度 */
-  transition: opacity 0.3s ease, transform 0.3s ease;
+
+  /* 柔和的阴影，使其悬浮感更强 */
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+
+  /* 初始状态微透明 */
+  opacity: 0.9;
+
+  /* 过渡动画：所有属性，平滑，时间适中 */
+  transition: all 0.3s cubic-bezier(0.645, 0.045, 0.355, 1);
+
   z-index: 999;
-  font-size: 14px;
 }
 
 .scroll-to-top .el-icon {
-  font-size: 24px; /* 设置图标的大小 */
+  font-size: 22px; /* 调整图标大小 */
 }
 
+/* 鼠标悬停样式 */
 .scroll-to-top:hover {
-  opacity: 1; /* 鼠标悬停时完全显示 */
-  transform: translateY(-5px); /* 轻微上升 */
+  opacity: 1; /* 完全不透明 */
+  background-color: #ecf5ff; /* Element Plus 的浅蓝色背景 */
+  color: #409EFF; /* 品牌蓝色图标 */
+  box-shadow: 0 6px 16px rgba(64, 158, 255, 0.2); /* 蓝色调的阴影 */
+  transform: translateY(-3px); /* 稍稍向上浮动 */
 }
 
-.scroll-to-top .scroll-text {
-  display: inline-block;
-  transition: opacity 0.3s ease;
-}
-
+/* 隐藏状态（通过 JS 控制） */
 .scroll-to-top.hidden {
-  display: none;
+  opacity: 0;
+  pointer-events: none; /* 隐藏时不可点击 */
+  transform: translateY(20px); /* 隐藏时向下移动，出场动画 */
 }
 
-.scroll-to-top .scroll-text {
-  opacity: 0; /* 初始文本不可见 */
-}
-
-.scroll-to-top:hover .scroll-text {
-  opacity: 1; /* 鼠标悬停时显示文本 */
-}
-
-/* 手机端样式 */
+/* 手机端样式 - 稍微调小一点 */
 @media (max-width: 768px) {
   .scroll-to-top {
-    width: 35px;
-    height: 100px;
+    left: 15px; /* 离边缘更近 */
+    bottom: 20px;
+    width: 40px;
+    height: 40px;
   }
-
   .scroll-to-top .el-icon {
     font-size: 18px;
   }
