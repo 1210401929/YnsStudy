@@ -36,6 +36,7 @@
             <el-button class="action-button" @click="goToAdmin">👨‍💼 站长主页</el-button>
             <el-button class="action-button" @click="goToPublishBlog">📝 发布内容</el-button>
             <el-button class="action-button" @click="goToUpload">📤 上传资源</el-button>
+            <el-button class="action-button" @click="goMe"> 我的主页</el-button>
           </span>
           <!-- 搜索栏 -->
           <div class="search-bar">
@@ -158,14 +159,17 @@
 import {onMounted, onBeforeUnmount, ref} from "vue";
 import {useHomeStore} from "@/stores/detail/home.js";
 import {useRouter} from "vue-router";
-import {encrypt, extractFirstImage, pubFormatDate, sendAxiosRequest, stripImages} from "@/utils/common.js";
+import {useUserStore} from "@/stores/main/user.js";
+import {extractFirstImage, pubFormatDate, sendAxiosRequest, stripImages} from "@/utils/common.js";
 import {Star} from "@element-plus/icons-vue";
 import {adminUserCode} from "@/config/vue-config.js";
 import debounce from "lodash/debounce.js";
+import {ElMessage} from "element-plus";
 import {getAnnouncementByRouterName, pubOpenOneBlog, pubOpenUser} from "@/utils/blogUtil.js";
 import Announcement from "@/components/detail/Announcement.vue";
 
 const router = useRouter();
+const userStore = useUserStore();
 const homeStore = useHomeStore();
 homeStore.initHomeData();
 
@@ -249,6 +253,13 @@ function goToUpload() {
   router.push({name: "Resources"});
 }
 
+function goMe(){
+  let userCode = userStore?.userBean?.code || false;
+  if(!userCode){
+    ElMessage.info("登录后可以拥有自己的个人主页");
+  }
+  pubOpenUser(router,userCode);
+}
 
 const hotAuthorClick = (author) => {
   pubOpenUser(router,author.USERCODE);
