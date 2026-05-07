@@ -44,12 +44,11 @@ public class AuthGlobalFilter implements GlobalFilter, Ordered {
 
         // 2. 检查是不是内部微服务互相调用
         String innerCallSecret = request.getHeaders().getFirst(pubPublicSecretKey);
-        //如果是万能token:放行
+        // ================= 如果是万能token:放行 =================
         if (public_secret.equals(innerCallSecret)) {
             return chain.filter(exchange);
         }
-        // ================= 新增：动态判断 URL 方法名 =================
-        // get打头命名的的接口:放行
+        // ================= get打头命名的的接口:放行 =================
         int lastSlashIndex = path.lastIndexOf("/");
         if (lastSlashIndex != -1 && lastSlashIndex < path.length() - 1) {
             String methodName = path.substring(lastSlashIndex + 1);
@@ -58,8 +57,7 @@ public class AuthGlobalFilter implements GlobalFilter, Ordered {
                 return chain.filter(exchange);
             }
         }
-
-        // 白名单:放行
+        // ================= 白名单:放行 =================
         if (whitelist != null) {
             for (String whiteUrl : whitelist) {
                 if (pathMatcher.match(whiteUrl, path)) {

@@ -61,4 +61,6 @@ auth:
     # blog_api
     - /blog-api/home/** # 首页
     - /blog-api/userInformation/**  #用户主页
+    # 静态文件访问
+    - /uploadFile/**
 
