@@ -234,7 +234,7 @@ const recentArticles = ref([])
 const route = useRoute();
 const router = useRouter();
 const user = ref({})
-const selectedCategory = ref('')
+const selectedCategory = ref('');
 const targetUserCode = ref('');
 
 // 新增：核心页面渲染锁
