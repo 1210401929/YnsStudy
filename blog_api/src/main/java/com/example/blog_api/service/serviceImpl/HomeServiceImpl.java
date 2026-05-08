@@ -53,6 +53,7 @@ public class HomeServiceImpl implements HomeService {
         String sql = "SELECT \n" +
                 "    u.USERCODE,\n" +
                 "    COALESCE(info.NAME, '') AS USERNAME,\n" +
+                "    COALESCE(info.REMARK, '') AS REMARK, \n" +
                 "    COALESCE(b.article_count, 0) AS ARTICLE_COUNT,\n" +
                 "    COALESCE(follow.follower_count, 0) AS FOLLOWER_COUNT,\n" +
                 "    COALESCE(info.AVATAR, '') AS AVATAR,\n" +

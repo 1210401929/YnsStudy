@@ -1,171 +1,204 @@
 <template>
-  <!-- 公告横幅 -->
-  <Announcement v-for="al in topAlert" :key="al.GUID" :TEXT="al.TEXT" :URL="al.URL" :URLNAME="al.URLNAME" />
-  <div class="home-page-wrapper">
-    <!-- 主体三栏布局 -->
-    <div class="three-column-layout">
-      <!-- 左侧：热门文章 -->
-      <div class="left-column">
-        <h3 class="section-title">🔥 热门文章推荐</h3>
-        <ul class="blog-list">
-          <li
-              v-for="blog in homeStore.homeData.hotBlogData"
-              :key="blog.id"
-              class="blog-item"
-              @click="hotBlogClick(blog)"
-          >
-            <div class="blog-card">
-              <a class="blog-title">{{ blog.BLOG_TITLE }}</a>
-              <div class="blog-author">by {{ blog.USERNAME }}</div>
-              <div class="blog-meta">
-                <span>👁 {{ blog.VIEW_PAGE }}</span>
-                <span>👍 {{ blog.LIKE_COUNT }}</span>
-                <span>💬 {{ blog.COMMENT_COUNT }}</span>
-                <span><el-icon><Star/></el-icon> {{ blog.COLLECT_COUNT }}</span>
+  <div class="page-container">
+    <Announcement v-for="al in topAlert" :key="al.GUID" :TEXT="al.TEXT" :URL="al.URL" :URLNAME="al.URLNAME" />
+
+    <div class="home-page-wrapper">
+      <div class="three-column-layout">
+
+        <aside class="left-column">
+          <div class="side-card">
+            <h3 class="section-title">
+              <span class="title-icon">🔥</span> 热门榜单
+            </h3>
+            <ul class="blog-list">
+              <li
+                  v-for="(blog, index) in homeStore.homeData.hotBlogData"
+                  :key="blog.id"
+                  class="blog-item"
+                  @click="hotBlogClick(blog)"
+              >
+                <div class="blog-rank" :class="'rank-' + (index + 1)">{{ index + 1 }}</div>
+
+                <div class="blog-content">
+                  <a class="blog-title" :title="blog.BLOG_TITLE">{{ blog.BLOG_TITLE }}</a>
+                  <div class="blog-meta">
+                    <span class="author-name">{{ blog.USERNAME }}</span>
+                    <div class="stats">
+                      <span><el-icon><View/></el-icon> {{ blog.VIEW_PAGE }}</span>
+                      <span><el-icon><Star/></el-icon> {{ blog.COLLECT_COUNT }}</span>
+                    </div>
+                  </div>
+                </div>
+              </li>
+            </ul>
+          </div>
+
+          <div class="side-footer">
+            <div class="footer-icon">🚀</div>
+            <div class="footer-slogan">探索技术无限可能</div>
+            <div class="footer-divider"></div>
+          </div>
+        </aside>
+
+        <main class="middle-column">
+          <div class="top-action-bar">
+            <div class="action-btn-group">
+              <div class="action-item" @click="goToAdmin">
+                <div class="icon-wrapper admin-bg">👨‍💼</div>
+                <span>站长主页</span>
+              </div>
+              <div class="action-item" @click="goToPublishBlog">
+                <div class="icon-wrapper publish-bg">📝</div>
+                <span>发布内容</span>
+              </div>
+              <div class="action-item" @click="goToUpload">
+                <div class="icon-wrapper upload-bg">📤</div>
+                <span>上传资源</span>
+              </div>
+              <div class="action-item" @click="goMe">
+                <div class="icon-wrapper me-bg">🏠</div>
+                <span>我的主页</span>
               </div>
             </div>
-          </li>
-        </ul>
-      </div>
+          </div>
 
-      <!-- 中间按钮栏 -->
-      <div class="middle-column">
-        <!-- 滚动容器添加样式 -->
-        <div class="article-scroll">
-          <span class="top-action-bar">
-            <el-button class="action-button" @click="goToAdmin">👨‍💼 站长主页</el-button>
-            <el-button class="action-button" @click="goToPublishBlog">📝 发布内容</el-button>
-            <el-button class="action-button" @click="goToUpload">📤 上传资源</el-button>
-            <el-button class="action-button" @click="goMe"> 我的主页</el-button>
-          </span>
-          <!-- 搜索栏 -->
-          <div class="search-bar">
+          <div class="search-container">
             <el-input
                 v-model="searchKeyword"
-                placeholder="搜索文章标题或内容"
+                class="premium-search"
+                placeholder="搜索感兴趣的文章标题或内容..."
                 clearable
-                prefix-icon="el-icon-search"
+                :prefix-icon="Search"
                 @clear="resetAndLoad"
                 @input="debouncedSearch"
             />
           </div>
-          <el-card
-              v-for="(article, index) in articles"
-              :key="index"
-              class="article-card"
-              shadow="hover"
-          >
-            <el-button
-                link
-                type="primary"
-                class="read-more-btn"
-                @click.stop="hotBlogClick(article)"
+
+          <div class="article-scroll">
+            <div
+                v-for="(article, index) in articles"
+                :key="index"
+                class="article-card"
+                @click="hotBlogClick(article)"
             >
-              阅读全文 →
-            </el-button>
-            <h3 class="article-title">
-              <el-avatar
-                  :src="article.AVATAR"
-                  size="large"
-                  class="author-avatar title-avatar"
-                  alt="用户头像"
-              >
-                {{ article.USERNAME?.charAt(0) }}
-              </el-avatar>
-              {{ article.BLOG_TITLE }}
-            </h3>
-            <div class="article-meta">
-              <span>作者：{{ article.USERNAME }}</span>
-              <span>时间：{{ pubFormatDate(article.CREATE_TIME) }}</span>
-            </div>
+              <div class="article-header">
+                <el-avatar
+                    :src="article.AVATAR"
+                    :size="28"
+                    class="author-avatar"
+                >
+                  {{ article.USERNAME?.charAt(0) }}
+                </el-avatar>
+                <span class="author-name">{{ article.USERNAME }}</span>
+                <span class="divider">·</span>
+                <span class="publish-time">{{ pubFormatDate(article.CREATE_TIME) }}</span>
+              </div>
 
-            <!-- 文章内容和图片放在同一容器中 -->
-            <div class="article-content-wrapper">
-              <p class="article-content" v-html="stripImages(article.MAINTEXT)"></p>
+              <div class="article-body">
+                <div class="article-main">
+                  <h3 class="article-title">{{ article.BLOG_TITLE }}</h3>
+                  <p class="article-content" v-html="stripImages(article.MAINTEXT)"></p>
+                </div>
 
-              <!-- 图片显示在右侧 -->
-              <div v-if="article.ILLUSTRATION" class="article-image">
-                <img :src="article.ILLUSTRATION" alt="文章插图" class="article-thumbnail"/>
+                <div v-if="article.ILLUSTRATION" class="article-image">
+                  <img :src="article.ILLUSTRATION" alt="文章插图" class="article-thumbnail"/>
+                </div>
               </div>
             </div>
-          </el-card>
 
-          <el-empty v-if="!articles.length && !loading" description="暂无内容"/>
-          <el-button
-              v-if="!noMore && !loading"
-              type="primary"
-              link
-              @click="fetchArticles"
-              style="margin: 20px auto; display: block;"
-          >
-            加载更多
-          </el-button>
-          <div v-if="loading" class="loading-text">加载中...</div>
-          <div v-if="noMore" class="end-text">没有更多文章了</div>
-        </div>
-      </div>
+            <el-empty v-if="!articles.length && !loading" description="暂时没有发现内容哦" />
 
-      <!-- 右侧：热门下载 + 优质作者 -->
-      <div class="right-column">
+            <div class="load-more-wrapper">
+              <el-button
+                  v-if="!noMore && !loading && articles.length > 0"
+                  type="primary"
+                  round
+                  plain
+                  class="load-more-btn"
+                  @click="fetchArticles"
+              >
+                浏览更多内容
+              </el-button>
+              <div v-if="loading" class="status-text loading-text">
+                <span class="dot-typing"></span> 正在努力加载...
+              </div>
+              <el-divider v-if="noMore && articles.length > 0" class="end-text">我是有底线的</el-divider>
+            </div>
+          </div>
+        </main>
 
-        <h3 class="section-title">🌟 优质作者</h3>
-        <el-card
-            v-for="(author, index) in homeStore.homeData.higAuthor"
-            :key="index"
-            class="author-card"
-            @click="hotAuthorClick(author)"
-        >
-          <div class="author-box">
-            <el-avatar
-                :src="author.AVATAR"
-                size="large" author-card
-                class="author-avatar"
-                alt="用户头像"
-            >
-              {{ author.USERNAME?.charAt(0) }}
-            </el-avatar>
-            <div class="author-meta">
-              <div class="name">{{ author.USERNAME }}</div>
-              <div class="stats-row">
-                <span>👩🏻‍🤝‍🧑🏽粉丝:{{ author.FOLLOWER_COUNT }}</span>&nbsp;&nbsp;&nbsp;&nbsp;
-                <span>📄文章:{{ author.ARTICLE_COUNT }}</span>
+        <aside class="right-column">
+          <div class="side-card">
+            <h3 class="section-title">
+              <span class="title-icon">🌟</span> 优质作者
+            </h3>
+            <div class="author-list">
+              <div
+                  v-for="(author, index) in homeStore.homeData.higAuthor"
+                  :key="index"
+                  class="author-card"
+                  @click="hotAuthorClick(author)"
+              >
+                <el-avatar :src="author.AVATAR" :size="46" class="author-avatar">
+                  {{ author.USERNAME?.charAt(0) }}
+                </el-avatar>
+                <div class="author-info">
+                  <div class="name">{{ author.USERNAME }}</div>
+                  <div class="signature">{{ author.REMARK || '无签名' }}</div>
+                  <div class="stats-row">
+                    <span>粉丝 {{ author.FOLLOWER_COUNT }}</span>
+                    <span class="v-divider"></span>
+                    <span>文章 {{ author.ARTICLE_COUNT }}</span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
-        </el-card>
-        <h3 class="section-title">📥 热门下载内容</h3>
-        <ul class="download-list">
-          <li
-              v-for="file in homeStore.homeData.hotFileData"
-              :key="file.GUID"
-              class="download-item"
-              @click="downloadClick(file)"
-          >
-            <div class="download-card">
-              <div class="download-title">{{ file.ORIGINALFILENAME }}</div>
-              <div class="download-meta">
-                <span>🧑 {{ file.USERNAME }}</span> |
-                <span style="color:#04c279">下载次数: {{ file.DOWNNUM }}</span>
-              </div>
-            </div>
-          </li>
-        </ul>
+
+          <div class="side-card">
+            <h3 class="section-title">
+              <span class="title-icon">📥</span> 热门资源
+            </h3>
+            <ul class="download-list">
+              <li
+                  v-for="file in homeStore.homeData.hotFileData"
+                  :key="file.GUID"
+                  class="download-item"
+                  @click="downloadClick(file)"
+              >
+                <div class="download-info">
+                  <div class="download-title" :title="file.ORIGINALFILENAME">{{ file.ORIGINALFILENAME }}</div>
+                  <div class="download-meta">
+                    <span class="uploader">{{ file.USERNAME }}</span>
+                    <span class="download-count">↓ {{ file.DOWNNUM }}</span>
+                  </div>
+                </div>
+              </li>
+            </ul>
+          </div>
+
+          <div class="side-footer">
+            <div class="footer-slogan">记录生活 · 分享点滴</div>
+            <div class="footer-copyright">© 2026 YnsStudy</div>
+          </div>
+        </aside>
+
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import {onMounted, onBeforeUnmount, ref} from "vue";
-import {useHomeStore} from "@/stores/detail/home.js";
-import {useRouter} from "vue-router";
-import {useUserStore} from "@/stores/main/user.js";
-import {extractFirstImage, pubFormatDate, sendAxiosRequest, stripImages} from "@/utils/common.js";
-import {Star} from "@element-plus/icons-vue";
-import {adminUserCode} from "@/config/vue-config.js";
+import { onMounted, onBeforeUnmount, ref } from "vue";
+import { useHomeStore } from "@/stores/detail/home.js";
+import { useRouter } from "vue-router";
+import { useUserStore } from "@/stores/main/user.js";
+import { extractFirstImage, pubFormatDate, sendAxiosRequest, stripImages } from "@/utils/common.js";
+import { Star, View, Search } from "@element-plus/icons-vue";
+import { adminUserCode } from "@/config/vue-config.js";
 import debounce from "lodash/debounce.js";
-import {ElMessage} from "element-plus";
-import {getAnnouncementByRouterName, pubOpenOneBlog, pubOpenUser} from "@/utils/blogUtil.js";
+import { ElMessage } from "element-plus";
+import { getAnnouncementByRouterName, pubOpenOneBlog, pubOpenUser } from "@/utils/blogUtil.js";
 import Announcement from "@/components/detail/Announcement.vue";
 
 const router = useRouter();
@@ -173,16 +206,11 @@ const userStore = useUserStore();
 const homeStore = useHomeStore();
 homeStore.initHomeData();
 
-// 文章列表数据
 const articles = ref([])
 const page = ref(1)
 const pageSize = 5
 const loading = ref(false)
 const noMore = ref(false)
-// 滚动容器引用
-const scrollContainer = ref(null)
-
-// 搜索文章
 const searchKeyword = ref('')
 
 const resetAndLoad = () => {
@@ -196,7 +224,6 @@ const debouncedSearch = debounce(() => {
   resetAndLoad()
 }, 500)
 
-// 加载文章
 const fetchArticles = async () => {
   if (loading.value || noMore.value) return
   loading.value = true
@@ -208,10 +235,9 @@ const fetchArticles = async () => {
     })
     const newData = res.result.data;
 
-    // 提取每篇文章的第一张图片
     newData.forEach(article => {
       const firstImage = extractFirstImage(article.MAINTEXT);
-      article.ILLUSTRATION = firstImage; // 保存图片 URL
+      article.ILLUSTRATION = firstImage;
     });
 
     if (newData.length < pageSize) {
@@ -223,13 +249,6 @@ const fetchArticles = async () => {
     console.error('获取文章失败', e)
   } finally {
     loading.value = false
-  }
-}
-
-const handleScroll = () => {
-  const el = scrollContainer.value
-  if (el.scrollTop + el.clientHeight >= el.scrollHeight - 10) {
-    fetchArticles()
   }
 }
 
@@ -266,27 +285,24 @@ const hotAuthorClick = (author) => {
 };
 
 const handleWindowScroll = () => {
-  // 获取页面滚动相关数据
   const scrollTop = window.pageYOffset || document.documentElement.scrollTop || document.body.scrollTop;
   const windowHeight = window.innerHeight;
   const docHeight = document.documentElement.scrollHeight;
 
-  // 判断滚动是否接近底部（这里预留10px偏差）
-  if (scrollTop + windowHeight >= docHeight - 10) {
+  if (scrollTop + windowHeight >= docHeight - 100) {
     fetchArticles();
   }
 };
 
 onMounted(() => {
   fetchArticles();
-  //window.addEventListener('scroll', handleWindowScroll);
+  window.addEventListener('scroll', handleWindowScroll);
 });
 
 onBeforeUnmount(() => {
   window.removeEventListener('scroll', handleWindowScroll);
 });
 
-//公告横幅内容
 const topAlert = ref([]);
 const setTopAlert = async ()=>{
   topAlert.value = await getAnnouncementByRouterName("Home");
@@ -295,303 +311,437 @@ setTopAlert();
 </script>
 
 <style scoped>
-.search-bar {
-  margin-bottom: 20px;
-  width: 100%;
-}
-
-.article-card {
-  position: relative;
-  margin-bottom: 20px;
-  border-radius: 8px;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  overflow: hidden;
-  height: auto;
-  min-height: 150px;
-  /* 关键：强制长串内容在容器内换行 */
-  word-break: break-all;        /* 遇到超长单词/字符也强制断开 */
-  overflow-wrap: anywhere;      /* CSS3 推荐写法，任何地方都能换行 */
-  white-space: normal;          /* 确保不是 nowrap */
-}
-
-
-
-.article-card:hover {
-  transform: translateY(-2px);
-}
-
-.article-title {
-  font-size: 18px;
-  font-weight: 600;
-  margin: 10px 0;
-  color: #333;
-}
-
-.article-meta {
-  font-size: 13px;
-  color: #888;
-  display: flex;
-  gap: 20px;
-  margin-bottom: 8px;
-}
-
-.article-content-wrapper {
-  display: flex;
-  align-items: flex-start; /* 确保文本和图片对齐 */
-  gap: 16px; /* 控制文本与图片之间的间距 */
-  margin-top: 12px;
-}
-
-.article-content {
-  flex-grow: 1; /* 使得文章内容占据剩余空间 */
-  font-size: 14px;
-  color: #555;
-  line-height: 1.6;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  display: -webkit-box;
-  -webkit-line-clamp: 3; /* 限制显示三行 */
-  -webkit-box-orient: vertical;
-}
-
-.article-thumbnail {
-  max-width: 150px; /* 设置图片最大宽度 */
-  max-height: 150px;
-  height: auto;
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-}
-
-.article-image {
-  flex-shrink: 0; /* 防止图片缩放 */
-}
-
-.read-more-btn {
-  float: right;
-  font-size: 13px;
-  margin-top: -6px;
-  margin-bottom: 6px;
-}
-
-.loading-text,
-.end-text {
-  text-align: center;
-  color: #999;
-  margin: 16px 0;
+.page-container {
+  background-color: #f2f5f8;
+  min-height: 100vh;
+  padding-bottom: 40px;
 }
 
 .home-page-wrapper {
-  width: 100%;
-  box-sizing: border-box;
-  background-color: #f4f6f9;
-  padding: 10px 0;
-  margin: 10px auto; /* ← 加这一行：上下左右都有外边距 */
-}
-
-.top-action-bar {
-  display: flex;
-  justify-content: center;
-  gap: 16px;
-  margin: 13px auto;
-  flex-wrap: wrap;
-}
-
-.action-button {
-  border: none;
-  background-color: #ffffff;
-  color: #409eff;
-  font-weight: 500;
-  border-radius: 20px;
-  padding: 8px 18px;
-  font-size: 14px;
-  box-shadow: 0 2px 6px rgba(64, 158, 255, 0.1);
-  transition: all 0.25s ease;
-}
-
-.action-button:hover {
-  background-color: #aed7fa;
-  color: white;
-  transform: translateY(-2px);
-}
-
-.three-column-layout {
-  display: flex;
-  gap: 20px;
-  width: 100%;
-  justify-content: space-between;
-  align-items: flex-start;
-  flex-wrap: wrap;
-}
-
-.left-column,
-.right-column {
-  width: 280px;
-  background: #fafafa;
-  border-radius: 10px;
-  padding: 16px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-  box-sizing: border-box;
-}
-
-.middle-column {
-  flex: 1;
-  border-radius: 12px;
-  background: #fff;
+  max-width: 1440px;
+  margin: 0 auto;
   padding: 20px;
   box-sizing: border-box;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-  /* 去掉 overflow:hidden 或者 设置为 visible */
-  overflow: hidden;
+}
+
+/* ====================================
+   自然流排版：不再强行拉伸高度
+   ==================================== */
+.three-column-layout {
+  display: flex;
+  gap: 24px;
+  align-items: flex-start; /* 顺其自然的高度 */
+}
+
+.left-column { width: 290px; flex-shrink: 0; }
+.right-column { width: 300px; flex-shrink: 0; }
+.middle-column { flex: 1; min-width: 0; }
+
+.side-card {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 20px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.03);
+  transition: box-shadow 0.3s ease;
+}
+.side-card:hover {
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.06);
 }
 
 .section-title {
   font-size: 16px;
-  font-weight: bold;
-  margin-bottom: 16px;
-  color: #333;
-  border-left: 4px solid #409EFF;
-  padding-left: 8px;
+  font-weight: 600;
+  color: #1d2129;
+  margin: 0 0 16px 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.title-icon {
+  font-size: 18px;
 }
 
+/* === 左侧：热门榜单 === */
 .blog-list {
   list-style: none;
   padding: 0;
   margin: 0;
+  display: flex;
+  flex-direction: column;
+}
+.blog-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px 0;
+  border-bottom: 1px solid #f2f3f5;
+  cursor: pointer;
+}
+.blog-item:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+.blog-rank {
+  font-size: 15px;
+  font-weight: bold;
+  color: #b5b9c2;
+  width: 20px;
+  text-align: center;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.rank-1 { color: #f53f3f; font-size: 18px; }
+.rank-2 { color: #ff7d00; font-size: 17px; }
+.rank-3 { color: #fadc19; font-size: 16px; }
+
+.blog-content {
+  flex: 1;
+  min-width: 0;
+}
+.blog-title {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-wrap: break-word;
+  word-break: break-all;
+  white-space: normal;
+  font-size: 15px;
+  font-weight: 500;
+  color: #1d2129;
+  line-height: 1.6;
+  transition: color 0.2s ease;
+  margin-bottom: 10px;
+}
+.blog-item:hover .blog-title {
+  color: #165dff;
+}
+.blog-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  color: #86909c;
+}
+.blog-meta .stats {
+  display: flex;
+  gap: 12px;
+}
+.blog-meta .stats span {
+  display: flex;
+  align-items: center;
+  gap: 3px;
 }
 
-.blog-item {
-  margin-bottom: 12px;
+/* === 中间区域 === */
+.top-action-bar {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 24px 20px;
+  margin-bottom: 20px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.03);
+}
+.action-btn-group {
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+.action-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
   cursor: pointer;
   transition: transform 0.2s ease;
 }
+.action-item:hover {
+  transform: translateY(-4px);
+}
+.action-item span {
+  font-size: 14px;
+  font-weight: 500;
+  color: #4e5969;
+}
+.action-item:hover span {
+  color: #165dff;
+}
+.icon-wrapper {
+  width: 48px;
+  height: 48px;
+  border-radius: 16px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 22px;
+  color: white;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+}
+.admin-bg { background: linear-gradient(135deg, #7280ed, #4d5af0); }
+.publish-bg { background: linear-gradient(135deg, #42d392, #34a873); }
+.upload-bg { background: linear-gradient(135deg, #ff9a9e, #fecfef); }
+.me-bg { background: linear-gradient(135deg, #fbc2eb, #a6c1ee); }
 
-.blog-item:hover {
-  transform: translateY(-2px);
+.search-container {
+  margin-bottom: 20px;
+}
+:deep(.premium-search .el-input__wrapper) {
+  border-radius: 20px;
+  padding: 4px 16px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.03);
+  border: 1px solid transparent;
+  transition: all 0.3s ease;
+}
+:deep(.premium-search .el-input__wrapper:hover),
+:deep(.premium-search .el-input__wrapper.is-focus) {
+  box-shadow: 0 6px 20px rgba(22, 93, 255, 0.1);
+  border-color: #165dff;
+}
+:deep(.premium-search .el-input__inner) {
+  font-size: 15px;
+  height: 40px;
 }
 
-.blog-card {
-  background: #fff;
+.article-card {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 16px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.03);
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1px solid transparent;
+  overflow: hidden;
+}
+.article-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  border-color: rgba(22, 93, 255, 0.1);
+}
+.article-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 12px;
+  font-size: 13px;
+  color: #86909c;
+}
+.author-avatar {
+  margin-right: 8px;
+}
+.author-name {
+  color: #4e5969;
+  font-weight: 500;
+}
+.divider {
+  margin: 0 8px;
+  color: #c9cdd4;
+}
+.article-body {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+}
+.article-main {
+  flex: 1;
+  min-width: 0;
+}
+.article-title {
+  margin: 0 0 8px 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #1d2129;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-wrap: break-word;
+  word-break: break-all;
+  white-space: normal;
+}
+.article-content {
+  margin: 0;
+  font-size: 14px;
+  color: #86909c;
+  line-height: 1.6;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-wrap: break-word;
+  word-break: break-all;
+  white-space: normal;
+}
+.article-image {
+  flex-shrink: 0;
+}
+.article-thumbnail {
+  width: 140px;
+  height: 90px;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid #f2f3f5;
+}
+
+.load-more-wrapper {
+  text-align: center;
+  padding: 20px 0;
+}
+.load-more-btn {
+  width: 160px;
+  font-weight: 500;
+}
+.status-text {
+  font-size: 14px;
+  color: #86909c;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+:deep(.el-divider__text) {
+  background-color: #f2f5f8;
+  color: #86909c;
+  font-size: 13px;
+}
+
+/* === 右侧：优质作者 === */
+.author-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.author-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   padding: 12px;
   border-radius: 8px;
-  border: 1px solid #e0e0e0;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.03);
+  transition: background-color 0.2s ease;
+  cursor: pointer;
 }
-
-.blog-title {
-  display: block;
+.author-card:hover {
+  background-color: #f7f8fa;
+}
+.author-info {
+  flex: 1;
+  min-width: 0;
+}
+.author-info .name {
   font-weight: 600;
   font-size: 15px;
-  color: #333;
+  color: #1d2129;
+  margin-bottom: 2px;
   overflow: hidden;
-  white-space: nowrap;
   text-overflow: ellipsis;
+  white-space: nowrap;
 }
-
-.blog-title:hover {
-  color: #409EFF;
-}
-
-
-.blog-author {
+.signature {
   font-size: 12px;
-  color: #999;
-  margin: 4px 0;
+  color: #86909c;
+  margin-bottom: 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-
-.blog-meta {
-  font-size: 12px;
-  color: #666;
+.stats-row {
   display: flex;
-  gap: 12px;
+  align-items: center;
+  font-size: 12px;
+  color: #86909c;
+}
+.v-divider {
+  width: 1px;
+  height: 10px;
+  background-color: #e5e6eb;
+  margin: 0 8px;
 }
 
 .download-list {
   list-style: none;
   padding: 0;
   margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
-
 .download-item {
-  margin-bottom: 12px;
-  cursor: pointer;
-  transition: transform 0.2s ease;
-}
-
-.download-item:hover {
-  transform: translateY(-2px);
-}
-
-.download-card {
-  background: #fff;
-  padding: 12px 14px;
+  padding: 12px;
   border-radius: 8px;
-  border: 1px solid #e0e0e0;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
-}
-
-.download-title {
-  font-weight: 600;
-  font-size: 15px;
-  color: #333;
-  margin-bottom: 6px;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-
-.download-meta {
-  font-size: 12px;
-  color: #666;
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-/* 优质作者 */
-.author-card {
-  margin-bottom: 12px; /* 原来是15px */
-  background-color: #f9f9f9;
-  border-radius: 10px;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  background: #f7f8fa;
   cursor: pointer;
+  transition: all 0.2s ease;
+  border: 1px solid transparent;
 }
-
-.author-card:hover {
-  transform: scale(1.03);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+.download-item:hover {
+  background: #ffffff;
+  border-color: rgba(22, 93, 255, 0.2);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  transform: translateX(4px);
 }
-
-.author-box {
-  display: flex;
-  align-items: center;
-  gap: 10px; /* 原来是12px */
-  margin-bottom: 0; /* ← 去掉多余的 margin-bottom */
+.download-title {
+  font-weight: 500;
+  font-size: 14px;
+  color: #1d2129;
+  margin-bottom: 6px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-wrap: break-word;
+  word-break: break-all;
+  white-space: normal;
 }
-
-.author-avatar {
-  flex-shrink: 0;
-}
-
-.author-meta .name {
-  font-weight: bold;
-  font-size: 16px;
-}
-
-.stats-row {
+.download-meta {
   display: flex;
   justify-content: space-between;
+  align-items: center;
   font-size: 12px;
-  color: #606266;
+  color: #86909c;
+}
+.download-count {
+  color: #00b42a;
+  font-weight: 500;
+  background: rgba(0, 180, 42, 0.1);
+  padding: 2px 6px;
+  border-radius: 4px;
 }
 
-.title-avatar {
-  margin-right: 10px;
-  vertical-align: middle;
+/* ====================================
+   ✨ 侧边栏底部视觉收尾样式
+   ==================================== */
+.side-footer {
+  text-align: center;
+  padding: 10px 0 30px;
+  color: #b5b9c2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.footer-icon {
+  font-size: 20px;
+  margin-bottom: 4px;
+}
+.footer-slogan {
+  font-size: 13px;
+  letter-spacing: 1px;
+}
+.footer-copyright {
+  font-size: 12px;
+  color: #c9cdd4;
+}
+.footer-divider {
+  width: 40px;
+  height: 2px;
+  background-color: #e5e6eb;
+  margin-top: 8px;
+  border-radius: 2px;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 1024px) {
   .three-column-layout {
     flex-direction: column;
   }
@@ -602,9 +752,31 @@ setTopAlert();
     width: 100%;
   }
 
-  .top-action-bar {
-    justify-content: center;
-    gap: 10px;
+  .middle-column { order: 1; }
+  .left-column { order: 2; }
+  .right-column { order: 3; }
+
+  /* 手机端可以隐藏侧边栏收尾，以免太长 */
+  .side-footer {
+    display: none;
+  }
+}
+
+@media (max-width: 768px) {
+  .article-body {
+    flex-direction: column-reverse;
+  }
+  .article-image {
+    width: 100%;
+  }
+  .article-thumbnail {
+    width: 100%;
+    height: auto;
+    max-height: 180px;
+    margin-bottom: 12px;
+  }
+  .home-page-wrapper {
+    padding: 10px;
   }
 }
 </style>
