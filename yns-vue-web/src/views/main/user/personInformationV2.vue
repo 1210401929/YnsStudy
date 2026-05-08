@@ -191,6 +191,7 @@
 import {ref, onMounted, computed, defineAsyncComponent, watch} from 'vue'
 import {ElMessage} from 'element-plus'
 import {useRoute, useRouter} from 'vue-router'
+import { useHead } from '@vueuse/head'; // 1. 引入 useHead
 import { pubFormatDate, sendAxiosRequest, stripImages, downloadFileByUrl } from '@/utils/common.js'
 
 import BackgroundAndMusic from "@/components/detail/personInformation/BackgroundAndMusic.vue";
@@ -235,6 +236,20 @@ const fileSection = ref(null)
 const showWelcome = ref(false);
 const showFriendLink = ref(false);
 
+// 2. 定义响应式的 SEO 数据源，给定默认值
+const seoTitle = ref('ynsStudy的个人博客');
+const seoDescription = ref('ynsStudy的个人博客');
+
+useHead({
+  title: seoTitle,
+  meta: [
+    {
+      name: 'description',
+      content: seoDescription
+    }
+  ]
+});
+
 const initPageData = async () => {
   const userNum = route.params.u;
   if (!userNum) return;
@@ -246,7 +261,10 @@ const initPageData = async () => {
       const parsedCode = res.result.code;
       targetUserCode.value = parsedCode;
       user.value = res.result;
-      document.title = (user.value.name || '用户') + "的个人空间";
+      // 设置页面标题
+      seoTitle.value = (user.value.name || '用户') + "的个人博客";
+      seoDescription.value = seoTitle.value;
+
       isPageReady.value = true;
       await Promise.all([
         fetchArticles(parsedCode),

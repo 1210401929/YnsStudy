@@ -82,8 +82,21 @@ import {ele_confirm, getCurrentUserAdminObject, getGuid, pubFormatDate, sendAxio
 import {getMenuItems} from "@/utils/menu.js";
 import {ref} from "vue";
 import UserList from "@/components/detail/Userlist.vue";
+import { useHead } from '@vueuse/head'; // 1. 引入 useHead
+// 2. 定义响应式的 SEO 数据源，给定默认值
+const seoTitle = ref('后台管理 - ynsStudy');
+const seoDescription = ref('后台管理 - ynsStudy');
 
-document.title = "后台管理 - ynsStudy";
+useHead({
+  title: seoTitle,
+  meta: [
+    {
+      name: 'description',
+      content: seoDescription
+    }
+  ]
+});
+
 const userStore = useUserStore();
 userStore.initFromLocal();
 //------------------------------检查文件一致性---------------------------------------------------------

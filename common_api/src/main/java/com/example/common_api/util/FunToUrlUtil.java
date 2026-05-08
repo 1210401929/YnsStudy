@@ -18,6 +18,8 @@ public class FunToUrlUtil{
     public static String deleteFileByUrlUrl = "/pub-api/upload/deleteFileByUrl";
     public static String deleteFileByUrlsUrl = "/pub-api/upload/deleteFileByUrls";
 
+    public static String getAllUserInfoUrl = "/pub-api/login/getAllUserInfo";
+
 //--------------------------------blog-api---------------------------------------------------
 
 //--------------------------------ai-api---------------------------------------------------

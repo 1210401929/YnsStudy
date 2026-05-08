@@ -32,8 +32,9 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from "vue";
+import {nextTick, onMounted, ref} from "vue";
 import { useRoute, useRouter } from "vue-router";
+import { useHead } from '@vueuse/head'; // 1. 引入 useHead
 import {
   sendAxiosRequest,
   extractPlainTextFromHTML,
@@ -43,7 +44,6 @@ import { useUserStore } from "@/stores/main/user.js";
 
 import ContentAndComment from "@/views/detail/blog/ContentAndComment.vue";
 import BackgroundAndMusic from "@/components/detail/personInformation/BackgroundAndMusic.vue";
-// 引入左侧用户组件
 import UserInfo from "@/components/main/UserInfo.vue";
 
 const userStore = useUserStore();
@@ -53,12 +53,9 @@ const route = useRoute();
 const router = useRouter();
 const blogId = route.params.g;
 
-// 改为响应式变量，这样 UserInfo 组件能够监听到变化并加载数据
 const targetUserCode = ref('');
-
-// 作者信息
 const authorInfo = ref({});
-
+const articleTitle = ref("");
 
 // ==== 背景与音乐 ====
 const bgMusicComponentRef = ref(null);
@@ -70,8 +67,23 @@ const handleBgStyleUpdate = (style) => {
   currentBgStyle.value = style;
 }
 
+// 2. 定义响应式的 SEO 数据源，给定默认值
+const seoTitle = ref('博客详情');
+const seoDescription = ref('专注于技术分享的内容社区');
+
+// 3. 在 setup 顶层调用 useHead，直接传入 ref 变量
+// 当 seoTitle 或 seoDescription 改变时，<head> 标签会自动更新
+useHead({
+  title: seoTitle,
+  meta: [
+    {
+      name: 'description',
+      content: seoDescription
+    }
+  ]
+});
+
 function getUserInfo2Data() {
-  // 获取账号信息
   const getAuthorInfo = async () => {
     let result = await getUserInfoByCode(targetUserCode.value);
     if (result && !result.isError) {
@@ -79,7 +91,6 @@ function getUserInfo2Data() {
     }
   }
 
-  // 获取用户设置信息（背景图片等）
   const setPersonInfo = async () => {
     let result = await sendAxiosRequest("/blog-api/userInformation/getPersonInfo", { userCode: targetUserCode.value });
     if (result && !result.isError) {
@@ -92,32 +103,20 @@ function getUserInfo2Data() {
   setPersonInfo();
 }
 
-// 顶部栏信息
-const articleTitle = ref("");
-
-
-
 const contentAndCommentIsLoad = ({blogContent}) => {
   if (blogContent.USERCODE) {
-    // 赋值后，UserInfo 监听到 targetUserCode 变化会自动加载粉丝/点赞数据
     targetUserCode.value = blogContent.USERCODE;
     articleTitle.value = blogContent.BLOG_TITLE;
 
-    // 搜索用户信息
     getUserInfo2Data();
-
-    // 修改浏览器title和meta,有助于搜索排名
-    document.title = blogContent.BLOG_TITLE;
-    const metaDesc = document.querySelector('meta[name="description"]');
-    const blogSummary = extractPlainTextFromHTML(blogContent.BLOG_TITLE + blogContent.MAINTEXT).slice(0, 200) + '...';
-    if (metaDesc) {
-      metaDesc.setAttribute("content", blogSummary);
-    } else {
-      const desc = document.createElement('meta')
-      desc.name = "description"
-      desc.content = blogSummary
-      document.head.appendChild(desc)
-    }
+    debugger;
+    // 4. 彻底删除 document 原生操作，只需更新 ref 变量
+    seoTitle.value = blogContent.BLOG_TITLE;
+    seoDescription.value = extractPlainTextFromHTML(blogContent.BLOG_TITLE + blogContent.MAINTEXT).slice(0, 200) + '...';
+    //用于Prerender的seo检索   防止只爬虫到外壳没有实际数据
+    nextTick(() => {
+      window.prerenderReady = true;
+    });
   }
 }
 

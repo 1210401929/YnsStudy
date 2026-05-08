@@ -88,7 +88,15 @@
                       <span class="meta-time">{{ formatDate(blog.CREATE_TIME) }}</span>
                     </div>
                     <div class="blog-card" @click="blogMainClick(blog)">
-                      <h4 class="blog-title">{{ blog.BLOG_TITLE }}</h4>
+                      <a
+                          v-if="blog.TYPE === 'blog'"
+                          :href="'/user/'+route.params.u+'/' + blog.GUID"
+                          @click.prevent
+                          class="seo-link"
+                      >
+                        <h4 class="blog-title">{{ blog.BLOG_TITLE }}</h4>
+                      </a>
+                      <h4 v-else class="blog-title">{{ blog.BLOG_TITLE }}</h4>
                       <p class="blog-summary" v-html="stripImages(blog.MAINTEXT)"></p>
                       <div class="blog-card-footer">
                         <span class="read-more">阅读全文 →</span>
@@ -178,7 +186,9 @@
                     :title="article.BLOG_TITLE"
                     @click="blogMainClick(article)"
                 >
-                  <span style="font-weight: bold;color:rgba(0,0,0,0.5)">{{(index+1) + "："}}</span> {{article.BLOG_TITLE }}
+                  <a :href="'/user/'+route.params.u+'/' + article.GUID" @click.prevent class="seo-link seo-recent-link">
+                    <span style="font-weight: bold;color:rgba(0,0,0,0.5)">{{(index+1) + "："}}</span> {{article.BLOG_TITLE }}
+                  </a>
                 </li>
               </ul>
             </el-card>
@@ -204,10 +214,11 @@
 </template>
 
 <script setup>
-import {ref, onMounted, computed, defineAsyncComponent, watch} from 'vue'
+import {ref, onMounted, computed, defineAsyncComponent, watch, nextTick} from 'vue'
 import {ElMessage} from 'element-plus'
 import {useRoute} from 'vue-router'
 import {useRouter} from "vue-router";
+import { useHead } from '@vueuse/head'; // 1. 引入 useHead
 import {
   pubFormatDate,
   sendAxiosRequest,
@@ -267,6 +278,19 @@ const fileSection = ref(null)
 //控制是否显示欢迎页
 const showWelcome = ref(false);
 
+// 2. 定义响应式的 SEO 数据源，给定默认值
+const seoTitle = ref('ynsStudy的个人博客');
+const seoDescription = ref('ynsStudy的个人博客');
+
+useHead({
+  title: seoTitle,
+  meta: [
+    {
+      name: 'description',
+      content: seoDescription
+    }
+  ]
+});
 // ----------------------------------------------------
 // 核心优化区
 // ----------------------------------------------------
@@ -284,16 +308,9 @@ const initPageData = async () => {
       targetUserCode.value = parsedCode;
       user.value = res.result;
       // 设置页面标题
-      document.title = (user.value.name || '用户') + "的个人博客";
-      const metaDesc = document.querySelector('meta[name="description"]');
-      if (metaDesc) {
-        metaDesc.setAttribute("content", document.title);
-      } else {
-        const desc = document.createElement('meta');
-        desc.name = "description";
-        desc.content = document.title;
-        document.head.appendChild(desc);
-      }
+      seoTitle.value = (user.value.name || '用户') + "的个人博客";
+      seoDescription.value = seoTitle.value;
+
       // 【核心开关】用户信息和 CODE 都有了，允许子组件渲染！
       isPageReady.value = true;
       // 2. 然后再去查列表数据（这个时候组件已经挂载完毕了）
@@ -302,6 +319,10 @@ const initPageData = async () => {
         fetchFilesList(parsedCode),
         setPersonInfo(parsedCode)
       ]);
+      //用于Prerender的seo检索   防止只爬虫到外壳没有实际数据
+      nextTick(() => {
+        window.prerenderReady = true;
+      });
     } else {
       ElMessage.error("未找到对应用户信息");
     }
@@ -1145,6 +1166,20 @@ watch(() => route.params.blogId, (newBlogId) => {
   letter-spacing: 2px;
   margin: 0;
   animation: pulse-text 2s infinite ease-in-out;
+}
+
+/* SEO 专用链接，清除默认样式，完全融入你现有的卡片设计 */
+.seo-link {
+  text-decoration: none;
+  color: inherit; /* 继承父元素的颜色 */
+  display: block; /* 撑满区域 */
+}
+
+.seo-recent-link {
+  /* 确保最近文章的单行省略号不失效 */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 @keyframes bounce {

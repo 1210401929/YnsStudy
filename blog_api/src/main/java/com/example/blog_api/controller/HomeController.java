@@ -3,6 +3,8 @@ package com.example.blog_api.controller;
 import com.example.blog_api.service.HomeService;
 import com.example.common_api.bean.ResultBody;
 import com.example.common_api.config.LoginCfg;
+import com.example.common_api.service.CallService;
+import com.example.common_api.util.FunToUrlUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -13,7 +15,9 @@ import org.springframework.web.bind.annotation.ResponseBody;
 import javax.jws.WebResult;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.time.LocalDate;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -24,6 +28,9 @@ public class HomeController {
 
     @Autowired
     HomeService homeService;
+
+    @Autowired
+    CallService callService;
 
     @RequestMapping("/getHomeData")
     @ResponseBody
@@ -44,44 +51,98 @@ public class HomeController {
         return homeService.getHigAuthor(num);
     }
 
-    @GetMapping(value = "/sitemap.xml", produces = "application/xml;charset=UTF-8")
-    public void sitemapXml(HttpServletResponse response) throws IOException {
-        ResultBody result = homeService.getAllBlogGuidAndTime();  // 从数据库获取所有 GUID
-        StringBuilder sb = new StringBuilder();
+    @GetMapping(value = "/sitemap_blog.xml", produces = "application/xml;charset=UTF-8")
+    public void sitemapBlogXml(HttpServletResponse response) throws IOException {
+        // 强制设置响应头
+        response.setContentType("application/xml");
+        response.setCharacterEncoding("UTF-8");
 
-        sb.append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
-        sb.append("<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">\n");
+        // 直接获取 PrintWriter 进行流式写入，极大地节省 JVM 内存
+        PrintWriter out = response.getWriter();
+
+        // 建议：这个方法内部应该优化为只 SELECT GUID, CREATE_TIME FROM blog_table
+        ResultBody result = homeService.getAllBlogGuidAndTime();
+
+        out.print("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
+        out.print("<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">\n");
 
         for (Map<String,Object> oneBlog : (List<Map<String,Object>>)result.result) {
-            sb.append("  <url>\n");
-            sb.append("    <loc>" + LoginCfg.domainName + "/oneBlog/").append(oneBlog.get("GUID")).append("</loc>\n");
+            // XML 特殊字符简易转义 (重点处理 &)
+            String rawLoc = LoginCfg.domainName + "/oneBlog/" + oneBlog.get("GUID");
+            String safeLoc = rawLoc.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
 
-            // --- 时间格式化处理开始 ---
+            out.print("  <url>\n");
+            out.print("    <loc>" + safeLoc + "</loc>\n");
+
+            // 时间格式化处理
             String lastmod = "";
             Object timeObj = oneBlog.get("CREATE_TIME");
             if (timeObj instanceof java.time.LocalDateTime) {
                 lastmod = ((java.time.LocalDateTime) timeObj).format(java.time.format.DateTimeFormatter.ISO_LOCAL_DATE);
             } else if (timeObj instanceof java.util.Date) {
-                // 兼容 java.sql.Timestamp 和 java.util.Date
                 lastmod = new java.text.SimpleDateFormat("yyyy-MM-dd").format((java.util.Date) timeObj);
             } else if (timeObj != null) {
-                // 兜底方案：如果已经是类似 "2025-09-15T14:40:34" 的字符串，直接截取前10位
                 String timeStr = timeObj.toString();
                 lastmod = timeStr.length() >= 10 ? timeStr.substring(0, 10) : timeStr;
             }
-            // --- 时间格式化处理结束 ---
 
-            sb.append("    <lastmod>").append(lastmod).append("</lastmod>\n");
+            if (!lastmod.isEmpty()) {
+                out.print("    <lastmod>" + lastmod + "</lastmod>\n");
+            }
 
+            out.print("    <changefreq>weekly</changefreq>\n"); // 文章如果有评论，建议改为 weekly
+            out.print("    <priority>0.8</priority>\n");
+            out.print("  </url>\n");
 
-            sb.append("    <changefreq>monthly</changefreq>\n");
-            sb.append("    <priority>0.8</priority>\n");
-            sb.append("  </url>\n");
+            // 可选：定期 flush()，将缓冲区数据推向前端，防止 Nginx 响应超时
+            // out.flush();
         }
 
-        sb.append("</urlset>");
+        out.print("</urlset>");
+        out.flush();
+    }
 
-        response.getWriter().write(sb.toString());
+    @GetMapping(value = "/sitemap_user.xml", produces = "application/xml;charset=UTF-8")
+    public void sitemapUserXml(HttpServletResponse response) throws IOException {
+        // 1. 强制设置响应头，确保浏览器和爬虫正确识别 XML
+        response.setContentType("application/xml");
+        response.setCharacterEncoding("UTF-8");
+        // 2. 拿到 PrintWriter，改为流式输出，边查边写，不占内存
+        PrintWriter out = response.getWriter();
+        // 以后有空了，在底层专门写个没有分页、只 SELECT USERNUM 的极简 SQL。
+        Map<String,Object> params = new HashMap<>();
+        params.put("page", 1);
+        params.put("pageSize", 10000);
+        params.put("keyword", null);
+        ResultBody result = callService.callFunWithParams(FunToUrlUtil.getAllUserInfoUrl, params);
+        out.print("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
+        out.print("<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">\n");
+        // 严谨一点，加上非空判断，防止空指针异常导致整个 XML 崩溃
+        if (result != null && result.result != null) {
+            Map<String, Object> resultMap = (Map<String, Object>) result.result;
+            List<Map<String, Object>> userList = (List<Map<String, Object>>) resultMap.get("data");
+            if (userList != null) {
+                for (Map<String, Object> user : userList) {
+                    Object userNumObj = user.get("USERNUM");
+                    if (userNumObj == null) continue;
+                    // 3. 核心：XML 特殊字符简易转义
+                    String rawLoc = LoginCfg.domainName + "/user/" + userNumObj.toString();
+                    String safeLoc = rawLoc.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
+                    out.print("  <url>\n");
+                    out.print("    <loc>" + safeLoc + "</loc>\n");
+                    // 4. SEO 策略调整
+                    // 个人主页资料更新频率一般，设为 weekly 比较合理
+                    out.print("    <changefreq>weekly</changefreq>\n");
+                    // 个人主页权重 (0.5) 应该略低于核心的文章内容 (0.8)
+                    out.print("    <priority>0.5</priority>\n");
+                    out.print("  </url>\n");
+                }
+            }
+        }
+
+        out.print("</urlset>");
+        // 将缓冲区最后的残余数据强行推向前端
+        out.flush();
     }
 
     @GetMapping(value = "/rss.xml", produces = "application/xml;charset=UTF-8")

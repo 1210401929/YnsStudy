@@ -83,6 +83,7 @@ import {useRouter, useRoute} from 'vue-router';
 import LoginDialog from '@/components/main/LoginDialog.vue';
 import * as menuUtil from '@/utils/menu.js';
 import {Menu} from '@element-plus/icons-vue';
+import { useHead } from '@vueuse/head'; // 1. 引入 useHead
 
 const router = useRouter();
 const route = useRoute();
@@ -97,11 +98,25 @@ const navigateTo = (routerName) => {
     router.push({name: routerName});
   }
 };
+// 2. 定义响应式的 SEO 数据源，给定默认值
+const seoTitle = ref('ynsStudy');
+const seoDescription = ref('');
+
+useHead({
+  title: seoTitle,
+  meta: [
+    {
+      name: 'description',
+      content: seoDescription
+    }
+  ]
+});
 
 onMounted(() => {
   const path = window.location.pathname.split('/')[2];
   activeMenu.value = path;
-  document.title = menuItems.value.filter(item => item.router === activeMenu.value)[0]["name"] + " - ynsStudy";
+  seoTitle.value = menuItems.value.filter(item => item.router === activeMenu.value)[0]["name"] + " - ynsStudy";
+  seoDescription.value = seoTitle.value;
 });
 
 //监听路由  如果改变,则修改菜单栏选中内容
@@ -110,7 +125,8 @@ watch(() => route.name, (newValue) => {
   const routerNames = menuItems.value.map(item => item.router);
   if (routerNames.indexOf(newValue) !== -1) {
     activeMenu.value = newValue;
-    document.title = menuItems.value.filter(item => item.router == newValue)[0]["name"] + " - ynsStudy";
+    seoTitle.value = menuItems.value.filter(item => item.router === activeMenu.value)[0]["name"] + " - ynsStudy";
+    seoDescription.value = seoTitle.value;
   }
 })
 
