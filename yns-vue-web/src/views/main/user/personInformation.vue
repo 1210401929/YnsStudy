@@ -300,16 +300,17 @@ const initPageData = async () => {
   isPageReady.value = false; // 初始化时上锁，隐藏子组件
   loading.value = true;
   try {
-    debugger;
+
     // 1. 先用数字拿到 CODE
     const res = await sendAxiosRequest("/pub-api/login/getUserInfoByNum", { userNum });
     if (res && res.result && res.result.code) {
       const parsedCode = res.result.code;
       targetUserCode.value = parsedCode;
       user.value = res.result;
+      debugger;
       // 设置页面标题
       seoTitle.value = (user.value.name || '用户') + "的个人博客";
-      seoDescription.value = seoTitle.value;
+      seoDescription.value = user.value.remark || seoTitle.value;
 
       // 【核心开关】用户信息和 CODE 都有了，允许子组件渲染！
       isPageReady.value = true;
