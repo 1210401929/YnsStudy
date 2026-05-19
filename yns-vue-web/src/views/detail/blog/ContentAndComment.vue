@@ -1,8 +1,9 @@
 <template>
   <el-row :gutter="20" class="article-view-row" justify="space-between" align="top">
+    <!-- 左侧文章区域 -->
     <el-col :xs="24" :sm="24"
-            :md="showComment ? 15 : 23"
-            :lg="showComment ? 15 : 23"
+            :md="16"
+            :lg="16"
             class="smooth-col">
       <el-card class="article-card">
         <div class="author-info">
@@ -21,6 +22,7 @@
             <div class="author-tagline">发布时间: {{ pubFormatDate(blogContent.CREATE_TIME) }}</div>
           </div>
         </div>
+
         <div class="article-header">
           <h2>{{ blogContent.BLOG_TITLE }}</h2>
           <div style="display: flex; gap: 8px;">
@@ -51,6 +53,7 @@
                        @click="handleLike">
               👍 {{ blogContent.$userIsLike ? '已赞' : '点赞' }} {{ blogLikeNum > 0 ? `(${blogLikeNum})` : '' }}
             </el-button>
+
             <el-button :type="blogContent.$userIsCollect ? 'warning' : 'default'"
                        :plain="!blogContent.$userIsCollect"
                        round
@@ -59,6 +62,7 @@
                        @click="handleCollect">
               {{ blogContent.$userIsCollect ? '已收藏' : '收藏' }} {{ blogCollectNum > 0 ? `(${blogCollectNum})` : '' }}
             </el-button>
+
             <el-button type="success"
                        plain
                        round
@@ -73,7 +77,9 @@
       </el-card>
     </el-col>
 
-    <el-col :xs="24" :sm="24" :md="showComment ? 9 : 1" :lg="showComment ? 9 : 1" class="smooth-col">
+    <!-- 右侧区域：评论区 or 目录区 -->
+    <el-col :xs="24" :sm="24" :md="8" :lg="8" class="smooth-col">
+      <!-- 评论区 -->
       <el-card v-if="showComment" shadow="hover" class="comment-card">
         <div class="comment-header">
           <h3>互动评论 <span class="comment-count-badge">{{ blogComment.length }}</span></h3>
@@ -87,7 +93,8 @@
             <div class="avatar-container">
               <el-tooltip :content="'评论于: '+pubFormatDate(comment.CREATE_TIME)" placement="top" effect="light">
                 <el-avatar :src="comment.AVATAR" class="author-avatar-comment"
-                           @click.stop="commentAvatarClick(comment)"> {{ comment.USERNAME?.charAt(0) }}
+                           @click.stop="commentAvatarClick(comment)">
+                  {{ comment.USERNAME?.charAt(0) }}
                 </el-avatar>
               </el-tooltip>
             </div>
@@ -99,7 +106,8 @@
 
             <div class="comment-actions" v-show="activeCommentId === comment.GUID">
               <el-button link type="primary" size="small" class="reply-btn"
-                         @click.stop="replyComment(comment.GUID, comment)"> 回复
+                         @click.stop="replyComment(comment.GUID, comment)">
+                回复
               </el-button>
               <el-button link type="danger" size="small" class="reply-btn-red"
                          @click.stop="deleteComment(comment.GUID)"
@@ -147,7 +155,8 @@
                 <div class="avatar-container">
                   <el-tooltip :content="'评论于: ' + pubFormatDate(child.CREATE_TIME)" placement="top" effect="light">
                     <el-avatar :src="child.AVATAR" class="author-avatar-comment child-avatar"
-                               @click.stop="commentAvatarClick(child)"> {{ child.USERNAME?.charAt(0) }}
+                               @click.stop="commentAvatarClick(child)">
+                      {{ child.USERNAME?.charAt(0) }}
                     </el-avatar>
                   </el-tooltip>
                 </div>
@@ -163,7 +172,8 @@
 
                 <div class="comment-actions" v-show="activeCommentId === child.GUID">
                   <el-button link type="primary" size="small" class="reply-btn"
-                             @click.stop="replyComment(comment.GUID, child)"> 回复
+                             @click.stop="replyComment(comment.GUID, child)">
+                    回复
                   </el-button>
                   <el-button link type="danger" size="small" class="reply-btn-red"
                              @click.stop="deleteComment(child.GUID, comment.GUID)"
@@ -214,60 +224,50 @@
         </div>
       </el-card>
 
-      <div v-else class="floating-wrapper">
-        <div class="floating-buttons glass-effect">
-          <el-popover
-              placement="left"
-              :width="300"
-              trigger="click"
-              v-model:visible="isTocVisible"
-              popper-class="toc-popper"
-          >
-            <template #reference>
-              <div class="btn-wrap">
-                <el-button circle class="floating-btn toc-main-btn" :icon="List" title="查看目录"/>
-              </div>
-            </template>
-            <div class="toc-container">
-              <div class="toc-title">文章目录</div>
-              <el-scrollbar max-height="450px">
-                <div v-if="tocList.length === 0" class="toc-empty">暂无目录或提取中...</div>
-                <div v-for="item in tocList" :key="item.id"
-                     class="toc-item"
-                     :class="['toc-level-' + item.level, { 'is-active': activeTocId === item.id }]"
-                     @click="scrollToAnchor(item.id)">
-                  {{ item.text }}
-                </div>
-              </el-scrollbar>
-            </div>
-          </el-popover>
-
-          <el-tooltip :content="blogContent.$userIsLike ? '取消点赞' : '点赞'" placement="left" effect="dark">
-            <div class="btn-wrap">
-              <el-button circle :class="['floating-btn', blogContent.$userIsLike ? 'is-active-btn' : '']" @click="handleLike">
-                👍
-              </el-button>
-            </div>
-          </el-tooltip>
-
-          <el-tooltip :content="blogContent.$userIsCollect ? '取消收藏' : '收藏'" placement="left" effect="dark">
-            <div class="btn-wrap">
-              <el-button circle :class="['floating-btn', blogContent.$userIsCollect ? 'is-active-btn' : '']" :icon="Star" @click="handleCollect"/>
-            </div>
-          </el-tooltip>
-
-          <el-tooltip content="打开评论" placement="left" effect="dark">
-            <div class="btn-wrap">
-              <el-button circle class="floating-btn" :icon="Comment" @click="showCommentFun" style="position: relative;">
-                <el-badge v-if="blogComment.length > 0" :value="blogComment.length" type="danger" class="floating-badge"/>
-              </el-button>
-            </div>
-          </el-tooltip>
-        </div>
-      </div>
+      <!-- 目录区：固定显示 -->
+      <el-card v-else shadow="hover" class="toc-fixed-card">
+        <div class="toc-title">文章目录</div>
+        <el-scrollbar max-height="600px">
+          <div v-if="tocList.length === 0" class="toc-empty">暂无目录或提取中...</div>
+          <div v-for="item in tocList" :key="item.id"
+               class="toc-item"
+               :class="['toc-level-' + item.level, { 'is-active': activeTocId === item.id }]"
+               @click="scrollToAnchor(item.id)">
+            {{ item.text }}
+          </div>
+        </el-scrollbar>
+      </el-card>
     </el-col>
   </el-row>
 
+  <!-- 悬浮按钮：始终显示 -->
+  <div class="floating-wrapper">
+    <div class="floating-buttons glass-effect">
+      <el-tooltip :content="blogContent.$userIsLike ? '取消点赞' : '点赞'" placement="left" effect="dark">
+        <div class="btn-wrap">
+          <el-button circle :class="['floating-btn', blogContent.$userIsLike ? 'is-active-btn' : '']" @click="handleLike">
+            👍
+          </el-button>
+        </div>
+      </el-tooltip>
+
+      <el-tooltip :content="blogContent.$userIsCollect ? '取消收藏' : '收藏'" placement="left" effect="dark">
+        <div class="btn-wrap">
+          <el-button circle :class="['floating-btn', blogContent.$userIsCollect ? 'is-active-btn' : '']" :icon="Star" @click="handleCollect"/>
+        </div>
+      </el-tooltip>
+
+      <el-tooltip :content="showComment ? '关闭评论' : '打开评论'" placement="left" effect="dark">
+        <div class="btn-wrap">
+          <el-button circle class="floating-btn" :icon="Comment" @click="showComment = !showComment" style="position: relative;">
+            <el-badge v-if="blogComment.length > 0" :value="blogComment.length" type="danger" class="floating-badge"/>
+          </el-button>
+        </div>
+      </el-tooltip>
+    </div>
+  </div>
+
+  <!-- 编辑弹窗 -->
   <el-dialog
       v-model="editorVisible"
       title="文章编辑"
@@ -293,7 +293,7 @@ import { useRoute, useRouter } from "vue-router";
 import { useUserStore } from "@/stores/main/user.js";
 import { useBlogContentStore } from "@/stores/detail/blog.js";
 import ArticleEditor from "@/components/detail/ArticleEditor.vue";
-import { Star, Comment, Right, List, User, Message, Link, Edit } from '@element-plus/icons-vue'
+import { Star, Comment, Right, User, Message, Link, Edit } from '@element-plus/icons-vue'
 import { ElMessage } from "element-plus";
 import debounce from 'lodash/debounce'
 
@@ -303,7 +303,7 @@ import {
   getGuid,
   sendAxiosRequest,
   pubFormatDate,
-  sendNotifications, getCurrentUserAdminObject, encrypt
+  sendNotifications, getCurrentUserAdminObject
 } from "@/utils/common.js";
 
 import { adminUserCode } from "@/config/vue-config.js";
@@ -438,7 +438,6 @@ const canEditOrDelete = computed(() => {
 });
 
 const tocList = ref([]);
-const isTocVisible = ref(false);
 const activeTocId = ref('');
 let observer = null;
 
@@ -473,6 +472,7 @@ const initObserver = () => {
       if (entry.isIntersecting) activeTocId.value = entry.target.id;
     });
   }, { rootMargin: '-80px 0px -70% 0px' });
+
   tocList.value.forEach((item) => {
     const el = document.getElementById(item.id);
     if (el) observer.observe(el);
@@ -486,16 +486,6 @@ const scrollToAnchor = (anchorId) => {
     target.scrollIntoView({behavior: 'smooth', block: 'start'});
   }
 };
-
-watch(activeTocId, (newId) => {
-  if (!newId) return;
-  nextTick(() => {
-    const activeItemEl = document.querySelector(`.toc-item.is-active`);
-    if (activeItemEl) {
-      activeItemEl.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'start' });
-    }
-  });
-});
 
 onUnmounted(() => {
   if (observer) observer.disconnect();
@@ -718,13 +708,15 @@ function deleteArticle() {
 </script>
 
 <style scoped>
-/* ====== 布局平滑过渡 ====== */
 .smooth-col {
   transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
+
 .article-view-row {
-  margin: 0; padding: 0; height: 100%;
-  align-items: flex-start; /* 核心：强制所有列顶部对齐 */
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  align-items: flex-start;
 }
 
 /* ====== 文章主体区域 ====== */
@@ -737,86 +729,153 @@ function deleteArticle() {
   border-radius: 12px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
 }
+
 .author-info {
-  display: flex; align-items: center; gap: 14px;
-  margin-bottom: 20px; padding-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
   border-bottom: 1px solid #f0f0f0;
 }
+
 .author-avatar {
-  width: 50px !important; height: 50px !important;
-  font-size: 20px; background-color: #e6f1fc; color: #409eff;
-  cursor: pointer; transition: transform 0.2s;
+  width: 50px !important;
+  height: 50px !important;
+  font-size: 20px;
+  background-color: #e6f1fc;
+  color: #409eff;
+  cursor: pointer;
+  transition: transform 0.2s;
 }
-.author-avatar:hover { transform: scale(1.05); }
-.author-text { display: flex; flex-direction: column; cursor: pointer; }
-.author-name { font-size: 16px; font-weight: 600; color: #2c3e50; }
-.author-tagline { font-size: 13px; color: #909399; margin-top: 2px; }
+
+.author-avatar:hover {
+  transform: scale(1.05);
+}
+
+.author-text {
+  display: flex;
+  flex-direction: column;
+  cursor: pointer;
+}
+
+.author-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: #2c3e50;
+}
+
+.author-tagline {
+  font-size: 13px;
+  color: #909399;
+  margin-top: 2px;
+}
 
 .article-header {
-  display: flex; justify-content: space-between; align-items: center;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   margin-bottom: 15px;
 }
-.article-header h2 { margin: 0; font-size: 24px; color: #303133; }
+
+.article-header h2 {
+  margin: 0;
+  font-size: 24px;
+  color: #303133;
+}
 
 /* 文章底部互动区 */
 .article-bottom-actions {
-  margin-top: 40px; padding-top: 20px;
-}
-.bottom-action-buttons {
-  display: flex; justify-content: center; gap: 20px;
-  margin-top: 20px; margin-bottom: 20px;
+  margin-top: 40px;
+  padding-top: 20px;
 }
 
-/* ====== 右侧评论区 ====== */
+.bottom-action-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  margin-top: 20px;
+  margin-bottom: 20px;
+}
+
+/* ====== 评论区 ====== */
 .comment-card {
-  display: flex; flex-direction: column;
+  display: flex;
+  flex-direction: column;
   margin-top: 0;
   border-radius: 12px;
   background-color: #fafbfc;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
   max-height: calc(100vh - 40px);
-  position: sticky; top: 20px; overflow-y: auto;
+  position: sticky;
+  top: 20px;
+  overflow-y: auto;
 }
+
 .comment-header {
-  display: flex; justify-content: space-between; align-items: center;
-  margin-bottom: 16px; padding-bottom: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
   border-bottom: 1px solid #ebeef5;
 }
-.comment-header h3 { margin: 0; font-size: 16px; display: flex; align-items: center; gap: 8px;}
+
+.comment-header h3 {
+  margin: 0;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .comment-count-badge {
-  background: #f56c6c; color: white; border-radius: 10px;
-  padding: 0 8px; font-size: 12px; font-weight: normal;
+  background: #f56c6c;
+  color: white;
+  border-radius: 10px;
+  padding: 0 8px;
+  font-size: 12px;
+  font-weight: normal;
 }
 
 .comment-item {
-  margin-bottom: 16px; border-bottom: 1px dashed #ebeef5; padding-bottom: 12px;
+  margin-bottom: 16px;
+  border-bottom: 1px dashed #ebeef5;
+  padding-bottom: 12px;
 }
 
-/* ★★★ 核心重排部分：使用两列式防塌陷布局 ★★★ */
 .comment-main-row, .comment-child {
   display: flex;
-  align-items: flex-start; /* 顶部对齐 */
-  gap: 12px; /* 头像和文字块之间明确的间距 */
+  align-items: flex-start;
+  gap: 12px;
   padding: 8px 6px;
   border-radius: 8px;
   transition: background-color 0.2s ease;
   cursor: pointer;
 }
-.comment-main-row:hover, .comment-child:hover { background-color: #f0f4f8; }
 
-.avatar-container {
-  flex-shrink: 0; /* 防止头像被挤压 */
-  margin-top: 2px; /* 微调：让圆心与右侧第一排文字视觉居中对齐 */
+.comment-main-row:hover, .comment-child:hover {
+  background-color: #f0f4f8;
 }
 
-/* 区分主次层级大小 */
-.author-avatar-comment { width: 36px !important; height: 36px !important; }
-.child-avatar { width: 28px !important; height: 28px !important; }
+.avatar-container {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
 
-/* 右侧文本块 */
+.author-avatar-comment {
+  width: 36px !important;
+  height: 36px !important;
+}
+
+.child-avatar {
+  width: 28px !important;
+  height: 28px !important;
+}
+
 .comment-content-block {
-  flex: 1; /* 占据剩余全部宽度 */
-  min-width: 0; /* 防止子元素文本过长撑破 Flex 容器 */
+  flex: 1;
+  min-width: 0;
   line-height: 1.6;
 }
 
@@ -826,7 +885,10 @@ function deleteArticle() {
   color: #409eff;
   margin-right: 6px;
 }
-.child-name { color: #67c23a; }
+
+.child-name {
+  color: #67c23a;
+}
 
 .comment-text {
   font-size: 14px;
@@ -835,18 +897,19 @@ function deleteArticle() {
   word-break: break-all;
 }
 
-/* 回复 @某人 的样式 */
 .reply-to-text {
   font-size: 13px;
   color: #909399;
   margin: 0 4px;
 }
+
 .reply-to-name {
   color: #409eff;
   font-weight: 600;
   cursor: pointer;
   transition: color 0.2s ease;
 }
+
 .reply-to-name:hover {
   text-decoration: underline;
   color: #66b1ff;
@@ -859,95 +922,190 @@ function deleteArticle() {
   opacity: 0.8;
   margin-left: 8px;
 }
-.comment-actions .el-button { margin: 0 !important; }
 
-/* 回复输入框区域 */
-.reply-input-wrapper {
-  margin-top: 8px; padding-left: 48px; background: transparent; padding-bottom: 10px; border-radius: 6px;
+.comment-actions .el-button {
+  margin: 0 !important;
 }
-.reply-action-group { display: flex; gap: 8px; margin-top: 8px; }
 
-/* 子评论整体向右对齐主评论内容区 */
+.reply-input-wrapper {
+  margin-top: 8px;
+  padding-left: 48px;
+  background: transparent;
+  padding-bottom: 10px;
+  border-radius: 6px;
+}
+
+.reply-action-group {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
 .children-comments {
-  margin-left: 48px; /* 36px头像 + 12px的gap */
+  margin-left: 48px;
   margin-top: 4px;
 }
+
 .children-list {
-  border-left: 2px solid #e4e7ed; /* 左侧增加微弱的视觉引导线 */
+  border-left: 2px solid #e4e7ed;
   padding-left: 10px;
   margin-top: 8px;
 }
 
-/* 底部发表评论区 */
-.comment-input-area { margin-top: 20px; }
-.guest-form-row { margin-bottom: 12px; }
-.guest-input-item { margin-bottom: 8px; }
-.comment-submit-row {
-  display: flex; justify-content: space-between; align-items: center; margin-top: 12px;
+.comment-input-area {
+  margin-top: 20px;
 }
-.hint-text { font-size: 12px; color: #b1b3b8; }
 
-/* ====== 侧边悬浮工具栏 (玻璃拟物态) ====== */
-.floating-wrapper {
-  position: fixed; top: 50%; right: 30px; transform: translateY(-50%);
-  z-index: 1000; display: flex; flex-direction: column; align-items: center;
+.guest-form-row {
+  margin-bottom: 12px;
 }
+
+.guest-input-item {
+  margin-bottom: 8px;
+}
+
+.comment-submit-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 12px;
+}
+
+.hint-text {
+  font-size: 12px;
+  color: #b1b3b8;
+}
+
+/* ====== 固定目录卡片 ====== */
+.toc-fixed-card {
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+  position: sticky;
+  top: 20px;
+}
+
+.toc-title {
+  font-weight: 600;
+  font-size: 16px;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #f0f2f5;
+  color: #303133;
+}
+
+.toc-empty {
+  font-size: 13px;
+  color: #999;
+  padding: 10px;
+  text-align: center;
+}
+
+.toc-item {
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 14px;
+  color: #606266;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  border-left: 3px solid transparent;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.toc-item:hover {
+  background-color: #f5f7fa;
+  color: #409eff;
+}
+
+.toc-item.is-active {
+  color: #409eff;
+  background-color: #ecf5ff;
+  font-weight: 600;
+  border-left-color: #409eff;
+}
+
+.toc-level-2 { padding-left: 12px; }
+.toc-level-3 { padding-left: 24px; font-size: 13px; }
+.toc-level-4 { padding-left: 36px; font-size: 12px; }
+
+:deep(h1), :deep(h2), :deep(h3), :deep(h4) {
+  scroll-margin-top: 80px;
+}
+
+/* ====== 悬浮工具栏 ====== */
+.floating-wrapper {
+  position: fixed;
+  top: 50%;
+  right: 30px;
+  transform: translateY(-50%);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
 .glass-effect {
   background: rgba(255, 255, 255, 0.7);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid rgba(255,255,255,0.5);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
-  border-radius: 40px; padding: 12px 8px;
-  display: flex; flex-direction: column;
+  border-radius: 40px;
+  padding: 12px 8px;
+  display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 16px;
 }
+
 .glass-effect .btn-wrap {
-  display: flex; align-items: center; justify-content: center;
-  margin: 0 !important; padding: 0 !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 !important;
+  padding: 0 !important;
 }
-.glass-effect .el-button { margin: 0 !important; }
+
+.glass-effect .el-button {
+  margin: 0 !important;
+}
 
 .floating-btn {
-  width: 44px !important; height: 44px !important; font-size: 20px !important;
-  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1) !important; border: none;
-  background: transparent; box-shadow: none; color: #606266;
-  display: flex; justify-content: center; align-items: center;
-}
-.floating-btn:hover { background: rgba(64, 158, 255, 0.1); color: #409eff; transform: translateY(-2px); }
-.is-active-btn { color: #409eff !important; background: rgba(64, 158, 255, 0.15) !important; }
-.toc-main-btn {
-  background: #409eff !important; color: white !important; box-shadow: 0 4px 12px rgba(64, 158, 255, 0.4) !important;
-}
-.toc-main-btn:hover { background: #66b1ff !important; transform: translateY(-3px) scale(1.05); }
-.floating-badge { position: absolute; top: -2px; right: 0; }
-
-/* ====== 目录弹出窗样式 ====== */
-.toc-container { padding: 4px; }
-.toc-title { font-weight: 600; font-size: 16px; margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1px solid #f0f2f5; color: #303133; }
-.toc-item {
-  padding: 8px 12px; cursor: pointer; font-size: 14px; color: #606266;
-  border-radius: 6px; transition: all 0.2s ease; border-left: 3px solid transparent;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-.toc-item:hover { background-color: #f5f7fa; color: #409eff; }
-.toc-item.is-active {
-  color: #409eff; background-color: #ecf5ff; font-weight: 600; border-left-color: #409eff;
+  width: 44px !important;
+  height: 44px !important;
+  font-size: 20px !important;
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1) !important;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  color: #606266;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
-.toc-level-2 { padding-left: 12px; }
-.toc-level-3 { padding-left: 24px; font-size: 13px; }
-.toc-level-4 { padding-left: 36px; font-size: 12px; }
-.toc-level-2.is-active { padding-left: 9px; }
-.toc-level-3.is-active { padding-left: 21px; }
-.toc-level-4.is-active { padding-left: 33px; }
+.floating-btn:hover {
+  background: rgba(64, 158, 255, 0.1);
+  color: #409eff;
+  transform: translateY(-2px);
+}
 
-:deep(h1), :deep(h2), :deep(h3), :deep(h4) { scroll-margin-top: 80px; }
+.is-active-btn {
+  color: #409eff !important;
+  background: rgba(64, 158, 255, 0.15) !important;
+}
+
+.floating-badge {
+  position: absolute;
+  top: -2px;
+  right: 0;
+}
 
 /* =========================================================================
-   移动端/小屏幕 响应式适配
+   移动端适配
    ========================================================================= */
 @media (max-width: 991px) {
   .comment-card {
@@ -956,6 +1114,12 @@ function deleteArticle() {
     overflow-y: visible !important;
     margin-top: 15px;
   }
+
+  .toc-fixed-card {
+    position: static !important;
+    margin-top: 15px;
+  }
+
   .floating-wrapper {
     right: 15px;
     transform: translateY(-20%);
