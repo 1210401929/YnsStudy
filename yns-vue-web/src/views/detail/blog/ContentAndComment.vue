@@ -2,8 +2,8 @@
   <el-row :gutter="20" class="article-view-row" justify="space-between" align="top">
     <!-- 左侧文章区域 -->
     <el-col :xs="24" :sm="24"
-            :md="16"
-            :lg="16"
+            :md="17"
+            :lg="17"
             class="smooth-col">
       <el-card class="article-card">
         <div class="author-info">
@@ -78,7 +78,7 @@
     </el-col>
 
     <!-- 右侧区域：评论区 or 目录区 -->
-    <el-col :xs="24" :sm="24" :md="8" :lg="8" class="smooth-col">
+    <el-col :xs="24" :sm="24" :md="7" :lg="7" class="smooth-col">
       <!-- 评论区 -->
       <el-card v-if="showComment" shadow="hover" class="comment-card">
         <div class="comment-header">
@@ -259,7 +259,7 @@
 
       <el-tooltip :content="showComment ? '关闭评论' : '打开评论'" placement="left" effect="dark">
         <div class="btn-wrap">
-          <el-button circle class="floating-btn" :icon="Comment" @click="showComment = !showComment" style="position: relative;">
+          <el-button circle class="floating-btn" :icon="Comment" @click="showCommentFun" style="position: relative;">
             <el-badge v-if="blogComment.length > 0" :value="blogComment.length" type="danger" class="floating-badge"/>
           </el-button>
         </div>
@@ -353,10 +353,10 @@ const showMainGuestForm = computed(() => {
 const emit = defineEmits(['loaded'])
 
 const showCommentFun = () => {
-  showComment.value = true;
+  showComment.value = !showComment.value;
   nextTick(() => {
     const commentSection = document.querySelector('.comment-card');
-    if (commentSection) {
+    if (commentSection && showComment.value) {
       commentSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
   });
