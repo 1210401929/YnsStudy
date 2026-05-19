@@ -49,7 +49,7 @@ public interface BlogService {
 
     //-------------------------------------评论相关----------------------------------------------------------------
     //新增评论
-    ResultBody addComment(Map<String, String> blogComment);
+    ResultBody addComment(Map<String, String> blogComment,HttpSession session);
 
     //获取评论
     ResultBody getComment(String blogId);

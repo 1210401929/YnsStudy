@@ -37,7 +37,8 @@
 - **新增子项目**: 如需增加子项目，需要配置网关配置文件和 Vue 项目的 `vite.config.js` 文件。
 - **资源文件映射**: 配置路径为 `pub_api/src/main/java/com/example/pub_api/config/StaticResourceConfig.java`。
 - **Nginx 依赖**: 项目**必须**依赖 Nginx 进行静态文件跳转以及端口跳转。
-
+- **接口白名单**: 由网关application.yml文件配置(关于get字符串开始的方法无需经过白名单配置),未在白名单的接口访问需要携带用户token
+- 
 ---
 
 ## 🗄️ 关于数据库表

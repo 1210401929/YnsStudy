@@ -1,11 +1,8 @@
 <template>
   <el-row :gutter="20" class="article-view-row" justify="space-between">
-    <!-- 正文 -->
     <el-col :xs="24" :sm="24"
             :md="showComment ? 15 : 23"
             :lg="showComment ? 15 : 23">
-<!-- 暂时去掉卡片鼠标移入效果
-      <el-card shadow="hover" class="article-card">-->
       <el-card class="article-card">
         <div class="author-info">
           <el-avatar
@@ -46,9 +43,7 @@
         <ArticleEditor :isReadOnly="true" :content="blogContent.MAINTEXT"/>
       </el-card>
     </el-col>
-    <!-- 评论或悬浮按钮 -->
     <el-col :xs="24" :sm="24" :md="showComment ? 9 : 1" :lg="showComment ? 9 : 1">
-      <!-- 评论区 -->
       <el-card v-if="showComment" shadow="hover" class="comment-card">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
           <h3>评论</h3>
@@ -80,6 +75,18 @@
           </div>
 
           <div v-if="replyInputVisible[comment.GUID]" class="reply-input">
+            <el-row :gutter="10" v-if="!userStore?.userBean?.code" class="guest-form-row">
+              <el-col :span="8">
+                <el-input v-model="guestInfo.nickname" placeholder="昵称 (选填)" size="small" clearable/>
+              </el-col>
+              <el-col :span="8">
+                <el-input v-model="guestInfo.email" placeholder="邮箱 (选填)" size="small" clearable/>
+              </el-col>
+              <el-col :span="8">
+                <el-input v-model="guestInfo.website" placeholder="网址 (选填)" size="small" clearable/>
+              </el-col>
+            </el-row>
+
             <el-input
                 v-model="replyInputs[comment.GUID]"
                 :placeholder="replyTargets[comment.GUID] ? `回复 @${replyTargets[comment.GUID].USERNAME}：` : '写下你的回复...'"
@@ -137,8 +144,19 @@
           </el-button>
         </div>
 
-        <!-- 评论输入框 -->
         <div class="comment-input">
+          <el-row :gutter="10" v-if="showMainGuestForm" class="guest-form-row">
+            <el-col :xs="24" :sm="8" :md="8" :lg="8">
+              <el-input v-model="guestInfo.nickname" placeholder="昵称 (选填)" size="small" clearable class="guest-input-item"/>
+            </el-col>
+            <el-col :xs="24" :sm="8" :md="8" :lg="8">
+              <el-input v-model="guestInfo.email" placeholder="邮箱 (选填)" size="small" clearable class="guest-input-item"/>
+            </el-col>
+            <el-col :xs="24" :sm="8" :md="8" :lg="8">
+              <el-input v-model="guestInfo.website" placeholder="网址 (选填)" size="small" clearable class="guest-input-item"/>
+            </el-col>
+          </el-row>
+
           <el-input
               v-model="newComment"
               placeholder="写下你的评论..."
@@ -152,7 +170,6 @@
         </div>
       </el-card>
 
-      <!-- 悬浮操作按钮（评论关闭时显示） -->
       <div v-else class="floating-buttons-top">
         <div class="floating-buttons">
           <el-popover
@@ -200,10 +217,8 @@
                        class="comment-btn" :icon="Star" @click="handleCollect"/>
           </el-tooltip>
           <el-tooltip content="评论" placement="left" effect="light">
-            <!-- 评论按钮 -->
             <el-button circle class="comment-btn" :icon="Comment" @click="showCommentFun"
                        style="position: relative;">
-              <!-- 使用el-badge显示评论数量，并通过绝对定位调整其位置 -->
               <el-badge :value="blogComment.length" type="primary" class="comment-badge"
                         style="position: absolute; top: -7px; right: -7px;"/>
             </el-button>
@@ -213,7 +228,6 @@
     </el-col>
   </el-row>
 
-  <!-- 编辑器弹窗 -->
   <el-dialog
       v-model="editorVisible"
       title="文章编辑"
@@ -283,6 +297,39 @@ const newComment = ref("");
 
 const showComment = ref(false);
 
+// 从本地缓存加载可能存在的游客资料
+const getLocalGuestData = () => {
+  try {
+    const cached = localStorage.getItem('blog_guest_info');
+    if (cached) {
+      return JSON.parse(cached);
+    }
+  } catch (e) {
+    console.error("加载本地游客缓存失败", e);
+  }
+  return { nickname: '', email: '', website: '' };
+};
+
+// 公用的游客输入表单数据对象
+const guestInfo = ref(getLocalGuestData());
+
+// 控制回复输入框显示，key:评论id，value:bool
+const replyInputVisible = ref({});
+// 每个回复输入框的文本，key:评论id，value:string
+const replyInputs = ref({});
+// 子评论是否展开
+const isChildrenVisible = ref({});
+
+// 【显隐控制核心】动态计算主输入框上方是否显示三输入框
+// 条件：1. 用户未登录 2. 当前全场没有任何一个楼层的回复框处于打开状态
+const showMainGuestForm = computed(() => {
+  if (userStore.userBean?.code) return false; // 已登录直接不显示
+
+  // 检查是否有任何楼层的回复框被打开了
+  const hasActiveReply = Object.values(replyInputVisible.value).some(visible => visible === true);
+  return !hasActiveReply;
+});
+
 const emit = defineEmits(['loaded'])
 
 const showCommentFun = () => {
@@ -317,13 +364,6 @@ function toggleAction(id) {
     activeCommentId.value = id; // 展开当前点击的按钮
   }
 }
-
-// 控制回复输入框显示，key:评论id，value:bool
-const replyInputVisible = ref({});
-// 每个回复输入框的文本，key:评论id，value:string
-const replyInputs = ref({});
-// 子评论是否展开
-const isChildrenVisible = ref({});
 
 const handleEditorSubmit = ({blog_type, title, content}) => {
 
@@ -489,11 +529,6 @@ const scrollToAnchor = (anchorId) => {
 
     // 2. 执行平滑滚动
     target.scrollIntoView({behavior: 'smooth', block: 'start'});
-
-    // 3. 延迟关闭目录（给用户一个看到高亮反馈的时间，或者直接关闭）
-    // setTimeout(() => {
-    //   isTocVisible.value = false;
-    // }, 900);
   }
 };
 
@@ -586,7 +621,7 @@ if (contentGuid.value) {
 }
 
 const visibleComments = computed(() => {
-  return showAllComments.value ? blogComment.value : blogComment.value.slice(0, 2);
+  return showAllComments.value ? blogComment.value : blogComment.value.slice(0, 5);
 });
 
 watch(
@@ -617,7 +652,12 @@ function avatarClick(blogContent) {
 
 //评论用户点击用户头像
 function commentAvatarClick(comment) {
-  pubOpenUser(router, comment.USERCODE);
+  debugger;
+  if(comment.USERWEBSITE){
+    window.open(comment.USERWEBSITE)
+  }else{
+    pubOpenUser(router, comment.USERCODE);
+  }
 }
 
 function toggleComments() {
@@ -627,37 +667,74 @@ function toggleComments() {
 // 记录当前输入框正在回复的目标对象。key: 顶级评论GUID, value: 被回复的评论(可能是顶级也可能是子级)
 const replyTargets = ref({});
 
-// 1. 发起顶级评论时，一并把 RECEIVE 字段给到文章作者
-function submitComment() {
+// 获取当前发表评论或回复的用户基本payload
+function getCommenterPayload() {
   let userBean = userStore.userBean;
-  if (!userBean || !userBean.code) {
-    ElMessage.error("请先登录!");
-    return false;
-  }
-  const value = newComment.value.trim();
-  if (value) {
-    const oneComment = {
-      GUID: getGuid(),
-      BLOGID: contentGuid.value,
-      USERNAME: userBean.name || "游客",
-      USERCODE: userBean.code || "user",
-      RECEIVE_USERCODE: blogContent.value.USERCODE, // 发给文章作者
-      RECEIVE_USERNAME: blogContent.value.USERNAME,
-      TEXT: value,
-      CREATE_TIME: "刚刚",
-      AVATAR: userBean.avatar,
-      children: [],
+  if (userBean && userBean.code) {
+    return {
+      name: userBean.name || "匿名用户",
+      code: userBean.code,
+      avatar: userBean.avatar || "",
+      email: "",
+      website: ""
     }
-    blogComment.value.unshift(oneComment);
-    let comment = {...oneComment};
-    delete comment.children;
-    delete comment.CREATE_TIME;
-    delete comment.AVATAR;
-    sendAxiosRequest("/blog-api/blog/addComment", {blogComment: comment})
-    newComment.value = "";
-    const routeUrl = router.resolve({name: 'oneBlog', params: {g: contentGuid.value}}).href;
-    sendNotifications(userBean.code, blogContent.value.USERCODE, "comment", routeUrl, `${userBean.name}评论了你的作品《${blogContent.value.BLOG_TITLE}》`)
+  } else {
+    // 游客模式：统一提取公用客体模型
+    const finalGuest = {
+      name: guestInfo.value.nickname.trim() || "游客",
+      code: "guest_" + getGuid().substring(0, 8),
+      avatar: "",
+      email: guestInfo.value.email.trim(),
+      website: guestInfo.value.website.trim()
+    };
+
+    // 将有效输入的游客数据写入缓存
+    localStorage.setItem('blog_guest_info', JSON.stringify({
+      nickname: guestInfo.value.nickname,
+      email: guestInfo.value.email,
+      website: guestInfo.value.website
+    }));
+
+    return finalGuest;
   }
+}
+
+// 1. 发起顶级评论时
+async function submitComment() {
+  const value = newComment.value.trim();
+  if (!value) return;
+
+  const userPayload = getCommenterPayload();
+
+  const oneComment = {
+    GUID: getGuid(),
+    BLOGID: contentGuid.value,
+    USERNAME: userPayload.name,
+    USERCODE: userPayload.code,
+    RECEIVE_USERCODE: blogContent.value.USERCODE, // 发给文章作者
+    RECEIVE_USERNAME: blogContent.value.USERNAME,
+    TEXT: value,
+    CREATE_TIME: "刚刚",
+    AVATAR: userPayload.avatar,
+    USEREMAIL: userPayload.email,     // 拓展游客信息到接口
+    USERWEBSITE: userPayload.website, // 拓展游客信息到接口
+    children: [],
+  }
+
+  let comment = {...oneComment};
+  delete comment.children;
+  delete comment.CREATE_TIME;
+  delete comment.AVATAR;
+  let result = await sendAxiosRequest("/blog-api/blog/addComment", {blogComment: comment})
+  if(result && !result.isError){
+    blogComment.value.unshift(oneComment);
+  }else{
+    ElMessage.error(result?.errMsg || "评论出错!");
+  }
+  newComment.value = "";
+
+  const routeUrl = router.resolve({name: 'oneBlog', params: {g: contentGuid.value}}).href;
+  sendNotifications(userPayload.code, blogContent.value.USERCODE, "comment", routeUrl, `${userPayload.name}评论了你的作品《${blogContent.value.BLOG_TITLE}》`)
 }
 
 // 2. 点击回复按钮：记录目标是谁
@@ -668,6 +745,11 @@ function replyComment(parentGuid, targetComment) {
     replyInputs.value[parentGuid] = "";
     replyTargets.value[parentGuid] = null;
   } else {
+    // 核心精简：保证同一时刻全局只开一个楼层回复框
+    Object.keys(replyInputVisible.value).forEach(key => {
+      replyInputVisible.value[key] = false;
+    });
+
     // 展开并记录被回复的目标
     replyInputVisible.value[parentGuid] = true;
     replyTargets.value[parentGuid] = targetComment;
@@ -675,17 +757,12 @@ function replyComment(parentGuid, targetComment) {
   }
 }
 
-
-// 3. 提交回复：带上 RECEIVE 字段
-function submitReply(parentGuid) {
-  let userBean = userStore.userBean;
-  if (!userBean || !userBean.code) {
-    ElMessage.error("请先登录!");
-    return false;
-  }
+// 3. 提交回复
+async function submitReply(parentGuid) {
   const value = (replyInputs.value[parentGuid] || "").trim();
   if (!value) return;
 
+  const userPayload = getCommenterPayload();
   const parentComment = blogComment.value.find((c) => c.GUID === parentGuid);
   // 获取刚刚记录的回复目标（保底是顶级评论）
   const targetUser = replyTargets.value[parentGuid] || parentComment;
@@ -696,21 +773,26 @@ function submitReply(parentGuid) {
       GUID: getGuid(),
       BLOGID: contentGuid.value,
       SUPERGUID: parentComment.GUID, // 依然挂在顶级评论下，保持两层嵌套
-      USERNAME: userBean.name || "游客",
-      USERCODE: userBean.code || "user",
-      RECEIVE_USERCODE: targetUser.USERCODE, // 重点：接收方编码
-      RECEIVE_USERNAME: targetUser.USERNAME, // 重点：接收方名字
+      USERNAME: userPayload.name,
+      USERCODE: userPayload.code,
+      RECEIVE_USERCODE: targetUser.USERCODE, // 接收方编码
+      RECEIVE_USERNAME: targetUser.USERNAME, // 接收方名字
       CREATE_TIME: "刚刚",
-      AVATAR: userBean.avatar,
+      AVATAR: userPayload.avatar,
+      USEREMAIL: userPayload.email,
+      USERWEBSITE: userPayload.website,
       TEXT: value,
     }
-    parentComment.children.push(oneComment);
 
     let comment = {...oneComment};
     delete comment.CREATE_TIME;
     delete comment.AVATAR;
-    sendAxiosRequest("/blog-api/blog/addComment", {blogComment: comment})
-
+    let result = await sendAxiosRequest("/blog-api/blog/addComment", {blogComment: comment})
+    if(result && !result.isError){
+      parentComment.children.push(oneComment);
+    }else{
+      ElMessage.error(result?.errMsg || "评论出错!");
+    }
     // 清理状态
     replyInputs.value[parentGuid] = "";
     replyInputVisible.value[parentGuid] = false;
@@ -719,7 +801,7 @@ function submitReply(parentGuid) {
 
     // 发送通知：通知目标被回复了
     const routeUrl = router.resolve({name: 'oneBlog', params: {g: contentGuid.value}}).href;
-    sendNotifications(oneComment.USERCODE, targetUser.USERCODE, "comment", routeUrl, `${oneComment.USERNAME}回复了你的评论《${targetUser.TEXT}》`);
+    sendNotifications(userPayload.code, targetUser.USERCODE, "comment", routeUrl, `${userPayload.name}回复了你的评论《${targetUser.TEXT}》`);
   }
 }
 
@@ -842,7 +924,7 @@ function deleteArticle() {
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
-  max-height: 70vh; /* 设置最大高度 */
+  /*max-height: 70vh;  /*设置最大高度 */
   overflow-y: auto; /* 超出部分滚动显示 */
   background-color: rgba(255, 255, 255, 0.9);
 }
@@ -1113,5 +1195,14 @@ function deleteArticle() {
 /* 覆盖你原本的左边距，因为外层 wrapper 已经做过排版了 */
 .reply-btn, .reply-btn-red {
   margin-left: 0 !important;
+}
+
+/* 游客额外输入区域样式 */
+.guest-form-row {
+  margin-bottom: 8px;
+  width: 100%;
+}
+.guest-input-item {
+  margin-bottom: 6px;
 }
 </style>

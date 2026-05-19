@@ -25,6 +25,7 @@
                     <span class="author-name">{{ blog.USERNAME }}</span>
                     <div class="stats">
                       <span><el-icon><View/></el-icon> {{ blog.VIEW_PAGE }}</span>
+                      <span><el-icon><ChatDotSquare /></el-icon> {{ blog.COMMENT_COUNT }}</span>
                       <span><el-icon><Star/></el-icon> {{ blog.COLLECT_COUNT }}</span>
                     </div>
                   </div>
@@ -194,7 +195,7 @@ import { useHomeStore } from "@/stores/detail/home.js";
 import { useRouter } from "vue-router";
 import { useUserStore } from "@/stores/main/user.js";
 import { extractFirstImage, pubFormatDate, sendAxiosRequest, stripImages } from "@/utils/common.js";
-import { Star, View, Search } from "@element-plus/icons-vue";
+import { Star, View, Search,ChatDotSquare } from "@element-plus/icons-vue";
 import { adminUserCode } from "@/config/vue-config.js";
 import debounce from "lodash/debounce.js";
 import { ElMessage } from "element-plus";

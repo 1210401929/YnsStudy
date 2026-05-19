@@ -112,7 +112,7 @@ public class BlogController {
     @ResponseBody
     public ResultBody addComment(@RequestBody Map<String, Object> params, HttpSession session) {
         Map<String, String> blogComment = (Map<String, String>) params.get("blogComment");
-        return blogService.addComment(blogComment);
+        return blogService.addComment(blogComment,session);
     }
 
     @RequestMapping("/getComment")

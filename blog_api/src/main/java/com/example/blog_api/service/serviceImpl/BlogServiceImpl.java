@@ -7,7 +7,10 @@ import com.example.common_api.bean.ResultBody;
 import com.example.common_api.bean.UserBean;
 import com.example.common_api.service.CallService;
 import com.example.common_api.util.BeanUtil;
+import com.github.houbb.sensitive.word.core.SensitiveWordHelper;
+import org.apache.commons.lang.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,6 +26,8 @@ public class BlogServiceImpl implements BlogService {
 
     @Autowired
     CallService callService;
+    @Autowired
+    private StringRedisTemplate redisTemplate;
 
     //定义线程池
     private static final Executor myExecutor = new ThreadPoolExecutor(
@@ -33,9 +38,11 @@ public class BlogServiceImpl implements BlogService {
             new ThreadPoolExecutor.CallerRunsPolicy() // 拒绝策略：如果队列满了，让主线程自己跑，防止丢失请求
     );
 
+    // 定义违禁词列表（实际项目建议从数据库/配置文件加载，或者使用成熟的敏感词工具库如 ween企業级敏感词过滤）
+    private static final List<String> BANNED_WORDS = Arrays.asList("炸弹", "违法", "赌博", "特码", "代开发票");
+
     @Override
     @Transactional
-    //todo  以下代码存在问题  guid获取因数据库连接池不在一个连接池  导致guid获取有问题,看ai回答
     public ResultBody addBlog(BlogBean blogBean) {
         Map<String, Object> params = new HashMap<>();
         List<Map<String, Object>> data = new ArrayList<>();
@@ -410,7 +417,26 @@ public class BlogServiceImpl implements BlogService {
     }
 
     @Override
-    public ResultBody addComment(Map<String, String> blogComment) {
+    public ResultBody addComment(Map<String, String> blogComment,HttpSession session) {
+        // ---- 1. IP 限流校验 (5分钟内最多5条) ----
+        ResultBody result = callService.callFunNoParams(FunToUrlUtil.clientIpAddressUrl);
+        String ip =  result.result.toString();
+        String redisKey = "comment_limit:" + ip;
+        // 获取当前 IP 已发布的评论数
+        String currentCountStr = redisTemplate.opsForValue().get(redisKey);
+        if (StringUtils.isNotBlank(currentCountStr) && Integer.parseInt(currentCountStr) >= 5) {
+            return ResultBody.createErrorResult("评论过于频繁，请5分钟后再试！");
+        }
+
+        // ---- 2. 违禁词内容安全校验 ----
+        String text = blogComment.get("TEXT");
+        String website = blogComment.get("USERWEBSITE");
+        String username = blogComment.get("USERNAME");
+
+        if (containsBannedWord(text) || containsBannedWord(website) || containsBannedWord(username)) {
+            return ResultBody.createErrorResult("提交的内容包含违禁词，禁止发布！");
+        }
+
         Map<String, Object> params = new HashMap<>();
         List<Map<String, String>> data = new ArrayList<>();
         data.add(blogComment);
@@ -418,7 +444,16 @@ public class BlogServiceImpl implements BlogService {
         params.put("tableName", "BLOGCOMMENT");
         params.put("data", data);
         params.put("key", "GUID");
-        ResultBody result = callService.callFunWithParams(FunToUrlUtil.saveAllTableDataByParamsUrl, params);
+        result = callService.callFunWithParams(FunToUrlUtil.saveAllTableDataByParamsUrl, params);
+        // ---- 4. 数据库保存成功后，更新 Redis 计数器 ----
+        if (result != null && !result.isError) {
+            // 原子自增
+            Long count = redisTemplate.opsForValue().increment(redisKey, 1);
+            // 如果是第一次访问（即刚创建的 key），设置5分钟过期时间
+            if (count != null && count == 1) {
+                redisTemplate.expire(redisKey, 5, TimeUnit.MINUTES);
+            }
+        }
         return result;
     }
 
@@ -650,5 +685,15 @@ public class BlogServiceImpl implements BlogService {
             srcList.add(matcher.group(1)); // group(1) 是括号中的内容，即 src 的值
         }
         return srcList;
+    }
+    /**
+     * 校验文本是否包含违禁词（忽略大小写）
+     */
+    private boolean containsBannedWord(String content) {
+        if (StringUtils.isBlank(content)) {
+            return false;
+        }
+        //调用sensitive-word违禁词工具
+        return SensitiveWordHelper.contains(content);
     }
 }
