@@ -93,7 +93,7 @@
             </div>
 
             <div class="comment-content-block">
-              <span class="comment-user-name">{{ comment.USERNAME }}</span>
+              <span class="comment-user-name">{{ comment.USERNAME }}:</span>
               <span class="comment-text">{{ comment.TEXT }}</span>
             </div>
 
