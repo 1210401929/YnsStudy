@@ -9,79 +9,153 @@
   />
 
   <div :class="['friend-link-container', { 'is-embed': isEmbed }]">
-    <div class="page-header">
-      <div class="header-left">
-        <h2 class="page-title">✨ 发现宝藏站点</h2>
-        <span class="page-subtitle" v-if="!isEmbed">与优秀的人同行，让互联网更开放</span>
+    <!-- ================= 友情链接模块 ================= -->
+    <div class="section-container">
+      <div class="page-header">
+        <div class="header-left">
+          <h2 class="page-title">{{ isEmbed ? '✨ 发现宝藏站点' : '🤝 友情链接' }}</h2>
+          <span class="page-subtitle" v-if="!isEmbed">与优秀的人同行，让互联网更开放</span>
+        </div>
+        <el-button
+            v-if="!isEmbed"
+            type="primary"
+            round
+            size="large"
+            class="apply-btn"
+            @click="pushFriendLink"
+        >
+          <el-icon class="el-icon--left">
+            <Plus/>
+          </el-icon>
+          申请友链
+        </el-button>
       </div>
-      <el-button
-          v-if="!isEmbed"
-          type="primary"
-          round
-          :size="isEmbed ? 'default' : 'large'"
-          class="apply-btn"
-          @click="pushFriendLink"
-      >
-        <el-icon class="el-icon--left">
-          <Plus/>
-        </el-icon>
-        申请友链
-      </el-button>
+
+      <el-row :gutter="isEmbed ? 16 : 24" class="link-grid">
+        <el-col
+            :xs="24" :sm="12" :md="isEmbed ? 12 : 8" :lg="isEmbed ? 8 : 6"
+            v-for="(item, index) in normalFriendLinks"
+            :key="item.GUID"
+        >
+          <a
+              :href="item.LINK"
+              target="_blank"
+              class="modern-card fade-in-up"
+              :style="{ animationDelay: `${index * 0.1}s` }"
+          >
+            <div class="card-avatar-box">
+              <el-avatar :src="item.AVATAR" :size="isEmbed ? 48 : 56" class="site-avatar">
+                {{ item.NAME?.charAt(0) }}
+              </el-avatar>
+            </div>
+            <div class="card-content">
+              <h3 class="site-name" :title="item.NAME">{{ item.NAME }}</h3>
+              <p class="site-desc" :title="item.REMARK">{{ item.REMARK }}</p>
+            </div>
+
+            <div class="card-action-menu" @click.prevent.stop v-if="isAdmin || item.USERCODE===userStore.userBean.code">
+              <el-dropdown trigger="click" @command="(cmd) => handleCommand(cmd, item)">
+                <span class="action-btn">
+                  <el-icon><MoreFilled/></el-icon>
+                </span>
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item command="edit">
+                      <el-icon><Edit/></el-icon>编辑
+                    </el-dropdown-item>
+                    <el-dropdown-item command="delete" class="danger-item">
+                      <el-icon><Delete/></el-icon>删除
+                    </el-dropdown-item>
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
+            </div>
+          </a>
+        </el-col>
+      </el-row>
+    </div>
+    <!-- ================= 推荐好站模块 (仅非嵌入模式显示) ================= -->
+    <div class="section-container" v-if="!isEmbed && (recommendLinks.length > 0 || isAdmin)">
+      <div class="page-header">
+        <div class="header-left">
+          <h2 class="page-title">🌟 推荐好站</h2>
+          <span class="page-subtitle">站长精选优质站点与资源</span>
+        </div>
+        <el-button
+            v-if="isAdmin"
+            type="success"
+            round
+            size="large"
+            class="apply-btn"
+            @click="pushRecommendLink"
+        >
+          <el-icon class="el-icon--left">
+            <Plus/>
+          </el-icon>
+          添加推荐
+        </el-button>
+      </div>
+
+      <el-row :gutter="24" class="link-grid">
+        <el-col
+            :xs="24" :sm="12" :md="8" :lg="6"
+            v-for="(item, index) in recommendLinks"
+            :key="item.GUID"
+        >
+          <a
+              :href="item.LINK"
+              target="_blank"
+              class="modern-card fade-in-up recommend-card"
+              :style="{ animationDelay: `${index * 0.1}s` }"
+          >
+            <div class="card-avatar-box">
+              <el-avatar :src="item.AVATAR" :size="56" class="site-avatar">
+                {{ item.NAME?.charAt(0) }}
+              </el-avatar>
+            </div>
+            <div class="card-content">
+              <h3 class="site-name" :title="item.NAME">{{ item.NAME }}</h3>
+              <p class="site-desc" :title="item.REMARK">{{ item.REMARK }}</p>
+            </div>
+
+            <div class="card-action-menu" @click.prevent.stop v-if="isAdmin">
+              <el-dropdown trigger="click" @command="(cmd) => handleCommand(cmd, item)">
+                <span class="action-btn">
+                  <el-icon><MoreFilled/></el-icon>
+                </span>
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item command="edit">
+                      <el-icon><Edit/></el-icon>编辑
+                    </el-dropdown-item>
+                    <el-dropdown-item command="delete" class="danger-item">
+                      <el-icon><Delete/></el-icon>删除
+                    </el-dropdown-item>
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
+            </div>
+          </a>
+        </el-col>
+      </el-row>
     </div>
 
-    <el-row :gutter="isEmbed ? 16 : 24" class="link-grid">
-      <el-col
-          :xs="24" :sm="12" :md="isEmbed ? 12 : 8" :lg="isEmbed ? 8 : 6"
-          v-for="(item, index) in friendLinks"
-          :key="index"
-      >
-        <a
-            :href="item.LINK"
-            target="_blank"
-            class="modern-card fade-in-up"
-            :style="{ animationDelay: `${index * 0.1}s` }"
-        >
-          <div class="card-avatar-box">
-            <el-avatar :src="item.AVATAR" :size="isEmbed ? 48 : 56" class="site-avatar">
-              {{ item.NAME?.charAt(0) }}
-            </el-avatar>
-          </div>
-          <div class="card-content">
-            <h3 class="site-name" :title="item.NAME">{{ item.NAME }}</h3>
-            <p class="site-desc" :title="item.REMARK">{{ item.REMARK }}</p>
-          </div>
 
-          <div class="card-action-menu" @click.prevent.stop v-if="getCurrentUserAdminObject().isAdmin || item.USERCODE===userStore.userBean.code">
-            <el-dropdown trigger="click" @command="(cmd) => handleCommand(cmd, item)">
-              <span class="action-btn">
-                <el-icon><MoreFilled/></el-icon>
-              </span>
-              <template #dropdown>
-                <el-dropdown-menu>
-                  <el-dropdown-item command="edit">
-                    <el-icon><Edit/></el-icon>编辑
-                  </el-dropdown-item>
-                  <el-dropdown-item command="delete" class="danger-item">
-                    <el-icon><Delete/></el-icon>删除
-                  </el-dropdown-item>
-                </el-dropdown-menu>
-              </template>
-            </el-dropdown>
-          </div>
-        </a>
-      </el-col>
-    </el-row>
 
+    <!-- ================= 弹窗表单 ================= -->
     <el-dialog
         v-model="dialogVisible"
-        :title="isEditMode ? '编辑友链' : '申请加入友链'"
+        :title="isEditMode ? (isRecommendMode ? '编辑推荐' : '编辑友链') : (isRecommendMode ? '添加推荐' : '申请加入友链')"
         width="480px"
         :close-on-click-modal="false"
         destroy-on-close
         class="custom-dialog"
     >
-      <div class="dialog-tip" v-if="!isEditMode">
+      <div class="dialog-tip" v-if="!isEditMode && !isRecommendMode">
         欢迎互换友链！请确保您的站点能够正常访问，且包含本站链接。
+      </div>
+      <div class="dialog-tip" style="color: #e6a23c; background-color: #fdf6ec;" v-if="isRecommendMode && !isEditMode">
+        添加的内容将展示在“推荐好站”专区。
       </div>
       <el-form :model="applyForm" label-width="80px" class="apply-form">
         <el-form-item label="网站名称" required>
@@ -108,7 +182,7 @@
         <span class="dialog-footer">
           <el-button @click="dialogVisible = false" round>取消</el-button>
           <el-button type="primary" @click="submitApply" round>
-            {{ isEditMode ? '保存修改' : '提交申请' }}
+            {{ isEditMode ? '保存修改' : '提交' }}
           </el-button>
         </span>
       </template>
@@ -117,7 +191,7 @@
 </template>
 
 <script setup>
-import {ref, reactive, onMounted, defineProps} from "vue";
+import {ref, reactive, onMounted, defineProps, computed} from "vue";
 import {useUserStore} from "@/stores/main/user.js";
 import {ElMessage} from "element-plus";
 import {Plus, MoreFilled, Edit, Delete} from '@element-plus/icons-vue';
@@ -135,33 +209,59 @@ const props = defineProps({
 const userStore = useUserStore();
 const dialogVisible = ref(false);
 const isEditMode = ref(false);
+const isRecommendMode = ref(false); // 标识当前是否在操作"推荐好站"
+
 const friendLinks = ref([]);
 const topAlert = ref([]);
+
+const isAdmin = computed(() => getCurrentUserAdminObject().isAdmin);
+
+// 过滤出推荐好站
+const recommendLinks = computed(() => {
+  return friendLinks.value.filter(item => item.LINK_TYPE == 2);
+});
+
+// 过滤出普通的友链
+const normalFriendLinks = computed(() => {
+  return friendLinks.value.filter(item => item.LINK_TYPE == 1);
+});
 
 const applyForm = reactive({
   NAME: "",
   LINK: "",
   AVATAR: "",
-  REMARK: ""
+  REMARK: "",
+  LINK_TYPE: 0 // 新增字段，1代表友链，2代表推荐好站
 });
 
+// 点击添加推荐好站 (管理员)
+const pushRecommendLink = () => {
+  isEditMode.value = false;
+  isRecommendMode.value = true;
+  Object.assign(applyForm, {NAME: "", LINK: "", AVATAR: "", REMARK: "", LINK_TYPE: 2});
+  dialogVisible.value = true;
+};
+
+// 点击申请友链
 const pushFriendLink = () => {
   if (!userStore?.userBean?.code) {
     ElMessage.error('请先登录后再尝试发布友链吧!');
     return false;
   }
   isEditMode.value = false;
-  Object.assign(applyForm, {NAME: "", LINK: "", AVATAR: "", REMARK: ""});
+  isRecommendMode.value = false;
+  Object.assign(applyForm, {NAME: "", LINK: "", AVATAR: "", REMARK: "", LINK_TYPE: 1});
   dialogVisible.value = true;
 };
 
 const handleCommand = (command, item) => {
   if (command === 'edit') {
     isEditMode.value = true;
+    isRecommendMode.value = item.LINK_TYPE === 2;
     Object.assign(applyForm, JSON.parse(JSON.stringify(item)));
     dialogVisible.value = true;
   } else if (command === 'delete') {
-    ele_confirm(`是否确认删除该友链?`, async () => {
+    ele_confirm(`是否确认删除该记录?`, async () => {
       await sendAxiosRequest("/blog-api/friendLink/deleteFriendLink", {friendLinkId: item.GUID});
       const index = friendLinks.value.findIndex(link => link.GUID === item.GUID);
       if (index !== -1) friendLinks.value.splice(index, 1);
@@ -171,8 +271,9 @@ const handleCommand = (command, item) => {
 };
 
 const submitApply = async () => {
-  if (!userStore?.userBean?.code) {
-    ElMessage.error('请先登录后再尝试发布友链吧!');
+  // 普通用户申请友链需要拦截，管理员添加推荐不拦截
+  if (!userStore?.userBean?.code && !isAdmin.value) {
+    ElMessage.error('请先登录后再尝试发布吧!');
     return false;
   }
   if (!applyForm.NAME || !applyForm.LINK || !applyForm.REMARK) {
@@ -188,8 +289,9 @@ const submitApply = async () => {
       ElMessage.success("修改成功！");
     }
   } else {
-    if (!getCurrentUserAdminObject().isAdmin) {
-      let currentUserLinks = friendLinks.value.filter(oneLink => oneLink.USERCODE === userStore.userBean.code);
+    // 限制普通用户最多发布3条友链
+    if (!isAdmin.value) {
+      let currentUserLinks = friendLinks.value.filter(oneLink => oneLink.USERCODE === userStore.userBean.code && oneLink.LINK_TYPE === 2);
       if (currentUserLinks.length >= 3) {
         ElMessage.warning('为保证友链质量,只允许发布三个友链');
         return false;
@@ -197,8 +299,9 @@ const submitApply = async () => {
     }
     let addData = {...applyForm};
     addData.GUID = getGuid();
-    addData.USERCODE = userStore.userBean.code;
-    addData.USERNAME = userStore.userBean.name;
+    addData.USERCODE = userStore.userBean.code || 'admin';
+    addData.USERNAME = userStore.userBean.name || '管理员';
+
     await sendAxiosRequest("/blog-api/friendLink/addFriendLink", {friendLink: addData})
     friendLinks.value.push(addData);
     ElMessage.success("提交成功！");
@@ -208,7 +311,7 @@ const submitApply = async () => {
 
 const getFriendLinks = async () => {
   const result = await sendAxiosRequest("/blog-api/friendLink/getFriendLinks");
-  friendLinks.value = result.result;
+  friendLinks.value = result.result || [];
 }
 
 const setTopAlert = async () => {
@@ -231,11 +334,19 @@ onMounted(() => {
   transition: all 0.3s;
 }
 
+.section-container {
+  margin-bottom: 50px;
+}
+
 /* --- 嵌入模式适配样式 --- */
 .friend-link-container.is-embed {
   padding: 0;
   max-width: 100%;
   margin: 0;
+}
+
+.is-embed .section-container {
+  margin-bottom: 0;
 }
 
 .is-embed .page-header {
@@ -263,7 +374,7 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 40px;
+  margin-bottom: 30px;
   padding-bottom: 15px;
   border-bottom: 1px solid #ebeef5;
 }
@@ -289,7 +400,7 @@ onMounted(() => {
 }
 
 .link-grid {
-  margin-bottom: 30px;
+  margin-bottom: 10px;
 }
 
 @keyframes fadeInUp {
@@ -316,6 +427,12 @@ onMounted(() => {
   box-sizing: border-box;
   position: relative;
   top: 0;
+}
+
+/* 为推荐卡片做一点细微区分，可自行调整 */
+.recommend-card:hover {
+  border-color: #67c23a33;
+  box-shadow: 0 12px 24px rgba(103, 194, 58, 0.08);
 }
 
 .modern-card:hover {
