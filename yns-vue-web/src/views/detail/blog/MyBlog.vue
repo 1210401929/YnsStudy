@@ -184,8 +184,13 @@ watch(()=>userStore.userBean.code,()=>{
 
 /* 右侧正文区域 */
 .content {
-  flex: 1; /* 占据剩余全部空间 */
-  min-width: 0; /* 防止内容过长撑破 Flex 布局 */
+  flex: 1;
+  min-width: 0;
+
+  /* 🌟 修复关键 1：加入盒模型限制，强制内边距向内挤压，绝不撑大宽度 */
+  box-sizing: border-box;
+  /* 🌟 修复关键 2：切断子组件 el-row 负边距带来的任何溢出隐患 */
+  overflow-x: hidden;
 
   /* 统一卡片美化风格 */
   background: rgba(255, 255, 255, 0.9);
@@ -262,16 +267,20 @@ watch(()=>userStore.userBean.code,()=>{
 @media screen and (max-width: 992px) {
   .layout-wrapper {
     flex-direction: column;
-    padding: 16px;
-    gap: 20px;
+    padding: 12px; /* 移动端外层边距稍微缩小点，留出更多空间 */
+    gap: 16px;
+    box-sizing: border-box;
+    overflow-x: hidden; /* 🌟 兜底：防止整个外层被内部元素撑破 */
   }
   .sidebar-wrapper {
     width: 100%;
-    position: static; /* 手机端取消吸顶 */
+    position: static;
   }
   .content {
     width: 100%;
     margin-top: 0;
+    padding: 16px; /* 🌟 移动端正文内边距缩小到 16px，不然手机上看着太挤 */
+    box-sizing: border-box;
   }
 }
 </style>

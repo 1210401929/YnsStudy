@@ -124,6 +124,7 @@ onMounted(() => {})
 </script>
 
 <style scoped>
+/* 🌟 修复 1：最外层加上防溢出外壳，彻底消灭横向滚动条 */
 .blog-detail-page {
   min-height: 100vh;
   display: flex;
@@ -132,6 +133,12 @@ onMounted(() => {})
   background-position: center;
   background-attachment: fixed;
   transition: background-image .3s ease;
+
+  /* 核心限制属性 */
+  width: 100%;
+  max-width: 100vw;
+  overflow-x: hidden;
+  box-sizing: border-box;
 }
 
 .blog-detail-page.bg-fade {
@@ -164,21 +171,27 @@ onMounted(() => {})
 /* 主体两栏 */
 .main-body {
   display: flex;
-  align-items: flex-start; /* 🌟 加上这一行，确保左右顶部完美对齐 */
+  align-items: flex-start;
   gap: 24px;
   padding: 20px;
   flex: 1;
   box-sizing: border-box;
+  /* 🌟 防止内部子元素过大 */
+  max-width: 100%;
 }
 
 .content-side {
   flex: 1;
+  /* 🌟 修复 2：加入 Flex 终极防撑破属性与盒模型约束 */
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+
   background: rgba(255, 255, 255, 0.5);
   border-radius: 12px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
   padding: 24px;
   min-height: 82vh;
-  overflow: hidden;
 }
 
 /* 移动端适配 */
@@ -186,9 +199,17 @@ onMounted(() => {})
   .main-body {
     flex-direction: column;
     gap: 20px;
+    padding: 12px; /* 移动端稍微减小外边距 */
   }
   .content-side {
-    padding: 16px;
+    width: 100%; /* 🌟 确保手机端占比 100% 不越界 */
+    padding: 16px; /* 移动端减小内边距 */
+  }
+  /* 🌟 确保左侧的 UserInfo 在移动端也不会撑破屏幕 */
+  :deep(.user-info-container) {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
   }
 }
 </style>
