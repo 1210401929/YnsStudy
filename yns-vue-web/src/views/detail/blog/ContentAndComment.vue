@@ -13,6 +13,7 @@
               class="author-avatar"
               alt="用户头像"
               @click="avatarClick(blogContent)"
+              :style="!blogContent.AVATAR ? getAvatarStyle(blogContent.USERNAME || '匿名用户') : {}"
               title="查看发布者信息"
           >
             {{ blogContent.USERNAME?.charAt(0) }}
@@ -95,7 +96,8 @@
               <div class="avatar-container">
                 <el-tooltip :content="'评论于: '+pubFormatDate(comment.CREATE_TIME)" placement="top" effect="light">
                   <el-avatar :src="comment.AVATAR" class="author-avatar-comment"
-                             @click.stop="commentAvatarClick(comment)">
+                             @click.stop="commentAvatarClick(comment)"
+                             :style="!comment.AVATAR ? getAvatarStyle(comment.USERNAME) : {}">
                     {{ comment.USERNAME?.charAt(0) }}
                   </el-avatar>
                 </el-tooltip>
@@ -157,7 +159,8 @@
                   <div class="avatar-container">
                     <el-tooltip :content="'评论于: ' + pubFormatDate(child.CREATE_TIME)" placement="top" effect="light">
                       <el-avatar :src="child.AVATAR" class="author-avatar-comment child-avatar"
-                                 @click.stop="commentAvatarClick(child)">
+                                 @click.stop="commentAvatarClick(child)"
+                                 :style="!child.AVATAR ? getAvatarStyle(child.USERNAME) : {}">
                         {{ child.USERNAME?.charAt(0) }}
                       </el-avatar>
                     </el-tooltip>
@@ -797,6 +800,37 @@ function deleteArticle() {
     }
   })
 }
+
+// 根据用户名生成固定的扁平化透明渐变样式
+const getAvatarStyle = (name) => {
+  if (!name) return {};
+
+  // 预设扁平化与透明质感的配色池 (bg: 背景色, text: 文字色)
+  const colors = [
+    { bg: 'rgba(64, 158, 255, 0.15)', text: '#409eff' }, // 科技蓝
+    { bg: 'rgba(103, 194, 58, 0.15)', text: '#67c23a' }, // 清新绿
+    { bg: 'rgba(230, 162, 60, 0.15)', text: '#e6a23c' }, // 活力橙
+    { bg: 'rgba(245, 108, 108, 0.15)', text: '#f56c6c' }, // 热情红
+    { bg: 'rgba(142, 113, 199, 0.15)', text: '#8e71c7' }  // 优雅紫
+  ];
+
+  // 简单的字符串哈希算法，确保同一个名字每次计算出的颜色都是固定的
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+
+  const index = Math.abs(hash) % colors.length;
+  const selectedColor = colors[index];
+
+  return {
+    backgroundColor: selectedColor.bg,
+    color: selectedColor.text,
+    fontWeight: '600',
+    backdropFilter: 'blur(4px)', // 配合透明玻璃质感
+    border: `1px solid ${selectedColor.bg}` // 极细边框增加精致度
+  };
+};
 </script>
 
 <style scoped>
