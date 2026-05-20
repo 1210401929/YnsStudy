@@ -1,5 +1,5 @@
 <template>
-  <el-row :gutter="20" class="article-view-row" justify="space-between" align="top">
+  <el-row ref="layoutRowRef" :gutter="20" class="article-view-row" justify="space-between" align="top">
     <!-- 左侧文章区域 -->
     <el-col :xs="24" :sm="24"
             :md="17"
@@ -79,164 +79,167 @@
 
     <!-- 右侧区域：评论区 or 目录区 -->
     <el-col :xs="24" :sm="24" :md="7" :lg="7" class="smooth-col">
-      <!-- 评论区 -->
-      <el-card v-if="showComment" shadow="hover" class="comment-card">
-        <div class="comment-header">
-          <h3>互动评论 <span class="comment-count-badge">{{ blogComment.length }}</span></h3>
-          <el-button type="info" plain size="small" :icon="Right" @click="showComment = false">
-            收起评论
-          </el-button>
-        </div>
-
-        <div v-for="(comment, i) in visibleComments" :key="comment.GUID || i" class="comment-item">
-          <div class="comment-main-row" @click="toggleAction(comment.GUID)">
-            <div class="avatar-container">
-              <el-tooltip :content="'评论于: '+pubFormatDate(comment.CREATE_TIME)" placement="top" effect="light">
-                <el-avatar :src="comment.AVATAR" class="author-avatar-comment"
-                           @click.stop="commentAvatarClick(comment)">
-                  {{ comment.USERNAME?.charAt(0) }}
-                </el-avatar>
-              </el-tooltip>
-            </div>
-
-            <div class="comment-content-block">
-              <span class="comment-user-name">{{ comment.USERNAME }}:</span>
-              <span class="comment-text">{{ comment.TEXT }}</span>
-            </div>
-
-            <div class="comment-actions" v-show="activeCommentId === comment.GUID">
-              <el-button link type="primary" size="small" class="reply-btn"
-                         @click.stop="replyComment(comment.GUID, comment)">
-                回复
-              </el-button>
-              <el-button link type="danger" size="small" class="reply-btn-red"
-                         @click.stop="deleteComment(comment.GUID)"
-                         v-if="(userStore?.userBean?.code && comment.USERCODE===userStore.userBean.code) ||(getCurrentUserAdminObject().isAdmin && comment.USERCODE!==adminUserCode) ||getCurrentUserAdminObject().adminLevel==='superAdmin'">
-                删除
-              </el-button>
-            </div>
-          </div>
-
-          <div v-if="replyInputVisible[comment.GUID]" class="reply-input-wrapper">
-            <el-row :gutter="10" v-if="!userStore?.userBean?.code" class="guest-form-row">
-              <el-col :span="8">
-                <el-input v-model="guestInfo.nickname" :prefix-icon="User" placeholder="昵称 (选填)" size="small" clearable/>
-              </el-col>
-              <el-col :span="8">
-                <el-input v-model="guestInfo.email" :prefix-icon="Message" placeholder="邮箱 (选填)" size="small" clearable/>
-              </el-col>
-              <el-col :span="8">
-                <el-input v-model="guestInfo.website" :prefix-icon="Link" placeholder="网址 (选填)" size="small" clearable/>
-              </el-col>
-            </el-row>
-            <div class="reply-action-group">
-              <el-input
-                  v-model="replyInputs[comment.GUID]"
-                  :placeholder="replyTargets[comment.GUID] ? `回复 @${replyTargets[comment.GUID].USERNAME}：` : '写下你的回复...'"
-                  size="small"
-                  @keyup.enter="submitReply(comment.GUID)"
-                  clearable
-              />
-              <el-button type="primary" size="small" @click="submitReply(comment.GUID)">
-                发送
-              </el-button>
-            </div>
-          </div>
-
-          <div class="children-comments" v-if="comment.children?.length">
-            <el-button link type="primary" size="small" class="toggle-children-btn"
-                       @click="toggleChildren(comment.GUID)">
-              {{ isChildrenVisible[comment.GUID] ? '收起回复' : `查看回复 (${comment.children.length})` }}
+      <!-- 核心：独立悬浮的包裹层，纯 JS 操控其 translateY -->
+      <div ref="rightSidebarRef" style="will-change: transform;">
+        <!-- 评论区 -->
+        <el-card v-if="showComment" shadow="hover" class="comment-card">
+          <div class="comment-header">
+            <h3>互动评论 <span class="comment-count-badge">{{ blogComment.length }}</span></h3>
+            <el-button type="info" plain size="small" :icon="Right" @click="showComment = false">
+              收起评论
             </el-button>
+          </div>
 
-            <div v-show="isChildrenVisible[comment.GUID]" class="children-list">
-              <div v-for="(child, idx) in comment.children" :key="child.GUID || idx" class="comment-child"
-                   @click="toggleAction(child.GUID)">
-                <div class="avatar-container">
-                  <el-tooltip :content="'评论于: ' + pubFormatDate(child.CREATE_TIME)" placement="top" effect="light">
-                    <el-avatar :src="child.AVATAR" class="author-avatar-comment child-avatar"
-                               @click.stop="commentAvatarClick(child)">
-                      {{ child.USERNAME?.charAt(0) }}
-                    </el-avatar>
-                  </el-tooltip>
-                </div>
+          <div v-for="(comment, i) in visibleComments" :key="comment.GUID || i" class="comment-item">
+            <div class="comment-main-row" @click="toggleAction(comment.GUID)">
+              <div class="avatar-container">
+                <el-tooltip :content="'评论于: '+pubFormatDate(comment.CREATE_TIME)" placement="top" effect="light">
+                  <el-avatar :src="comment.AVATAR" class="author-avatar-comment"
+                             @click.stop="commentAvatarClick(comment)">
+                    {{ comment.USERNAME?.charAt(0) }}
+                  </el-avatar>
+                </el-tooltip>
+              </div>
 
-                <div class="comment-content-block">
-                  <span class="comment-user-name child-name">{{ child.USERNAME }}</span>
-                  <span v-if="child.RECEIVE_USERNAME && child.RECEIVE_USERCODE !== comment.USERCODE"
-                        class="reply-to-text">
-                    回复 <span class="reply-to-name">@{{ child.RECEIVE_USERNAME }}</span>：
-                  </span>
-                  <span class="comment-text">{{ child.TEXT }}</span>
-                </div>
+              <div class="comment-content-block">
+                <span class="comment-user-name">{{ comment.USERNAME }}:</span>
+                <span class="comment-text">{{ comment.TEXT }}</span>
+              </div>
 
-                <div class="comment-actions" v-show="activeCommentId === child.GUID">
-                  <el-button link type="primary" size="small" class="reply-btn"
-                             @click.stop="replyComment(comment.GUID, child)">
-                    回复
-                  </el-button>
-                  <el-button link type="danger" size="small" class="reply-btn-red"
-                             @click.stop="deleteComment(child.GUID, comment.GUID)"
-                             v-if="(userStore?.userBean?.code && child.USERCODE===userStore.userBean.code) ||(getCurrentUserAdminObject().isAdmin && child.USERCODE!==adminUserCode) ||getCurrentUserAdminObject().adminLevel==='superAdmin'">
-                    删除
-                  </el-button>
+              <div class="comment-actions" v-show="activeCommentId === comment.GUID">
+                <el-button link type="primary" size="small" class="reply-btn"
+                           @click.stop="replyComment(comment.GUID, comment)">
+                  回复
+                </el-button>
+                <el-button link type="danger" size="small" class="reply-btn-red"
+                           @click.stop="deleteComment(comment.GUID)"
+                           v-if="(userStore?.userBean?.code && comment.USERCODE===userStore.userBean.code) ||(getCurrentUserAdminObject().isAdmin && comment.USERCODE!==adminUserCode) ||getCurrentUserAdminObject().adminLevel==='superAdmin'">
+                  删除
+                </el-button>
+              </div>
+            </div>
+
+            <div v-if="replyInputVisible[comment.GUID]" class="reply-input-wrapper">
+              <el-row :gutter="10" v-if="!userStore?.userBean?.code" class="guest-form-row">
+                <el-col :span="8">
+                  <el-input v-model="guestInfo.nickname" :prefix-icon="User" placeholder="昵称 (选填)" size="small" clearable/>
+                </el-col>
+                <el-col :span="8">
+                  <el-input v-model="guestInfo.email" :prefix-icon="Message" placeholder="邮箱 (选填)" size="small" clearable/>
+                </el-col>
+                <el-col :span="8">
+                  <el-input v-model="guestInfo.website" :prefix-icon="Link" placeholder="网址 (选填)" size="small" clearable/>
+                </el-col>
+              </el-row>
+              <div class="reply-action-group">
+                <el-input
+                    v-model="replyInputs[comment.GUID]"
+                    :placeholder="replyTargets[comment.GUID] ? `回复 @${replyTargets[comment.GUID].USERNAME}：` : '写下你的回复...'"
+                    size="small"
+                    @keyup.enter="submitReply(comment.GUID)"
+                    clearable
+                />
+                <el-button type="primary" size="small" @click="submitReply(comment.GUID)">
+                  发送
+                </el-button>
+              </div>
+            </div>
+
+            <div class="children-comments" v-if="comment.children?.length">
+              <el-button link type="primary" size="small" class="toggle-children-btn"
+                         @click="toggleChildren(comment.GUID)">
+                {{ isChildrenVisible[comment.GUID] ? '收起回复' : `查看回复 (${comment.children.length})` }}
+              </el-button>
+
+              <div v-show="isChildrenVisible[comment.GUID]" class="children-list">
+                <div v-for="(child, idx) in comment.children" :key="child.GUID || idx" class="comment-child"
+                     @click="toggleAction(child.GUID)">
+                  <div class="avatar-container">
+                    <el-tooltip :content="'评论于: ' + pubFormatDate(child.CREATE_TIME)" placement="top" effect="light">
+                      <el-avatar :src="child.AVATAR" class="author-avatar-comment child-avatar"
+                                 @click.stop="commentAvatarClick(child)">
+                        {{ child.USERNAME?.charAt(0) }}
+                      </el-avatar>
+                    </el-tooltip>
+                  </div>
+
+                  <div class="comment-content-block">
+                    <span class="comment-user-name child-name">{{ child.USERNAME }}</span>
+                    <span v-if="child.RECEIVE_USERNAME && child.RECEIVE_USERCODE !== comment.USERCODE"
+                          class="reply-to-text">
+                      回复 <span class="reply-to-name">@{{ child.RECEIVE_USERNAME }}</span>：
+                    </span>
+                    <span class="comment-text">{{ child.TEXT }}</span>
+                  </div>
+
+                  <div class="comment-actions" v-show="activeCommentId === child.GUID">
+                    <el-button link type="primary" size="small" class="reply-btn"
+                               @click.stop="replyComment(comment.GUID, child)">
+                      回复
+                    </el-button>
+                    <el-button link type="danger" size="small" class="reply-btn-red"
+                               @click.stop="deleteComment(child.GUID, comment.GUID)"
+                               v-if="(userStore?.userBean?.code && child.USERCODE===userStore.userBean.code) ||(getCurrentUserAdminObject().isAdmin && child.USERCODE!==adminUserCode) ||getCurrentUserAdminObject().adminLevel==='superAdmin'">
+                      删除
+                    </el-button>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
 
-        <div v-if="blogComment.length > 5" style="margin-top: 10px; text-align: center;">
-          <el-button text type="primary" @click="toggleComments">
-            {{ showAllComments ? '收起部分评论' : '展开全部评论' }}
-          </el-button>
-        </div>
-
-        <div class="comment-input-area">
-          <el-divider border-style="dashed">发表评论</el-divider>
-          <el-row :gutter="10" v-if="showMainGuestForm" class="guest-form-row">
-            <el-col :xs="24" :sm="8" :md="8" :lg="8">
-              <el-input v-model="guestInfo.nickname" :prefix-icon="User" placeholder="昵称 (选填)" size="default" clearable class="guest-input-item"/>
-            </el-col>
-            <el-col :xs="24" :sm="8" :md="8" :lg="8">
-              <el-input v-model="guestInfo.email" :prefix-icon="Message" placeholder="邮箱 (选填)" size="default" clearable class="guest-input-item"/>
-            </el-col>
-            <el-col :xs="24" :sm="8" :md="8" :lg="8">
-              <el-input v-model="guestInfo.website" :prefix-icon="Link" placeholder="网址 (选填)" size="default" clearable class="guest-input-item"/>
-            </el-col>
-          </el-row>
-
-          <el-input
-              v-model="newComment"
-              type="textarea"
-              :rows="3"
-              placeholder="写下你的优质评论..."
-              @keyup.enter.ctrl="submitComment"
-              clearable
-              resize="none"
-          />
-          <div class="comment-submit-row">
-            <span class="hint-text">Ctrl + Enter 快捷发送</span>
-            <el-button type="primary" size="default" :icon="Edit" @click="submitComment">
-              发表评论
+          <div v-if="blogComment.length > 5" style="margin-top: 10px; text-align: center;">
+            <el-button text type="primary" @click="toggleComments">
+              {{ showAllComments ? '收起部分评论' : '展开全部评论' }}
             </el-button>
           </div>
-        </div>
-      </el-card>
 
-      <!-- 目录区：固定显示 -->
-      <el-card v-else shadow="hover" class="toc-fixed-card">
-        <div class="toc-title">文章目录</div>
-        <el-scrollbar max-height="600px">
-          <div v-if="tocList.length === 0" class="toc-empty">暂无目录或提取中...</div>
-          <div v-for="item in tocList" :key="item.id"
-               class="toc-item"
-               :class="['toc-level-' + item.level, { 'is-active': activeTocId === item.id }]"
-               @click="scrollToAnchor(item.id)">
-            {{ item.text }}
+          <div class="comment-input-area">
+            <el-divider border-style="dashed">发表评论</el-divider>
+            <el-row :gutter="10" v-if="showMainGuestForm" class="guest-form-row">
+              <el-col :xs="24" :sm="8" :md="8" :lg="8">
+                <el-input v-model="guestInfo.nickname" :prefix-icon="User" placeholder="昵称 (选填)" size="default" clearable class="guest-input-item"/>
+              </el-col>
+              <el-col :xs="24" :sm="8" :md="8" :lg="8">
+                <el-input v-model="guestInfo.email" :prefix-icon="Message" placeholder="邮箱 (选填)" size="default" clearable class="guest-input-item"/>
+              </el-col>
+              <el-col :xs="24" :sm="8" :md="8" :lg="8">
+                <el-input v-model="guestInfo.website" :prefix-icon="Link" placeholder="网址 (选填)" size="default" clearable class="guest-input-item"/>
+              </el-col>
+            </el-row>
+
+            <el-input
+                v-model="newComment"
+                type="textarea"
+                :rows="3"
+                placeholder="写下你的优质评论..."
+                @keyup.enter.ctrl="submitComment"
+                clearable
+                resize="none"
+            />
+            <div class="comment-submit-row">
+              <span class="hint-text">Ctrl + Enter 快捷发送</span>
+              <el-button type="primary" size="default" :icon="Edit" @click="submitComment">
+                发表评论
+              </el-button>
+            </div>
           </div>
-        </el-scrollbar>
-      </el-card>
+        </el-card>
+
+        <!-- 目录区：固定显示 -->
+        <el-card v-else shadow="hover" class="toc-fixed-card">
+          <div class="toc-title">文章目录</div>
+          <el-scrollbar max-height="600px">
+            <div v-if="tocList.length === 0" class="toc-empty">暂无目录或提取中...</div>
+            <div v-for="item in tocList" :key="item.id"
+                 class="toc-item"
+                 :class="['toc-level-' + item.level, { 'is-active': activeTocId === item.id }]"
+                 @click="scrollToAnchor(item.id)">
+              {{ item.text }}
+            </div>
+          </el-scrollbar>
+        </el-card>
+      </div>
     </el-col>
   </el-row>
 
@@ -288,7 +291,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onUnmounted, watch, nextTick } from "vue";
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useUserStore } from "@/stores/main/user.js";
 import { useBlogContentStore } from "@/stores/detail/blog.js";
@@ -487,9 +490,98 @@ const scrollToAnchor = (anchorId) => {
   }
 };
 
+
+// ==================== JS 完全独立悬浮核心逻辑 ====================
+const layoutRowRef = ref(null);
+const rightSidebarRef = ref(null);
+let scrollContainer = null;
+let ticking = false;
+
+const doScrollUpdate = () => {
+  if (!layoutRowRef.value || !rightSidebarRef.value) return;
+
+  const rowEl = layoutRowRef.value.$el || layoutRowRef.value;
+  const sidebarEl = rightSidebarRef.value;
+
+  // 移动端排版自动取消悬浮
+  if (window.innerWidth < 992) {
+    sidebarEl.style.transform = `translateY(0px)`;
+    return;
+  }
+
+  // 完全基于视口物理位置计算
+  const rowRect = rowEl.getBoundingClientRect();
+  const sidebarHeight = sidebarEl.offsetHeight;
+
+  const offsetTop = 20; // 悬浮时距离视口顶部的间距
+
+  // 如果父容器顶部已经超出了视口距离（开始往下滚了）
+  if (rowRect.top < offsetTop) {
+    let translateY = Math.abs(rowRect.top) + offsetTop;
+
+    // 触底限制
+    const maxTranslateY = rowRect.height - sidebarHeight;
+
+    if (maxTranslateY <= 0) {
+      sidebarEl.style.transform = `translateY(0px)`;
+      return;
+    }
+
+    if (translateY > maxTranslateY) {
+      translateY = maxTranslateY;
+    }
+
+    sidebarEl.style.transform = `translateY(${translateY}px)`;
+  } else {
+    sidebarEl.style.transform = `translateY(0px)`;
+  }
+};
+
+const handleScroll = () => {
+  if (!ticking) {
+    window.requestAnimationFrame(() => {
+      doScrollUpdate();
+      ticking = false;
+    });
+    ticking = true;
+  }
+};
+
+// 自动向外寻找真正能滚动的 DOM 节点
+const getScrollContainer = (el) => {
+  let parent = el.parentElement;
+  while (parent) {
+    const style = window.getComputedStyle(parent);
+    if (/(auto|scroll|overlay)/.test(style.overflow + style.overflowY)) {
+      return parent;
+    }
+    parent = parent.parentElement;
+  }
+  return window;
+};
+
+onMounted(() => {
+  requestAnimationFrame(() => {
+    const rowEl = layoutRowRef.value.$el || layoutRowRef.value;
+    if (rowEl) {
+      scrollContainer = getScrollContainer(rowEl);
+      scrollContainer.addEventListener('scroll', handleScroll, { passive: true });
+      window.addEventListener('scroll', handleScroll, { passive: true });
+    }
+  });
+});
+// =================================================================
+
 onUnmounted(() => {
   if (observer) observer.disconnect();
+
+  // 销毁监听事件
+  if (scrollContainer) {
+    scrollContainer.removeEventListener('scroll', handleScroll);
+  }
+  window.removeEventListener('scroll', handleScroll);
 });
+
 
 function handleLike() {
   let userBean = userStore.userBean;
@@ -807,8 +899,7 @@ function deleteArticle() {
   background-color: #fafbfc;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
   max-height: calc(100vh - 40px);
-  position: sticky;
-  top: 20px;
+  /* 清除了原来的 position: sticky */
   overflow-y: auto;
 }
 
@@ -981,8 +1072,7 @@ function deleteArticle() {
   border-radius: 12px;
   background: #ffffff;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
-  position: sticky;
-  top: 20px;
+  /* 清除了原来的 position: sticky */
 }
 
 .toc-title {
@@ -1110,13 +1200,11 @@ function deleteArticle() {
 @media (max-width: 991px) {
   .comment-card {
     max-height: none !important;
-    position: static !important;
     overflow-y: visible !important;
     margin-top: 15px;
   }
 
   .toc-fixed-card {
-    position: static !important;
     margin-top: 15px;
   }
 

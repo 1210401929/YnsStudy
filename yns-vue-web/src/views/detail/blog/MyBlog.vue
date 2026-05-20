@@ -165,7 +165,7 @@ watch(()=>userStore.userBean.code,()=>{
 /* 🎯 核心布局层：限制最大宽度并居中 */
 .layout-wrapper {
   width: 100%;
-  max-width: 1440px; /* 和个人主页保持一致的大气宽屏 */
+  max-width: 1680px; /* 和个人主页保持一致的大气宽屏 */
   margin: 0 auto;
   padding: 24px 16px;
   display: flex;
