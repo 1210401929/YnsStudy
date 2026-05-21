@@ -198,7 +198,8 @@ public class HomeController {
                 sb.append("      <pubDate>").append(pubDate).append("</pubDate>\n");
 
                 // 摘要
-                String content = oneBlog.containsKey("MAINTEXT") ? getPureText((String) oneBlog.get("MAINTEXT"), 50) : "";
+                //String content = oneBlog.containsKey("MAINTEXT") ? getPureText((String) oneBlog.get("MAINTEXT"), 500) : "";
+                String content = oneBlog.containsKey("MAINTEXT") ? oneBlog.get("MAINTEXT").toString() : "";
                 sb.append("      <description><![CDATA[" + content + "]]></description>\n");
                 sb.append("    </item>\n");
             }
