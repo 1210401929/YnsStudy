@@ -147,53 +147,98 @@ public class HomeController {
 
     @GetMapping(value = "/rss.xml", produces = "application/xml;charset=UTF-8")
     public void rssXml(HttpServletResponse response) throws IOException {
-        // 1. 必须在调用 getWriter() 之前设置编码和内容类型
+        // 1. 设置编码和内容类型
         response.setContentType("application/xml;charset=UTF-8");
         response.setCharacterEncoding("UTF-8");
-        // 1. 获取数据
+
+        // 2. 获取数据
         ResultBody result = homeService.getBlogDetail5();
         List<Map<String, Object>> blogList = (List<Map<String, Object>>) result.result;
         StringBuilder sb = new StringBuilder();
+
         // 引入样式
         sb.append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
         sb.append("<rss version=\"2.0\" xmlns:atom=\"http://www.w3.org/2005/Atom\">\n");
         sb.append("  <channel>\n");
+
         // --- 网站元数据 ---
-        sb.append("    <title>ynsstudy</title>\n"); // 你的网站标题
+        sb.append("    <atom:link href=\"" + LoginCfg.domainName + "/api/blog-api/home/rss.xml\" rel=\"self\" type=\"application/rss+xml\"/>\n");
+        sb.append("    <title>ynsstudy</title>\n");
         sb.append("    <link>" + LoginCfg.domainName + "</link>\n");
         sb.append("    <description>ynsStudy - 技术分享与记录</description>\n");
-        sb.append("    <language>zh-cn</language>\n");
-        for (Map<String, Object> oneBlog : blogList) {
-            sb.append("    <item>\n");
-            // 标题（如果你库里有标题字段，请替换 "BLOG_TITLE"）
-            String title = oneBlog.containsKey("BLOG_TITLE") ? (String) oneBlog.get("BLOG_TITLE") : "文章 ID: " + oneBlog.get("GUID");
-            sb.append("      <title><![CDATA[" + title + "]]></title>\n");
-            // 链接
-            String link = LoginCfg.domainName + "/oneBlog/" + oneBlog.get("GUID");
-            sb.append("      <link>" + link + "</link>\n");
-            sb.append("      <guid>" + oneBlog.get("GUID") + "</guid>\n");
-            // --- 时间格式化 (RSS 要求 RFC 822 格式，例如: Wed, 10 Apr 2026 09:40:35 GMT) ---
-            // 简单处理也可以用 yyyy-MM-dd，但标准 RSS 客户端更喜欢 RFC 822
-            String pubDate = "";
-            Object timeObj = oneBlog.get("CREATE_TIME");
-            if (timeObj instanceof java.time.LocalDateTime) {
-                // 使用标准的 RFC_1123 格式
-                pubDate = ((java.time.LocalDateTime) timeObj).atZone(java.time.ZoneId.systemDefault())
-                        .format(java.time.format.DateTimeFormatter.RFC_1123_DATE_TIME);
-            } else {
-                pubDate = oneBlog.get("CREATE_TIME").toString();
-            }
-            sb.append("      <pubDate>").append(pubDate).append("</pubDate>\n");
-            // 摘要
-            String content = oneBlog.containsKey("MAINTEXT") ?getPureText((String) oneBlog.get("MAINTEXT"),50)  : "";
-            sb.append("<description><![CDATA[" + content + "]]></description>\n");
-            sb.append("    </item>\n");
+        sb.append("    <language>zh-CN</language>\n");
+
+        // --- 新增：lastBuildDate (取最新一篇文章的时间，如果为空则取当前时间) ---
+        String lastBuildDate = "";
+        if (blogList != null && !blogList.isEmpty()) {
+            lastBuildDate = formatToRfc822(blogList.get(0).get("CREATE_TIME"));
+        } else {
+            // 列表为空时的保底方案：当前时间
+            lastBuildDate = java.time.ZonedDateTime.now(java.time.ZoneId.of("Asia/Shanghai"))
+                    .format(java.time.format.DateTimeFormatter.RFC_1123_DATE_TIME);
         }
+        sb.append("    <lastBuildDate>").append(lastBuildDate).append("</lastBuildDate>\n");
+
+        // --- 遍历文章列表 ---
+        if (blogList != null) {
+            for (Map<String, Object> oneBlog : blogList) {
+                sb.append("    <item>\n");
+
+                // 标题
+                String title = oneBlog.containsKey("BLOG_TITLE") ? (String) oneBlog.get("BLOG_TITLE") : "文章 ID: " + oneBlog.get("GUID");
+                sb.append("      <title><![CDATA[" + title + "]]></title>\n");
+
+                // 链接与 GUID
+                String link = LoginCfg.domainName + "/oneBlog/" + oneBlog.get("GUID");
+                sb.append("      <link>" + link + "</link>\n");
+                sb.append("      <guid>" + link + "</guid>\n");
+
+                // 时间（直接调用抽离出去的方法）
+                String pubDate = formatToRfc822(oneBlog.get("CREATE_TIME"));
+                sb.append("      <pubDate>").append(pubDate).append("</pubDate>\n");
+
+                // 摘要
+                String content = oneBlog.containsKey("MAINTEXT") ? getPureText((String) oneBlog.get("MAINTEXT"), 50) : "";
+                sb.append("      <description><![CDATA[" + content + "]]></description>\n");
+                sb.append("    </item>\n");
+            }
+        }
+
         sb.append("  </channel>\n");
         sb.append("</rss>");
 
         response.getWriter().write(sb.toString());
     }
+
+    /**
+     * 新增的私有辅助方法：将数据库查出的各种时间对象统一格式化为 RSS 要求的 RFC 822 格式
+     */
+    private String formatToRfc822(Object timeObj) {
+        if (timeObj == null) {
+            return "";
+        }
+        try {
+            java.time.LocalDateTime localDateTime = null;
+            if (timeObj instanceof java.time.LocalDateTime) {
+                localDateTime = (java.time.LocalDateTime) timeObj;
+            } else if (timeObj instanceof java.sql.Timestamp) {
+                localDateTime = ((java.sql.Timestamp) timeObj).toLocalDateTime();
+            } else {
+                String timeStr = timeObj.toString().replace(" ", "T");
+                if (timeStr.length() > 19) {
+                    timeStr = timeStr.substring(0, 19);
+                }
+                localDateTime = java.time.LocalDateTime.parse(timeStr);
+            }
+            // 强制指定东八区
+            return localDateTime.atZone(java.time.ZoneId.of("Asia/Shanghai"))
+                    .format(java.time.format.DateTimeFormatter.RFC_1123_DATE_TIME);
+        } catch (Exception e) {
+            // 解析失败时回退到原始字符串
+            return timeObj.toString();
+        }
+    }
+
     /**
      * 提取 HTML 中的纯文本并截取
      */
