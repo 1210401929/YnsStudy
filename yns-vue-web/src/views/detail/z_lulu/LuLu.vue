@@ -30,7 +30,7 @@
           <span v-if="visualState === 'SLEEPING'" class="sleep-mark mark-three">Z</span>
         </div>
 
-        <img class="lulu-img" :class="animationClass" :src="currentLuluImage" alt="Lulu" />
+        <img class="lulu-img" :class="animationClass" :src="currentLuluImage" alt="噜噜" />
 
         <div class="status-bubble">
           {{ statusText }}
@@ -44,7 +44,7 @@
           <span class="level-badge">Lv.{{ displayLevel }}</span>
           <span class="state-chip">{{ formatState(petData.currentState) }}</span>
         </div>
-        <h3 class="panel-title">{{ petData.name || 'Lulu' }}</h3>
+        <h3 class="panel-title">{{ petData.name || '噜噜' }}</h3>
 
         <div class="exp-container">
           <div class="exp-bar">
@@ -450,7 +450,7 @@ const playLulu = async () => {
   if (isLoading.value) return;
 
   if (petData.value.currentState === 'SLEEPING') {
-    triggerEffect('Z', 'Lulu 正在睡觉', 'type-sleep');
+    triggerEffect('', '噜噜 正在睡觉', 'type-sleep');
     return;
   }
   if (petData.value.hunger < 15) {
@@ -480,7 +480,7 @@ const runPlayLikeAction = async (category, actionList, expText) => {
   if (isLoading.value) return;
 
   if (petData.value.currentState === 'SLEEPING') {
-    triggerEffect('Z', 'Lulu 正在睡觉', 'type-sleep');
+    triggerEffect('', '噜噜 正在睡觉', 'type-sleep');
     return;
   }
   if (petData.value.hunger < 15) {
