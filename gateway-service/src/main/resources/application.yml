@@ -62,6 +62,7 @@ auth:
     - /blog-api/home/** # 首页
     - /blog-api/userInformation/**  #用户主页
     - /blog-api/blog/addComment   #博客评论接口   允许未登录用户评论
+    - /blog-api/lulu/** # lulu
     # 静态文件访问
     - /uploadFile/**
 

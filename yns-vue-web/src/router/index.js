@@ -18,8 +18,12 @@ import personInfomationV2 from "@/views/main/user/personInformationV2.vue";
 import sso from "@/views/main/sso/sso.vue";
 import RssDetailView from "@/views/detail/rss/RssDetailView.vue";
 
+import LuLu from "@/views/detail/z_lulu/LuLu.vue"
 
 const routes = [
+    //噜噜
+    {path:'/lulu' ,name:'lulu',component: LuLu},
+
     //后台管理
     {path:'/sso' ,name:'sso',component: sso},
     //根路径重定向到welcome
