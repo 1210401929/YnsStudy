@@ -3,13 +3,13 @@
     <section class="lulu-scene">
       <div class="scene-background"></div>
 
-      <div class="lulu-entity" :class="`state-${visualState.toLowerCase()}`">
+      <div class="lulu-entity" :class="[`state-${visualState.toLowerCase()}`, `action-${actionCategory}`]">
         <div class="floating-layer">
           <div
-              v-for="effect in floatingEffects"
-              :key="effect.id"
-              class="floating-item"
-              :class="effect.type"
+            v-for="effect in floatingEffects"
+            :key="effect.id"
+            class="floating-item"
+            :class="effect.type"
           >
             <span class="effect-icon">{{ effect.icon }}</span>
             <span class="effect-text">{{ effect.text }}</span>
@@ -17,17 +17,20 @@
         </div>
 
         <div class="action-props" aria-hidden="true">
-          <span v-if="visualState === 'FEEDING'" class="food-dot dot-one"></span>
-          <span v-if="visualState === 'FEEDING'" class="food-dot dot-two"></span>
-          <span v-if="visualState === 'PLAYING'" class="toy-ball"></span>
+          <span v-if="actionCategory === 'feed'" class="food-dot dot-one"></span>
+          <span v-if="actionCategory === 'feed'" class="food-dot dot-two"></span>
+          <span v-if="actionCategory === 'feed'" class="food-dot dot-three"></span>
+
+          <span v-if="actionCategory === 'play'" class="toy-ball"></span>
+          <span v-if="['play', 'ambient', 'touch', 'bath', 'music'].includes(actionCategory)" class="spark spark-one"></span>
+          <span v-if="['play', 'ambient', 'touch', 'bath', 'music'].includes(actionCategory)" class="spark spark-two"></span>
+
+          <span v-if="visualState === 'SLEEPING'" class="sleep-mark mark-one">Z</span>
+          <span v-if="visualState === 'SLEEPING'" class="sleep-mark mark-two">Z</span>
+          <span v-if="visualState === 'SLEEPING'" class="sleep-mark mark-three">Z</span>
         </div>
 
-        <img
-            class="lulu-img"
-            :class="animationClass"
-            :src="currentLuluImage"
-            alt="Lulu"
-        />
+        <img class="lulu-img" :class="animationClass" :src="currentLuluImage" alt="Lulu" />
 
         <div class="status-bubble">
           {{ statusText }}
@@ -38,16 +41,16 @@
     <aside class="glass-control-panel">
       <div class="panel-header">
         <div class="level-row">
-          <span class="level-badge">Lv.{{ petData.level }}</span>
+          <span class="level-badge">Lv.{{ displayLevel }}</span>
           <span class="state-chip">{{ formatState(petData.currentState) }}</span>
         </div>
-        <h3 class="panel-title">{{ petData.name }}</h3>
+        <h3 class="panel-title">{{ petData.name || 'Lulu' }}</h3>
 
         <div class="exp-container">
           <div class="exp-bar">
             <div class="exp-fill" :style="{ width: `${expPercentage}%` }"></div>
           </div>
-          <span class="exp-text">{{ petData.exp }} / {{ maxExpOfCurrentLevel }} XP</span>
+          <span class="exp-text">{{ petData.exp || 0 }} / {{ maxExpOfCurrentLevel }} XP</span>
         </div>
       </div>
 
@@ -55,30 +58,30 @@
         <div class="stat-item">
           <div class="stat-header">
             <span>饱腹感</span>
-            <span>{{ petData.hunger }}/100</span>
+            <span>{{ petData.hunger || 0 }}/100</span>
           </div>
           <div class="progress-bar flat-bar">
-            <div class="progress-fill fill-hunger" :style="{ width: `${petData.hunger}%` }"></div>
+            <div class="progress-fill fill-hunger" :style="{ width: `${petData.hunger || 0}%` }"></div>
           </div>
         </div>
 
         <div class="stat-item">
           <div class="stat-header">
             <span>体力值</span>
-            <span>{{ petData.energy }}/100</span>
+            <span>{{ petData.energy || 0 }}/100</span>
           </div>
           <div class="progress-bar flat-bar">
-            <div class="progress-fill fill-energy" :style="{ width: `${petData.energy}%` }"></div>
+            <div class="progress-fill fill-energy" :style="{ width: `${petData.energy || 0}%` }"></div>
           </div>
         </div>
 
         <div class="stat-item">
           <div class="stat-header">
             <span>心情值</span>
-            <span>{{ petData.mood }}/100</span>
+            <span>{{ petData.mood || 0 }}/100</span>
           </div>
           <div class="progress-bar flat-bar">
-            <div class="progress-fill fill-mood" :style="{ width: `${petData.mood}%` }"></div>
+            <div class="progress-fill fill-mood" :style="{ width: `${petData.mood || 0}%` }"></div>
           </div>
         </div>
       </div>
@@ -93,6 +96,15 @@
         <button class="flat-btn generic-btn" @click="sleepLulu" :disabled="isLoading">
           {{ sleepBtnText }}
         </button>
+        <button class="flat-btn touch-btn" @click="touchLulu" :disabled="isLoading">
+          摸摸
+        </button>
+        <button class="flat-btn bath-btn" @click="bathLulu" :disabled="isLoading">
+          洗澡
+        </button>
+        <button class="flat-btn music-btn" @click="musicLulu" :disabled="isLoading">
+          听音乐
+        </button>
       </div>
     </aside>
   </div>
@@ -100,19 +112,46 @@
 
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
-// 请记得替换为你实际的相对路径
 import { sendAxiosRequest } from '@/utils/common.js';
 
 const currentUserId = 1;
 const isLoading = ref(false);
-const localAction = ref('');
+const actionCategory = ref('idle');
+const actionLabel = ref('');
+const actionFrames = ref([]);
+const actionFrameIndex = ref(0);
+const activeSleepImage = ref('');
 const floatingEffects = ref([]);
-let effectIdCounter = 0;
-let actionTimer = null;
 
-// 【核心修复】：初始值 level 设为 0，用于标记这是第一次加载，屏蔽升级动画
+let actionTimer = null;
+let frameTimer = null;
+let ambientTimer = null;
+let effectIdCounter = 0;
+
+const img = (name) => `/picture/lulu/benti/${name}`;
+
+const luluImages = {
+  idle: img('lulu_fadai.png'),
+  happy: img('lulu_kaixin.png'),
+  feed: img('lulu_eat.png'),
+  feedNoodle: img('lulu_eat_noodle.png'),
+  feedCookie: img('lulu_eat_cookie.png'),
+  play: img('lulu_play.png'),
+  playChase: img('lulu_play_chase.png'),
+  playDance: img('lulu_play_dance.png'),
+  idleBook: img('lulu_idle_book.png'),
+  idleStretch: img('lulu_idle_stretch.png'),
+  idleBubble: img('lulu_idle_bubble.png'),
+  touch: img('lulu_touch.png'),
+  bath: img('lulu_bath.png'),
+  music: img('lulu_music.png'),
+  sleep: img('lulu_sleep.png'),
+  sleepFloor: img('lulu_sleep_floor.png'),
+  sleepBed: img('lulu_sleep_bed.png')
+};
+
 const petData = ref({
-  name: '噜噜',
+  name: 'Lulu',
   hunger: 0,
   energy: 0,
   mood: 0,
@@ -121,40 +160,145 @@ const petData = ref({
   currentState: 'IDLE'
 });
 
-const stateImageMap = {
-  IDLE: '/picture/lulu/benti/lulu_fadai.png',
-  SLEEPING: '/picture/lulu/benti/lulu_sleep.png',
-  FEEDING: '/picture/lulu/benti/lulu_eat.png',
-  PLAYING: '/picture/lulu/benti/lulu_play.png',
-  HAPPY: '/picture/lulu/benti/lulu_kaixin.png'
-};
+const feedActions = [
+  {
+    label: '正在吃小蛋糕',
+    frames: [luluImages.feed, luluImages.feedCookie, luluImages.feed],
+    effect: ['点心时间', 'type-food']
+  },
+  {
+    label: '正在吸溜面条',
+    frames: [luluImages.feedNoodle, luluImages.feed, luluImages.feedNoodle],
+    effect: ['热乎乎', 'type-food']
+  },
+  {
+    label: '正在认真干饭',
+    frames: [luluImages.feedCookie, luluImages.feedNoodle, luluImages.feed],
+    effect: ['吃饱啦', 'type-food']
+  }
+];
 
-const maxExpOfCurrentLevel = computed(() => {
-  // 如果 level 是 0 (刚进页面还没拿到数据)，按 1 级来计算防报错
-  const lvl = petData.value.level || 1;
-  return lvl * 50 + 100;
-});
+const playActions = [
+  {
+    label: '追球中',
+    frames: [luluImages.play, luluImages.playChase, luluImages.play],
+    effect: ['跑起来', 'type-mood']
+  },
+  {
+    label: '开心跳舞',
+    frames: [luluImages.happy, luluImages.playDance, luluImages.happy],
+    effect: ['心情闪亮', 'type-mood']
+  },
+  {
+    label: '蹦蹦跳跳',
+    frames: [luluImages.playDance, luluImages.play, luluImages.playChase],
+    effect: ['玩疯了', 'type-mood']
+  }
+];
+
+const sleepActions = [
+  {
+    label: '在床上睡觉',
+    image: luluImages.sleepBed,
+    effect: ['盖好被子', 'type-sleep']
+  },
+  {
+    label: '在地上睡着了',
+    image: luluImages.sleepFloor,
+    effect: ['睡得香', 'type-sleep']
+  },
+  {
+    label: '梦见好吃的',
+    image: luluImages.sleep,
+    effect: ['做梦中', 'type-sleep']
+  }
+];
+
+const ambientActions = [
+  {
+    label: '自己看小书',
+    frames: [luluImages.idle, luluImages.idleBook, luluImages.idleBook, luluImages.idle]
+  },
+  {
+    label: '伸个懒腰',
+    frames: [luluImages.idle, luluImages.idleStretch, luluImages.idleStretch, luluImages.idle]
+  },
+  {
+    label: '吹泡泡',
+    frames: [luluImages.idle, luluImages.idleBubble, luluImages.idleBubble, luluImages.idle]
+  }
+];
+
+const touchActions = [
+  {
+    label: '被摸摸头',
+    frames: [luluImages.idle, luluImages.touch, luluImages.touch, luluImages.happy],
+    effect: ['舒服', 'type-mood']
+  }
+];
+
+const bathActions = [
+  {
+    label: '洗香香',
+    frames: [luluImages.idle, luluImages.bath, luluImages.bath, luluImages.happy],
+    effect: ['干净啦', 'type-mood']
+  }
+];
+
+const musicActions = [
+  {
+    label: '听音乐',
+    frames: [luluImages.idle, luluImages.music, luluImages.music, luluImages.happy],
+    effect: ['摇起来', 'type-mood']
+  }
+];
+
+const displayLevel = computed(() => petData.value.level || 1);
+
+const maxExpOfCurrentLevel = computed(() => displayLevel.value * 50 + 100);
 
 const expPercentage = computed(() => {
   if (!maxExpOfCurrentLevel.value) return 0;
-  return Math.min(100, (petData.value.exp / maxExpOfCurrentLevel.value) * 100);
+  return Math.min(100, ((petData.value.exp || 0) / maxExpOfCurrentLevel.value) * 100);
 });
 
-const visualState = computed(() => localAction.value || petData.value.currentState || 'IDLE');
+const visualState = computed(() => {
+  if (actionCategory.value === 'feed') return 'FEEDING';
+  if (['play', 'ambient', 'touch', 'bath', 'music'].includes(actionCategory.value)) return 'PLAYING';
+  if (petData.value.currentState === 'SLEEPING') return 'SLEEPING';
+  return petData.value.currentState || 'IDLE';
+});
 
-const currentLuluImage = computed(() => stateImageMap[visualState.value] || stateImageMap.IDLE);
+const currentLuluImage = computed(() => {
+  if (actionFrames.value.length) {
+    return actionFrames.value[actionFrameIndex.value % actionFrames.value.length];
+  }
+
+  if (petData.value.currentState === 'SLEEPING') {
+    return activeSleepImage.value || luluImages.sleepBed;
+  }
+
+  return luluImages.idle;
+});
 
 const animationClass = computed(() => {
+  if (petData.value.currentState === 'SLEEPING') return 'anim-sleep';
+
   const map = {
-    SLEEPING: 'anim-sleep',
-    FEEDING: 'anim-eat',
-    PLAYING: 'anim-jump',
-    HAPPY: 'anim-happy'
+    feed: 'anim-eat',
+    play: 'anim-play',
+    touch: 'anim-care',
+    bath: 'anim-care',
+    music: 'anim-care',
+    ambient: 'anim-ambient',
+    idle: 'anim-breathe'
   };
-  return map[visualState.value] || 'anim-breathe';
+  return map[actionCategory.value] || 'anim-breathe';
 });
 
-const statusText = computed(() => formatState(visualState.value));
+const statusText = computed(() => {
+  return actionLabel.value || formatState(visualState.value);
+});
 
 const sleepBtnText = computed(() => {
   return petData.value.currentState === 'SLEEPING' ? '唤醒' : '睡觉';
@@ -171,6 +315,8 @@ const formatState = (state) => {
   return map[state] || state;
 };
 
+const pickOne = (items) => items[Math.floor(Math.random() * items.length)];
+
 const getField = (data, upperKey, lowerKey, fallback) => {
   return data?.[upperKey] ?? data?.[lowerKey] ?? fallback;
 };
@@ -184,22 +330,70 @@ const triggerEffect = (icon, text, type) => {
   }, 1500);
 };
 
-const playTemporaryAction = (action, duration = 1800) => {
+const clearActionTimers = () => {
   window.clearTimeout(actionTimer);
-  localAction.value = action;
+  window.clearInterval(frameTimer);
+};
+
+const finishAction = () => {
+  actionCategory.value = 'idle';
+  actionLabel.value = '';
+  actionFrames.value = [];
+  actionFrameIndex.value = 0;
+  window.clearInterval(frameTimer);
+};
+
+const startFrameAction = (category, action, duration = 3600, showEffect = true, frameInterval = 620) => {
+  clearActionTimers();
+
+  actionCategory.value = category;
+  actionLabel.value = action.label;
+  actionFrames.value = action.frames;
+  actionFrameIndex.value = 0;
+
+  const [effectText, effectType] = action.effect || [];
+  if (showEffect && effectText) {
+    triggerEffect(category === 'feed' ? '🍰' : '♥', effectText, effectType);
+  }
+
+  frameTimer = window.setInterval(() => {
+    actionFrameIndex.value += 1;
+  }, frameInterval);
+
+  actionTimer = window.setTimeout(finishAction, duration);
+};
+
+const startSleepStill = (action) => {
+  clearActionTimers();
+  finishAction();
+  activeSleepImage.value = action.image;
+  actionLabel.value = action.label;
+
+  const [effectText, effectType] = action.effect || [];
+  if (effectText) {
+    triggerEffect('Z', effectText, effectType);
+  }
+
   actionTimer = window.setTimeout(() => {
-    localAction.value = '';
-  }, duration);
+    actionLabel.value = '';
+  }, 1800);
+};
+
+const maybeStartAmbientAction = () => {
+  if (isLoading.value) return;
+  if (petData.value.currentState === 'SLEEPING') return;
+  if (actionCategory.value !== 'idle') return;
+
+  startFrameAction('ambient', pickOne(ambientActions), 5400, false, 1350);
 };
 
 const updatePetData = (data) => {
   if (!data) return;
 
-  // 【核心修复】：强制转化为 Number 类型，保证后续的所有数学计算绝对精准
   const nextLevel = Number(getField(data, 'LEVEL', 'level', 1));
   const nextExp = Number(getField(data, 'EXP', 'exp', 0));
+  const nextState = getField(data, 'CURRENT_STATE', 'currentState', 'IDLE');
 
-  // 【核心修复】：只有当页面已经完成了首次加载 (level > 0)，且真的发生等级跨越时，才触发动画
   if (petData.value.level > 0 && nextLevel > petData.value.level) {
     triggerEffect('★', 'LEVEL UP!', 'type-level');
   }
@@ -211,8 +405,16 @@ const updatePetData = (data) => {
     mood: Number(getField(data, 'MOOD', 'mood', 0)),
     level: nextLevel,
     exp: nextExp,
-    currentState: getField(data, 'CURRENT_STATE', 'currentState', 'IDLE')
+    currentState: nextState
   };
+
+  if (nextState === 'SLEEPING' && !activeSleepImage.value) {
+    activeSleepImage.value = pickOne(sleepActions).image;
+  }
+
+  if (nextState !== 'SLEEPING') {
+    activeSleepImage.value = '';
+  }
 };
 
 const fetchStatus = async () => {
@@ -225,21 +427,16 @@ const fetchStatus = async () => {
 };
 
 const feedLulu = async () => {
-  debugger;
   if (isLoading.value) return;
-  if(petData.value.mood>=100){
-    triggerEffect("噜噜已经很饱了");
-    return false;
-  }
+
+  startFrameAction('feed', pickOne(feedActions), 4200);
   isLoading.value = true;
-  playTemporaryAction('FEEDING', 2200);
 
   try {
     const result = await sendAxiosRequest('/blog-api/lulu/feed', { userNum: currentUserId });
     updatePetData(result);
-    triggerEffect('🍰', '饱腹 +30 / XP +20', 'type-food');
+    triggerEffect('XP', '经验 +20', 'type-level');
   } catch (error) {
-    localAction.value = '';
     console.error('喂食失败:', error);
   } finally {
     isLoading.value = false;
@@ -250,38 +447,90 @@ const playLulu = async () => {
   if (isLoading.value) return;
 
   if (petData.value.currentState === 'SLEEPING') {
-    triggerEffect('', '噜噜 正在睡觉', 'type-sleep');
+    triggerEffect('Z', 'Lulu 正在睡觉', 'type-sleep');
     return;
   }
 
   if (petData.value.energy < 15) {
-    triggerEffect('!', '噜噜太累了', 'type-sleep');
+    triggerEffect('!', '体力不足，先睡一会儿', 'type-sleep');
     return;
   }
 
+  startFrameAction('play', pickOne(playActions), 4200);
   isLoading.value = true;
-  playTemporaryAction('PLAYING', 2200);
 
   try {
     const result = await sendAxiosRequest('/blog-api/lulu/play', { userNum: currentUserId });
     updatePetData(result);
-    triggerEffect('♥', '心情 +20 / XP +40', 'type-mood');
+    triggerEffect('XP', '经验 +40', 'type-level');
   } catch (error) {
-    localAction.value = '';
     console.error('玩耍失败:', error);
   } finally {
     isLoading.value = false;
   }
 };
 
+const runPlayLikeAction = async (category, actionList, expText) => {
+  if (isLoading.value) return;
+
+  if (petData.value.currentState === 'SLEEPING') {
+    triggerEffect('Z', 'Lulu 正在睡觉', 'type-sleep');
+    return;
+  }
+
+  if (petData.value.energy < 15) {
+    triggerEffect('!', '体力不足，先睡一会儿', 'type-sleep');
+    return;
+  }
+
+  startFrameAction(category, pickOne(actionList), 4600, true, 1150);
+  isLoading.value = true;
+
+  try {
+    const result = await sendAxiosRequest('/blog-api/lulu/play', { userNum: currentUserId });
+    updatePetData(result);
+    triggerEffect('XP', expText, 'type-level');
+  } catch (error) {
+    console.error(`${category} 互动失败:`, error);
+  } finally {
+    isLoading.value = false;
+  }
+};
+
+const touchLulu = () => {
+  return runPlayLikeAction('touch', touchActions, '经验 +40');
+};
+
+const bathLulu = () => {
+  return runPlayLikeAction('bath', bathActions, '经验 +40');
+};
+
+const musicLulu = () => {
+  return runPlayLikeAction('music', musicActions, '经验 +40');
+};
+
 const sleepLulu = async () => {
   if (isLoading.value) return;
 
+  const isWaking = petData.value.currentState === 'SLEEPING';
+  const sleepAction = isWaking ? null : pickOne(sleepActions);
+
+  if (!isWaking) {
+    startSleepStill(sleepAction);
+  } else {
+    clearActionTimers();
+    finishAction();
+  }
+
   isLoading.value = true;
+
   try {
     const result = await sendAxiosRequest('/blog-api/lulu/sleep', { userNum: currentUserId });
     updatePetData(result);
-    playTemporaryAction(petData.value.currentState === 'SLEEPING' ? 'SLEEPING' : 'HAPPY', 1600);
+
+    if (isWaking) {
+      triggerEffect('♥', '醒啦', 'type-mood');
+    }
   } catch (error) {
     console.error('切换睡眠状态失败:', error);
   } finally {
@@ -291,15 +540,16 @@ const sleepLulu = async () => {
 
 onMounted(() => {
   fetchStatus();
+  ambientTimer = window.setInterval(maybeStartAmbientAction, 10000);
 });
 
 onBeforeUnmount(() => {
-  window.clearTimeout(actionTimer);
+  clearActionTimers();
+  window.clearInterval(ambientTimer);
 });
 </script>
 
 <style scoped>
-/* 你的所有扁平化、现代感 CSS 保持不变 */
 .lulu-viewport {
   display: flex;
   width: 100%;
@@ -323,8 +573,8 @@ onBeforeUnmount(() => {
   inset: 0;
   z-index: 1;
   background:
-      radial-gradient(circle at 42% 42%, rgba(255, 205, 92, 0.42), transparent 34%),
-      linear-gradient(135deg, #fffaf0 0%, #eef7ff 46%, #f8efff 100%);
+    radial-gradient(circle at 42% 42%, rgba(255, 205, 92, 0.42), transparent 34%),
+    linear-gradient(135deg, #fffaf0 0%, #eef7ff 46%, #f8efff 100%);
 }
 
 .scene-background::after {
@@ -340,7 +590,7 @@ onBeforeUnmount(() => {
 .lulu-entity {
   position: relative;
   z-index: 2;
-  width: min(48vw, 420px);
+  width: min(48vw, 440px);
   aspect-ratio: 1;
   display: flex;
   justify-content: center;
@@ -352,6 +602,7 @@ onBeforeUnmount(() => {
   height: 100%;
   object-fit: contain;
   filter: drop-shadow(0 26px 36px rgba(93, 63, 15, 0.2));
+  transition: opacity 0.18s ease;
 }
 
 .action-props {
@@ -371,19 +622,54 @@ onBeforeUnmount(() => {
   animation: crumbFly 1.1s ease-in-out infinite;
 }
 
-.dot-one { top: 45%; left: 45%; }
-.dot-two { top: 50%; left: 54%; animation-delay: 0.22s; }
+.dot-one {
+  top: 44%;
+  left: 45%;
+}
+
+.dot-two {
+  top: 49%;
+  left: 54%;
+  animation-delay: 0.22s;
+}
+
+.dot-three {
+  top: 56%;
+  left: 48%;
+  animation-delay: 0.44s;
+}
 
 .toy-ball {
   position: absolute;
   left: 18%;
   bottom: 18%;
-  width: 34px;
-  height: 34px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   background: linear-gradient(135deg, #30d5c8 0 48%, #ff9f43 50% 100%);
-  animation: toyBounce 0.8s ease-in-out infinite;
+  animation: toyBounce 0.78s ease-in-out infinite;
   box-shadow: 0 12px 18px rgba(47, 128, 237, 0.22);
+}
+
+.spark {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  background: #ffcf5a;
+  transform: rotate(45deg);
+  animation: sparkle 1.25s ease-in-out infinite;
+}
+
+.spark-one {
+  top: 24%;
+  left: 28%;
+}
+
+.spark-two {
+  top: 30%;
+  right: 20%;
+  animation-delay: 0.45s;
 }
 
 .sleep-mark {
@@ -395,58 +681,161 @@ onBeforeUnmount(() => {
   animation: sleepFloat 2.4s ease-in-out infinite;
 }
 
-.mark-one { top: 22%; font-size: 24px; }
-.mark-two { top: 12%; right: 12%; font-size: 34px; animation-delay: 0.55s; }
-
-@keyframes breathe {
-  0%, 100% { transform: scaleX(1) scaleY(1); }
-  50% { transform: scaleX(1.025) scaleY(0.975); }
+.mark-one {
+  top: 22%;
+  font-size: 24px;
 }
 
-@keyframes nod {
-  0%, 100% { transform: translateY(0) rotate(0deg); }
-  50% { transform: translateY(3px) rotate(1.5deg); }
+.mark-two {
+  top: 12%;
+  right: 12%;
+  font-size: 34px;
+  animation-delay: 0.55s;
+}
+
+.mark-three {
+  top: 5%;
+  right: 25%;
+  font-size: 18px;
+  animation-delay: 1s;
+}
+
+@keyframes breathe {
+  0%,
+  100% {
+    transform: scaleX(1) scaleY(1);
+  }
+  50% {
+    transform: scaleX(1.025) scaleY(0.975);
+  }
 }
 
 @keyframes eat {
-  0%, 100% { transform: translateY(0) scale(1); }
-  35% { transform: translateY(5px) scaleX(1.03) scaleY(0.97); }
-  70% { transform: translateY(-3px) scaleX(0.98) scaleY(1.02); }
+  0%,
+  100% {
+    transform: translateY(0) rotate(0deg) scale(1);
+  }
+  35% {
+    transform: translateY(5px) rotate(-1deg) scaleX(1.03) scaleY(0.97);
+  }
+  70% {
+    transform: translateY(-3px) rotate(1deg) scaleX(0.98) scaleY(1.02);
+  }
 }
 
-@keyframes jump {
-  0%, 100% { transform: translateY(0) rotate(0deg); }
-  42% { transform: translateY(-18px) rotate(-2deg); }
-  68% { transform: translateY(5px) rotate(2deg); }
+@keyframes play {
+  0%,
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  42% {
+    transform: translateY(-20px) rotate(-2deg);
+  }
+  68% {
+    transform: translateY(6px) rotate(2deg);
+  }
 }
 
-@keyframes happy {
-  0%, 100% { transform: rotate(0deg) scale(1); }
-  25% { transform: rotate(-2deg) scale(1.02); }
-  75% { transform: rotate(2deg) scale(1.02); }
+@keyframes ambient {
+  0%,
+  100% {
+    transform: translateY(0) rotate(0deg) scale(1);
+  }
+  35% {
+    transform: translateY(-10px) rotate(-1.5deg) scale(1.02);
+  }
+  70% {
+    transform: translateY(3px) rotate(1.5deg) scale(0.99);
+  }
+}
+
+@keyframes sleep {
+  0%,
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  50% {
+    transform: translateY(4px) rotate(1.2deg);
+  }
 }
 
 @keyframes crumbFly {
-  0%, 100% { opacity: 0; transform: translate(0, 0) scale(0.7); }
-  40% { opacity: 1; transform: translate(-8px, -18px) scale(1); }
+  0%,
+  100% {
+    opacity: 0;
+    transform: translate(0, 0) scale(0.7);
+  }
+  40% {
+    opacity: 1;
+    transform: translate(-8px, -18px) scale(1);
+  }
 }
 
 @keyframes toyBounce {
-  0%, 100% { transform: translateY(0) rotate(0deg); }
-  50% { transform: translateY(-16px) rotate(18deg); }
+  0%,
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-18px) rotate(18deg);
+  }
+}
+
+@keyframes sparkle {
+  0%,
+  100% {
+    opacity: 0;
+    transform: scale(0.6) rotate(45deg);
+  }
+  45% {
+    opacity: 1;
+    transform: scale(1) rotate(45deg);
+  }
 }
 
 @keyframes sleepFloat {
-  0% { opacity: 0; transform: translateY(18px) scale(0.75); }
-  30% { opacity: 1; }
-  100% { opacity: 0; transform: translateY(-34px) scale(1.1); }
+  0% {
+    opacity: 0;
+    transform: translateY(18px) scale(0.75);
+  }
+  30% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-34px) scale(1.1);
+  }
 }
 
-.anim-breathe { animation: breathe 2.5s ease-in-out infinite; transform-origin: center bottom; }
-.anim-sleep { animation: nod 3.5s ease-in-out infinite; transform-origin: center bottom; }
-.anim-eat { animation: eat 0.62s ease-in-out infinite; transform-origin: center bottom; }
-.anim-jump { animation: jump 0.78s ease-in-out infinite; transform-origin: center bottom; }
-.anim-happy { animation: happy 0.7s ease-in-out infinite; transform-origin: center bottom; }
+.anim-breathe {
+  animation: breathe 2.5s ease-in-out infinite;
+  transform-origin: center bottom;
+}
+
+.anim-eat {
+  animation: eat 0.64s ease-in-out infinite;
+  transform-origin: center bottom;
+}
+
+.anim-play {
+  animation: play 0.78s ease-in-out infinite;
+  transform-origin: center bottom;
+}
+
+.anim-care {
+  animation: ambient 1.1s ease-in-out infinite;
+  transform-origin: center bottom;
+}
+
+.anim-ambient {
+  animation: ambient 0.9s ease-in-out infinite;
+  transform-origin: center bottom;
+}
+
+.anim-sleep {
+  animation: sleep 3.5s ease-in-out infinite;
+  transform-origin: center bottom;
+}
 
 .floating-layer {
   position: absolute;
@@ -475,14 +864,32 @@ onBeforeUnmount(() => {
   animation: floatUpFade 1.5s cubic-bezier(0.25, 1, 0.5, 1) forwards;
 }
 
-.type-food { color: #e15f41; }
-.type-mood, .type-level { color: #ff5b7f; }
-.type-sleep { color: #6c7ae0; }
+.type-food {
+  color: #e15f41;
+}
+
+.type-mood,
+.type-level {
+  color: #ff5b7f;
+}
+
+.type-sleep {
+  color: #6c7ae0;
+}
 
 @keyframes floatUpFade {
-  0% { opacity: 0; transform: translateY(20px) scale(0.8); }
-  20% { opacity: 1; transform: translateY(0) scale(1); }
-  100% { opacity: 0; transform: translateY(-84px) scale(0.96); }
+  0% {
+    opacity: 0;
+    transform: translateY(20px) scale(0.8);
+  }
+  20% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-84px) scale(0.96);
+  }
 }
 
 .status-bubble {
@@ -490,7 +897,7 @@ onBeforeUnmount(() => {
   top: -5%;
   left: 50%;
   transform: translateX(-50%);
-  background: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.92);
   padding: 9px 16px;
   border-radius: 999px;
   font-size: 14px;
@@ -509,7 +916,7 @@ onBeforeUnmount(() => {
   transform: translateX(-50%);
   border-width: 6px 6px 0;
   border-style: solid;
-  border-color: rgba(255, 255, 255, 0.9) transparent transparent transparent;
+  border-color: rgba(255, 255, 255, 0.92) transparent transparent transparent;
 }
 
 .glass-control-panel {
@@ -540,7 +947,8 @@ onBeforeUnmount(() => {
   gap: 12px;
 }
 
-.level-badge, .state-chip {
+.level-badge,
+.state-chip {
   font-size: 12px;
   font-weight: 800;
   padding: 4px 9px;
@@ -626,9 +1034,17 @@ onBeforeUnmount(() => {
   transition: width 0.4s ease-out;
 }
 
-.fill-hunger { background-color: #ff9f43; }
-.fill-energy { background-color: #1dd1a1; }
-.fill-mood { background-color: #ff6b6b; }
+.fill-hunger {
+  background-color: #ff9f43;
+}
+
+.fill-energy {
+  background-color: #1dd1a1;
+}
+
+.fill-mood {
+  background-color: #ff6b6b;
+}
 
 .action-grid {
   display: grid;
@@ -637,7 +1053,9 @@ onBeforeUnmount(() => {
   margin-top: auto;
 }
 
-.feed-btn { grid-column: span 2; }
+.feed-btn {
+  grid-column: span 2;
+}
 
 .flat-btn {
   min-height: 48px;
@@ -681,10 +1099,41 @@ onBeforeUnmount(() => {
   color: #2878d9;
 }
 
+.touch-btn {
+  background: rgba(255, 107, 129, 0.14);
+  color: #d64565;
+}
+
+.bath-btn {
+  background: rgba(72, 219, 251, 0.16);
+  color: #0c84a8;
+}
+
+.music-btn {
+  grid-column: span 2;
+  background: rgba(95, 92, 255, 0.12);
+  color: #5650d8;
+}
+
 @media (max-width: 768px) {
-  .lulu-viewport { flex-direction: column; min-height: 100vh; }
-  .lulu-scene { min-height: 360px; flex: none; }
-  .lulu-entity { width: min(76vw, 330px); }
-  .glass-control-panel { width: auto; border-left: none; border-top: 1px solid rgba(255, 255, 255, 0.72); }
+  .lulu-viewport {
+    flex-direction: column;
+    min-height: 100vh;
+  }
+
+  .lulu-scene {
+    min-height: 360px;
+    flex: none;
+  }
+
+  .lulu-entity {
+    width: min(76vw, 330px);
+  }
+
+  .glass-control-panel {
+    width: auto;
+    border-left: none;
+    border-top: 1px solid rgba(255, 255, 255, 0.72);
+  }
 }
 </style>
