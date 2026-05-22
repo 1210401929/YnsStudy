@@ -126,6 +126,8 @@ const floatingEffects = ref([]);
 let actionTimer = null;
 let frameTimer = null;
 let ambientTimer = null;
+// 【修复2】：补回心跳定时器变量
+let pollerTimer = null;
 let effectIdCounter = 0;
 
 const img = (name) => `/picture/lulu/benti/${name}`;
@@ -163,7 +165,7 @@ const petData = ref({
 const feedActions = [
   {
     label: '正在吃小蛋糕',
-    frames: [luluImages.feed, luluImages.feedCookie, luluImages.feed],
+    frames: [luluImages.feedCookie, luluImages.feed, luluImages.feedCookie],
     effect: ['点心时间', 'type-food']
   },
   {
@@ -173,7 +175,7 @@ const feedActions = [
   },
   {
     label: '正在认真干饭',
-    frames: [luluImages.feedCookie, luluImages.feedNoodle, luluImages.feed],
+    frames: [luluImages.feed, luluImages.feedCookie, luluImages.feed],
     effect: ['吃饱啦', 'type-food']
   }
 ];
@@ -181,17 +183,17 @@ const feedActions = [
 const playActions = [
   {
     label: '追球中',
-    frames: [luluImages.play, luluImages.playChase, luluImages.play],
+    frames: [luluImages.playChase, luluImages.play, luluImages.playChase],
     effect: ['跑起来', 'type-mood']
   },
   {
     label: '开心跳舞',
-    frames: [luluImages.happy, luluImages.playDance, luluImages.happy],
+    frames: [luluImages.playDance],
     effect: ['心情闪亮', 'type-mood']
   },
   {
     label: '蹦蹦跳跳',
-    frames: [luluImages.playDance, luluImages.play, luluImages.playChase],
+    frames: [luluImages.play, luluImages.playDance, luluImages.playChase],
     effect: ['玩疯了', 'type-mood']
   }
 ];
@@ -214,25 +216,26 @@ const sleepActions = [
   }
 ];
 
+// 【修复1】：去除所有环境动作第一帧的 idle，让换图和特效同步发生
 const ambientActions = [
   {
     label: '自己看小书',
-    frames: [luluImages.idle, luluImages.idleBook, luluImages.idleBook, luluImages.idle]
+    frames: [luluImages.idleBook]
   },
   {
     label: '伸个懒腰',
-    frames: [luluImages.idle, luluImages.idleStretch, luluImages.idleStretch, luluImages.idle]
+    frames: [luluImages.idleStretch]
   },
   {
     label: '吹泡泡',
-    frames: [luluImages.idle, luluImages.idleBubble, luluImages.idleBubble, luluImages.idle]
+    frames: [luluImages.idleBubble]
   }
 ];
 
 const touchActions = [
   {
     label: '被摸摸头',
-    frames: [luluImages.idle, luluImages.touch, luluImages.touch, luluImages.happy],
+    frames: [luluImages.touch],
     effect: ['舒服', 'type-mood']
   }
 ];
@@ -240,7 +243,7 @@ const touchActions = [
 const bathActions = [
   {
     label: '洗香香',
-    frames: [luluImages.idle, luluImages.bath, luluImages.bath, luluImages.happy],
+    frames: [luluImages.bath],
     effect: ['干净啦', 'type-mood']
   }
 ];
@@ -248,7 +251,7 @@ const bathActions = [
 const musicActions = [
   {
     label: '听音乐',
-    frames: [luluImages.idle, luluImages.music, luluImages.music, luluImages.happy],
+    frames: [luluImages.music],
     effect: ['摇起来', 'type-mood']
   }
 ];
@@ -450,9 +453,12 @@ const playLulu = async () => {
     triggerEffect('Z', 'Lulu 正在睡觉', 'type-sleep');
     return;
   }
-
+  if (petData.value.hunger < 15) {
+    triggerEffect('!', '噜噜太饿了，需要投喂~', 'type-sleep');
+    return;
+  }
   if (petData.value.energy < 15) {
-    triggerEffect('!', '体力不足，先睡一会儿', 'type-sleep');
+    triggerEffect('!', '噜噜太累了，先睡一会儿', 'type-sleep');
     return;
   }
 
@@ -477,7 +483,10 @@ const runPlayLikeAction = async (category, actionList, expText) => {
     triggerEffect('Z', 'Lulu 正在睡觉', 'type-sleep');
     return;
   }
-
+  if (petData.value.hunger < 15) {
+    triggerEffect('!', '噜噜太饿了，需要投喂~', 'type-sleep');
+    return;
+  }
   if (petData.value.energy < 15) {
     triggerEffect('!', '体力不足，先睡一会儿', 'type-sleep');
     return;
@@ -540,12 +549,16 @@ const sleepLulu = async () => {
 
 onMounted(() => {
   fetchStatus();
+  // 【修复2】：补回状态心跳轮询，每10秒同步一次后端进度
+  pollerTimer = window.setInterval(fetchStatus, 10000);
   ambientTimer = window.setInterval(maybeStartAmbientAction, 10000);
 });
 
 onBeforeUnmount(() => {
   clearActionTimers();
   window.clearInterval(ambientTimer);
+  // 【修复2】：卸载时清理心跳定时器
+  window.clearInterval(pollerTimer);
 });
 </script>
 
