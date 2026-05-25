@@ -1,7 +1,52 @@
 <template>
   <div class="lulu-viewport">
-    <section class="lulu-scene">
+    <section class="lulu-stage">
       <div class="scene-background"></div>
+
+      <div class="top-status">
+        <div class="identity-block">
+          <span class="level-badge">Lv.{{ displayLevel }}</span>
+          <div>
+            <h2>{{ petData.name || '噜噜' }}</h2>
+            <p>{{ formatState(petData.currentState) }}</p>
+          </div>
+        </div>
+
+        <div class="quick-stats">
+          <div class="stat-pill stat-hunger">
+            <span>饱腹</span>
+            <strong>{{ petData.hunger || 0 }}</strong>
+            <div class="stat-bar">
+              <div class="stat-fill" :style="{ width: `${petData.hunger || 0}%` }"></div>
+            </div>
+          </div>
+          <div class="stat-pill stat-energy">
+            <span>体力</span>
+            <strong>{{ petData.energy || 0 }}</strong>
+            <div class="stat-bar">
+              <div class="stat-fill" :style="{ width: `${petData.energy || 0}%` }"></div>
+            </div>
+          </div>
+          <div class="stat-pill stat-mood">
+            <span>心情</span>
+            <strong>{{ petData.mood || 0 }}</strong>
+            <div class="stat-bar">
+              <div class="stat-fill" :style="{ width: `${petData.mood || 0}%` }"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="message-fly-zone" aria-hidden="true">
+        <div
+          v-for="(message, index) in floatingMessages"
+          :key="`${message.id}-fly`"
+          class="fly-message"
+          :style="getFlyStyle(index)"
+        >
+          {{ message.content }}
+        </div>
+      </div>
 
       <div class="lulu-entity" :class="[`state-${visualState.toLowerCase()}`, `action-${actionCategory}`]">
         <div class="floating-layer">
@@ -36,97 +81,147 @@
           {{ statusText }}
         </div>
       </div>
-    </section>
 
-    <aside class="glass-control-panel">
-      <div class="panel-header">
-        <div class="level-row">
-          <span class="level-badge">Lv.{{ displayLevel }}</span>
-          <span class="state-chip">{{ formatState(petData.currentState) }}</span>
-        </div>
-        <h3 class="panel-title">{{ petData.name || '噜噜' }}</h3>
-
-        <div class="exp-container">
+      <section class="action-dock">
+        <div class="progress-strip">
+          <div class="exp-row">
+            <span>经验</span>
+            <strong>{{ petData.exp || 0 }} / {{ maxExpOfCurrentLevel }}</strong>
+          </div>
           <div class="exp-bar">
             <div class="exp-fill" :style="{ width: `${expPercentage}%` }"></div>
           </div>
-          <span class="exp-text">{{ petData.exp || 0 }} / {{ maxExpOfCurrentLevel }} XP</span>
+          <button class="log-btn" type="button" @click="openLogPanel">噜噜 日志</button>
         </div>
+
+        <div class="action-grid">
+          <button class="action-btn feed-btn" @click="feedLulu" :disabled="isLoading">
+            <span>喂食</span>
+            <small>饱腹 +30</small>
+          </button>
+          <button class="action-btn play-btn" @click="playLulu" :disabled="isLoading">
+            <span>玩耍</span>
+            <small>心情 +20</small>
+          </button>
+          <button class="action-btn sleep-btn" @click="sleepLulu" :disabled="isLoading">
+            <span>{{ sleepBtnText }}</span>
+            <small>恢复体力</small>
+          </button>
+          <button class="action-btn touch-btn" @click="touchLulu" :disabled="isLoading">
+            <span>摸摸</span>
+            <small>陪伴一下</small>
+          </button>
+          <button class="action-btn bath-btn" @click="bathLulu" :disabled="isLoading">
+            <span>洗澡</span>
+            <small>清爽状态</small>
+          </button>
+          <button class="action-btn music-btn" @click="musicLulu" :disabled="isLoading">
+            <span>听音乐</span>
+            <small>放松心情</small>
+          </button>
+        </div>
+      </section>
+    </section>
+
+    <aside class="message-board">
+      <div class="message-board-header">
+        <div>
+          <p class="message-eyebrow">留言板</p>
+          <h3>写给 噜噜 的小纸条</h3>
+        </div>
+        <button class="message-refresh" @click="fetchMessages" :disabled="isMessageLoading">刷新</button>
       </div>
 
-      <div class="stats-container">
-        <div class="stat-item">
-          <div class="stat-header">
-            <span>饱腹感</span>
-            <span>{{ petData.hunger || 0 }}/100</span>
-          </div>
-          <div class="progress-bar flat-bar">
-            <div class="progress-fill fill-hunger" :style="{ width: `${petData.hunger || 0}%` }"></div>
-          </div>
+      <form class="message-form" @submit.prevent="sendMessage">
+        <textarea
+          v-model="messageInput"
+          :disabled="isMessageLoading"
+          maxlength="500"
+          placeholder="写一条会从 噜噜 身边飘过的留言..."
+          @keydown.enter.exact.prevent="sendMessage"
+        ></textarea>
+        <div class="message-actions">
+          <span>{{ messageInput.length }}/500</span>
+          <button type="submit" :disabled="isMessageLoading || !messageInput.trim()">
+            {{ isMessageLoading ? '发布中' : '发布留言' }}
+          </button>
+        </div>
+      </form>
+
+      <div ref="messageListRef" class="message-list">
+        <div v-if="!messages.length" class="empty-message">
+          还没有留言。第一张小纸条，等你贴上来。
         </div>
 
-        <div class="stat-item">
-          <div class="stat-header">
-            <span>体力值</span>
-            <span>{{ petData.energy || 0 }}/100</span>
+        <article v-for="message in messages" :key="message.id" class="message-card">
+          <div class="message-card-main">
+            <p>{{ message.content }}</p>
+            <time>{{ formatMessageTime(message.createTime) }}</time>
           </div>
-          <div class="progress-bar flat-bar">
-            <div class="progress-fill fill-energy" :style="{ width: `${petData.energy || 0}%` }"></div>
-          </div>
-        </div>
-
-        <div class="stat-item">
-          <div class="stat-header">
-            <span>心情值</span>
-            <span>{{ petData.mood || 0 }}/100</span>
-          </div>
-          <div class="progress-bar flat-bar">
-            <div class="progress-fill fill-mood" :style="{ width: `${petData.mood || 0}%` }"></div>
-          </div>
-        </div>
-      </div>
-
-      <div class="action-grid">
-        <button class="flat-btn feed-btn" @click="feedLulu" :disabled="isLoading">
-          喂食
-        </button>
-        <button class="flat-btn play-btn" @click="playLulu" :disabled="isLoading">
-          玩耍
-        </button>
-        <button class="flat-btn generic-btn" @click="sleepLulu" :disabled="isLoading">
-          {{ sleepBtnText }}
-        </button>
-        <button class="flat-btn touch-btn" @click="touchLulu" :disabled="isLoading">
-          摸摸
-        </button>
-        <button class="flat-btn bath-btn" @click="bathLulu" :disabled="isLoading">
-          洗澡
-        </button>
-        <button class="flat-btn music-btn" @click="musicLulu" :disabled="isLoading">
-          听音乐
-        </button>
+          <button class="delete-message" @click="deleteMessage(message)" :disabled="isMessageLoading">删除</button>
+        </article>
       </div>
     </aside>
+
+    <div v-if="isLogPanelOpen" class="log-overlay" @click.self="isLogPanelOpen = false">
+      <section class="log-panel">
+        <div class="log-panel-header">
+          <div>
+            <p class="message-eyebrow">互动日志</p>
+            <h3>噜噜 的照顾记录</h3>
+          </div>
+          <button class="message-refresh" @click="isLogPanelOpen = false">关闭</button>
+        </div>
+
+        <div class="log-list">
+          <div v-if="isLogLoading" class="empty-message">日志读取中...</div>
+          <div v-else-if="!logs.length" class="empty-message">还没有互动日志。</div>
+
+          <article v-for="log in logs" :key="log.id" class="log-card">
+            <div class="log-icon">{{ getLogIcon(log.actionType) }}</div>
+            <div class="log-content">
+              <div class="log-title-row">
+                <strong>{{ log.actionName }}</strong>
+                <time>{{ formatMessageTime(log.createTime) }}</time>
+              </div>
+              <p>{{ log.remark }}</p>
+              <div class="log-meta">
+                <span>IP：{{ log.ipAddress || '未知' }}</span>
+                <span>{{ log.browser || '未知浏览器' }}</span>
+                <span>{{ log.deviceModel || '未知设备' }}</span>
+              </div>
+            </div>
+          </article>
+        </div>
+      </section>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
+import { ElMessage } from 'element-plus';
 import { sendAxiosRequest } from '@/utils/common.js';
 
 const currentUserId = 1;
 const isLoading = ref(false);
+const isMessageLoading = ref(false);
 const actionCategory = ref('idle');
 const actionLabel = ref('');
 const actionFrames = ref([]);
 const actionFrameIndex = ref(0);
 const activeSleepImage = ref('');
 const floatingEffects = ref([]);
+const messages = ref([]);
+const messageInput = ref('');
+const messageListRef = ref(null);
+const logs = ref([]);
+const isLogLoading = ref(false);
+const isLogPanelOpen = ref(false);
 
 let actionTimer = null;
 let frameTimer = null;
 let ambientTimer = null;
-// 【修复2】：补回心跳定时器变量
 let pollerTimer = null;
 let effectIdCounter = 0;
 
@@ -153,7 +248,7 @@ const luluImages = {
 };
 
 const petData = ref({
-  name: 'Lulu',
+  name: '噜噜',
   hunger: 0,
   energy: 0,
   mood: 0,
@@ -163,97 +258,39 @@ const petData = ref({
 });
 
 const feedActions = [
-  {
-    label: '正在吃小蛋糕',
-    frames: [luluImages.feedCookie, luluImages.feed, luluImages.feedCookie],
-    effect: ['点心时间', 'type-food']
-  },
-  {
-    label: '正在吸溜面条',
-    frames: [luluImages.feedNoodle, luluImages.feed, luluImages.feedNoodle],
-    effect: ['热乎乎', 'type-food']
-  },
-  {
-    label: '正在认真干饭',
-    frames: [luluImages.feed, luluImages.feedCookie, luluImages.feed],
-    effect: ['吃饱啦', 'type-food']
-  }
+  { label: '正在吃小蛋糕', frames: [luluImages.feedCookie, luluImages.feed, luluImages.feedCookie], effect: ['点心时间', 'type-food'] },
+  { label: '正在吸溜面条', frames: [luluImages.feedNoodle, luluImages.feed, luluImages.feedNoodle], effect: ['热乎乎', 'type-food'] },
+  { label: '正在认真干饭', frames: [luluImages.feed, luluImages.feedCookie, luluImages.feed], effect: ['吃饱啦', 'type-food'] }
 ];
 
 const playActions = [
-  {
-    label: '追球中',
-    frames: [luluImages.playChase, luluImages.play, luluImages.playChase],
-    effect: ['跑起来', 'type-mood']
-  },
-  {
-    label: '开心跳舞',
-    frames: [luluImages.playDance],
-    effect: ['心情闪亮', 'type-mood']
-  },
-  {
-    label: '蹦蹦跳跳',
-    frames: [luluImages.play, luluImages.playDance, luluImages.playChase],
-    effect: ['玩疯了', 'type-mood']
-  }
+  { label: '追球中', frames: [luluImages.playChase, luluImages.play, luluImages.playChase], effect: ['跑起来', 'type-mood'] },
+  { label: '开心跳舞', frames: [luluImages.playDance], effect: ['心情明亮', 'type-mood'] },
+  { label: '蹦蹦跳跳', frames: [luluImages.play, luluImages.playDance, luluImages.playChase], effect: ['玩疯了', 'type-mood'] }
 ];
 
 const sleepActions = [
-  {
-    label: '在床上睡觉',
-    image: luluImages.sleepBed,
-    effect: ['盖好被子', 'type-sleep']
-  },
-  {
-    label: '在地上睡着了',
-    image: luluImages.sleepFloor,
-    effect: ['睡得香', 'type-sleep']
-  },
-  {
-    label: '梦见好吃的',
-    image: luluImages.sleep,
-    effect: ['做梦中', 'type-sleep']
-  }
+  { label: '在床上睡觉', image: luluImages.sleepBed, effect: ['盖好被子', 'type-sleep'] },
+  { label: '在地上睡着了', image: luluImages.sleepFloor, effect: ['睡得很香', 'type-sleep'] },
+  { label: '梦见好吃的', image: luluImages.sleep, effect: ['做梦中', 'type-sleep'] }
 ];
 
-// 【修复1】：去除所有环境动作第一帧的 idle，让换图和特效同步发生
 const ambientActions = [
-  {
-    label: '自己看小书',
-    frames: [luluImages.idleBook]
-  },
-  {
-    label: '伸个懒腰',
-    frames: [luluImages.idleStretch]
-  },
-  {
-    label: '吹泡泡',
-    frames: [luluImages.idleBubble]
-  }
+  { label: '自己看小书', frames: [luluImages.idleBook] },
+  { label: '伸个懒腰', frames: [luluImages.idleStretch] },
+  { label: '吹泡泡', frames: [luluImages.idleBubble] }
 ];
 
 const touchActions = [
-  {
-    label: '被摸摸头',
-    frames: [luluImages.touch],
-    effect: ['舒服', 'type-mood']
-  }
+  { label: '被摸摸头', frames: [luluImages.touch], effect: ['舒服', 'type-mood'] }
 ];
 
 const bathActions = [
-  {
-    label: '洗香香',
-    frames: [luluImages.bath],
-    effect: ['干净啦', 'type-mood']
-  }
+  { label: '洗香香', frames: [luluImages.bath], effect: ['干净啦', 'type-mood'] }
 ];
 
 const musicActions = [
-  {
-    label: '听音乐',
-    frames: [luluImages.music],
-    effect: ['摇起来', 'type-mood']
-  }
+  { label: '听音乐', frames: [luluImages.music], effect: ['摇起来', 'type-mood'] }
 ];
 
 const displayLevel = computed(() => petData.value.level || 1);
@@ -299,12 +336,14 @@ const animationClass = computed(() => {
   return map[actionCategory.value] || 'anim-breathe';
 });
 
-const statusText = computed(() => {
-  return actionLabel.value || formatState(visualState.value);
-});
+const statusText = computed(() => actionLabel.value || formatState(visualState.value));
 
 const sleepBtnText = computed(() => {
   return petData.value.currentState === 'SLEEPING' ? '唤醒' : '睡觉';
+});
+
+const floatingMessages = computed(() => {
+  return messages.value.slice(0, 8).reverse();
 });
 
 const formatState = (state) => {
@@ -324,11 +363,20 @@ const getField = (data, upperKey, lowerKey, fallback) => {
   return data?.[upperKey] ?? data?.[lowerKey] ?? fallback;
 };
 
+const getFlyStyle = (index) => {
+  const lanes = ['16%', '27%', '39%', '52%', '66%', '78%'];
+  return {
+    top: lanes[index % lanes.length],
+    animationDelay: `${index * 1.4}s`,
+    animationDuration: `${18 + (index % 3) * 4}s`
+  };
+};
+
 const triggerEffect = (icon, text, type) => {
   const id = effectIdCounter++;
   floatingEffects.value.push({ id, icon, text, type });
 
-  setTimeout(() => {
+  window.setTimeout(() => {
     floatingEffects.value = floatingEffects.value.filter((effect) => effect.id !== id);
   }, 1500);
 };
@@ -356,7 +404,7 @@ const startFrameAction = (category, action, duration = 3600, showEffect = true, 
 
   const [effectText, effectType] = action.effect || [];
   if (showEffect && effectText) {
-    triggerEffect(category === 'feed' ? '🍰' : '♥', effectText, effectType);
+    triggerEffect(category === 'feed' ? '食' : '心', effectText, effectType);
   }
 
   frameTimer = window.setInterval(() => {
@@ -398,11 +446,11 @@ const updatePetData = (data) => {
   const nextState = getField(data, 'CURRENT_STATE', 'currentState', 'IDLE');
 
   if (petData.value.level > 0 && nextLevel > petData.value.level) {
-    triggerEffect('★', 'LEVEL UP!', 'type-level');
+    triggerEffect('*', 'LEVEL UP!', 'type-level');
   }
 
   petData.value = {
-    name: getField(data, 'NAME', 'name', 'Lulu'),
+    name: getField(data, 'NAME', 'name', '噜噜'),
     hunger: Number(getField(data, 'HUNGER', 'hunger', 0)),
     energy: Number(getField(data, 'ENERGY', 'energy', 0)),
     mood: Number(getField(data, 'MOOD', 'mood', 0)),
@@ -420,20 +468,166 @@ const updatePetData = (data) => {
   }
 };
 
+const normalizeMessage = (message, index) => {
+  const createTime = getField(message, 'CREATE_TIME', 'createTime', '');
+  return {
+    id: getField(message, 'ID', 'id', `message-${createTime}-${index}`),
+    content: getField(message, 'CONTENT', 'content', ''),
+    createTime,
+    ipAddress: getField(message, 'IP_ADDRESS', 'ipAddress', '')
+  };
+};
+
+const normalizeMessageResult = (result) => {
+  if (Array.isArray(result)) {
+    return result.map(normalizeMessage);
+  }
+
+  if (result?.isError) {
+    ElMessage.warning(result.errMsg || result.message || result.msg || '操作失败');
+    return messages.value;
+  }
+
+  if (Array.isArray(result?.result)) {
+    return result.result.map(normalizeMessage);
+  }
+
+  return [];
+};
+
+const normalizeLog = (log, index) => {
+  const createTime = getField(log, 'CREATE_TIME', 'createTime', '');
+  return {
+    id: getField(log, 'ID', 'id', `log-${createTime}-${index}`),
+    actionType: getField(log, 'ACTION_TYPE', 'actionType', ''),
+    actionName: getField(log, 'ACTION_NAME', 'actionName', '互动'),
+    ipAddress: getField(log, 'IP_ADDRESS', 'ipAddress', ''),
+    browser: getField(log, 'BROWSER', 'browser', ''),
+    deviceModel: getField(log, 'DEVICE_MODEL', 'deviceModel', ''),
+    remark: getField(log, 'REMARK', 'remark', ''),
+    createTime
+  };
+};
+
+const fetchLogs = async () => {
+  isLogLoading.value = true;
+  try {
+    const result = await sendAxiosRequest('/blog-api/lulu/logs', { userNum: currentUserId });
+    logs.value = Array.isArray(result) ? result.map(normalizeLog) : [];
+  } catch (error) {
+    console.error('获取 噜噜 日志失败:', error);
+    ElMessage.error('日志读取失败');
+  } finally {
+    isLogLoading.value = false;
+  }
+};
+
+const openLogPanel = async () => {
+  isLogPanelOpen.value = true;
+  await fetchLogs();
+};
+
+const getLogIcon = (actionType) => {
+  const map = {
+    FEED: '食',
+    PLAY: '玩',
+    SLEEP: '睡',
+    WAKE: '醒'
+  };
+  return map[actionType] || '记';
+};
+
+const scrollMessagesToTop = async () => {
+  await nextTick();
+  if (messageListRef.value) {
+    messageListRef.value.scrollTop = 0;
+  }
+};
+
 const fetchStatus = async () => {
   try {
     const result = await sendAxiosRequest('/blog-api/lulu/status', { userNum: currentUserId });
     updatePetData(result);
   } catch (error) {
-    console.error('获取 Lulu 状态失败:', error);
+    console.error('获取 噜噜 状态失败:', error);
   }
+};
+
+const fetchMessages = async () => {
+  isMessageLoading.value = true;
+  try {
+    const result = await sendAxiosRequest('/blog-api/lulu/messages', { userNum: currentUserId });
+    messages.value = normalizeMessageResult(result);
+    await scrollMessagesToTop();
+  } catch (error) {
+    console.error('获取 噜噜 留言失败:', error);
+  } finally {
+    isMessageLoading.value = false;
+  }
+};
+
+const sendMessage = async () => {
+  const content = messageInput.value.trim();
+  if (!content || isMessageLoading.value) return;
+
+  isMessageLoading.value = true;
+  try {
+    const result = await sendAxiosRequest('/blog-api/lulu/message/add', {
+      userNum: currentUserId,
+      content
+    });
+    if (!result?.isError) {
+      messageInput.value = '';
+      triggerEffect('信', '留言已飘出去', 'type-mood');
+    }
+    messages.value = normalizeMessageResult(result);
+    await scrollMessagesToTop();
+  } catch (error) {
+    console.error('发送 噜噜 留言失败:', error);
+    ElMessage.error('留言发送失败');
+  } finally {
+    isMessageLoading.value = false;
+  }
+};
+
+const deleteMessage = async (message) => {
+  if (isMessageLoading.value) return;
+
+  isMessageLoading.value = true;
+  try {
+    const result = await sendAxiosRequest('/blog-api/lulu/message/delete', {
+      userNum: currentUserId,
+      messageId: message.id
+    });
+    messages.value = normalizeMessageResult(result);
+    ElMessage.success('留言已删除');
+  } catch (error) {
+    console.error('删除 噜噜 留言失败:', error);
+    ElMessage.error('删除失败');
+  } finally {
+    isMessageLoading.value = false;
+  }
+};
+
+const formatMessageTime = (time) => {
+  if (!time) return '';
+  const date = new Date(String(time).replace(' ', 'T'));
+  if (Number.isNaN(date.getTime())) {
+    return String(time).slice(0, 16);
+  }
+  return date.toLocaleString('zh-CN', {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
 };
 
 const feedLulu = async () => {
   if (isLoading.value) return;
 
-  if (petData.value.hunger >= 95) {
-    triggerEffect('!', '噜噜已经吃撑了', 'type-sleep');
+  if (petData.value.hunger >= 90) {
+    triggerEffect('!', '噜噜 已经吃饱了', 'type-sleep');
     return;
   }
 
@@ -455,15 +649,15 @@ const playLulu = async () => {
   if (isLoading.value) return;
 
   if (petData.value.currentState === 'SLEEPING') {
-    triggerEffect('', '噜噜 正在睡觉', 'type-sleep');
+    triggerEffect('Z', '噜噜 正在睡觉', 'type-sleep');
     return;
   }
   if (petData.value.hunger < 15) {
-    triggerEffect('!', '噜噜太饿了，需要投喂~', 'type-sleep');
+    triggerEffect('!', '噜噜 太饿了，需要先喂食', 'type-sleep');
     return;
   }
   if (petData.value.energy < 15) {
-    triggerEffect('!', '噜噜太累了，先睡一会儿', 'type-sleep');
+    triggerEffect('!', '噜噜 太累了，先睡一会儿', 'type-sleep');
     return;
   }
 
@@ -471,7 +665,7 @@ const playLulu = async () => {
   isLoading.value = true;
 
   try {
-    const result = await sendAxiosRequest('/blog-api/lulu/play', { userNum: currentUserId });
+    const result = await sendAxiosRequest('/blog-api/lulu/play', { userNum: currentUserId, actionName: '玩耍' });
     updatePetData(result);
     triggerEffect('XP', '经验 +40', 'type-level');
   } catch (error) {
@@ -485,11 +679,11 @@ const runPlayLikeAction = async (category, actionList, expText) => {
   if (isLoading.value) return;
 
   if (petData.value.currentState === 'SLEEPING') {
-    triggerEffect('', '噜噜 正在睡觉', 'type-sleep');
+    triggerEffect('Z', '噜噜 正在睡觉', 'type-sleep');
     return;
   }
   if (petData.value.hunger < 15) {
-    triggerEffect('!', '噜噜太饿了，需要投喂~', 'type-sleep');
+    triggerEffect('!', '噜噜 太饿了，需要先喂食', 'type-sleep');
     return;
   }
   if (petData.value.energy < 15) {
@@ -501,7 +695,15 @@ const runPlayLikeAction = async (category, actionList, expText) => {
   isLoading.value = true;
 
   try {
-    const result = await sendAxiosRequest('/blog-api/lulu/play', { userNum: currentUserId });
+    const actionNameMap = {
+      touch: '摸摸',
+      bath: '洗澡',
+      music: '听音乐'
+    };
+    const result = await sendAxiosRequest('/blog-api/lulu/play', {
+      userNum: currentUserId,
+      actionName: actionNameMap[category] || '玩耍'
+    });
     updatePetData(result);
     triggerEffect('XP', expText, 'type-level');
   } catch (error) {
@@ -511,17 +713,11 @@ const runPlayLikeAction = async (category, actionList, expText) => {
   }
 };
 
-const touchLulu = () => {
-  return runPlayLikeAction('touch', touchActions, '经验 +40');
-};
+const touchLulu = () => runPlayLikeAction('touch', touchActions, '经验 +40');
 
-const bathLulu = () => {
-  return runPlayLikeAction('bath', bathActions, '经验 +40');
-};
+const bathLulu = () => runPlayLikeAction('bath', bathActions, '经验 +40');
 
-const musicLulu = () => {
-  return runPlayLikeAction('music', musicActions, '经验 +40');
-};
+const musicLulu = () => runPlayLikeAction('music', musicActions, '经验 +40');
 
 const sleepLulu = async () => {
   if (isLoading.value) return;
@@ -543,7 +739,7 @@ const sleepLulu = async () => {
     updatePetData(result);
 
     if (isWaking) {
-      triggerEffect('♥', '醒啦', 'type-mood');
+      triggerEffect('心', '醒啦', 'type-mood');
     }
   } catch (error) {
     console.error('切换睡眠状态失败:', error);
@@ -554,7 +750,7 @@ const sleepLulu = async () => {
 
 onMounted(() => {
   fetchStatus();
-  // 【修复2】：补回状态心跳轮询，每10秒同步一次后端进度
+  fetchMessages();
   pollerTimer = window.setInterval(fetchStatus, 10000);
   ambientTimer = window.setInterval(maybeStartAmbientAction, 10000);
 });
@@ -562,53 +758,178 @@ onMounted(() => {
 onBeforeUnmount(() => {
   clearActionTimers();
   window.clearInterval(ambientTimer);
-  // 【修复2】：卸载时清理心跳定时器
   window.clearInterval(pollerTimer);
 });
 </script>
 
 <style scoped>
 .lulu-viewport {
-  display: flex;
   width: 100%;
   min-height: 100vh;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
   overflow: hidden;
-  position: relative;
-  background: #f3f4f7;
+  background: #f5f6fa;
+  color: #303744;
 }
 
-.lulu-scene {
-  flex: 1;
+.lulu-stage {
   position: relative;
-  display: flex;
-  justify-content: center;
+  min-height: 100vh;
+  display: grid;
+  grid-template-rows: auto minmax(360px, 1fr) auto;
   align-items: center;
-  min-height: 560px;
+  overflow: hidden;
+  padding: 28px clamp(20px, 4vw, 56px);
 }
 
 .scene-background {
   position: absolute;
   inset: 0;
-  z-index: 1;
+  z-index: 0;
   background:
-    radial-gradient(circle at 42% 42%, rgba(255, 205, 92, 0.42), transparent 34%),
-    linear-gradient(135deg, #fffaf0 0%, #eef7ff 46%, #f8efff 100%);
+    radial-gradient(circle at 48% 45%, rgba(255, 205, 92, 0.38), transparent 30%),
+    linear-gradient(135deg, #fff8ed 0%, #edf8ff 50%, #fff3f6 100%);
 }
 
-.scene-background::after {
+.scene-background::before {
   content: '';
   position: absolute;
-  inset: auto 12% 9%;
-  height: 18%;
+  inset: auto 11% 13%;
+  height: 17%;
   border-radius: 50%;
-  background: rgba(118, 94, 48, 0.08);
+  background: rgba(99, 73, 31, 0.09);
   filter: blur(18px);
+}
+
+.top-status {
+  position: relative;
+  z-index: 4;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 18px;
+}
+
+.identity-block {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.identity-block h2 {
+  margin: 0;
+  font-size: 30px;
+  line-height: 1.1;
+  font-weight: 900;
+}
+
+.identity-block p {
+  margin: 6px 0 0;
+  color: #6f7a8a;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.level-badge {
+  min-width: 58px;
+  height: 58px;
+  border-radius: 18px;
+  display: grid;
+  place-items: center;
+  color: #ff6a3d;
+  background: rgba(255, 255, 255, 0.78);
+  box-shadow: 0 18px 40px rgba(40, 49, 66, 0.1);
+  font-size: 16px;
+  font-weight: 900;
+}
+
+.quick-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(74px, 1fr));
+  gap: 10px;
+}
+
+.stat-pill {
+  padding: 11px 14px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.74);
+  box-shadow: 0 14px 34px rgba(40, 49, 66, 0.08);
+}
+
+.stat-pill span,
+.exp-row span {
+  display: block;
+  color: #7d8796;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.stat-pill strong {
+  display: block;
+  margin-top: 2px;
+  font-size: 22px;
+  line-height: 1;
+}
+
+.stat-bar {
+  width: 100%;
+  height: 6px;
+  margin-top: 10px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(48, 55, 68, 0.09);
+}
+
+.stat-fill {
+  height: 100%;
+  border-radius: inherit;
+  transition: width 0.35s ease-out;
+}
+
+.stat-hunger .stat-fill {
+  background: #ff9f43;
+}
+
+.stat-energy .stat-fill {
+  background: #1dd1a1;
+}
+
+.stat-mood .stat-fill {
+  background: #ff6b81;
+}
+
+.message-fly-zone {
+  position: absolute;
+  inset: 92px 0 190px;
+  z-index: 2;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.fly-message {
+  position: absolute;
+  right: -42%;
+  max-width: 340px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.68);
+  color: #445062;
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  box-shadow: 0 12px 28px rgba(44, 55, 75, 0.08);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 14px;
+  font-weight: 700;
+  animation: messageDrift linear infinite;
 }
 
 .lulu-entity {
   position: relative;
-  z-index: 2;
-  width: min(48vw, 440px);
+  z-index: 3;
+  justify-self: center;
+  width: min(48vw, 470px);
   aspect-ratio: 1;
   display: flex;
   justify-content: center;
@@ -619,8 +940,439 @@ onBeforeUnmount(() => {
   width: 100%;
   height: 100%;
   object-fit: contain;
-  filter: drop-shadow(0 26px 36px rgba(93, 63, 15, 0.2));
+  filter: drop-shadow(0 28px 38px rgba(93, 63, 15, 0.22));
   transition: opacity 0.18s ease;
+}
+
+.action-dock {
+  position: relative;
+  z-index: 5;
+  display: grid;
+  grid-template-columns: 210px minmax(0, 1fr);
+  gap: 16px;
+  align-items: stretch;
+  padding: 16px;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.86);
+  box-shadow: 0 22px 46px rgba(40, 49, 66, 0.12);
+  backdrop-filter: blur(18px);
+}
+
+.progress-strip {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: rgba(84, 160, 255, 0.1);
+}
+
+.exp-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+}
+
+.exp-row strong {
+  white-space: nowrap;
+}
+
+.exp-bar {
+  width: 100%;
+  height: 9px;
+  background: rgba(0, 0, 0, 0.07);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.exp-fill {
+  height: 100%;
+  background: #54a0ff;
+  border-radius: 999px;
+  transition: width 0.3s ease-out;
+}
+
+.log-btn {
+  width: 100%;
+  border: none;
+  border-radius: 999px;
+  padding: 9px 13px;
+  color: #416d9e;
+  background: rgba(84, 160, 255, 0.14);
+  font-size: 13px;
+  font-weight: 900;
+  cursor: pointer;
+  transition: transform 0.18s ease, background 0.18s ease;
+}
+
+.log-btn:hover {
+  transform: translateY(-1px);
+  background: rgba(84, 160, 255, 0.2);
+}
+
+.action-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.action-btn {
+  min-width: 0;
+  min-height: 70px;
+  padding: 12px 10px;
+  border: none;
+  border-radius: 16px;
+  cursor: pointer;
+  color: #3d4654;
+  background: rgba(0, 0, 0, 0.05);
+  transition: transform 0.18s ease, background 0.18s ease, opacity 0.18s ease;
+}
+
+.action-btn span,
+.action-btn small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.action-btn span {
+  font-size: 15px;
+  line-height: 1.2;
+  font-weight: 900;
+}
+
+.action-btn small {
+  margin-top: 6px;
+  color: rgba(61, 70, 84, 0.64);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.action-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.action-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
+.feed-btn {
+  background: rgba(255, 159, 67, 0.16);
+}
+
+.play-btn {
+  background: rgba(29, 209, 161, 0.14);
+}
+
+.sleep-btn {
+  background: rgba(84, 160, 255, 0.14);
+}
+
+.touch-btn {
+  background: rgba(255, 107, 129, 0.14);
+}
+
+.bath-btn {
+  background: rgba(72, 219, 251, 0.16);
+}
+
+.music-btn {
+  background: rgba(95, 92, 255, 0.12);
+}
+
+.message-board {
+  position: relative;
+  z-index: 8;
+  min-height: 100vh;
+  padding: 24px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  background: rgba(255, 255, 255, 0.76);
+  border-left: 1px solid rgba(255, 255, 255, 0.9);
+  box-shadow: -18px 0 42px rgba(36, 44, 58, 0.08);
+  backdrop-filter: blur(20px);
+}
+
+.message-board-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.message-eyebrow {
+  margin: 0 0 4px;
+  color: #ff8a3d;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.message-board-header h3 {
+  margin: 0;
+  color: #2f3440;
+  font-size: 20px;
+  font-weight: 900;
+}
+
+.message-refresh,
+.delete-message,
+.message-actions button {
+  border: none;
+  cursor: pointer;
+  font-weight: 900;
+  transition: opacity 0.18s ease, transform 0.18s ease, background 0.18s ease;
+}
+
+.message-refresh {
+  border-radius: 999px;
+  padding: 8px 13px;
+  color: #416d9e;
+  background: rgba(84, 160, 255, 0.13);
+}
+
+.message-form {
+  padding: 14px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.7);
+  box-shadow: 0 14px 32px rgba(42, 50, 64, 0.08);
+}
+
+.message-form textarea {
+  width: 100%;
+  height: 94px;
+  resize: none;
+  border: 1px solid rgba(47, 52, 64, 0.1);
+  border-radius: 14px;
+  outline: none;
+  padding: 12px;
+  color: #2f3440;
+  background: rgba(255, 255, 255, 0.9);
+  font-size: 14px;
+  line-height: 1.55;
+  box-sizing: border-box;
+}
+
+.message-form textarea:focus {
+  border-color: rgba(84, 160, 255, 0.52);
+  box-shadow: 0 0 0 3px rgba(84, 160, 255, 0.12);
+}
+
+.message-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 9px;
+  color: #9aa3b2;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.message-actions button {
+  border-radius: 999px;
+  padding: 9px 18px;
+  color: #fff;
+  background: #ff9f43;
+  box-shadow: 0 10px 22px rgba(255, 159, 67, 0.2);
+}
+
+.message-list {
+  min-height: 0;
+  flex: 1;
+  overflow-y: auto;
+  padding-right: 3px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.empty-message {
+  margin: auto;
+  color: #8a94a6;
+  font-size: 14px;
+  text-align: center;
+  line-height: 1.6;
+}
+
+.message-card {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 13px 13px 12px;
+  border-radius: 16px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(255, 250, 241, 0.88));
+  border: 1px solid rgba(255, 255, 255, 0.92);
+  box-shadow: 0 12px 26px rgba(42, 50, 64, 0.07);
+}
+
+.message-card-main {
+  min-width: 0;
+}
+
+.message-card p {
+  margin: 0;
+  color: #3a4050;
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.55;
+  font-size: 14px;
+}
+
+.message-card time {
+  display: block;
+  margin-top: 8px;
+  color: #9aa3b2;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.delete-message {
+  flex: none;
+  padding: 6px 9px;
+  border-radius: 999px;
+  color: #d75656;
+  background: rgba(255, 107, 107, 0.12);
+  font-size: 12px;
+}
+
+.message-refresh:hover:not(:disabled),
+.delete-message:hover:not(:disabled),
+.message-actions button:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.message-refresh:disabled,
+.delete-message:disabled,
+.message-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.log-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  justify-content: flex-end;
+  background: rgba(38, 45, 58, 0.28);
+  backdrop-filter: blur(6px);
+}
+
+.log-panel {
+  width: min(520px, 100%);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 24px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(247, 250, 255, 0.94));
+  box-shadow: -22px 0 50px rgba(31, 40, 56, 0.18);
+  box-sizing: border-box;
+}
+
+.log-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.log-panel-header h3 {
+  margin: 0;
+  font-size: 22px;
+  color: #2f3440;
+  font-weight: 900;
+}
+
+.log-list {
+  min-height: 0;
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-right: 3px;
+}
+
+.log-card {
+  display: flex;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.94);
+  box-shadow: 0 12px 28px rgba(42, 50, 64, 0.08);
+}
+
+.log-icon {
+  width: 42px;
+  height: 42px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 14px;
+  color: #ff7d3d;
+  background: rgba(255, 159, 67, 0.15);
+  font-weight: 900;
+}
+
+.log-content {
+  min-width: 0;
+  flex: 1;
+}
+
+.log-title-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: baseline;
+}
+
+.log-title-row strong {
+  color: #303744;
+  font-size: 15px;
+}
+
+.log-title-row time {
+  flex: none;
+  color: #9aa3b2;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.log-content p {
+  margin: 6px 0 9px;
+  color: #596475;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.log-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.log-meta span {
+  max-width: 100%;
+  padding: 5px 8px;
+  border-radius: 999px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #6f7a8a;
+  background: rgba(84, 160, 255, 0.1);
+  font-size: 12px;
+  font-weight: 800;
 }
 
 .action-props {
@@ -716,6 +1468,114 @@ onBeforeUnmount(() => {
   right: 25%;
   font-size: 18px;
   animation-delay: 1s;
+}
+
+.floating-layer {
+  position: absolute;
+  top: 8%;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 20;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.floating-item {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 18px;
+  font-weight: 800;
+  white-space: nowrap;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.86);
+  box-shadow: 0 10px 26px rgba(31, 40, 56, 0.12);
+  animation: floatUpFade 1.5s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}
+
+.type-food {
+  color: #e15f41;
+}
+
+.type-mood,
+.type-level {
+  color: #ff5b7f;
+}
+
+.type-sleep {
+  color: #6c7ae0;
+}
+
+.status-bubble {
+  position: absolute;
+  top: -5%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(255, 255, 255, 0.92);
+  padding: 9px 16px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 800;
+  color: #333;
+  box-shadow: 0 12px 28px rgba(44, 55, 75, 0.1);
+  white-space: nowrap;
+  z-index: 6;
+}
+
+.status-bubble::after {
+  content: '';
+  position: absolute;
+  bottom: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-width: 6px 6px 0;
+  border-style: solid;
+  border-color: rgba(255, 255, 255, 0.92) transparent transparent transparent;
+}
+
+.anim-breathe {
+  animation: breathe 2.5s ease-in-out infinite;
+  transform-origin: center bottom;
+}
+
+.anim-eat {
+  animation: eat 0.64s ease-in-out infinite;
+  transform-origin: center bottom;
+}
+
+.anim-play {
+  animation: play 0.78s ease-in-out infinite;
+  transform-origin: center bottom;
+}
+
+.anim-care,
+.anim-ambient {
+  animation: ambient 1.1s ease-in-out infinite;
+  transform-origin: center bottom;
+}
+
+.anim-sleep {
+  animation: sleep 3.5s ease-in-out infinite;
+  transform-origin: center bottom;
+}
+
+@keyframes messageDrift {
+  0% {
+    opacity: 0;
+    transform: translateX(0) translateY(8px);
+  }
+  8%,
+  82% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(calc(-100vw - 520px)) translateY(-8px);
+  }
 }
 
 @keyframes breathe {
@@ -825,76 +1685,6 @@ onBeforeUnmount(() => {
   }
 }
 
-.anim-breathe {
-  animation: breathe 2.5s ease-in-out infinite;
-  transform-origin: center bottom;
-}
-
-.anim-eat {
-  animation: eat 0.64s ease-in-out infinite;
-  transform-origin: center bottom;
-}
-
-.anim-play {
-  animation: play 0.78s ease-in-out infinite;
-  transform-origin: center bottom;
-}
-
-.anim-care {
-  animation: ambient 1.1s ease-in-out infinite;
-  transform-origin: center bottom;
-}
-
-.anim-ambient {
-  animation: ambient 0.9s ease-in-out infinite;
-  transform-origin: center bottom;
-}
-
-.anim-sleep {
-  animation: sleep 3.5s ease-in-out infinite;
-  transform-origin: center bottom;
-}
-
-.floating-layer {
-  position: absolute;
-  top: 8%;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 20;
-  pointer-events: none;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.floating-item {
-  position: absolute;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 18px;
-  font-weight: 800;
-  white-space: nowrap;
-  padding: 8px 12px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.86);
-  box-shadow: 0 10px 26px rgba(31, 40, 56, 0.12);
-  animation: floatUpFade 1.5s cubic-bezier(0.25, 1, 0.5, 1) forwards;
-}
-
-.type-food {
-  color: #e15f41;
-}
-
-.type-mood,
-.type-level {
-  color: #ff5b7f;
-}
-
-.type-sleep {
-  color: #6c7ae0;
-}
-
 @keyframes floatUpFade {
   0% {
     opacity: 0;
@@ -910,248 +1700,143 @@ onBeforeUnmount(() => {
   }
 }
 
-.status-bubble {
-  position: absolute;
-  top: -5%;
-  left: 50%;
-  transform: translateX(-50%);
-  background: rgba(255, 255, 255, 0.92);
-  padding: 9px 16px;
-  border-radius: 999px;
-  font-size: 14px;
-  font-weight: 700;
-  color: #333;
-  box-shadow: 0 12px 28px rgba(44, 55, 75, 0.1);
-  white-space: nowrap;
-  z-index: 6;
-}
-
-.status-bubble::after {
-  content: '';
-  position: absolute;
-  bottom: -6px;
-  left: 50%;
-  transform: translateX(-50%);
-  border-width: 6px 6px 0;
-  border-style: solid;
-  border-color: rgba(255, 255, 255, 0.92) transparent transparent transparent;
-}
-
-.glass-control-panel {
-  width: 320px;
-  padding: 24px;
-  background: rgba(255, 255, 255, 0.72);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border-left: 1px solid rgba(255, 255, 255, 0.72);
-  display: flex;
-  flex-direction: column;
-  gap: 32px;
-  z-index: 10;
-}
-
-.panel-header {
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
-  padding-bottom: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.level-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.level-badge,
-.state-chip {
-  font-size: 12px;
-  font-weight: 800;
-  padding: 4px 9px;
-  border-radius: 999px;
-}
-
-.level-badge {
-  color: #ff6b6b;
-  background: rgba(255, 107, 107, 0.12);
-}
-
-.state-chip {
-  color: #5a6c85;
-  background: rgba(84, 160, 255, 0.12);
-}
-
-.panel-title {
-  margin: 0;
-  font-size: 22px;
-  color: #2f3440;
-  font-weight: 800;
-}
-
-.exp-container {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  margin-top: 4px;
-}
-
-.exp-bar {
-  width: 100%;
-  height: 7px;
-  background: rgba(0, 0, 0, 0.06);
-  border-radius: 999px;
-  overflow: hidden;
-}
-
-.exp-fill {
-  height: 100%;
-  background: #54a0ff;
-  border-radius: 999px;
-  transition: width 0.3s ease-out;
-}
-
-.exp-text {
-  font-size: 11px;
-  color: #7a8494;
-  text-align: right;
-}
-
-.stats-container {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
-.stat-item {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.stat-header {
-  display: flex;
-  justify-content: space-between;
-  font-size: 14px;
-  font-weight: 700;
-  color: #525b68;
-}
-
-.flat-bar {
-  width: 100%;
-  height: 12px;
-  border-radius: 999px;
-  background: rgba(0, 0, 0, 0.06);
-  overflow: hidden;
-}
-
-.progress-fill {
-  height: 100%;
-  border-radius: 999px;
-  transition: width 0.4s ease-out;
-}
-
-.fill-hunger {
-  background-color: #ff9f43;
-}
-
-.fill-energy {
-  background-color: #1dd1a1;
-}
-
-.fill-mood {
-  background-color: #ff6b6b;
-}
-
-.action-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  margin-top: auto;
-}
-
-.feed-btn {
-  grid-column: span 2;
-}
-
-.flat-btn {
-  min-height: 48px;
-  padding: 12px 14px;
-  border: none;
-  border-radius: 12px;
-  font-size: 15px;
-  font-weight: 800;
-  cursor: pointer;
-  transition: transform 0.18s ease, background 0.18s ease, opacity 0.18s ease;
-  background: rgba(0, 0, 0, 0.05);
-  color: #4d5562;
-}
-
-.flat-btn:hover:not(:disabled) {
-  transform: translateY(-1px);
-  background: rgba(0, 0, 0, 0.08);
-}
-
-.flat-btn:disabled {
-  cursor: not-allowed;
-  opacity: 0.64;
-}
-
-.feed-btn {
-  background: rgba(255, 159, 67, 0.16);
-  color: #d95f25;
-}
-
-.feed-btn:hover:not(:disabled) {
-  background: rgba(255, 159, 67, 0.26);
-}
-
-.play-btn {
-  background: rgba(29, 209, 161, 0.14);
-  color: #13996f;
-}
-
-.generic-btn {
-  background: rgba(84, 160, 255, 0.14);
-  color: #2878d9;
-}
-
-.touch-btn {
-  background: rgba(255, 107, 129, 0.14);
-  color: #d64565;
-}
-
-.bath-btn {
-  background: rgba(72, 219, 251, 0.16);
-  color: #0c84a8;
-}
-
-.music-btn {
-  grid-column: span 2;
-  background: rgba(95, 92, 255, 0.12);
-  color: #5650d8;
-}
-
-@media (max-width: 768px) {
+@media (max-width: 1180px) {
   .lulu-viewport {
-    flex-direction: column;
-    min-height: 100vh;
+    grid-template-columns: 1fr;
+    overflow: auto;
   }
 
-  .lulu-scene {
-    min-height: 360px;
-    flex: none;
+  .lulu-stage {
+    min-height: 780px;
+  }
+
+  .message-board {
+    min-height: 420px;
+    border-left: none;
+    border-top: 1px solid rgba(255, 255, 255, 0.9);
+  }
+}
+
+@media (max-width: 860px) {
+  .lulu-viewport {
+    min-height: auto;
+  }
+
+  .lulu-stage {
+    min-height: 100svh;
+    grid-template-rows: auto minmax(230px, 1fr) auto;
+    padding: 16px 12px 12px;
+    overflow: visible;
+  }
+
+  .top-status {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .quick-stats {
+    width: 100%;
   }
 
   .lulu-entity {
-    width: min(76vw, 330px);
+    width: min(70vw, 300px);
   }
 
-  .glass-control-panel {
-    width: auto;
-    border-left: none;
-    border-top: 1px solid rgba(255, 255, 255, 0.72);
+  .action-dock {
+    position: sticky;
+    bottom: 10px;
+    grid-template-columns: 1fr;
+    border-radius: 18px;
+    padding: 12px;
+  }
+
+  .action-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .action-btn {
+    min-height: 58px;
+    padding: 9px 8px;
+  }
+
+  .action-btn span {
+    font-size: 14px;
+  }
+
+  .action-btn small {
+    margin-top: 4px;
+    font-size: 10px;
+  }
+
+  .progress-strip {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 110px;
+    align-items: center;
+    gap: 9px;
+    padding: 10px;
+  }
+
+  .exp-row {
+    grid-column: 1 / -1;
+  }
+
+  .log-btn {
+    grid-row: 2;
+    grid-column: 2;
+    padding: 8px 10px;
+  }
+
+  .exp-bar {
+    grid-row: 2;
+    grid-column: 1;
+  }
+
+  .message-board {
+    padding: 18px 14px;
+  }
+}
+
+@media (max-width: 520px) {
+  .identity-block h2 {
+    font-size: 25px;
+  }
+
+  .quick-stats {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .stat-pill {
+    padding: 10px 8px;
+  }
+
+  .stat-pill strong {
+    font-size: 19px;
+  }
+
+  .stat-bar {
+    margin-top: 8px;
+  }
+
+  .action-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .message-board-header {
+    align-items: flex-start;
+  }
+
+  .message-fly-zone {
+    inset: 86px 0 180px;
+  }
+
+  .log-panel {
+    padding: 18px 14px;
+  }
+
+  .log-title-row {
+    flex-direction: column;
+    gap: 3px;
   }
 }
 </style>

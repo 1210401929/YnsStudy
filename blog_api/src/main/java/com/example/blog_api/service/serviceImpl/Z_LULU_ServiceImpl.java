@@ -48,7 +48,7 @@ public class Z_LULU_ServiceImpl implements Z_LULU_Service {
     }
 
     @Override
-    public Map<String, Object> feedPet(Long userNum) {
+    public Map<String, Object> feedPet(Long userNum, String clientIp, String userAgent) {
         Map<String, Object> petData = this.getAndRefreshPetStatus(userNum);
 
         if (petData != null) {
@@ -62,13 +62,15 @@ public class Z_LULU_ServiceImpl implements Z_LULU_Service {
 
             addExp(petData, 20);
             updatePetStatusInDb(petData);
+            insertLog(userNum, "FEED", "喂食", clientIp, userAgent, "饱腹 +30，心情 +5，经验 +20");
         }
         return petData;
     }
 
     @Override
-    public Map<String, Object> playPet(Long userNum) {
+    public Map<String, Object> playPet(Long userNum, String actionName, String clientIp, String userAgent) {
         Map<String, Object> petData = this.getAndRefreshPetStatus(userNum);
+        String cleanActionName = actionName == null || actionName.trim().isEmpty() ? "玩耍" : actionName.trim();
 
         if (petData != null) {
             String currentState = (String) petData.get("CURRENT_STATE");
@@ -89,23 +91,76 @@ public class Z_LULU_ServiceImpl implements Z_LULU_Service {
 
                 addExp(petData, 40);
                 updatePetStatusInDb(petData);
+                insertLog(userNum, "PLAY", cleanActionName, clientIp, userAgent, cleanActionName + "，心情 +20，经验 +40");
             }
         }
         return petData;
     }
 
     @Override
-    public Map<String, Object> toggleSleepPet(Long userNum) {
+    public Map<String, Object> toggleSleepPet(Long userNum, String clientIp, String userAgent) {
         Map<String, Object> petData = this.getAndRefreshPetStatus(userNum);
 
         if (petData != null) {
             String currentState = (String) petData.get("CURRENT_STATE");
-            petData.put("CURRENT_STATE", "SLEEPING".equals(currentState) ? "IDLE" : "SLEEPING");
+            boolean isWaking = "SLEEPING".equals(currentState);
+            petData.put("CURRENT_STATE", isWaking ? "IDLE" : "SLEEPING");
             petData.put("LAST_UPDATE_TIME", LocalDateTime.now());
 
             updatePetStatusInDb(petData);
+            insertLog(userNum, isWaking ? "WAKE" : "SLEEP", isWaking ? "唤醒" : "睡觉", clientIp, userAgent, isWaking ? "把 Lulu 唤醒了" : "让 Lulu 休息");
         }
         return petData;
+    }
+
+    @Override
+    public List<Map<String, Object>> getMessages(Long userNum) {
+        String selectSql = "select * from z_lulu_message where user_num='" + userNum + "' order by create_time desc limit 80";
+        ResultBody result = callService.callFunOneParams(FunToUrlUtil.selectListUrl, "sql", selectSql);
+
+        if (result != null && result.result != null) {
+            return (List<Map<String, Object>>) result.result;
+        }
+        return java.util.Collections.emptyList();
+    }
+
+    @Override
+    public ResultBody addMessage(Long userNum, String content, String clientIp) {
+        String cleanContent = content == null ? "" : content.trim();
+        if (cleanContent.length() > 500) {
+            cleanContent = cleanContent.substring(0, 500);
+        }
+        if (cleanContent.isEmpty()) {
+            return ResultBody.createErrorResult("留言内容不能为空");
+        }
+
+        String safeIp = clientIp == null || clientIp.trim().isEmpty() ? "unknown" : clientIp.trim();
+        if (countRecentMessagesByIp(safeIp) >= 5) {
+            return ResultBody.createErrorResult("留言太频繁了，同一 IP 1 分钟内最多发布 5 条留言");
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        insertMessage(userNum, "USER", cleanContent, now, safeIp);
+
+        return ResultBody.createSuccessResult(getMessages(userNum));
+    }
+
+    @Override
+    public List<Map<String, Object>> deleteMessage(Long userNum, Long messageId) {
+        String deleteSql = "delete from z_lulu_message where ID='" + messageId + "' and USER_NUM='" + userNum + "'";
+        callService.callFunOneParams(FunToUrlUtil.exeSqlUrl, "sql", deleteSql);
+        return getMessages(userNum);
+    }
+
+    @Override
+    public List<Map<String, Object>> getLogs(Long userNum) {
+        String selectSql = "select * from z_lulu_log where USER_NUM='" + userNum + "' order by CREATE_TIME desc limit 120";
+        ResultBody result = callService.callFunOneParams(FunToUrlUtil.selectListUrl, "sql", selectSql);
+
+        if (result != null && result.result != null) {
+            return (List<Map<String, Object>>) result.result;
+        }
+        return java.util.Collections.emptyList();
     }
 
     private Map<String, Object> createDefaultPet(Long userNum) {
@@ -131,6 +186,138 @@ public class Z_LULU_ServiceImpl implements Z_LULU_Service {
 
         callService.callFunOneParams(FunToUrlUtil.exeSqlUrl, "sql", insertSql);
         return petData;
+    }
+
+    private void insertMessage(Long userNum, String senderType, String content, LocalDateTime createTime, String ipAddress) {
+        String insertSql = String.format(
+                "INSERT INTO z_lulu_message (USER_NUM, SENDER_TYPE, CONTENT, CREATE_TIME, IP_ADDRESS) VALUES ('%s', '%s', '%s', '%s', '%s')",
+                userNum,
+                escapeSql(senderType),
+                escapeSql(content),
+                createTime.format(DB_TIME_FORMATTER),
+                escapeSql(ipAddress)
+        );
+        callService.callFunOneParams(FunToUrlUtil.exeSqlUrl, "sql", insertSql);
+    }
+
+    private void insertLog(Long userNum, String actionType, String actionName, String clientIp, String userAgent, String remark) {
+        String safeIp = clientIp == null || clientIp.trim().isEmpty() ? "unknown" : clientIp.trim();
+        String safeUserAgent = userAgent == null ? "" : userAgent;
+        String browser = parseBrowser(safeUserAgent);
+        String deviceModel = parseDeviceModel(safeUserAgent);
+        String insertSql = String.format(
+                "INSERT INTO z_lulu_log (USER_NUM, ACTION_TYPE, ACTION_NAME, IP_ADDRESS, BROWSER, DEVICE_MODEL, USER_AGENT, REMARK, CREATE_TIME) " +
+                        "VALUES ('%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')",
+                userNum,
+                escapeSql(actionType),
+                escapeSql(actionName),
+                escapeSql(safeIp),
+                escapeSql(browser),
+                escapeSql(deviceModel),
+                escapeSql(limitLength(safeUserAgent, 500)),
+                escapeSql(remark),
+                LocalDateTime.now().format(DB_TIME_FORMATTER)
+        );
+        callService.callFunOneParams(FunToUrlUtil.exeSqlUrl, "sql", insertSql);
+    }
+
+    private String parseBrowser(String userAgent) {
+        if (userAgent == null || userAgent.isEmpty()) {
+            return "未知浏览器";
+        }
+        if (userAgent.contains("Edg/")) {
+            return "Microsoft Edge";
+        }
+        if (userAgent.contains("OPR/") || userAgent.contains("Opera")) {
+            return "Opera";
+        }
+        if (userAgent.contains("Firefox/")) {
+            return "Firefox";
+        }
+        if (userAgent.contains("Chrome/") || userAgent.contains("CriOS/")) {
+            return "Chrome";
+        }
+        if (userAgent.contains("Safari/")) {
+            return "Safari";
+        }
+        return "未知浏览器";
+    }
+
+    private String parseDeviceModel(String userAgent) {
+        if (userAgent == null || userAgent.isEmpty()) {
+            return "未知设备";
+        }
+        if (userAgent.contains("iPhone")) {
+            return "iPhone";
+        }
+        if (userAgent.contains("iPad")) {
+            return "iPad";
+        }
+        int start = userAgent.indexOf("Android");
+        if (start >= 0) {
+            int end = userAgent.indexOf(")", start);
+            String androidInfo = end > start ? userAgent.substring(start, end) : userAgent.substring(start);
+            String[] parts = androidInfo.split(";");
+            if (parts.length >= 3) {
+                return parts[parts.length - 1].trim();
+            }
+            return "Android";
+        }
+        if (userAgent.contains("Windows")) {
+            return "Windows";
+        }
+        if (userAgent.contains("Macintosh")) {
+            return "Mac";
+        }
+        return "未知设备";
+    }
+
+    private String limitLength(String value, int maxLength) {
+        if (value == null || value.length() <= maxLength) {
+            return value;
+        }
+        return value.substring(0, maxLength);
+    }
+
+    private int countRecentMessagesByIp(String clientIp) {
+        LocalDateTime startTime = LocalDateTime.now().minusMinutes(1);
+        String countSql = "select count(1) as MESSAGE_COUNT from z_lulu_message where IP_ADDRESS='" +
+                escapeSql(clientIp) + "' and CREATE_TIME>='" + startTime.format(DB_TIME_FORMATTER) + "'";
+        ResultBody result = callService.callFunOneParams(FunToUrlUtil.selectListUrl, "sql", countSql);
+
+        if (result == null || result.result == null) {
+            return 0;
+        }
+        List<Map<String, Object>> rows = (List<Map<String, Object>>) result.result;
+        if (rows == null || rows.isEmpty()) {
+            return 0;
+        }
+        return getNumber(rows.get(0), "MESSAGE_COUNT", "message_count", 0);
+    }
+
+    private int getNumber(Map<String, Object> data, String upperKey, String lowerKey, int defaultValue) {
+        Object value = data.get(upperKey);
+        if (value == null) {
+            value = data.get(lowerKey);
+        }
+        if (value instanceof Number) {
+            return ((Number) value).intValue();
+        }
+        if (value != null) {
+            try {
+                return Integer.parseInt(value.toString());
+            } catch (NumberFormatException ignored) {
+                return defaultValue;
+            }
+        }
+        return defaultValue;
+    }
+
+    private String escapeSql(String value) {
+        if (value == null) {
+            return "";
+        }
+        return value.replace("\\", "\\\\").replace("'", "''");
     }
     private void refreshByTime(Map<String, Object> petData) {
         LocalDateTime lastUpdateTime = parseDbTime(petData.get("LAST_UPDATE_TIME"));
