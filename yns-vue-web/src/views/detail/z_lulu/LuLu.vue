@@ -432,6 +432,11 @@ const fetchStatus = async () => {
 const feedLulu = async () => {
   if (isLoading.value) return;
 
+  if (petData.value.hunger >= 95) {
+    triggerEffect('!', '噜噜已经吃撑了', 'type-sleep');
+    return;
+  }
+
   startFrameAction('feed', pickOne(feedActions), 4200);
   isLoading.value = true;
 
