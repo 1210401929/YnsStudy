@@ -21,4 +21,10 @@ public interface Z_LULU_Service {
     List<Map<String, Object>> deleteMessage(Long userNum, Long messageId);
 
     List<Map<String, Object>> getLogs(Long userNum);
+
+    Map<String, Object> getFunState(Long userNum);
+
+    Map<String, Object> advanceMission(Long userNum, String missionType, int amount);
+
+    Map<String, Object> changeClothes(Long userNum);
 }

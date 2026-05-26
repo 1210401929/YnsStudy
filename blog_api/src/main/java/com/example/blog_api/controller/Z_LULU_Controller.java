@@ -70,6 +70,26 @@ public class Z_LULU_Controller {
         return luluService.getLogs(userNum);
     }
 
+    @PostMapping("/fun-state")
+    public Map<String, Object> getFunState(@RequestBody Map<String, Object> params) {
+        Long userNum = Long.valueOf(params.get("userNum").toString());
+        return luluService.getFunState(userNum);
+    }
+
+    @PostMapping("/mission/advance")
+    public Map<String, Object> advanceMission(@RequestBody Map<String, Object> params) {
+        Long userNum = Long.valueOf(params.get("userNum").toString());
+        String missionType = params.get("missionType") == null ? "" : params.get("missionType").toString();
+        int amount = params.get("amount") == null ? 1 : Integer.parseInt(params.get("amount").toString());
+        return luluService.advanceMission(userNum, missionType, amount);
+    }
+
+    @PostMapping("/clothes/change")
+    public Map<String, Object> changeClothes(@RequestBody Map<String, Object> params) {
+        Long userNum = Long.valueOf(params.get("userNum").toString());
+        return luluService.changeClothes(userNum);
+    }
+
     private String getClientIp(HttpServletRequest request) {
         String[] headerNames = {
                 "X-Forwarded-For",

@@ -20,8 +20,14 @@ public class Z_LULU_ServiceImpl implements Z_LULU_Service {
     @Autowired
     CallService callService;
 
-    private static final String DEFAULT_NAME = "Lulu";
+    private static final String DEFAULT_NAME = "噜噜";
     private static final DateTimeFormatter DB_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+    private static final String[][] DAILY_MISSIONS = {
+            {"feed", "给噜噜准备一顿饭", "1", "完成后心情会亮一下"},
+            {"play", "陪噜噜玩两次", "2", "完成后撒一把星星"},
+            {"touch", "摸摸噜噜一次", "1", "完成后获得贴贴感"},
+            {"wish", "和噜噜许个愿", "1", "完成后收到小签语"}
+    };
 
     @Override
     public Map<String, Object> getAndRefreshPetStatus(Long userNum) {
@@ -108,7 +114,7 @@ public class Z_LULU_ServiceImpl implements Z_LULU_Service {
             petData.put("LAST_UPDATE_TIME", LocalDateTime.now());
 
             updatePetStatusInDb(petData);
-            insertLog(userNum, isWaking ? "WAKE" : "SLEEP", isWaking ? "唤醒" : "睡觉", clientIp, userAgent, isWaking ? "把 Lulu 唤醒了" : "让 Lulu 休息");
+            insertLog(userNum, isWaking ? "WAKE" : "SLEEP", isWaking ? "唤醒" : "睡觉", clientIp, userAgent, isWaking ? "把 噜噜 唤醒了" : "让 噜噜 休息");
         }
         return petData;
     }
@@ -163,6 +169,41 @@ public class Z_LULU_ServiceImpl implements Z_LULU_Service {
         return java.util.Collections.emptyList();
     }
 
+    @Override
+    public Map<String, Object> getFunState(Long userNum) {
+        Map<String, Object> funState = getOrCreateFunState(userNum);
+        refreshFunStateForToday(funState);
+        updateFunStateInDb(funState);
+        return buildFunStateResult(funState);
+    }
+
+    @Override
+    public Map<String, Object> advanceMission(Long userNum, String missionType, int amount) {
+        Map<String, Object> funState = getOrCreateFunState(userNum);
+        refreshFunStateForToday(funState);
+
+        String currentType = getString(funState, "MISSION_TYPE", "missionType", "");
+        int target = getInt(funState, "MISSION_TARGET", "missionTarget", 1);
+        int current = getInt(funState, "MISSION_CURRENT", "missionCurrent", 0);
+
+        if (currentType.equals(missionType)) {
+            funState.put("MISSION_CURRENT", Math.min(target, current + Math.max(1, amount)));
+        }
+
+        updateFunStateInDb(funState);
+        return buildFunStateResult(funState);
+    }
+
+    @Override
+    public Map<String, Object> changeClothes(Long userNum) {
+        Map<String, Object> funState = getOrCreateFunState(userNum);
+        refreshFunStateForToday(funState);
+        int currentIndex = getInt(funState, "CLOTHES_INDEX", "clothesIndex", 0);
+        funState.put("CLOTHES_INDEX", (currentIndex + 1) % 4);
+        updateFunStateInDb(funState);
+        return buildFunStateResult(funState);
+    }
+
     private Map<String, Object> createDefaultPet(Long userNum) {
         Map<String, Object> petData = new HashMap<>();
         LocalDateTime now = LocalDateTime.now();
@@ -186,6 +227,121 @@ public class Z_LULU_ServiceImpl implements Z_LULU_Service {
 
         callService.callFunOneParams(FunToUrlUtil.exeSqlUrl, "sql", insertSql);
         return petData;
+    }
+
+    private Map<String, Object> getOrCreateFunState(Long userNum) {
+        String selectSql = "select * from z_lulu_fun_state where USER_NUM='" + userNum + "'";
+        ResultBody result = callService.callFunOneParams(FunToUrlUtil.selectListUrl, "sql", selectSql);
+        List<Map<String, Object>> rows = null;
+        if (result != null && result.result != null) {
+            rows = (List<Map<String, Object>>) result.result;
+        }
+
+        if (rows != null && !rows.isEmpty()) {
+            return rows.get(0);
+        }
+
+        Map<String, Object> funState = createDefaultFunState(userNum);
+        insertFunState(funState);
+        return funState;
+    }
+
+    private Map<String, Object> createDefaultFunState(Long userNum) {
+        LocalDateTime now = LocalDateTime.now();
+        String today = now.toLocalDate().toString();
+        String[] mission = getMissionForToday();
+        Map<String, Object> funState = new HashMap<>();
+        funState.put("USER_NUM", userNum);
+        funState.put("STATE_DATE", today);
+        funState.put("LAST_VISIT_DATE", today);
+        funState.put("STREAK_COUNT", 1);
+        funState.put("MISSION_TYPE", mission[0]);
+        funState.put("MISSION_TITLE", mission[1]);
+        funState.put("MISSION_TARGET", Integer.parseInt(mission[2]));
+        funState.put("MISSION_CURRENT", 0);
+        funState.put("MISSION_REWARD", mission[3]);
+        funState.put("CLOTHES_INDEX", 0);
+        funState.put("UPDATE_TIME", now);
+        return funState;
+    }
+
+    private void refreshFunStateForToday(Map<String, Object> funState) {
+        String today = LocalDateTime.now().toLocalDate().toString();
+        String currentDate = getString(funState, "STATE_DATE", "stateDate", "");
+        String lastVisitDate = getString(funState, "LAST_VISIT_DATE", "lastVisitDate", "");
+
+        if (!today.equals(currentDate)) {
+            String[] mission = getMissionForToday();
+            funState.put("STATE_DATE", today);
+            funState.put("MISSION_TYPE", mission[0]);
+            funState.put("MISSION_TITLE", mission[1]);
+            funState.put("MISSION_TARGET", Integer.parseInt(mission[2]));
+            funState.put("MISSION_CURRENT", 0);
+            funState.put("MISSION_REWARD", mission[3]);
+        }
+
+        if (!today.equals(lastVisitDate)) {
+            LocalDateTime yesterday = LocalDateTime.now().minusDays(1);
+            int streak = getInt(funState, "STREAK_COUNT", "streakCount", 1);
+            funState.put("STREAK_COUNT", yesterday.toLocalDate().toString().equals(lastVisitDate) ? streak + 1 : 1);
+            funState.put("LAST_VISIT_DATE", today);
+        }
+
+        funState.put("UPDATE_TIME", LocalDateTime.now());
+    }
+
+    private String[] getMissionForToday() {
+        int index = LocalDateTime.now().getDayOfYear() % DAILY_MISSIONS.length;
+        return DAILY_MISSIONS[index];
+    }
+
+    private Map<String, Object> buildFunStateResult(Map<String, Object> funState) {
+        Map<String, Object> result = new HashMap<>();
+        result.put("MISSION_TYPE", getString(funState, "MISSION_TYPE", "missionType", "feed"));
+        result.put("MISSION_TITLE", getString(funState, "MISSION_TITLE", "missionTitle", "给噜噜准备一顿饭"));
+        result.put("MISSION_TARGET", getInt(funState, "MISSION_TARGET", "missionTarget", 1));
+        result.put("MISSION_CURRENT", getInt(funState, "MISSION_CURRENT", "missionCurrent", 0));
+        result.put("MISSION_REWARD", getString(funState, "MISSION_REWARD", "missionReward", ""));
+        result.put("STREAK_COUNT", getInt(funState, "STREAK_COUNT", "streakCount", 1));
+        result.put("CLOTHES_INDEX", getInt(funState, "CLOTHES_INDEX", "clothesIndex", 0));
+        return result;
+    }
+
+    private void insertFunState(Map<String, Object> funState) {
+        String insertSql = String.format(
+                "INSERT INTO z_lulu_fun_state (USER_NUM, STATE_DATE, LAST_VISIT_DATE, STREAK_COUNT, MISSION_TYPE, MISSION_TITLE, MISSION_TARGET, MISSION_CURRENT, MISSION_REWARD, CLOTHES_INDEX, UPDATE_TIME) " +
+                        "VALUES ('%s', '%s', '%s', %d, '%s', '%s', %d, %d, '%s', %d, '%s')",
+                funState.get("USER_NUM"),
+                escapeSql(getString(funState, "STATE_DATE", "stateDate", "")),
+                escapeSql(getString(funState, "LAST_VISIT_DATE", "lastVisitDate", "")),
+                getInt(funState, "STREAK_COUNT", "streakCount", 1),
+                escapeSql(getString(funState, "MISSION_TYPE", "missionType", "")),
+                escapeSql(getString(funState, "MISSION_TITLE", "missionTitle", "")),
+                getInt(funState, "MISSION_TARGET", "missionTarget", 1),
+                getInt(funState, "MISSION_CURRENT", "missionCurrent", 0),
+                escapeSql(getString(funState, "MISSION_REWARD", "missionReward", "")),
+                getInt(funState, "CLOTHES_INDEX", "clothesIndex", 0),
+                LocalDateTime.now().format(DB_TIME_FORMATTER)
+        );
+        callService.callFunOneParams(FunToUrlUtil.exeSqlUrl, "sql", insertSql);
+    }
+
+    private void updateFunStateInDb(Map<String, Object> funState) {
+        String updateSql = String.format(
+                "UPDATE z_lulu_fun_state SET STATE_DATE='%s', LAST_VISIT_DATE='%s', STREAK_COUNT=%d, MISSION_TYPE='%s', MISSION_TITLE='%s', MISSION_TARGET=%d, MISSION_CURRENT=%d, MISSION_REWARD='%s', CLOTHES_INDEX=%d, UPDATE_TIME='%s' WHERE USER_NUM='%s'",
+                escapeSql(getString(funState, "STATE_DATE", "stateDate", "")),
+                escapeSql(getString(funState, "LAST_VISIT_DATE", "lastVisitDate", "")),
+                getInt(funState, "STREAK_COUNT", "streakCount", 1),
+                escapeSql(getString(funState, "MISSION_TYPE", "missionType", "")),
+                escapeSql(getString(funState, "MISSION_TITLE", "missionTitle", "")),
+                getInt(funState, "MISSION_TARGET", "missionTarget", 1),
+                getInt(funState, "MISSION_CURRENT", "missionCurrent", 0),
+                escapeSql(getString(funState, "MISSION_REWARD", "missionReward", "")),
+                getInt(funState, "CLOTHES_INDEX", "clothesIndex", 0),
+                LocalDateTime.now().format(DB_TIME_FORMATTER),
+                funState.get("USER_NUM")
+        );
+        callService.callFunOneParams(FunToUrlUtil.exeSqlUrl, "sql", updateSql);
     }
 
     private void insertMessage(Long userNum, String senderType, String content, LocalDateTime createTime, String ipAddress) {
@@ -311,6 +467,18 @@ public class Z_LULU_ServiceImpl implements Z_LULU_Service {
             }
         }
         return defaultValue;
+    }
+
+    private int getInt(Map<String, Object> data, String upperKey, String lowerKey, int defaultValue) {
+        return getNumber(data, upperKey, lowerKey, defaultValue);
+    }
+
+    private String getString(Map<String, Object> data, String upperKey, String lowerKey, String defaultValue) {
+        Object value = data.get(upperKey);
+        if (value == null) {
+            value = data.get(lowerKey);
+        }
+        return value == null ? defaultValue : value.toString();
     }
 
     private String escapeSql(String value) {

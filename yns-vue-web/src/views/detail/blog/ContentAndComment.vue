@@ -122,14 +122,14 @@
             </div>
 
             <div v-if="replyInputVisible[comment.GUID]" class="reply-input-wrapper">
-              <el-row :gutter="10" v-if="!userStore?.userBean?.code" class="guest-form-row">
-                <el-col :span="8">
+              <el-row :gutter="[10, 10]" v-if="!userStore?.userBean?.code" class="guest-form-row">
+                <el-col :xs="24" :sm="12">
                   <el-input v-model="guestInfo.nickname" :prefix-icon="User" placeholder="昵称 (选填)" size="small" clearable/>
                 </el-col>
-                <el-col :span="8">
+                <el-col :xs="24" :sm="12">
                   <el-input v-model="guestInfo.email" :prefix-icon="Message" placeholder="邮箱 (选填)" size="small" clearable/>
                 </el-col>
-                <el-col :span="8">
+                <el-col :span="24">
                   <el-input v-model="guestInfo.website" :prefix-icon="Link" placeholder="网址 (选填)" size="small" clearable/>
                 </el-col>
               </el-row>
@@ -199,15 +199,15 @@
 
           <div class="comment-input-area">
             <el-divider border-style="dashed">发表评论</el-divider>
-            <el-row :gutter="10" v-if="showMainGuestForm" class="guest-form-row">
-              <el-col :xs="24" :sm="8" :md="8" :lg="8">
-                <el-input v-model="guestInfo.nickname" :prefix-icon="User" placeholder="昵称 (选填)" size="default" clearable class="guest-input-item"/>
+            <el-row :gutter="[10, 10]" v-if="showMainGuestForm" class="guest-form-row">
+              <el-col :xs="24" :sm="12">
+                <el-input v-model="guestInfo.nickname" :prefix-icon="User" placeholder="昵称 (选填)" size="default" clearable />
               </el-col>
-              <el-col :xs="24" :sm="8" :md="8" :lg="8">
-                <el-input v-model="guestInfo.email" :prefix-icon="Message" placeholder="邮箱 (选填)" size="default" clearable class="guest-input-item"/>
+              <el-col :xs="24" :sm="12">
+                <el-input v-model="guestInfo.email" :prefix-icon="Message" placeholder="邮箱 (选填)" size="default" clearable />
               </el-col>
-              <el-col :xs="24" :sm="8" :md="8" :lg="8">
-                <el-input v-model="guestInfo.website" :prefix-icon="Link" placeholder="网址 (选填)" size="default" clearable class="guest-input-item"/>
+              <el-col :span="24">
+                <el-input v-model="guestInfo.website" :prefix-icon="Link" placeholder="网址 (选填)" size="default" clearable />
               </el-col>
             </el-row>
 
@@ -1083,10 +1083,6 @@ const getAvatarStyle = (name) => {
 
 .guest-form-row {
   margin-bottom: 12px;
-}
-
-.guest-input-item {
-  margin-bottom: 8px;
 }
 
 .comment-submit-row {
