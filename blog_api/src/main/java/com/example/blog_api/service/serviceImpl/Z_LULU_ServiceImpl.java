@@ -145,8 +145,7 @@ public class Z_LULU_ServiceImpl implements Z_LULU_Service {
             return ResultBody.createErrorResult("留言太频繁了，同一 IP 1 分钟内最多发布 5 条留言");
         }
 
-        LocalDateTime now = LocalDateTime.now();
-        insertMessage(userNum, "USER", cleanContent, now, safeIp);
+        insertMessage(userNum, "USER", cleanContent, safeIp);
 
         return ResultBody.createSuccessResult(getMessages(userNum));
     }
@@ -344,13 +343,12 @@ public class Z_LULU_ServiceImpl implements Z_LULU_Service {
         callService.callFunOneParams(FunToUrlUtil.exeSqlUrl, "sql", updateSql);
     }
 
-    private void insertMessage(Long userNum, String senderType, String content, LocalDateTime createTime, String ipAddress) {
+    private void insertMessage(Long userNum, String senderType, String content, String ipAddress) {
         String insertSql = String.format(
-                "INSERT INTO z_lulu_message (USER_NUM, SENDER_TYPE, CONTENT, CREATE_TIME, IP_ADDRESS) VALUES ('%s', '%s', '%s', '%s', '%s')",
+                "INSERT INTO z_lulu_message (USER_NUM, SENDER_TYPE, CONTENT, IP_ADDRESS) VALUES ('%s', '%s', '%s', '%s')",
                 userNum,
                 escapeSql(senderType),
                 escapeSql(content),
-                createTime.format(DB_TIME_FORMATTER),
                 escapeSql(ipAddress)
         );
         callService.callFunOneParams(FunToUrlUtil.exeSqlUrl, "sql", insertSql);
@@ -362,8 +360,8 @@ public class Z_LULU_ServiceImpl implements Z_LULU_Service {
         String browser = parseBrowser(safeUserAgent);
         String deviceModel = parseDeviceModel(safeUserAgent);
         String insertSql = String.format(
-                "INSERT INTO z_lulu_log (USER_NUM, ACTION_TYPE, ACTION_NAME, IP_ADDRESS, BROWSER, DEVICE_MODEL, USER_AGENT, REMARK, CREATE_TIME) " +
-                        "VALUES ('%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')",
+                "INSERT INTO z_lulu_log (USER_NUM, ACTION_TYPE, ACTION_NAME, IP_ADDRESS, BROWSER, DEVICE_MODEL, USER_AGENT, REMARK) " +
+                        "VALUES ('%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')",
                 userNum,
                 escapeSql(actionType),
                 escapeSql(actionName),
@@ -371,8 +369,7 @@ public class Z_LULU_ServiceImpl implements Z_LULU_Service {
                 escapeSql(browser),
                 escapeSql(deviceModel),
                 escapeSql(limitLength(safeUserAgent, 500)),
-                escapeSql(remark),
-                LocalDateTime.now().format(DB_TIME_FORMATTER)
+                escapeSql(remark)
         );
         callService.callFunOneParams(FunToUrlUtil.exeSqlUrl, "sql", insertSql);
     }
