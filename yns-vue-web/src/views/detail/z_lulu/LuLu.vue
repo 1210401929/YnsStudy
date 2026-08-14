@@ -286,6 +286,10 @@ const luluImages = {
   idleHoodie: img('lulu_fadai_hoodie.png'),
   idleOveralls: img('lulu_fadai_overalls.png'),
   idleScarf: img('lulu_fadai_scarf.png'),
+  idleCrossbody: img('lulu_fadai_crossbody.png'),
+  idlePajamas: img('lulu_fadai_pajamas.png'),
+  idleGreenpants: img('lulu_fadai_greenpants.png'),
+  idleGreenpantsPuffer: img('lulu_fadai_greenpants_puffer.png'),
   touch: img('lulu_touch.png'),
   bath: img('lulu_bath.png'),
   music: img('lulu_music.png'),
@@ -347,7 +351,11 @@ const accessoryModes = [
   { name: '初始衣服', image: luluImages.idle },
   { name: '蓝色卫衣', image: luluImages.idleHoodie },
   { name: '绿色背带裤', image: luluImages.idleOveralls },
-  { name: '红围巾套装', image: luluImages.idleScarf }
+  { name: '红围巾套装', image: luluImages.idleScarf },
+  { name: '斜挎小包', image: luluImages.idleCrossbody },
+  { name: '睡衣噜', image: luluImages.idlePajamas },
+  { name: '绿裤衩噜', image: luluImages.idleGreenpants },
+  { name: '河豚包噜', image: luluImages.idleGreenpantsPuffer }
 ];
 
 const missionPool = [
@@ -952,6 +960,7 @@ onBeforeUnmount(() => {
 <style scoped>
 .lulu-viewport {
   width: 100%;
+  height: 100vh;
   min-height: 100vh;
   display: grid;
   grid-template-columns: minmax(0, 1fr) 360px;
@@ -962,6 +971,7 @@ onBeforeUnmount(() => {
 
 .lulu-stage {
   position: relative;
+  height: 100vh;
   min-height: 100vh;
   display: grid;
   grid-template-rows: auto minmax(360px, 1fr) auto;
@@ -1389,11 +1399,14 @@ onBeforeUnmount(() => {
 .message-board {
   position: relative;
   z-index: 8;
-  min-height: 100vh;
+  height: 100vh;
+  min-height: 0;
   padding: 24px 22px;
   display: flex;
   flex-direction: column;
   gap: 16px;
+  overflow: hidden;
+  box-sizing: border-box;
   background: rgba(255, 255, 255, 0.76);
   border-left: 1px solid rgba(255, 255, 255, 0.9);
   box-shadow: -18px 0 42px rgba(36, 44, 58, 0.08);
@@ -2002,11 +2015,13 @@ onBeforeUnmount(() => {
 
 @media (max-width: 1180px) {
   .lulu-viewport {
+    height: auto;
     grid-template-columns: 1fr;
     overflow: auto;
   }
 
   .lulu-stage {
+    height: auto;
     min-height: 780px;
   }
 
@@ -2022,7 +2037,9 @@ onBeforeUnmount(() => {
   }
 
   .message-board {
+    height: auto;
     min-height: 420px;
+    overflow: visible;
     border-left: none;
     border-top: 1px solid rgba(255, 255, 255, 0.9);
   }

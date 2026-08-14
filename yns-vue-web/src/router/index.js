@@ -27,10 +27,10 @@ const routes = [
     //后台管理
     {path:'/sso' ,name:'sso',component: sso},
     //根路径重定向到welcome
-    {path: '/', redirect: '/welcome'},
-    //{path: '/', name: 'Welcome', component: Welcome},
+    //{path: '/', redirect: '/welcome'},
+    {path: '/', name: 'Welcome', component: Welcome},
     //欢迎页面
-    {path: '/welcome', name: 'Welcome', component: Welcome},
+    {path: '/welcome', name: 'WelcomePage', component: Welcome},
     //个人信息
     {path: '/personalCenter', name: 'personalCenter', component: personalCenter},
     //账号主页   u为传递的参数

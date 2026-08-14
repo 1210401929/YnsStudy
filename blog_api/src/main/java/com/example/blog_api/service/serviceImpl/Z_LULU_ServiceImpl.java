@@ -198,7 +198,7 @@ public class Z_LULU_ServiceImpl implements Z_LULU_Service {
         Map<String, Object> funState = getOrCreateFunState(userNum);
         refreshFunStateForToday(funState);
         int currentIndex = getInt(funState, "CLOTHES_INDEX", "clothesIndex", 0);
-        funState.put("CLOTHES_INDEX", (currentIndex + 1) % 4);
+        funState.put("CLOTHES_INDEX", currentIndex + 1);
         updateFunStateInDb(funState);
         return buildFunStateResult(funState);
     }
