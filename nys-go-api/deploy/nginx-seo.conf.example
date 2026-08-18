@@ -1,0 +1,49 @@
+# 将下面几段放进 ynsstudy.cn 对应的 server { ... }，并置于通用 location / 之前。
+# Vue 静态目录示例；必须与 config.yaml 的 seo.frontend_index_file 指向同一个 dist。
+root /usr/share/nginx/html;
+
+# 首页首个 HTML 由 Go 输出站点介绍和最新文章真实链接，随后仍由 Vue 接管。
+location = / {
+    proxy_pass http://127.0.0.1:8889;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+}
+
+# 文章详情首个 HTML 交给 Go 动态生成。Go 会把真实文章注入 Vue 的 index.html，
+# 浏览器随后继续加载原 Vue 资源，现有评论、点赞、登录等交互不受影响。
+location ~ ^/oneBlog/[^/]+/?$ {
+    proxy_pass http://127.0.0.1:8889;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+}
+
+# 动态 sitemap 和 RSS 都由 Go 从数据库实时生成，新文章无需重新打包 Vue。
+location = /sitemap.xml {
+    proxy_pass http://127.0.0.1:8889;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-Proto $scheme;
+}
+
+location = /rss.xml {
+    proxy_pass http://127.0.0.1:8889;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-Proto $scheme;
+}
+
+# robots.txt 已随 Vue dist 发布，直接由 Nginx 返回即可。
+location = /robots.txt {
+    try_files /robots.txt =404;
+}
+
+# 保留现有 RSS 预览页面，但明确禁止它参与搜索结果竞争。
+location = /rss {
+    add_header X-Robots-Tag "noindex, follow" always;
+    try_files /index.html =404;
+}
+
+# 你原有的 /api/ 反向代理配置继续保留。
+# 通用 Vue History 路由仍然使用：try_files $uri $uri/ /index.html;

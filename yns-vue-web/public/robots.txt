@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /blog-api/
+Disallow: /sso
+Disallow: /personalCenter
+Disallow: /ynsStudy/MyBlog/content
+
+Sitemap: https://ynsstudy.cn/sitemap.xml

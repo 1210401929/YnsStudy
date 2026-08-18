@@ -5,3 +5,7 @@ secret.yml
 笔记(禁止上传git).txt
 #后台相关配置信息
 common_api/src/main/java/com/example/common_api/config/
+#-----------------Go-------------------
+nys-go-api/config/*
+# 编译产物
+nys-go-api/dist/*
