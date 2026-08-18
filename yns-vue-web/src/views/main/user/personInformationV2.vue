@@ -84,7 +84,7 @@
                       @click="blogMainClick(article)"
                   >
                     <span class="pill-idx">{{ index + 1 }}</span>
-                    <span class="pill-text">{{ article.BLOG_TITLE }}</span>
+                    <a :href="'/oneBlog/' + article.GUID" @click.prevent class="pill-text seo-article-link">{{ article.BLOG_TITLE }}</a>
                   </div>
                 </div>
               </div>
@@ -117,7 +117,13 @@
                       <span class="meta-date">{{ formatDate(blog.CREATE_TIME) }}</span>
                     </div>
                     <div class="card-body" @click="blogMainClick(blog)">
-                      <h3 class="article-title">{{ blog.BLOG_TITLE }}</h3>
+                      <a
+                          v-if="blog.TYPE === 'blog'"
+                          :href="'/oneBlog/' + blog.GUID"
+                          @click.prevent
+                          class="seo-article-link"
+                      ><h3 class="article-title">{{ blog.BLOG_TITLE }}</h3></a>
+                      <h3 v-else class="article-title">{{ blog.BLOG_TITLE }}</h3>
                       <p class="article-desc" v-html="stripImages(blog.MAINTEXT)"></p>
                     </div>
                   </div>

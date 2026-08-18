@@ -84,15 +84,29 @@ import { ref, onMounted } from 'vue';
 import { ElMessage } from 'element-plus';
 import { Compass, ArrowRight, CopyDocument, Refresh, Calendar } from '@element-plus/icons-vue';
 import { getSendAxiosUrl } from "@/utils/common.js";
+import {useHead} from '@vueuse/head';
 
 const rssList = ref([]);
 const loading = ref(true);
-const rssUrl = window.location.origin + getSendAxiosUrl('/blog-api/home/rss.xml');
+const rssUrl = `${window.location.origin}/rss.xml`;
+const rssFetchUrl = import.meta.env.DEV
+    ? getSendAxiosUrl('/blog-api/home/rss.xml')
+    : '/rss.xml';
+
+// 这是给访客使用的订阅预览页，不应与每篇文章争夺搜索结果。
+useHead({
+  title: 'RSS 订阅 - YnsStudy',
+  meta: [
+    {name: 'description', content: '订阅 YnsStudy 的最新博客文章。'},
+    {name: 'robots', content: 'noindex,follow'}
+  ],
+  link: [{rel: 'alternate', type: 'application/rss+xml', title: 'YnsStudy RSS', href: rssUrl}]
+});
 
 const fetchRss = async () => {
   loading.value = true;
   try {
-    const response = await fetch(getSendAxiosUrl('/blog-api/home/rss.xml'));
+    const response = await fetch(rssFetchUrl);
     const xmlText = await response.text();
     const parser = new DOMParser();
     const xmlDoc = parser.parseFromString(xmlText, "text/xml");

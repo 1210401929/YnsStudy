@@ -46,7 +46,7 @@
         <h2>使用技术</h2>
         <ul>
           <li>前端：Vue 3 + Element Plus</li>
-          <li>后端：Spring Cloud + MyBatis...</li>
+          <li>后端：Go (2026年8月弃用Spring Cloud + MyBatis)</li>
           <li>数据库：MySQL + Redis</li>
           <li>存储：本地 / 云端</li>
         </ul>

@@ -90,7 +90,7 @@
                     <div class="blog-card" @click="blogMainClick(blog)">
                       <a
                           v-if="blog.TYPE === 'blog'"
-                          :href="'/user/'+route.params.u+'/' + blog.GUID"
+                          :href="'/oneBlog/' + blog.GUID"
                           @click.prevent
                           class="seo-link"
                       >
@@ -186,7 +186,7 @@
                     :title="article.BLOG_TITLE"
                     @click="blogMainClick(article)"
                 >
-                  <a :href="'/user/'+route.params.u+'/' + article.GUID" @click.prevent class="seo-link seo-recent-link">
+                  <a :href="'/oneBlog/' + article.GUID" @click.prevent class="seo-link seo-recent-link">
                     <span style="font-weight: bold;color:rgba(0,0,0,0.5)">{{(index+1) + "："}}</span> {{article.BLOG_TITLE }}
                   </a>
                 </li>

@@ -20,7 +20,13 @@
                 <div class="blog-rank" :class="'rank-' + (index + 1)">{{ index + 1 }}</div>
 
                 <div class="blog-content">
-                  <a class="blog-title" :title="blog.BLOG_TITLE">{{ blog.BLOG_TITLE }}</a>
+                  <router-link
+                      class="blog-title"
+                      :title="blog.BLOG_TITLE"
+                      :to="{name: 'oneBlog', params: {g: blog.GUID}}"
+                      target="_blank"
+                      @click.stop
+                  >{{ blog.BLOG_TITLE }}</router-link>
                   <div class="blog-meta">
                     <span class="author-name">{{ blog.USERNAME }}</span>
                     <div class="stats">
@@ -97,12 +103,24 @@
 
               <div class="article-body">
                 <div class="article-main">
-                  <h3 class="article-title">{{ article.BLOG_TITLE }}</h3>
+                  <h3 class="article-title">
+                    <router-link
+                        :to="{name: 'oneBlog', params: {g: article.GUID}}"
+                        target="_blank"
+                        @click.stop
+                    >{{ article.BLOG_TITLE }}</router-link>
+                  </h3>
                   <p class="article-content" v-html="stripImages(article.MAINTEXT)"></p>
                 </div>
 
                 <div v-if="article.ILLUSTRATION" class="article-image">
-                  <img :src="article.ILLUSTRATION" alt="文章插图" class="article-thumbnail"/>
+                  <img
+                      :src="article.ILLUSTRATION"
+                      :alt="`${article.BLOG_TITLE} 的文章配图`"
+                      class="article-thumbnail"
+                      loading="lazy"
+                      decoding="async"
+                  />
                 </div>
               </div>
             </div>
@@ -414,6 +432,7 @@ setTopAlert();
   line-height: 1.6;
   transition: color 0.2s ease;
   margin-bottom: 10px;
+  text-decoration: none;
 }
 .blog-item:hover .blog-title {
   color: #165dff;
@@ -561,6 +580,13 @@ setTopAlert();
   word-wrap: break-word;
   word-break: break-all;
   white-space: normal;
+}
+.article-title a {
+  color: inherit;
+  text-decoration: none;
+}
+.article-title a:hover {
+  color: #165dff;
 }
 .article-content {
   margin: 0;

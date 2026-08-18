@@ -16,10 +16,12 @@
               v-for="item in listData"
               :key="item.GUID"
               class="modern-card blog-card"
-              @click="$emit('item-click', item)"
+            @click="$emit('item-click', item)"
           >
             <div class="blog-card-content">
-              <h4 class="blog-title">{{ item.BLOG_TITLE }}</h4>
+              <a :href="'/oneBlog/' + item.GUID" @click.prevent class="seo-article-link">
+                <h4 class="blog-title">{{ item.BLOG_TITLE }}</h4>
+              </a>
               <div class="blog-meta">
                 <span class="meta-item author">
                   <span class="meta-dot"></span>

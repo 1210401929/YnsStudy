@@ -25,7 +25,8 @@
         </div>
 
         <div class="article-header">
-          <h2>{{ blogContent.BLOG_TITLE }}</h2>
+          <h1 v-if="route.name === 'oneBlog'">{{ blogContent.BLOG_TITLE }}</h1>
+          <h2 v-else>{{ blogContent.BLOG_TITLE }}</h2>
           <div style="display: flex; gap: 8px;">
             <el-button size="small" type="primary" plain @click="openOneBlog"
                        v-if="route.name!=='oneBlog'">
@@ -356,7 +357,7 @@ const showMainGuestForm = computed(() => {
   return !Object.values(replyInputVisible.value).some(visible => visible === true);
 });
 
-const emit = defineEmits(['loaded'])
+const emit = defineEmits(['loaded', 'not-found'])
 
 const showCommentFun = () => {
   showComment.value = !showComment.value;
@@ -401,6 +402,7 @@ const loadContentAndComments = async (guid) => {
     blogContent.value = result.result[0];
   } else {
     ElMessage.error("该文章为私密或已删除");
+    emit('not-found');
     return false;
   }
 
@@ -430,10 +432,6 @@ const loadContentAndComments = async (guid) => {
   isChildrenVisible.value = {};
 };
 
-watch(() => blogContent.value.MAINTEXT, () => {
-  generateToc();
-});
-
 const canEditOrDelete = computed(() => {
   if (!blogContent.value.USERCODE || !userStore.userBean?.code) return false;
   const currentUser = userStore.userBean;
@@ -449,9 +447,38 @@ let observer = null;
 
 const generateToc = () => {
   nextTick(() => {
-    const contentEl = document.querySelector('.editor-container');
+    const layoutElement = layoutRowRef.value?.$el || layoutRowRef.value;
+    const contentEl = layoutElement?.querySelector?.('.editor-container');
     if (!contentEl) return;
-    const headings = contentEl.querySelectorAll('h1, h2, h3, h4');
+
+    // 详情页标题已经是唯一 H1；旧文章正文若含 H1，则降为 H2，保持语义层级正确。
+    if (route.name === 'oneBlog') {
+      contentEl.querySelectorAll('h1').forEach((heading) => {
+        const replacement = document.createElement('h2');
+        for (const attribute of heading.attributes) {
+          replacement.setAttribute(attribute.name, attribute.value);
+        }
+        while (heading.firstChild) replacement.appendChild(heading.firstChild);
+        heading.replaceWith(replacement);
+      });
+    }
+
+    // 为正文图片补充可理解的 alt，并延迟加载非首图，兼顾图片 SEO 与页面性能。
+    contentEl.querySelectorAll('img').forEach((image, index) => {
+      const alt = (image.getAttribute('alt') || '').trim();
+      if (!alt || /^image(?:\.[a-z0-9]+)?$/i.test(alt) || alt === '图片') {
+        image.setAttribute('alt', `${blogContent.value.BLOG_TITLE || '文章'} 配图 ${index + 1}`);
+      }
+      image.setAttribute('decoding', 'async');
+      if (index === 0) {
+        image.setAttribute('loading', 'eager');
+        image.setAttribute('fetchpriority', 'high');
+      } else {
+        image.setAttribute('loading', 'lazy');
+      }
+    });
+
+    const headings = contentEl.querySelectorAll('h2, h3, h4');
     const tempToc = [];
     headings.forEach((el, index) => {
       const titleId = `toc-anchor-${index}`;

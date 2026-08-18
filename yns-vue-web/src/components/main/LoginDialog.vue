@@ -102,6 +102,22 @@
               📱 手机号登录
             </a>
           </div>
+
+          <div class="third-party-divider">
+            <span>其他登录方式</span>
+          </div>
+
+          <el-button
+              class="qq-login-button"
+              :loading="qqLoginLoading"
+              @click="onQQLogin"
+          >
+            <span v-if="!qqLoginLoading">
+              <svg data-v-cea4a05e="" width="26" height="26" viewBox="0 0 24 24" fill="#50C8FD"><path data-v-cea4a05e="" fill-rule="evenodd" d="M12.003 2c-2.265 0-6.29 1.364-6.29 7.325v1.195S3.55 14.96 3.55 17.474c0 .665.17 1.025.281 1.025.114 0 .902-.483 1.748-2.072 0 0-.18 2.197 1.904 3.967 0 0-1.77.495-1.77 1.182 0 .686 4.078.43 6.29 0 2.239.425 6.288.687 6.288 0 0-.688-1.77-1.182-1.77-1.182 2.086-1.77 1.906-3.967 1.906-3.967.845 1.588 1.634 2.072 1.746 2.072.111 0 .283-.36.283-1.025 0-2.514-2.165-6.954-2.165-6.954V9.325C18.29 3.364 14.268 2 12.003 2Z"></path></svg>
+            </span>
+            <span>{{ qqLoginLoading ? '正在打开 QQ 授权…' : '使用 QQ 登录' }}</span>
+          </el-button>
+          <p class="qq-login-tip">首次使用将自动创建本站账号</p>
         </el-form>
       </el-dialog>
     </teleport>
@@ -244,10 +260,10 @@
 </template>
 
 <script setup>
-import {ref} from 'vue';
+import {onBeforeUnmount, onMounted, ref} from 'vue';
 import {useRouter} from "vue-router";
 import {ElMessage} from 'element-plus';
-import {getCurrentUserAdminObject, pubFormatDate, sendAxiosRequest} from '@/utils/common.js';
+import {getCurrentUserAdminObject, getSendAxiosUrl, pubFormatDate, sendAxiosRequest} from '@/utils/common.js';
 import {useUserStore} from '@/stores/main/user.js';
 import {User, Bell} from '@element-plus/icons-vue';
 
@@ -280,6 +296,10 @@ const visible = ref(false);
 const phoneLoginVisible = ref(false);
 const countdown = ref(0);
 let timer = null;
+const qqLoginLoading = ref(false);
+let qqLoginWindow = null;
+let qqWindowTimer = null;
+let qqLoginOrigin = null;
 
 const userStore = useUserStore();
 userStore.initFromLocal();
@@ -320,6 +340,75 @@ const onLogin = async () => {
     ElMessage.error('表单验证未通过');
   }
 };
+
+const clearQQWindowTimer = () => {
+  if (qqWindowTimer) {
+    clearInterval(qqWindowTimer);
+    qqWindowTimer = null;
+  }
+};
+
+const onQQLogin = () => {
+  const width = 620;
+  const height = 560;
+  const left = Math.max(0, window.screenX + (window.outerWidth - width) / 2);
+  const top = Math.max(0, window.screenY + (window.outerHeight - height) / 2);
+  const authorizeUrl = new URL(
+      getSendAxiosUrl('/pub-api/login/qq/authorize'),
+      window.location.origin
+  ).href;
+  qqLoginOrigin = new URL(authorizeUrl).origin;
+
+  qqLoginWindow = window.open(
+      authorizeUrl,
+      'NYSQQLogin',
+      `width=${width},height=${height},left=${Math.round(left)},top=${Math.round(top)},menubar=0,toolbar=0,location=1,resizable=1,scrollbars=1,status=0`
+  );
+  if (!qqLoginWindow) {
+    ElMessage.warning('浏览器拦截了QQ登录窗口，请允许本站弹出窗口后重试');
+    return;
+  }
+
+  qqLoginLoading.value = true;
+  qqLoginWindow.focus();
+  clearQQWindowTimer();
+  qqWindowTimer = setInterval(() => {
+    if (!qqLoginWindow || qqLoginWindow.closed) {
+      qqLoginLoading.value = false;
+      qqLoginWindow = null;
+      qqLoginOrigin = null;
+      clearQQWindowTimer();
+    }
+  }, 500);
+};
+
+const handleQQLoginMessage = (event) => {
+  if (event.origin !== qqLoginOrigin || event.source !== qqLoginWindow) return;
+  const message = event.data;
+  if (!message || message.type !== 'nys:qq-login') return;
+
+  qqLoginLoading.value = false;
+  clearQQWindowTimer();
+  if (qqLoginWindow && !qqLoginWindow.closed) qqLoginWindow.close();
+  qqLoginWindow = null;
+  qqLoginOrigin = null;
+
+  if (!message.success || !message.payload) {
+    ElMessage.error(message.message || 'QQ登录失败，请稍后重试');
+    return;
+  }
+
+  userStore.setUser(message.payload);
+  visible.value = false;
+  ElMessage.success('QQ登录成功！');
+  window.setTimeout(() => location.reload(), 300);
+};
+
+onMounted(() => window.addEventListener('message', handleQQLoginMessage));
+onBeforeUnmount(() => {
+  window.removeEventListener('message', handleQQLoginMessage);
+  clearQQWindowTimer();
+});
 
 
 // 手机号登录
@@ -485,6 +574,65 @@ const submitRegister = async () => {
 .custom-dialog .el-dialog {
   top: 50% !important;
   transform: translateY(-50%);
+}
+
+.third-party-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 18px 0 14px;
+  color: #98a2ad;
+  font-size: 13px;
+}
+
+.third-party-divider::before,
+.third-party-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: #ebeef2;
+}
+
+.qq-login-button {
+  width: 100%;
+  height: 42px;
+  border-color: rgba(18, 183, 245, 0.38);
+  background: linear-gradient(135deg, #f3fbff, #eaf8ff);
+  color: #087cad;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.qq-login-button:hover,
+.qq-login-button:focus {
+  color: #087cad;
+  border-color: #12b7f5;
+  background: linear-gradient(135deg, #edfaff, #ddf5ff);
+  box-shadow: 0 8px 20px rgba(18, 183, 245, 0.18);
+  transform: translateY(-1px);
+}
+
+.qq-login-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  margin-right: 8px;
+  border-radius: 8px;
+  background: #12b7f5;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.qq-login-tip {
+  margin: 9px 0 0;
+  text-align: center;
+  color: #a1a9b3;
+  font-size: 12px;
 }
 
 .dropdown-avatar {

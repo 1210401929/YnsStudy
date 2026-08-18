@@ -51,7 +51,15 @@
                       class="custom-tag">
                 {{ blog.BLOG_TYPE === "public" ? "公" : "私" }}
               </el-tag>
-              <span class="blog-title-text" :title="blog.BLOG_TITLE">{{ blog.BLOG_TITLE }}</span>
+              <router-link
+                  v-if="blog.BLOG_TYPE === 'public'"
+                  class="blog-title-text"
+                  :title="blog.BLOG_TITLE"
+                  :to="{name: 'oneBlog', params: {g: blog.GUID}}"
+                  target="_blank"
+                  @click.stop
+              >{{ blog.BLOG_TITLE }}</router-link>
+              <span v-else class="blog-title-text" :title="blog.BLOG_TITLE">{{ blog.BLOG_TITLE }}</span>
             </el-menu-item>
           </el-sub-menu>
 
@@ -66,7 +74,15 @@
                     class="custom-tag">
               {{ blog.BLOG_TYPE === "public" ? "公" : "私" }}
             </el-tag>
-            <span class="blog-title-text" :title="blog.BLOG_TITLE">{{ blog.BLOG_TITLE }}</span>
+            <router-link
+                v-if="blog.BLOG_TYPE === 'public'"
+                class="blog-title-text"
+                :title="blog.BLOG_TITLE"
+                :to="{name: 'oneBlog', params: {g: blog.GUID}}"
+                target="_blank"
+                @click.stop
+            >{{ blog.BLOG_TITLE }}</router-link>
+            <span v-else class="blog-title-text" :title="blog.BLOG_TITLE">{{ blog.BLOG_TITLE }}</span>
           </el-menu-item>
         </el-sub-menu>
 
@@ -88,7 +104,15 @@
                     class="custom-tag">
               {{ blog.BLOG_TYPE === "public" ? "公" : "私" }}
             </el-tag>
-            <span class="blog-title-text" :title="blog.BLOG_TITLE">{{ blog.BLOG_TITLE }}</span>
+            <router-link
+                v-if="blog.BLOG_TYPE === 'public'"
+                class="blog-title-text"
+                :title="blog.BLOG_TITLE"
+                :to="{name: 'oneBlog', params: {g: blog.GUID}}"
+                target="_blank"
+                @click.stop
+            >{{ blog.BLOG_TITLE }}</router-link>
+            <span v-else class="blog-title-text" :title="blog.BLOG_TITLE">{{ blog.BLOG_TITLE }}</span>
           </el-menu-item>
         </el-sub-menu>
       </el-menu>
@@ -561,6 +585,8 @@ onBeforeUnmount(() => window.removeEventListener('click', closeContextMenu))
   text-overflow: ellipsis;
   flex: 1;
   font-size: 13px;
+  color: inherit;
+  text-decoration: none;
 }
 
 .custom-tag {
