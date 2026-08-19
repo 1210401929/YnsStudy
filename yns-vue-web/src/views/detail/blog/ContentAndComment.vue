@@ -722,6 +722,15 @@ function getCommenterPayload() {
   }
 }
 
+function getCommentNotificationUrl() {
+  return router.resolve({name: 'oneBlog', params: {g: contentGuid.value}}).href;
+}
+
+function isLoggedInCommentUser(comment) {
+  const userCode = String(comment?.USERCODE || '').trim();
+  return userCode !== '' && !userCode.toLowerCase().startsWith('guest_');
+}
+
 async function submitComment() {
   const value = newComment.value.trim();
   if (!value) {
@@ -743,6 +752,13 @@ async function submitComment() {
   if(result && !result.isError){
     blogComment.value.unshift(oneComment);
     ElMessage.success("评论发表成功！");
+    sendNotifications(
+        userPayload.code,
+        blogContent.value.USERCODE,
+        "comment",
+        getCommentNotificationUrl(),
+        `${userPayload.name}评论了你的文章《${blogContent.value.BLOG_TITLE}》`
+    );
   }else{
     ElMessage.error(result?.errMsg || "发表评论出错");
   }
@@ -785,6 +801,15 @@ async function submitReply(parentGuid) {
     if(result && !result.isError){
       parentComment.children.push(oneComment);
       ElMessage.success("回复成功！");
+      if (isLoggedInCommentUser(targetUser)) {
+        sendNotifications(
+            userPayload.code,
+            targetUser.USERCODE,
+            "comment",
+            getCommentNotificationUrl(),
+            `${userPayload.name}回复了你在文章《${blogContent.value.BLOG_TITLE}》下的评论`
+        );
+      }
     }else{
       ElMessage.error(result?.errMsg || "回复失败");
     }
