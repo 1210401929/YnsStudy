@@ -48,11 +48,15 @@ func TestQQAuthorizationURLStoresState(t *testing.T) {
 
 func TestParseQQAccessTokenSupportsJSONAndQueryString(t *testing.T) {
 	jsonResponse, err := parseQQAccessToken([]byte(`{"access_token":"json-token","expires_in":3600}`))
-	if err != nil || jsonResponse.AccessToken != "json-token" {
+	if err != nil || jsonResponse.AccessToken != "json-token" || int(jsonResponse.ExpiresIn) != 3600 {
 		t.Fatalf("解析 JSON Token 失败: %#v, %v", jsonResponse, err)
 	}
+	stringJSONResponse, err := parseQQAccessToken([]byte(`{"access_token":"string-json-token","expires_in":"7776000"}`))
+	if err != nil || stringJSONResponse.AccessToken != "string-json-token" || int(stringJSONResponse.ExpiresIn) != 7776000 {
+		t.Fatalf("解析字符串有效期的 JSON Token 失败: %#v, %v", stringJSONResponse, err)
+	}
 	queryResponse, err := parseQQAccessToken([]byte("access_token=query-token&expires_in=3600&refresh_token=refresh"))
-	if err != nil || queryResponse.AccessToken != "query-token" {
+	if err != nil || queryResponse.AccessToken != "query-token" || int(queryResponse.ExpiresIn) != 3600 {
 		t.Fatalf("解析 QueryString Token 失败: %#v, %v", queryResponse, err)
 	}
 }

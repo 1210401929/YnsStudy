@@ -23,14 +23,40 @@ import (
 
 const qqOAuthStatePrefix = "oauth:qq:state:"
 
+// QQ 的 expires_in 在不同响应格式中可能是 JSON 数字或 JSON 字符串。
+// 使用自定义类型统一兼容两种形式，避免一个未参与登录逻辑的有效期字段
+// 导致整个 Access Token 响应解析失败。
+type qqFlexibleInt int
+
+func (value *qqFlexibleInt) UnmarshalJSON(data []byte) error {
+	raw := strings.TrimSpace(string(data))
+	if raw == "" || raw == "null" || raw == `""` {
+		*value = 0
+		return nil
+	}
+	if strings.HasPrefix(raw, `"`) {
+		var text string
+		if err := json.Unmarshal(data, &text); err != nil {
+			return err
+		}
+		raw = strings.TrimSpace(text)
+	}
+	parsed, err := strconv.Atoi(raw)
+	if err != nil {
+		return fmt.Errorf("解析整数 %q: %w", raw, err)
+	}
+	*value = qqFlexibleInt(parsed)
+	return nil
+}
+
 type qqAccessTokenResponse struct {
-	AccessToken      string `json:"access_token"`
-	ExpiresIn        int    `json:"expires_in"`
-	RefreshToken     string `json:"refresh_token"`
-	Error            int    `json:"error"`
-	ErrorDescription string `json:"error_description"`
-	Code             int    `json:"code"`
-	Message          string `json:"msg"`
+	AccessToken      string        `json:"access_token"`
+	ExpiresIn        qqFlexibleInt `json:"expires_in"`
+	RefreshToken     string        `json:"refresh_token"`
+	Error            int           `json:"error"`
+	ErrorDescription string        `json:"error_description"`
+	Code             int           `json:"code"`
+	Message          string        `json:"msg"`
 }
 
 type qqOpenIDResponse struct {
@@ -281,20 +307,27 @@ VALUES (?, ?, ?, ?, ?, '1', ?, ?)`, guid, userCode, name, hashedPassword, salt, 
 
 func parseQQAccessToken(body []byte) (qqAccessTokenResponse, error) {
 	var response qqAccessTokenResponse
-	if decodeQQJSON(body, &response) == nil && (response.AccessToken != "" || response.Error != 0 || response.Code != 0) {
-		return response, nil
+	jsonErr := decodeQQJSON(body, &response)
+	if jsonErr == nil {
+		if response.AccessToken != "" || response.Error != 0 || response.Code != 0 {
+			return response, nil
+		}
+		return response, fmt.Errorf("QQ Access Token JSON响应缺少 access_token 或错误码")
 	}
 	values, err := url.ParseQuery(strings.TrimSpace(string(body)))
 	if err != nil {
-		return response, fmt.Errorf("解析QQ Access Token响应: %w", err)
+		return response, fmt.Errorf("解析QQ Access Token响应失败（JSON: %v；QueryString: %w）", jsonErr, err)
 	}
 	response.AccessToken = values.Get("access_token")
 	response.RefreshToken = values.Get("refresh_token")
-	response.ExpiresIn, _ = strconv.Atoi(values.Get("expires_in"))
+	expiresIn, _ := strconv.Atoi(values.Get("expires_in"))
+	response.ExpiresIn = qqFlexibleInt(expiresIn)
 	response.Error, _ = strconv.Atoi(values.Get("error"))
 	response.ErrorDescription = values.Get("error_description")
-	if response.AccessToken == "" && response.Error == 0 {
-		return response, fmt.Errorf("QQ Access Token响应格式异常")
+	response.Code, _ = strconv.Atoi(values.Get("code"))
+	response.Message = values.Get("msg")
+	if response.AccessToken == "" && response.Error == 0 && response.Code == 0 {
+		return response, fmt.Errorf("QQ Access Token响应格式异常（%v）", jsonErr)
 	}
 	return response, nil
 }
