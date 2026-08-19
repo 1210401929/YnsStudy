@@ -113,13 +113,20 @@ func (s *Service) completeLogin(c *gin.Context, user model.User) model.Result {
 }
 
 func (s *Service) CheckUserLogin(c *gin.Context) model.Result {
-	user, err := s.CurrentUser(c)
+	user, err := s.Sessions.Get(c)
 	if err != nil {
 		return model.Failure("未登录!")
 	}
-	token, tokenErr := s.JWT.Generate(user.GUID)
-	if tokenErr != nil {
-		return model.Failure("生成Token失败")
+	// 登录状态检查只验证登录时签发的 Token，不再生成新 Token。
+	// 因此刷新页面和普通访问不会把过期时间不断向后延长。
+	token := strings.TrimSpace(c.GetHeader("Authorization"))
+	if strings.HasPrefix(strings.ToLower(token), "bearer ") {
+		token = strings.TrimSpace(token[7:])
+	}
+	subject, tokenErr := s.JWT.Verify(token)
+	if tokenErr != nil || subject != user.GUID {
+		_ = s.Sessions.Destroy(c)
+		return model.Failure("登录已过期，请重新登录!")
 	}
 	return model.Success(map[string]any{"userToken": token, "user": user.Public()})
 }

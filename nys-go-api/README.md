@@ -11,6 +11,10 @@
 
 所有运行参数统一放在 `config/config.yaml`，包括服务端口、MySQL、Redis、JWT、AES、通用密码、QQ 登录、上传目录、短信、地图和 AI 配置。默认从该路径加载；如需使用另一个配置文件，只设置 `NYS_CONFIG` 为文件路径即可。
 
+Docker 部署时 `database.location` 必须保持为 `Asia/Shanghai`。Go 会把数据库时间解析、接口 JSON、RSS、SEO 和进程本地时间统一为北京时间，不依赖容器是否安装系统时区数据。
+
+登录有效期由 `security.jwt_expiration_seconds` 和 `security.session_expiration_seconds` 统一控制，默认都是 `3600` 秒（1 小时）。这是从登录时刻开始计算的绝对期限，检查登录、刷新页面和修改资料都不会续期；过期后必须重新登录。
+
 ### QQ 登录配置
 
 在 QQ 互联创建并审核“网站应用”后，填写 `qq_oauth.app_id` 和 `qq_oauth.app_key`，确认 `redirect_uri` 与 QQ 互联后台登记的回调地址完全一致，再将 `qq_oauth.enabled` 改为 `true`。默认生产回调地址为：

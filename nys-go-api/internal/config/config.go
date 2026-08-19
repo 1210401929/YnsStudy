@@ -184,6 +184,9 @@ func (c *Config) validate() error {
 	if c.Security.JWTSecret == "" || c.Security.InnerCallHeader == "" {
 		return fmt.Errorf("security.jwt_secret/inner_call_header 不能为空")
 	}
+	if c.Security.JWTExpirationSeconds <= 0 || c.Security.SessionExpirationSecond <= 0 {
+		return fmt.Errorf("security.jwt_expiration_seconds/session_expiration_seconds 必须大于 0")
+	}
 	if c.QQOAuth.Enabled {
 		if strings.TrimSpace(c.QQOAuth.AppID) == "" || strings.TrimSpace(c.QQOAuth.AppKey) == "" {
 			return fmt.Errorf("启用 QQ 登录后 qq_oauth.app_id/app_key 不能为空")

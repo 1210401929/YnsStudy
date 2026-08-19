@@ -26,6 +26,13 @@ type Manager struct {
 	secure     bool
 }
 
+// record 把绝对过期时间和用户一起保存。即使 Cookie 或 Redis TTL 配置异常，
+// 服务端也不会接受超过 expiresAt 的会话。
+type record struct {
+	User      model.User `json:"user"`
+	ExpiresAt int64      `json:"expiresAt"`
+}
+
 func NewManager(store cache.Store, cfg config.SecurityConfig) *Manager {
 	return &Manager{
 		store:      store,
@@ -40,7 +47,8 @@ func (m *Manager) Create(c *gin.Context, user model.User) error {
 	if err != nil {
 		return err
 	}
-	value, err := json.Marshal(user)
+	expiresAt := time.Now().Add(m.ttl)
+	value, err := json.Marshal(record{User: user, ExpiresAt: expiresAt.Unix()})
 	if err != nil {
 		return fmt.Errorf("序列化会话: %w", err)
 	}
@@ -52,6 +60,7 @@ func (m *Manager) Create(c *gin.Context, user model.User) error {
 		Value:    id,
 		Path:     "/",
 		MaxAge:   int(m.ttl.Seconds()),
+		Expires:  expiresAt,
 		HttpOnly: true,
 		Secure:   m.secure,
 		SameSite: http.SameSiteLaxMode,
@@ -64,15 +73,17 @@ func (m *Manager) Get(c *gin.Context) (*model.User, error) {
 	if err != nil {
 		return nil, cache.ErrNotFound
 	}
-	value, err := m.store.Get(c.Request.Context(), sessionKeyPrefix+cookie.Value)
+	sessionRecord, err := m.read(c.Request.Context(), cookie.Value)
 	if err != nil {
+		m.expireCookie(c)
 		return nil, err
 	}
-	var user model.User
-	if err := json.Unmarshal([]byte(value), &user); err != nil {
-		return nil, fmt.Errorf("解析会话: %w", err)
+	if sessionRecord.ExpiresAt <= time.Now().Unix() {
+		_ = m.store.Delete(c.Request.Context(), sessionKeyPrefix+cookie.Value)
+		m.expireCookie(c)
+		return nil, cache.ErrNotFound
 	}
-	return &user, nil
+	return &sessionRecord.User, nil
 }
 
 func (m *Manager) Update(c *gin.Context, user model.User) error {
@@ -80,11 +91,18 @@ func (m *Manager) Update(c *gin.Context, user model.User) error {
 	if err != nil {
 		return m.Create(c, user)
 	}
-	value, err := json.Marshal(user)
+	sessionRecord, err := m.read(c.Request.Context(), cookie.Value)
+	if err != nil || sessionRecord.ExpiresAt <= time.Now().Unix() {
+		m.expireCookie(c)
+		return cache.ErrNotFound
+	}
+	sessionRecord.User = user
+	value, err := json.Marshal(sessionRecord)
 	if err != nil {
 		return err
 	}
-	return m.store.Set(c.Request.Context(), sessionKeyPrefix+cookie.Value, string(value), m.ttl)
+	remaining := time.Until(time.Unix(sessionRecord.ExpiresAt, 0))
+	return m.store.Set(c.Request.Context(), sessionKeyPrefix+cookie.Value, string(value), remaining)
 }
 
 func (m *Manager) Destroy(c *gin.Context) error {
@@ -96,8 +114,32 @@ func (m *Manager) Destroy(c *gin.Context) error {
 	} else if !errors.Is(err, http.ErrNoCookie) {
 		return err
 	}
-	http.SetCookie(c.Writer, &http.Cookie{Name: m.cookieName, Value: "", Path: "/", MaxAge: -1, HttpOnly: true, Secure: m.secure})
+	m.expireCookie(c)
 	return nil
+}
+
+func (m *Manager) read(ctx context.Context, id string) (record, error) {
+	value, err := m.store.Get(ctx, sessionKeyPrefix+id)
+	if err != nil {
+		return record{}, err
+	}
+	var sessionRecord record
+	if err := json.Unmarshal([]byte(value), &sessionRecord); err != nil {
+		return record{}, fmt.Errorf("解析会话: %w", err)
+	}
+	// 旧版本只保存 User，没有绝对过期时间。升级后将它视为失效，避免旧会话无限存活。
+	if sessionRecord.ExpiresAt <= 0 || sessionRecord.User.GUID == "" {
+		_ = m.store.Delete(ctx, sessionKeyPrefix+id)
+		return record{}, cache.ErrNotFound
+	}
+	return sessionRecord, nil
+}
+
+func (m *Manager) expireCookie(c *gin.Context) {
+	http.SetCookie(c.Writer, &http.Cookie{
+		Name: m.cookieName, Value: "", Path: "/", MaxAge: -1,
+		Expires: time.Unix(1, 0), HttpOnly: true, Secure: m.secure, SameSite: http.SameSiteLaxMode,
+	})
 }
 
 func randomID(size int) (string, error) {

@@ -13,6 +13,13 @@ func TestProjectConfigLoads(t *testing.T) {
 	if cfg.Server.Port != 8889 {
 		t.Fatalf("server.port = %d", cfg.Server.Port)
 	}
+	if cfg.Database.Location != "Asia/Shanghai" {
+		t.Fatalf("database.location = %q，Docker 部署必须显式使用 Asia/Shanghai", cfg.Database.Location)
+	}
+	const oneHour = 60 * 60
+	if cfg.Security.JWTExpirationSeconds != oneHour || cfg.Security.SessionExpirationSecond != oneHour {
+		t.Fatalf("登录有效期必须统一为 1 小时: jwt=%d session=%d", cfg.Security.JWTExpirationSeconds, cfg.Security.SessionExpirationSecond)
+	}
 	if !filepath.IsAbs(cfg.Upload.Directory) {
 		t.Fatalf("上传目录没有解析为绝对路径: %s", cfg.Upload.Directory)
 	}

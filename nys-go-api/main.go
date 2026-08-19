@@ -26,6 +26,13 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	appLocation, err := database.ResolveLocation(cfg.Database.Location)
+	if err != nil {
+		log.Fatal(err)
+	}
+	// Docker 容器的系统时区通常是 UTC。显式设置 Go 进程时区，保证接口、RSS、SEO
+	// 以及所有使用 time.Now/ParseInLocation 的业务都按同一北京时间工作。
+	time.Local = appLocation
 
 	db, err := database.ConnectMySQL(cfg.Database)
 	if err != nil {

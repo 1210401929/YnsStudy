@@ -16,26 +16,41 @@ export const useUserStore = defineStore('user', () => {
         localStorage.setItem('userToken', userToken);
     };
 
-    const clearUser = async () => {
-        await sendAxiosRequest('/pub-api/login/logout');
+    const resetLocalUser = () => {
         userBean.value = {};
+        userUnreadArr.value = [];
         localStorage.removeItem('userBean');
         localStorage.removeItem('userToken');
     };
 
-    const initFromLocal = async () => {
-        let result = await sendAxiosRequest('/pub-api/login/checkUserLogin');
-        if (result && result.result) {
-            setUser(result.result);
-            result = await sendAxiosRequest("/pub-api/notice/getNotice", {userCode: userBean.value.code});
-            userUnreadArr.value = result.result;
+    const clearUser = async () => {
+        try {
+            await sendAxiosRequest('/pub-api/login/logout');
+        } finally {
+            resetLocalUser();
         }
+    };
+
+    const initFromLocal = async () => {
+        try {
+            let result = await sendAxiosRequest('/pub-api/login/checkUserLogin');
+            if (result && result.result && !result.isError) {
+                setUser(result.result);
+                result = await sendAxiosRequest("/pub-api/notice/getNotice", {userCode: userBean.value.code});
+                userUnreadArr.value = result.result || [];
+                return;
+            }
+        } catch (error) {
+            console.warn('恢复登录状态失败:', error);
+        }
+        resetLocalUser();
     };
 
     return {
         userBean,
         userUnreadArr,
         setUser,
+        resetLocalUser,
         clearUser,
         initFromLocal
     };

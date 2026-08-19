@@ -35,6 +35,33 @@ export const getSendAxiosUrl = (url) => {
     return url;
 }
 
+let loginExpiredMessageShown = false;
+
+// 后端对过期 Token 返回 401 时立即清理本地登录信息，避免页面继续显示“已登录”。
+axios.interceptors.response.use(
+    response => response,
+    error => {
+        if (error?.response?.status === 401) {
+            const hadLogin = Boolean(localStorage.getItem('userToken') || localStorage.getItem('userBean'));
+            localStorage.removeItem('userToken');
+            localStorage.removeItem('userBean');
+            try {
+                useUserStore().resetLocalUser();
+            } catch (storeError) {
+                console.warn('清理过期登录状态失败:', storeError);
+            }
+            if (hadLogin && !loginExpiredMessageShown) {
+                loginExpiredMessageShown = true;
+                ElMessage.warning('登录已过期，请重新登录');
+                window.setTimeout(() => {
+                    loginExpiredMessageShown = false;
+                }, 3000);
+            }
+        }
+        return Promise.reject(error);
+    }
+);
+
 /**
  * 统一发送 Axios 请求，支持可选加密 / 解密
  *

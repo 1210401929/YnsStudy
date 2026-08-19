@@ -5,24 +5,34 @@ import (
 	"database/sql"
 	"fmt"
 	"time"
+	_ "time/tzdata"
 
 	"github.com/go-sql-driver/mysql"
 
 	"nys-go-api/internal/config"
 )
 
+// ResolveLocation 将配置中的时区名称解析成 Go 时区。
+// 项目内置 time/tzdata，因此即使 Docker 镜像没有安装 tzdata，Asia/Shanghai 仍然可用。
+func ResolveLocation(value string) (*time.Location, error) {
+	if value == "" || value == "Local" {
+		return time.Local, nil
+	}
+	location, err := time.LoadLocation(value)
+	if err != nil {
+		return nil, fmt.Errorf("加载数据库时区 %q: %w", value, err)
+	}
+	return location, nil
+}
+
 func ConnectMySQL(cfg config.DatabaseConfig) (*sql.DB, error) {
 	charset := cfg.Charset
 	if charset == "" {
 		charset = "utf8mb4"
 	}
-	location := time.Local
-	if cfg.Location != "" && cfg.Location != "Local" {
-		loaded, err := time.LoadLocation(cfg.Location)
-		if err != nil {
-			return nil, fmt.Errorf("加载数据库时区 %q: %w", cfg.Location, err)
-		}
-		location = loaded
+	location, err := ResolveLocation(cfg.Location)
+	if err != nil {
+		return nil, err
 	}
 
 	driverConfig := mysql.NewConfig()
