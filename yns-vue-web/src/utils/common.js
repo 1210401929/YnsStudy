@@ -88,7 +88,7 @@ export const sendAxiosRequest = async function (
         withCredentials: true,
         headers: {} // 初始化 headers 对象，方便后续追加
     }
-    debugger;
+
     // ================= 加入 Token 验证 =================
     const userToken = localStorage.getItem('userToken');
     if (userToken) {

@@ -317,6 +317,7 @@ const getFriendLinks = async () => {
 const setTopAlert = async () => {
   // 嵌入模式下不重复显示全局公告
   if (props.isEmbed) return;
+  debugger;
   topAlert.value = await getAnnouncementByRouterName("FriendLink");
 }
 
