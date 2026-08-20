@@ -263,7 +263,7 @@ func (s *Service) GetAllUsers(ctx context.Context, page, pageSize int, keyword s
 		countArgs = append(countArgs, like, like)
 	}
 	args = append(args, pageSize, (page-1)*pageSize)
-	rows, err := s.Repo.Query(ctx, "SELECT * FROM userInfo"+where+" ORDER BY ROLE DESC LIMIT ? OFFSET ?", args...)
+	rows, err := s.Repo.Query(ctx, "SELECT * FROM userInfo"+where+" ORDER BY ROLE DESC, CODE ASC LIMIT ? OFFSET ?", args...)
 	if err != nil {
 		return dbFailure("查询用户", err)
 	}
