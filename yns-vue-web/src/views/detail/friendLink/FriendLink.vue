@@ -9,49 +9,85 @@
   />
 
   <div :class="['friend-link-container', { 'is-embed': isEmbed }]">
-    <!-- ================= 友情链接模块 ================= -->
-    <div class="section-container">
-      <div class="page-header">
-        <div class="header-left">
-          <h2 class="page-title">{{ isEmbed ? '✨ 发现宝藏站点' : '🤝 友情链接' }}</h2>
-          <span class="page-subtitle" v-if="!isEmbed">与优秀的人同行，让互联网更开放</span>
+    <section v-if="!isEmbed" class="link-hero">
+      <div class="hero-glow hero-glow-one"></div>
+      <div class="hero-glow hero-glow-two"></div>
+      <div class="hero-copy">
+        <span class="hero-kicker"><i></i> 朋友和精选</span>
+        <h1>把散落在互联网里的<br><em>好地方</em>，认真地放在一起</h1>
+        <p>这里有长期同行的朋友，也有值得专程拜访的内容站点。沿着链接出发，认识更大的互联网。</p>
+        <div class="hero-stats">
+          <div class="hero-stat">
+            <strong>{{ normalFriendLinks.length }}</strong>
+            <span>同行伙伴</span>
+          </div>
+          <span class="stat-divider"></span>
+          <div class="hero-stat">
+            <strong>{{ recommendLinks.length }}</strong>
+            <span>站长精选</span>
+          </div>
+        </div>
+      </div>
+      <div class="hero-side">
+        <div class="orbit-mark" aria-hidden="true">
+          <span class="orbit-core">Y</span>
+          <span class="orbit-dot orbit-dot-one"></span>
+          <span class="orbit-dot orbit-dot-two"></span>
         </div>
         <el-button
-            v-if="!isEmbed"
             type="primary"
             round
             size="large"
-            class="apply-btn"
+            class="apply-btn hero-apply-btn"
             @click="pushFriendLink"
         >
           <el-icon class="el-icon--left">
             <Plus/>
           </el-icon>
-          申请友链
+          加入朋友墙
         </el-button>
       </div>
+    </section>
 
-      <el-row :gutter="isEmbed ? 16 : 24" class="link-grid">
-        <el-col
-            :xs="24" :sm="12" :md="isEmbed ? 12 : 8" :lg="isEmbed ? 8 : 6"
+    <!-- ================= 友情链接模块 ================= -->
+    <section :class="['section-shell', 'friend-section', { 'embed-section': isEmbed }]">
+      <div class="section-heading friend-heading">
+        <div class="heading-copy">
+          <span class="section-index" v-if="!isEmbed">01</span>
+          <div>
+            <div class="title-line">
+              <span class="title-mark friend-mark">↗</span>
+              <h2>{{ isEmbed ? '发现宝藏站点' : '友情链接' }}</h2>
+              <span class="count-pill">{{ normalFriendLinks.length }} 位朋友</span>
+            </div>
+            <p>{{ isEmbed ? '从这里拜访更多有趣的创作者' : '认真交换的不只是链接，也是彼此对内容的长期关注。' }}</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="friend-grid">
+        <div
+            class="friend-grid-item"
             v-for="(item, index) in normalFriendLinks"
             :key="item.GUID"
         >
           <a
               :href="item.LINK"
               target="_blank"
-              class="modern-card fade-in-up"
-              :style="{ animationDelay: `${index * 0.1}s` }"
+              rel="noopener noreferrer"
+              class="friend-card fade-in-up"
+              :style="{ animationDelay: `${index * 0.06}s` }"
           >
-            <div class="card-avatar-box">
-              <el-avatar :src="item.AVATAR" :size="isEmbed ? 48 : 56" class="site-avatar">
+            <div class="friend-avatar-wrap">
+              <el-avatar :src="item.AVATAR" :size="isEmbed ? 46 : 52" class="site-avatar friend-avatar">
                 {{ item.NAME?.charAt(0) }}
               </el-avatar>
             </div>
             <div class="card-content">
               <h3 class="site-name" :title="item.NAME">{{ item.NAME }}</h3>
-              <p class="site-desc" :title="item.REMARK">{{ item.REMARK }}</p>
+              <p class="site-desc" :title="item.REMARK">{{ item.REMARK || '这个朋友很低调，还没有留下介绍' }}</p>
             </div>
+            <span class="friend-card-arrow">↗</span>
 
             <div class="card-action-menu" @click.prevent.stop v-if="isAdmin || item.USERCODE===userStore.userBean.code">
               <el-dropdown trigger="click" @command="(cmd) => handleCommand(cmd, item)">
@@ -71,54 +107,65 @@
               </el-dropdown>
             </div>
           </a>
-        </el-col>
-      </el-row>
-    </div>
+        </div>
+      </div>
+    </section>
+
     <!-- ================= 推荐好站模块 (仅非嵌入模式显示) ================= -->
-    <div class="section-container" v-if="!isEmbed && (recommendLinks.length > 0 || isAdmin)">
-      <div class="page-header">
-        <div class="header-left">
-          <h2 class="page-title">🌟 推荐好站</h2>
-          <span class="page-subtitle">站长精选优质站点与资源</span>
+    <section class="section-shell recommend-section" v-if="!isEmbed && (recommendLinks.length > 0 || isAdmin)">
+      <div class="section-heading recommend-heading">
+        <div class="heading-copy">
+          <span class="section-index">02</span>
+          <div>
+            <div class="title-line">
+              <span class="title-mark recommend-mark">✦</span>
+              <h2>推荐好站</h2>
+              <span class="count-pill dark-count">{{ recommendLinks.length }} 个精选</span>
+            </div>
+            <p>不是简单收录，而是我愿意主动推荐给你的站点与资源。</p>
+          </div>
         </div>
         <el-button
             v-if="isAdmin"
-            type="success"
             round
-            size="large"
-            class="apply-btn"
+            class="recommend-add-btn"
             @click="pushRecommendLink"
         >
-          <el-icon class="el-icon--left">
-            <Plus/>
-          </el-icon>
+          <el-icon class="el-icon--left"><Plus/></el-icon>
           添加推荐
         </el-button>
       </div>
 
-      <el-row :gutter="24" class="link-grid">
-        <el-col
-            :xs="24" :sm="12" :md="8" :lg="6"
+      <div class="featured-grid">
+        <div
+            class="featured-grid-item"
             v-for="(item, index) in recommendLinks"
             :key="item.GUID"
         >
           <a
               :href="item.LINK"
               target="_blank"
-              class="modern-card fade-in-up recommend-card"
-              :style="{ animationDelay: `${index * 0.1}s` }"
+              rel="noopener noreferrer"
+              class="featured-card fade-in-up"
+              :style="{ animationDelay: `${index * 0.08}s` }"
           >
-            <div class="card-avatar-box">
-              <el-avatar :src="item.AVATAR" :size="56" class="site-avatar">
+            <span class="featured-number">{{ String(index + 1).padStart(2, '0') }}</span>
+            <div class="featured-avatar-wrap">
+              <el-avatar :src="item.AVATAR" :size="48" class="site-avatar featured-avatar">
                 {{ item.NAME?.charAt(0) }}
               </el-avatar>
             </div>
-            <div class="card-content">
-              <h3 class="site-name" :title="item.NAME">{{ item.NAME }}</h3>
-              <p class="site-desc" :title="item.REMARK">{{ item.REMARK }}</p>
+            <div class="featured-content">
+              <span class="featured-label">EDITOR'S PICK</span>
+              <h3 :title="item.NAME">{{ item.NAME }}</h3>
+              <p :title="item.REMARK">{{ item.REMARK || '一个值得花时间探索的好站点' }}</p>
+              <div class="featured-footer">
+                <span>站长精选</span>
+                <span class="visit-link">访问站点 <b>↗</b></span>
+              </div>
             </div>
 
-            <div class="card-action-menu" @click.prevent.stop v-if="isAdmin">
+            <div class="card-action-menu featured-action-menu" @click.prevent.stop v-if="isAdmin">
               <el-dropdown trigger="click" @command="(cmd) => handleCommand(cmd, item)">
                 <span class="action-btn">
                   <el-icon><MoreFilled/></el-icon>
@@ -136,11 +183,9 @@
               </el-dropdown>
             </div>
           </a>
-        </el-col>
-      </el-row>
-    </div>
-
-
+        </div>
+      </div>
+    </section>
 
     <!-- ================= 弹窗表单 ================= -->
     <el-dialog
@@ -329,14 +374,660 @@ onMounted(() => {
 
 <style scoped>
 .friend-link-container {
-  padding: 30px 20px;
+  --page-ink: #14213d;
+  --muted-ink: #6e7b91;
+  --soft-line: #e8edf5;
+  --brand-blue: #3b6ff5;
+  --brand-cyan: #4fd1c5;
+  padding: 34px 20px 72px;
   max-width: 1200px;
   margin: 0 auto;
-  transition: all 0.3s;
+  color: var(--page-ink);
 }
 
-.section-container {
-  margin-bottom: 50px;
+.link-hero {
+  position: relative;
+  min-height: 250px;
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(220px, 0.45fr);
+  align-items: center;
+  gap: 28px;
+  padding: 32px 52px;
+  margin-bottom: 8px;
+  overflow: hidden;
+  border-radius: 30px;
+  background:
+      linear-gradient(120deg, rgba(255, 255, 255, 0.98), rgba(247, 250, 255, 0.93)),
+      radial-gradient(circle at 85% 20%, rgba(79, 209, 197, 0.2), transparent 35%);
+  border: 1px solid rgba(59, 111, 245, 0.12);
+  box-shadow: 0 24px 70px rgba(45, 70, 112, 0.11);
+}
+
+.link-hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: radial-gradient(rgba(59, 111, 245, 0.13) 1px, transparent 1px);
+  background-size: 22px 22px;
+  mask-image: linear-gradient(90deg, transparent 48%, #000 100%);
+}
+
+.hero-glow {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(2px);
+  pointer-events: none;
+}
+
+.hero-glow-one {
+  width: 230px;
+  height: 230px;
+  right: -70px;
+  top: -90px;
+  background: rgba(79, 209, 197, 0.18);
+}
+
+.hero-glow-two {
+  width: 180px;
+  height: 180px;
+  left: 44%;
+  bottom: -130px;
+  background: rgba(59, 111, 245, 0.13);
+}
+
+.hero-copy,
+.hero-side {
+  position: relative;
+  z-index: 1;
+}
+
+.hero-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 12px;
+  color: #54709e;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+}
+
+.hero-kicker i {
+  width: 22px;
+  height: 2px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--brand-blue), var(--brand-cyan));
+}
+
+.hero-copy h1 {
+  margin: 0;
+  color: #172642;
+  font-size: clamp(30px, 3.4vw, 44px);
+  font-weight: 850;
+  letter-spacing: -0.045em;
+  line-height: 1.16;
+}
+
+.hero-copy h1 em {
+  position: relative;
+  color: var(--brand-blue);
+  font-style: normal;
+}
+
+.hero-copy h1 em::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 2px;
+  height: 8px;
+  z-index: -1;
+  border-radius: 8px;
+  background: rgba(79, 209, 197, 0.33);
+}
+
+.hero-copy > p {
+  max-width: 590px;
+  margin: 14px 0 18px;
+  color: var(--muted-ink);
+  font-size: 15px;
+  line-height: 1.7;
+}
+
+.hero-stats {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+}
+
+.hero-stat {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.hero-stat strong {
+  color: #1f3152;
+  font-size: 24px;
+  line-height: 1;
+}
+
+.hero-stat span {
+  color: #8490a3;
+  font-size: 12px;
+}
+
+.stat-divider {
+  width: 1px;
+  height: 22px;
+  background: #dfe6f0;
+}
+
+.hero-side {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+}
+
+.orbit-mark {
+  position: relative;
+  width: 118px;
+  height: 118px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(59, 111, 245, 0.22);
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 24px rgba(255, 255, 255, 0.45);
+}
+
+.orbit-mark::before,
+.orbit-mark::after {
+  content: '';
+  position: absolute;
+  border-radius: 50%;
+  border: 1px solid rgba(79, 209, 197, 0.22);
+}
+
+.orbit-mark::before { inset: 14px; }
+.orbit-mark::after { inset: 31px; }
+
+.orbit-core {
+  width: 52px;
+  height: 52px;
+  display: grid;
+  place-items: center;
+  z-index: 1;
+  border-radius: 18px;
+  color: #fff;
+  background: linear-gradient(145deg, #3b6ff5, #3157bf);
+  box-shadow: 0 14px 30px rgba(59, 111, 245, 0.3);
+  font-family: Georgia, serif;
+  font-size: 25px;
+  font-weight: 700;
+}
+
+.orbit-dot {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  z-index: 2;
+  border: 3px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 4px 10px rgba(20, 33, 61, 0.16);
+}
+
+.orbit-dot-one {
+  top: 12px;
+  right: 17px;
+  background: #4fd1c5;
+}
+
+.orbit-dot-two {
+  left: 9px;
+  bottom: 27px;
+  background: #ffbd59;
+}
+
+.apply-btn {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.apply-btn:hover {
+  transform: translateY(-2px);
+}
+
+.hero-apply-btn {
+  min-width: 148px;
+  height: 42px;
+  border: 0;
+  background: linear-gradient(135deg, #3b6ff5, #315bc9);
+  box-shadow: 0 12px 26px rgba(59, 111, 245, 0.27);
+}
+
+.section-shell {
+  position: relative;
+  padding: 38px;
+  margin-top: 28px;
+  border-radius: 26px;
+}
+
+.section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 28px;
+}
+
+.heading-copy {
+  display: flex;
+  align-items: flex-start;
+  gap: 18px;
+  min-width: 0;
+}
+
+.section-index {
+  padding-top: 5px;
+  color: #9aa7ba;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+}
+
+.title-line {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.title-line h2 {
+  margin: 0;
+  font-size: 25px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.title-mark {
+  width: 30px;
+  height: 30px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.section-heading p {
+  margin: 8px 0 0;
+  color: #8a96a9;
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+.count-pill {
+  padding: 5px 9px;
+  border: 1px solid #dfe6f0;
+  border-radius: 999px;
+  color: #718096;
+  background: #f8fafc;
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.recommend-section {
+  overflow: hidden;
+  color: #fff;
+  background:
+      radial-gradient(circle at 92% 8%, rgba(79, 209, 197, 0.13), transparent 28%),
+      linear-gradient(145deg, #14213d 0%, #1d2e52 55%, #172642 100%);
+  box-shadow: 0 24px 55px rgba(20, 33, 61, 0.18);
+}
+
+.recommend-section::after {
+  content: 'YnsStudy';
+  position: absolute;
+  right: -16px;
+  top: 56px;
+  color: rgba(255, 255, 255, 0.025);
+  font-size: 78px;
+  font-weight: 900;
+  letter-spacing: 0.05em;
+  pointer-events: none;
+}
+
+.recommend-heading,
+.featured-grid {
+  position: relative;
+  z-index: 1;
+}
+
+.featured-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.featured-grid-item,
+.friend-grid-item {
+  min-width: 0;
+}
+
+.recommend-heading .section-index { color: rgba(255, 255, 255, 0.42); }
+.recommend-heading .title-line h2 { color: #fff; }
+.recommend-heading p { color: #9eacc3; }
+.recommend-mark { color: #1d2e52; background: #ffd276; }
+
+.dark-count {
+  color: #d7e0ee;
+  border-color: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.recommend-add-btn {
+  color: #e8eef8;
+  border-color: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.recommend-add-btn:hover {
+  color: #1d2e52;
+  border-color: #ffd276;
+  background: #ffd276;
+}
+
+.featured-card {
+  position: relative;
+  min-height: 176px;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 16px 14px;
+  box-sizing: border-box;
+  overflow: hidden;
+  color: inherit;
+  text-decoration: none;
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.065);
+  backdrop-filter: blur(10px);
+  transition: transform 0.28s ease, border-color 0.28s ease, background 0.28s ease, box-shadow 0.28s ease;
+}
+
+.featured-card::before {
+  content: '';
+  position: absolute;
+  width: 130px;
+  height: 130px;
+  left: -80px;
+  bottom: -86px;
+  border-radius: 50%;
+  background: rgba(79, 209, 197, 0.14);
+  transition: transform 0.35s ease;
+}
+
+.featured-card:hover {
+  transform: translateY(-5px);
+  border-color: rgba(255, 210, 118, 0.48);
+  background: rgba(255, 255, 255, 0.105);
+  box-shadow: 0 18px 34px rgba(5, 14, 32, 0.22);
+}
+
+.featured-card:hover::before { transform: scale(1.4); }
+
+.featured-number {
+  position: absolute;
+  right: 12px;
+  bottom: 9px;
+  color: rgba(255, 255, 255, 0.09);
+  font-family: Georgia, serif;
+  font-size: 28px;
+  font-style: italic;
+}
+
+.featured-avatar-wrap {
+  position: relative;
+  flex-shrink: 0;
+  padding: 3px;
+  border: 1px solid rgba(255, 210, 118, 0.38);
+  border-radius: 16px;
+}
+
+.featured-avatar {
+  border-radius: 12px;
+  background: linear-gradient(145deg, #fff4d8, #ffd276);
+  color: #45371a;
+}
+
+.featured-content {
+  min-width: 0;
+  flex: 1;
+}
+
+.featured-label {
+  display: block;
+  margin-bottom: 5px;
+  color: #ffd276;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+}
+
+.featured-content h3 {
+  margin: 0;
+  overflow: hidden;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 750;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.featured-content > p {
+  min-height: 36px;
+  margin: 6px 0 10px;
+  overflow: hidden;
+  color: #aebbd0;
+  display: -webkit-box;
+  font-size: 10.5px;
+  line-height: 1.7;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.featured-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding-top: 8px;
+  color: #8494ae;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 9px;
+}
+
+.visit-link {
+  color: #eaf0fa;
+  font-size: 9px;
+  transition: color 0.2s ease;
+}
+
+.visit-link b {
+  display: inline-block;
+  margin-left: 3px;
+  color: #ffd276;
+  transition: transform 0.2s ease;
+}
+
+.featured-card:hover .visit-link b { transform: translate(2px, -2px); }
+
+.friend-section {
+  border: 1px solid rgba(59, 111, 245, 0.1);
+  background: transparent;
+  box-shadow: none;
+}
+
+.friend-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.friend-mark {
+  color: #2f63db;
+  background: #eaf1ff;
+}
+
+.friend-card {
+  position: relative;
+  height: 112px;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 18px;
+  box-sizing: border-box;
+  overflow: hidden;
+  color: inherit;
+  text-decoration: none;
+  border: 1px solid #e9edf4;
+  border-radius: 17px;
+  background: linear-gradient(145deg, #fff, #fbfcff);
+  transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+.friend-card::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 22%;
+  bottom: 22%;
+  width: 3px;
+  border-radius: 0 4px 4px 0;
+  background: linear-gradient(180deg, var(--brand-blue), var(--brand-cyan));
+  opacity: 0;
+  transform: scaleY(0.4);
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.friend-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(59, 111, 245, 0.26);
+  box-shadow: 0 14px 26px rgba(47, 79, 135, 0.11);
+}
+
+.friend-card:hover::after {
+  opacity: 1;
+  transform: scaleY(1);
+}
+
+.friend-avatar-wrap {
+  flex-shrink: 0;
+  padding: 3px;
+  border: 1px solid #e1e8f4;
+  border-radius: 15px;
+  background: #fff;
+}
+
+.friend-avatar {
+  border-radius: 12px;
+  background: #edf3ff;
+  color: #3b6ff5;
+  font-weight: 750;
+}
+
+.card-content {
+  min-width: 0;
+  flex: 1;
+  padding-right: 18px;
+}
+
+.site-name {
+  margin: 0 0 6px;
+  overflow: hidden;
+  color: #273753;
+  font-size: 15px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.site-desc {
+  margin: 0;
+  overflow: hidden;
+  color: #8a96a9;
+  display: -webkit-box;
+  font-size: 11px;
+  line-height: 1.55;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.friend-card-arrow {
+  position: absolute;
+  right: 14px;
+  bottom: 13px;
+  color: #b5c0d1;
+  font-size: 14px;
+  transition: color 0.2s ease, transform 0.2s ease;
+}
+
+.friend-card:hover .friend-card-arrow {
+  color: var(--brand-blue);
+  transform: translate(2px, -2px);
+}
+
+.card-action-menu {
+  position: absolute;
+  top: 9px;
+  right: 9px;
+  z-index: 3;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.featured-action-menu { top: 10px; right: 10px; }
+.featured-card:hover .card-action-menu,
+.friend-card:hover .card-action-menu { opacity: 1; }
+
+.action-btn {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #9ba8bb;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 5px 14px rgba(20, 33, 61, 0.12);
+}
+
+.action-btn:hover {
+  color: var(--brand-blue);
+  background: #fff;
+}
+
+.featured-action-menu .action-btn {
+  color: #d9e2ef;
+  background: rgba(9, 19, 39, 0.58);
+  box-shadow: none;
+}
+
+.danger-item { color: #f56c6c !important; }
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.fade-in-up {
+  opacity: 0;
+  animation: fadeInUp 0.52s cubic-bezier(0.22, 0.8, 0.24, 1) forwards;
 }
 
 /* --- 嵌入模式适配样式 --- */
@@ -346,174 +1037,104 @@ onMounted(() => {
   margin: 0;
 }
 
-.is-embed .section-container {
-  margin-bottom: 0;
-}
-
-.is-embed .page-header {
-  margin-bottom: 20px;
-  padding-bottom: 10px;
-}
-
-.is-embed .page-title {
-  font-size: 18px;
-}
-
-.is-embed .modern-card {
-  padding: 12px;
-  height: 90px;
-  margin-bottom: 16px;
-  border-radius: 12px;
-}
-
-.is-embed .site-avatar {
-  border: 1px solid #f0f2f5;
-}
-
-/* --- 原有样式 --- */
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 30px;
-  padding-bottom: 15px;
-  border-bottom: 1px solid #ebeef5;
-}
-
-.header-left .page-title {
-  margin: 0 0 8px 0;
-  font-weight: 700;
-  color: #303133;
-}
-
-.header-left .page-subtitle {
-  font-size: 14px;
-  color: #909399;
-}
-
-.apply-btn {
-  box-shadow: 0 4px 12px rgba(64, 158, 255, 0.2);
-  transition: transform 0.2s;
-}
-
-.apply-btn:hover {
-  transform: translateY(-2px);
-}
-
-.link-grid {
-  margin-bottom: 10px;
-}
-
-@keyframes fadeInUp {
-  from { opacity: 0; transform: translateY(20px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.fade-in-up {
-  opacity: 0;
-  animation: fadeInUp 0.6s cubic-bezier(0.25, 0.8, 0.25, 1) forwards;
-}
-
-.modern-card {
-  display: flex;
-  align-items: center;
-  padding: 20px;
-  margin-bottom: 24px;
-  background: #ffffff;
-  border-radius: 16px;
-  border: 1px solid #ebeef5;
-  text-decoration: none;
-  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-  height: 110px;
-  box-sizing: border-box;
-  position: relative;
-  top: 0;
-}
-
-/* 为推荐卡片做一点细微区分，可自行调整 */
-.recommend-card:hover {
-  border-color: #67c23a33;
-  box-shadow: 0 12px 24px rgba(103, 194, 58, 0.08);
-}
-
-.modern-card:hover {
-  top: -6px;
-  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.08);
-  border-color: #409eff33;
-}
-
-.card-avatar-box {
-  flex-shrink: 0;
-  margin-right: 16px;
-}
-
-.site-avatar {
-  background-color: #ecf5ff;
-  color: #409eff;
-  font-weight: bold;
-}
-
-.card-content {
-  flex: 1;
-  min-width: 0;
-}
-
-.site-name {
-  margin: 0 0 4px 0;
-  font-size: 15px;
-  font-weight: 600;
-  color: #303133;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.site-desc {
+.is-embed .embed-section {
+  padding: 0;
   margin: 0;
-  font-size: 12px;
-  color: #909399;
-  line-height: 1.4;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
 }
 
-.card-action-menu {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  opacity: 0;
-  transition: opacity 0.2s;
-}
-
-.modern-card:hover .card-action-menu {
-  opacity: 1;
-}
-
-.action-btn {
-  width: 24px;
-  height: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  color: #c0c4cc;
-}
-
-.action-btn:hover {
-  background: #f0f2f5;
-  color: #409eff;
-}
-
-.danger-item { color: #f56c6c !important; }
+.is-embed .section-heading { margin-bottom: 18px; }
+.is-embed .title-line h2 { font-size: 19px; }
+.is-embed .section-heading p { margin-top: 4px; }
+.is-embed .friend-grid { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
+.is-embed .friend-card { height: 92px; padding: 13px; border-radius: 14px; }
+.is-embed .card-content { padding-right: 12px; }
 
 .dialog-tip {
-  background-color: #f0f9eb;
-  color: #67c23a;
-  padding: 10px 15px;
-  border-radius: 6px;
-  font-size: 13px;
+  padding: 11px 15px;
   margin-bottom: 20px;
+  color: #4c8f2f;
+  background: #f1f9ed;
+  border: 1px solid #e2f1da;
+  border-radius: 10px;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+@media (max-width: 1100px) {
+  .featured-grid,
+  .friend-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+@media (max-width: 900px) {
+  .link-hero {
+    grid-template-columns: 1fr auto;
+    padding: 30px 36px;
+  }
+
+  .orbit-mark { width: 108px; height: 108px; }
+  .orbit-core { width: 48px; height: 48px; }
+  .hero-side { min-width: 130px; }
+  .section-shell { padding: 30px; }
+  .featured-grid,
+  .friend-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 700px) {
+  .friend-link-container { padding: 20px 14px 48px; }
+
+  .link-hero {
+    min-height: auto;
+    grid-template-columns: 1fr;
+    gap: 18px;
+    padding: 26px 22px;
+    border-radius: 22px;
+  }
+
+  .link-hero::before { mask-image: linear-gradient(180deg, transparent 42%, #000 100%); }
+  .hero-copy h1 { font-size: 30px; }
+  .hero-copy > p { font-size: 14px; }
+  .hero-side { align-items: flex-start; }
+  .orbit-mark { display: none; }
+
+  .section-shell {
+    padding: 24px 18px;
+    border-radius: 20px;
+  }
+
+  .section-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    margin-bottom: 22px;
+  }
+
+  .heading-copy { gap: 10px; }
+  .title-line h2 { font-size: 22px; }
+  .featured-grid,
+  .friend-grid,
+  .is-embed .friend-grid { grid-template-columns: 1fr; }
+  .featured-card { min-height: 160px; padding: 20px; }
+  .featured-avatar-wrap { align-self: flex-start; }
+  .friend-card { height: 102px; }
+  .card-action-menu { opacity: 1; }
+  .friend-card-arrow { display: none; }
+}
+
+@media (max-width: 420px) {
+  .hero-copy h1 { font-size: 30px; }
+  .hero-stats { gap: 14px; }
+  .featured-card { align-items: flex-start; gap: 14px; }
+  .featured-avatar { --el-avatar-size: 52px !important; }
+  .featured-content h3 { font-size: 16px; }
+  .featured-content > p { margin-bottom: 9px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fade-in-up { opacity: 1; animation: none; }
+  .featured-card,
+  .friend-card,
+  .apply-btn { transition: none; }
 }
 </style>
