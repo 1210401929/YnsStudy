@@ -13,11 +13,14 @@ func (h *Controller) registerLuluRoutes(group *gin.RouterGroup) {
 	group.POST("/status", h.petStatus)
 	group.POST("/feed", h.feedPet)
 	group.POST("/play", h.playPet)
+	group.POST("/care", h.smartCarePet)
+	group.POST("/visit", h.visitPet)
 	group.POST("/sleep", h.sleepPet)
 	group.POST("/messages", h.petMessages)
 	group.POST("/message/add", h.addPetMessage)
 	group.POST("/message/delete", h.deletePetMessage)
 	group.POST("/logs", h.petLogs)
+	group.POST("/companionship/monthly", h.petMonthlyCompanionship)
 	group.POST("/fun-state", h.petFunState)
 	group.POST("/mission/advance", h.advancePetMission)
 	group.POST("/clothes/change", h.changePetClothes)
@@ -63,6 +66,24 @@ func (h *Controller) playPet(c *gin.Context) {
 	h.writeLulu(c, value, err)
 }
 
+func (h *Controller) smartCarePet(c *gin.Context) {
+	_, userNum, ok := h.luluBody(c)
+	if !ok {
+		return
+	}
+	value, err := h.service.SmartCarePet(c.Request.Context(), userNum, service.ClientIP(c), c.GetHeader("User-Agent"))
+	h.writeLulu(c, value, err)
+}
+
+func (h *Controller) visitPet(c *gin.Context) {
+	_, userNum, ok := h.luluBody(c)
+	if !ok {
+		return
+	}
+	value, err := h.service.RecordPetVisit(c.Request.Context(), userNum, service.ClientIP(c), c.GetHeader("User-Agent"))
+	h.writeLulu(c, value, err)
+}
+
 func (h *Controller) sleepPet(c *gin.Context) {
 	_, userNum, ok := h.luluBody(c)
 	if !ok {
@@ -73,11 +94,11 @@ func (h *Controller) sleepPet(c *gin.Context) {
 }
 
 func (h *Controller) petMessages(c *gin.Context) {
-	_, userNum, ok := h.luluBody(c)
+	body, userNum, ok := h.luluBody(c)
 	if !ok {
 		return
 	}
-	value, err := h.service.GetPetMessages(c.Request.Context(), userNum)
+	value, err := h.service.GetPetMessages(c.Request.Context(), userNum, intParam(body, "page", 1), intParam(body, "pageSize", 8))
 	h.writeLulu(c, value, err)
 }
 
@@ -104,11 +125,20 @@ func (h *Controller) deletePetMessage(c *gin.Context) {
 }
 
 func (h *Controller) petLogs(c *gin.Context) {
+	body, userNum, ok := h.luluBody(c)
+	if !ok {
+		return
+	}
+	value, err := h.service.GetPetLogs(c.Request.Context(), userNum, intParam(body, "page", 1), intParam(body, "pageSize", 10))
+	h.writeLulu(c, value, err)
+}
+
+func (h *Controller) petMonthlyCompanionship(c *gin.Context) {
 	_, userNum, ok := h.luluBody(c)
 	if !ok {
 		return
 	}
-	value, err := h.service.GetPetLogs(c.Request.Context(), userNum)
+	value, err := h.service.GetMonthlyCompanionship(c.Request.Context(), userNum)
 	h.writeLulu(c, value, err)
 }
 

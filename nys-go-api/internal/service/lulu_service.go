@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"slices"
 	"strings"
 	"time"
 
@@ -15,6 +16,19 @@ var dailyMissions = [][4]string{
 	{"play", "陪噜噜玩两次", "2", "完成后撒一把星星"},
 	{"touch", "摸摸噜噜一次", "1", "完成后获得贴贴感"},
 	{"wish", "和噜噜许个愿", "1", "完成后收到小签语"},
+}
+
+type smartCarePlan struct {
+	Action        string
+	ActionName    string
+	Message       string
+	MissionType   string
+	HungerDelta   int
+	EnergyDelta   int
+	MoodDelta     int
+	Experience    int
+	NextState     string
+	ShouldPersist bool
 }
 
 func (s *Service) GetPetStatus(ctx context.Context, userNum int64) (map[string]any, error) {
@@ -80,6 +94,96 @@ func (s *Service) PlayPet(ctx context.Context, userNum int64, action, ip, userAg
 	return pet, nil
 }
 
+// SmartCarePet chooses one small, state-aware action for the pet. It deliberately
+// reuses z_pet_status and z_lulu_log so the feature needs no schema migration.
+func (s *Service) SmartCarePet(ctx context.Context, userNum int64, ip, userAgent string) (map[string]any, error) {
+	pet, err := s.GetPetStatus(ctx, userNum)
+	if err != nil {
+		return nil, err
+	}
+
+	plan := selectSmartCarePlan(pet)
+	if plan.ShouldPersist {
+		pet["HUNGER"] = clampPetStat(model.IntValue(pet, "HUNGER") + plan.HungerDelta)
+		pet["ENERGY"] = clampPetStat(model.IntValue(pet, "ENERGY") + plan.EnergyDelta)
+		pet["MOOD"] = clampPetStat(model.IntValue(pet, "MOOD") + plan.MoodDelta)
+		if plan.NextState != "" {
+			pet["CURRENT_STATE"] = plan.NextState
+		}
+		pet["LAST_UPDATE_TIME"] = time.Now()
+		addPetExperience(pet, plan.Experience)
+		if err := s.updatePet(ctx, pet); err != nil {
+			return nil, err
+		}
+		s.insertPetLog(ctx, userNum, "AUTO_CARE", plan.ActionName, ip, userAgent, plan.Message)
+	}
+
+	pet["CARE_ACTION"] = plan.Action
+	pet["CARE_MESSAGE"] = plan.Message
+	pet["CARE_MISSION_TYPE"] = plan.MissionType
+	pet["CARE_EXP_GAIN"] = plan.Experience
+	pet["ACTION_ACCEPTED"] = plan.ShouldPersist
+	return pet, nil
+}
+
+// RecordPetVisit writes at most one passive visit log per day. Active care logs
+// already prove a visit, so opening the page later on the same day adds nothing.
+func (s *Service) RecordPetVisit(ctx context.Context, userNum int64, ip, userAgent string) (map[string]any, error) {
+	now := time.Now()
+	dayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	nextDay := dayStart.AddDate(0, 0, 1)
+	counts, err := s.Repo.Query(ctx, "SELECT COUNT(1) AS TOTAL FROM z_lulu_log WHERE USER_NUM = ? AND CREATE_TIME >= ? AND CREATE_TIME < ?", userNum, dayStart, nextDay)
+	if err != nil {
+		return nil, err
+	}
+	if firstCount(counts) == 0 {
+		if strings.TrimSpace(ip) == "" {
+			ip = "unknown"
+		}
+		_, err = s.Repo.Exec(ctx, `INSERT INTO z_lulu_log
+(USER_NUM, ACTION_TYPE, ACTION_NAME, IP_ADDRESS, BROWSER, DEVICE_MODEL, USER_AGENT, REMARK)
+VALUES (?, 'VISIT', '来看噜噜', ?, ?, ?, ?, '今天第一次来看噜噜')`, userNum, ip, parseBrowser(userAgent), parseDevice(userAgent), truncateRunes(userAgent, 500))
+		if err != nil {
+			return nil, err
+		}
+	}
+	return s.GetMonthlyCompanionship(ctx, userNum)
+}
+
+func selectSmartCarePlan(pet map[string]any) smartCarePlan {
+	if model.StringValue(pet, "CURRENT_STATE") == "SLEEPING" {
+		return smartCarePlan{
+			Action: "RESTING", ActionName: "守护睡眠", Message: "噜噜正在安心休息，不打扰就是最好的照顾。",
+		}
+	}
+	if model.IntValue(pet, "HUNGER") <= 45 {
+		return smartCarePlan{
+			Action: "FEED", ActionName: "智能加餐", Message: "噜噜的小肚子在提醒你：先补充一点能量吧。", MissionType: "feed",
+			HungerDelta: 30, MoodDelta: 5, Experience: 20, NextState: "IDLE", ShouldPersist: true,
+		}
+	}
+	if model.IntValue(pet, "ENERGY") <= 35 {
+		return smartCarePlan{
+			Action: "REST", ActionName: "安排休息", Message: "噜噜有些累了，已经为它铺好小床。",
+			Experience: 5, NextState: "SLEEPING", ShouldPersist: true,
+		}
+	}
+	if model.IntValue(pet, "MOOD") <= 65 {
+		return smartCarePlan{
+			Action: "COMFORT", ActionName: "温柔陪伴", Message: "一个摸摸和一点陪伴，让噜噜重新开心起来。", MissionType: "touch",
+			HungerDelta: -2, EnergyDelta: -3, MoodDelta: 15, Experience: 20, NextState: "IDLE", ShouldPersist: true,
+		}
+	}
+	return smartCarePlan{
+		Action: "STROLL", ActionName: "一起散步", Message: "状态正好，噜噜想和你出去走走。", MissionType: "play",
+		HungerDelta: -5, EnergyDelta: -8, MoodDelta: 10, Experience: 25, NextState: "IDLE", ShouldPersist: true,
+	}
+}
+
+func clampPetStat(value int) int {
+	return maxInt(0, minInt(100, value))
+}
+
 func (s *Service) TogglePetSleep(ctx context.Context, userNum int64, ip, userAgent string) (map[string]any, error) {
 	pet, err := s.GetPetStatus(ctx, userNum)
 	if err != nil {
@@ -99,8 +203,19 @@ func (s *Service) TogglePetSleep(ctx context.Context, userNum int64, ip, userAge
 	return pet, nil
 }
 
-func (s *Service) GetPetMessages(ctx context.Context, userNum int64) ([]map[string]any, error) {
-	return s.Repo.Query(ctx, "SELECT * FROM z_lulu_message WHERE USER_NUM = ? ORDER BY CREATE_TIME DESC LIMIT 80", userNum)
+func (s *Service) GetPetMessages(ctx context.Context, userNum int64, page, pageSize int) (map[string]any, error) {
+	page, pageSize = normalizeLuluPage(page, pageSize, 8)
+	counts, err := s.Repo.Query(ctx, "SELECT COUNT(1) AS TOTAL FROM z_lulu_message WHERE USER_NUM = ?", userNum)
+	if err != nil {
+		return nil, err
+	}
+	total := firstCount(counts)
+	page = clampLuluPage(page, pageSize, total)
+	rows, err := s.Repo.Query(ctx, "SELECT * FROM z_lulu_message WHERE USER_NUM = ? ORDER BY CREATE_TIME DESC, ID DESC LIMIT ? OFFSET ?", userNum, pageSize, (page-1)*pageSize)
+	if err != nil {
+		return nil, err
+	}
+	return luluPageResponse(rows, total, page, pageSize), nil
 }
 
 func (s *Service) AddPetMessage(ctx context.Context, userNum int64, content, ip string) model.Result {
@@ -121,22 +236,96 @@ func (s *Service) AddPetMessage(ctx context.Context, userNum int64, content, ip 
 	if _, err := s.Repo.Exec(ctx, "INSERT INTO z_lulu_message (USER_NUM, SENDER_TYPE, CONTENT, IP_ADDRESS) VALUES (?, 'USER', ?, ?)", userNum, content, ip); err != nil {
 		return dbFailure("新增留言", err)
 	}
-	messages, err := s.GetPetMessages(ctx, userNum)
-	if err != nil {
-		return dbFailure("读取留言", err)
-	}
-	return model.Success(messages)
+	return model.Success(map[string]any{"CREATED": true})
 }
 
-func (s *Service) DeletePetMessage(ctx context.Context, userNum, messageID int64) ([]map[string]any, error) {
-	if _, err := s.Repo.Exec(ctx, "DELETE FROM z_lulu_message WHERE ID = ? AND USER_NUM = ?", messageID, userNum); err != nil {
+func (s *Service) DeletePetMessage(ctx context.Context, userNum, messageID int64) (map[string]any, error) {
+	affected, err := s.Repo.Exec(ctx, "DELETE FROM z_lulu_message WHERE ID = ? AND USER_NUM = ?", messageID, userNum)
+	if err != nil {
 		return nil, err
 	}
-	return s.GetPetMessages(ctx, userNum)
+	return map[string]any{"DELETED": affected > 0}, nil
 }
 
-func (s *Service) GetPetLogs(ctx context.Context, userNum int64) ([]map[string]any, error) {
-	return s.Repo.Query(ctx, "SELECT * FROM z_lulu_log WHERE USER_NUM = ? ORDER BY CREATE_TIME DESC LIMIT 120", userNum)
+func (s *Service) GetPetLogs(ctx context.Context, userNum int64, page, pageSize int) (map[string]any, error) {
+	page, pageSize = normalizeLuluPage(page, pageSize, 10)
+	counts, err := s.Repo.Query(ctx, "SELECT COUNT(1) AS TOTAL FROM z_lulu_log WHERE USER_NUM = ?", userNum)
+	if err != nil {
+		return nil, err
+	}
+	total := firstCount(counts)
+	page = clampLuluPage(page, pageSize, total)
+	rows, err := s.Repo.Query(ctx, "SELECT * FROM z_lulu_log WHERE USER_NUM = ? ORDER BY CREATE_TIME DESC, ID DESC LIMIT ? OFFSET ?", userNum, pageSize, (page-1)*pageSize)
+	if err != nil {
+		return nil, err
+	}
+	return luluPageResponse(rows, total, page, pageSize), nil
+}
+
+func (s *Service) GetMonthlyCompanionship(ctx context.Context, userNum int64) (map[string]any, error) {
+	now := time.Now()
+	monthStart := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
+	nextMonth := monthStart.AddDate(0, 1, 0)
+	rows, err := s.Repo.Query(ctx, `SELECT DISTINCT DATE_FORMAT(CREATE_TIME, '%Y-%m-%d') AS VISIT_DATE
+FROM z_lulu_log WHERE USER_NUM = ? AND CREATE_TIME >= ? AND CREATE_TIME < ? ORDER BY VISIT_DATE`, userNum, monthStart, nextMonth)
+	if err != nil {
+		return nil, err
+	}
+	visitDates := make([]string, 0, len(rows))
+	for _, row := range rows {
+		if value := model.StringValue(row, "VISIT_DATE"); value != "" {
+			visitDates = append(visitDates, value)
+		}
+	}
+	return monthlyCompanionshipResponse(now, visitDates), nil
+}
+
+func normalizeLuluPage(page, pageSize, defaultPageSize int) (int, int) {
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 {
+		pageSize = defaultPageSize
+	}
+	if pageSize > 50 {
+		pageSize = 50
+	}
+	return page, pageSize
+}
+
+func clampLuluPage(page, pageSize int, total int64) int {
+	totalPages := maxInt(1, int((total+int64(pageSize)-1)/int64(pageSize)))
+	return minInt(page, totalPages)
+}
+
+func luluPageResponse(items []map[string]any, total int64, page, pageSize int) map[string]any {
+	totalPages := maxInt(1, int((total+int64(pageSize)-1)/int64(pageSize)))
+	return map[string]any{
+		"ITEMS": items, "TOTAL": total, "PAGE": page, "PAGE_SIZE": pageSize, "TOTAL_PAGES": totalPages,
+	}
+}
+
+func monthlyCompanionshipResponse(now time.Time, visitDates []string) map[string]any {
+	uniqueDates := make(map[string]struct{}, len(visitDates))
+	monthPrefix := now.Format("2006-01") + "-"
+	for _, value := range visitDates {
+		if strings.HasPrefix(value, monthPrefix) && value <= now.Format("2006-01-02") {
+			uniqueDates[value] = struct{}{}
+		}
+	}
+	visitedDays := len(uniqueDates)
+	elapsedDays := now.Day()
+	daysInMonth := time.Date(now.Year(), now.Month()+1, 0, 0, 0, 0, 0, now.Location()).Day()
+	missedDays := maxInt(0, elapsedDays-visitedDays)
+	cleanDates := make([]string, 0, visitedDays)
+	for value := range uniqueDates {
+		cleanDates = append(cleanDates, value)
+	}
+	slices.Sort(cleanDates)
+	return map[string]any{
+		"MONTH": now.Format("2006-01"), "VISITED_DAYS": visitedDays, "MISSED_DAYS": missedDays,
+		"ELAPSED_DAYS": elapsedDays, "DAYS_IN_MONTH": daysInMonth, "VISITED_DATES": cleanDates,
+	}
 }
 
 func (s *Service) GetPetFunState(ctx context.Context, userNum int64) (map[string]any, error) {

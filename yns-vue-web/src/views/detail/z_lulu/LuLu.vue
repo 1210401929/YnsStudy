@@ -1,6 +1,12 @@
 <template>
   <div class="lulu-viewport">
-    <section class="lulu-stage">
+    <section
+      ref="stageRef"
+      class="lulu-stage"
+      :class="`scene-${scenePeriod}`"
+      @pointermove="handleStagePointerMove"
+      @pointerleave="resetLuluMotion"
+    >
       <div class="scene-background"></div>
 
       <div class="top-status">
@@ -9,27 +15,31 @@
           <div>
             <h2>{{ petData.name || '噜噜' }}</h2>
             <p>{{ formatState(petData.currentState) }}</p>
+            <div v-if="syncNotice.visible" class="sync-notice" :class="`sync-${syncNotice.mode}`" role="status">
+              <span>{{ syncNotice.text }}</span>
+              <button v-if="syncNotice.retry" type="button" @click="fetchStatus()">重试</button>
+            </div>
           </div>
         </div>
 
         <div class="quick-stats">
           <div class="stat-pill stat-hunger">
             <span>饱腹</span>
-            <strong>{{ petData.hunger || 0 }}</strong>
+            <strong>{{ displayStat(petData.hunger) }}</strong>
             <div class="stat-bar">
               <div class="stat-fill" :style="{ width: `${petData.hunger || 0}%` }"></div>
             </div>
           </div>
           <div class="stat-pill stat-energy">
             <span>体力</span>
-            <strong>{{ petData.energy || 0 }}</strong>
+            <strong>{{ displayStat(petData.energy) }}</strong>
             <div class="stat-bar">
               <div class="stat-fill" :style="{ width: `${petData.energy || 0}%` }"></div>
             </div>
           </div>
           <div class="stat-pill stat-mood">
             <span>心情</span>
-            <strong>{{ petData.mood || 0 }}</strong>
+            <strong>{{ displayStat(petData.mood) }}</strong>
             <div class="stat-bar">
               <div class="stat-fill" :style="{ width: `${petData.mood || 0}%` }"></div>
             </div>
@@ -58,16 +68,21 @@
           <small>{{ dailyMission.current }}/{{ dailyMission.target }} · {{ dailyMission.reward }}</small>
         </div>
         <div class="streak-card">
-          <span>连续陪伴</span>
-          <strong>{{ careStreak }} 天</strong>
-          <small>{{ moodWeather.text }}</small>
+          <span>本月陪伴</span>
+          <strong>{{ monthlyCompanionship.visitedDays }}/{{ monthlyCompanionship.elapsedDays }} 天</strong>
+          <div class="companion-progress" :title="`本月已过 ${monthlyCompanionship.elapsedDays} 天`">
+            <div class="companion-fill" :style="{ width: `${monthlyCompanionshipProgress}%` }"></div>
+          </div>
+          <small>缺席 {{ monthlyCompanionship.missedDays }} 天 · 连续 {{ careStreak }} 天</small>
         </div>
       </div>
 
       <div
         class="lulu-entity"
         :class="[`state-${visualState.toLowerCase()}`, `action-${actionCategory}`]"
+        :style="luluMotionStyle"
       >
+        <div v-if="bondCombo > 1" class="bond-badge">默契 ×{{ bondCombo }}</div>
         <div class="floating-layer">
           <div
             v-for="effect in floatingEffects"
@@ -94,7 +109,13 @@
           <span v-if="visualState === 'SLEEPING'" class="sleep-mark mark-three">Z</span>
         </div>
 
-        <img class="lulu-img" :class="animationClass" :src="currentLuluImage" alt="噜噜" />
+        <img
+          class="lulu-img"
+          :class="animationClass"
+          :src="currentLuluImage"
+          alt="噜噜"
+          @error="handleLuluImageError"
+        />
 
         <div class="body-hotspots" aria-label="点击噜噜互动">
           <button class="body-hotspot hotspot-head" type="button" aria-label="摸摸噜噜脑袋" @click="tapLuluBody('head')"></button>
@@ -116,39 +137,44 @@
           <div class="exp-bar">
             <div class="exp-fill" :style="{ width: `${expPercentage}%` }"></div>
           </div>
+          <p class="care-advice"><strong>噜噜心声</strong>{{ smartCareAdvice.text }}</p>
+          <button class="smart-care-btn" type="button" @click="smartCareLulu" :disabled="isActionDisabled">
+            <span>智能照顾</span>
+            <small>{{ smartCareAdvice.short }}</small>
+          </button>
           <button class="log-btn" type="button" @click="openLogPanel">噜噜 日志</button>
         </div>
 
         <div class="action-grid">
-          <button class="action-btn feed-btn" @click="feedLulu" :disabled="isLoading">
+          <button class="action-btn feed-btn" @click="feedLulu" :disabled="isActionDisabled">
             <span>喂食</span>
             <small>饱腹 +30</small>
           </button>
-          <button class="action-btn play-btn" @click="playLulu" :disabled="isLoading">
+          <button class="action-btn play-btn" @click="playLulu" :disabled="isActionDisabled">
             <span>玩耍</span>
             <small>心情 +20</small>
           </button>
-          <button class="action-btn sleep-btn" @click="sleepLulu" :disabled="isLoading">
+          <button class="action-btn sleep-btn" @click="sleepLulu" :disabled="isActionDisabled">
             <span>{{ sleepBtnText }}</span>
             <small>恢复体力</small>
           </button>
-          <button class="action-btn touch-btn" @click="touchLulu" :disabled="isLoading">
+          <button class="action-btn touch-btn" @click="touchLulu" :disabled="isActionDisabled">
             <span>摸摸</span>
             <small>陪伴一下</small>
           </button>
-          <button class="action-btn bath-btn" @click="bathLulu" :disabled="isLoading">
+          <button class="action-btn bath-btn" @click="bathLulu" :disabled="isActionDisabled">
             <span>洗澡</span>
             <small>清爽状态</small>
           </button>
-          <button class="action-btn music-btn" @click="musicLulu" :disabled="isLoading">
+          <button class="action-btn music-btn" @click="musicLulu" :disabled="isActionDisabled">
             <span>听音乐</span>
             <small>放松心情</small>
           </button>
-          <button class="action-btn wish-btn" @click="makeWish" :disabled="isLoading">
+          <button class="action-btn wish-btn" @click="makeWish" :disabled="isActionDisabled">
             <span>许愿</span>
             <small>{{ wishText }}</small>
           </button>
-          <button class="action-btn dress-btn" @click="changeAccessory" :disabled="isLoading">
+          <button class="action-btn dress-btn" @click="changeAccessory" :disabled="isActionDisabled">
             <span>换装</span>
             <small>{{ currentAccessory.name }}</small>
           </button>
@@ -162,7 +188,7 @@
           <p class="message-eyebrow">留言板</p>
           <h3>写给 噜噜 的小纸条</h3>
         </div>
-        <button class="message-refresh" @click="fetchMessages" :disabled="isMessageLoading">刷新</button>
+        <button class="message-refresh" @click="fetchMessages(messagePagination.page)" :disabled="isMessageLoading">刷新</button>
       </div>
 
       <form class="message-form" @submit.prevent="sendMessage">
@@ -194,6 +220,11 @@
           <button class="delete-message" @click="deleteMessage(message)" :disabled="isMessageLoading">删除</button>
         </article>
       </div>
+      <nav class="pager" aria-label="留言分页">
+        <button type="button" @click="changeMessagePage(messagePagination.page - 1)" :disabled="isMessageLoading || messagePagination.page <= 1">上一页</button>
+        <span>第 {{ messagePagination.page }}/{{ messagePagination.totalPages }} 页 · {{ messagePagination.total }} 条</span>
+        <button type="button" @click="changeMessagePage(messagePagination.page + 1)" :disabled="isMessageLoading || messagePagination.page >= messagePagination.totalPages">下一页</button>
+      </nav>
     </aside>
 
     <div v-if="isLogPanelOpen" class="log-overlay" @click.self="isLogPanelOpen = false">
@@ -201,7 +232,7 @@
         <div class="log-panel-header">
           <div>
             <p class="message-eyebrow">互动日志</p>
-            <h3>噜噜 的照顾记录</h3>
+            <h3>噜噜 的照顾记录 <small>{{ logPagination.total }} 条</small></h3>
           </div>
           <button class="message-refresh" @click="isLogPanelOpen = false">关闭</button>
         </div>
@@ -226,6 +257,11 @@
             </div>
           </article>
         </div>
+        <nav class="pager log-pager" aria-label="日志分页">
+          <button type="button" @click="changeLogPage(logPagination.page - 1)" :disabled="isLogLoading || logPagination.page <= 1">上一页</button>
+          <span>第 {{ logPagination.page }}/{{ logPagination.totalPages }} 页</span>
+          <button type="button" @click="changeLogPage(logPagination.page + 1)" :disabled="isLogLoading || logPagination.page >= logPagination.totalPages">下一页</button>
+        </nav>
       </section>
     </div>
 
@@ -239,6 +275,9 @@ import { sendAxiosRequest } from '@/utils/common.js';
 
 const currentUserId = 1;
 const isLoading = ref(false);
+const statusSyncState = ref('loading');
+const coreImagesReady = ref(false);
+const failedImageUrls = ref(new Set());
 const isMessageLoading = ref(false);
 const actionCategory = ref('idle');
 const actionLabel = ref('');
@@ -249,10 +288,32 @@ const floatingEffects = ref([]);
 const messages = ref([]);
 const messageInput = ref('');
 const messageListRef = ref(null);
+const messagePagination = ref({ page: 1, pageSize: 8, total: 0, totalPages: 1 });
 const logs = ref([]);
+const logPagination = ref({ page: 1, pageSize: 10, total: 0, totalPages: 1 });
 const isLogLoading = ref(false);
 const isLogPanelOpen = ref(false);
 const careStreak = ref(1);
+const monthlyCompanionship = ref({
+  month: '',
+  visitedDays: 0,
+  missedDays: new Date().getDate(),
+  elapsedDays: new Date().getDate(),
+  daysInMonth: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate(),
+  visitedDates: []
+});
+const stageRef = ref(null);
+const luluMotion = ref({ x: 0, y: 0, rotate: 0 });
+const ambientThought = ref('');
+const bondCombo = ref(0);
+const scenePeriod = ref((() => {
+  const hour = new Date().getHours();
+  if (hour < 6) return 'night';
+  if (hour < 11) return 'morning';
+  if (hour < 18) return 'day';
+  if (hour < 22) return 'evening';
+  return 'night';
+})());
 const dailyMission = ref({
   type: 'feed',
   title: '给噜噜准备一顿饭',
@@ -266,8 +327,13 @@ const wishText = ref('抽一句');
 let actionTimer = null;
 let frameTimer = null;
 let ambientTimer = null;
+let thoughtTimer = null;
+let thoughtClearTimer = null;
+let comboTimer = null;
+let motionFrame = null;
 let pollerTimer = null;
 let effectIdCounter = 0;
+let lastInteractionAt = 0;
 
 const img = (name) => `/picture/lulu/benti/${name}`;
 
@@ -312,14 +378,14 @@ const petData = ref({
 });
 
 const feedActions = [
-  { label: '正在吃小蛋糕', frames: [luluImages.feedCookie, luluImages.feed, luluImages.feedCookie], effect: ['点心时间', 'type-food'] },
-  { label: '正在吸溜面条', frames: [luluImages.feedNoodle, luluImages.feed, luluImages.feedNoodle], effect: ['热乎乎', 'type-food'] },
+  { label: '正在吃小蛋糕', frames: [luluImages.feed, luluImages.feedCookie, luluImages.feed], effect: ['点心时间', 'type-food'] },
+  { label: '正在吸溜面条', frames: [luluImages.feed, luluImages.feedNoodle, luluImages.feed], effect: ['热乎乎', 'type-food'] },
   { label: '正在认真干饭', frames: [luluImages.feed, luluImages.feedCookie, luluImages.feed], effect: ['吃饱啦', 'type-food'] }
 ];
 
 const playActions = [
-  { label: '追球中', frames: [luluImages.playChase, luluImages.play, luluImages.playChase], effect: ['跑起来', 'type-mood'] },
-  { label: '开心跳舞', frames: [luluImages.playDance], effect: ['心情明亮', 'type-mood'] },
+  { label: '追球中', frames: [luluImages.play, luluImages.playChase, luluImages.play], effect: ['跑起来', 'type-mood'] },
+  { label: '开心跳舞', frames: [luluImages.play, luluImages.playDance, luluImages.play], effect: ['心情明亮', 'type-mood'] },
   { label: '蹦蹦跳跳', frames: [luluImages.play, luluImages.playDance, luluImages.playChase], effect: ['玩疯了', 'type-mood'] }
 ];
 
@@ -390,15 +456,15 @@ const visualState = computed(() => {
 });
 
 const currentLuluImage = computed(() => {
+  let requestedImage;
   if (actionFrames.value.length) {
-    return actionFrames.value[actionFrameIndex.value % actionFrames.value.length];
+    requestedImage = actionFrames.value[actionFrameIndex.value % actionFrames.value.length];
+  } else if (petData.value.currentState === 'SLEEPING') {
+    requestedImage = activeSleepImage.value || luluImages.sleepBed;
+  } else {
+    requestedImage = currentAccessory.value.image || luluImages.idle;
   }
-
-  if (petData.value.currentState === 'SLEEPING') {
-    return activeSleepImage.value || luluImages.sleepBed;
-  }
-
-  return currentAccessory.value.image || luluImages.idle;
+  return failedImageUrls.value.has(requestedImage) ? luluImages.idle : requestedImage;
 });
 
 const animationClass = computed(() => {
@@ -416,10 +482,36 @@ const animationClass = computed(() => {
   return map[actionCategory.value] || 'anim-breathe';
 });
 
-const statusText = computed(() => actionLabel.value || formatState(visualState.value));
+const statusText = computed(() => actionLabel.value || ambientThought.value || formatState(visualState.value));
+
+const luluMotionStyle = computed(() => ({
+  '--lulu-shift-x': `${luluMotion.value.x}px`,
+  '--lulu-shift-y': `${luluMotion.value.y}px`,
+  '--lulu-rotate': `${luluMotion.value.rotate}deg`
+}));
 
 const sleepBtnText = computed(() => {
   return petData.value.currentState === 'SLEEPING' ? '唤醒' : '睡觉';
+});
+
+const isActionDisabled = computed(() => {
+  return isLoading.value || !coreImagesReady.value || !['ready', 'stale'].includes(statusSyncState.value);
+});
+
+const syncNotice = computed(() => {
+  if (!coreImagesReady.value) {
+    return { visible: true, mode: 'loading', text: '正在准备动作图片…', retry: false };
+  }
+  if (statusSyncState.value === 'loading') {
+    return { visible: true, mode: 'loading', text: '正在同步噜噜状态…', retry: false };
+  }
+  if (statusSyncState.value === 'error') {
+    return { visible: true, mode: 'error', text: '状态加载失败，互动已暂停', retry: true };
+  }
+  if (statusSyncState.value === 'stale') {
+    return { visible: true, mode: 'stale', text: '状态同步中断，当前展示上次结果', retry: true };
+  }
+  return { visible: false, mode: 'ready', text: '', retry: false };
 });
 
 const floatingMessages = computed(() => {
@@ -433,12 +525,33 @@ const dailyMissionProgress = computed(() => {
   return Math.min(100, (dailyMission.value.current / dailyMission.value.target) * 100);
 });
 
+const monthlyCompanionshipProgress = computed(() => {
+  if (!monthlyCompanionship.value.elapsedDays) return 0;
+  return Math.min(100, (monthlyCompanionship.value.visitedDays / monthlyCompanionship.value.elapsedDays) * 100);
+});
+
 const moodWeather = computed(() => {
   const mood = petData.value.mood || 0;
   if (mood >= 80) return { text: '今天是闪闪发亮日' };
   if (mood >= 50) return { text: '噜噜状态不错' };
   if (mood >= 25) return { text: '噜噜想被多陪陪' };
   return { text: '噜噜有点低落' };
+});
+
+const smartCareAdvice = computed(() => {
+  if (petData.value.currentState === 'SLEEPING') {
+    return { action: 'RESTING', short: '守护睡眠', text: '噜噜睡得很香，安静陪着它就好。' };
+  }
+  if (petData.value.hunger <= 45) {
+    return { action: 'FEED', short: '建议加餐', text: '小肚子有点空，智能照顾会先准备加餐。' };
+  }
+  if (petData.value.energy <= 35) {
+    return { action: 'REST', short: '建议休息', text: '体力不多了，智能照顾会安排噜噜休息。' };
+  }
+  if (petData.value.mood <= 65) {
+    return { action: 'COMFORT', short: '需要陪伴', text: '噜噜想要一个摸摸，陪伴能让心情变好。' };
+  }
+  return { action: 'STROLL', short: '适合散步', text: '状态正好，今天很适合和噜噜出去走走。' };
 });
 
 const formatState = (state) => {
@@ -452,7 +565,114 @@ const formatState = (state) => {
   return map[state] || state;
 };
 
+const displayStat = (value) => {
+  if (!['ready', 'stale'].includes(statusSyncState.value)) return '—';
+  return Number.isFinite(Number(value)) ? Number(value) : 0;
+};
+
 const pickOne = (items) => items[Math.floor(Math.random() * items.length)];
+
+const randomBetween = (min, max) => Math.floor(min + Math.random() * (max - min + 1));
+
+const handleStagePointerMove = (event) => {
+  if (event.pointerType === 'touch' || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const stage = stageRef.value;
+  if (!stage) return;
+  const rect = stage.getBoundingClientRect();
+  const normalizedX = Math.max(-1, Math.min(1, (event.clientX - (rect.left + rect.width / 2)) / (rect.width / 2)));
+  const normalizedY = Math.max(-1, Math.min(1, (event.clientY - (rect.top + rect.height / 2)) / (rect.height / 2)));
+  window.cancelAnimationFrame(motionFrame);
+  motionFrame = window.requestAnimationFrame(() => {
+    luluMotion.value = {
+      x: Number((normalizedX * 8).toFixed(2)),
+      y: Number((normalizedY * 5).toFixed(2)),
+      rotate: Number((normalizedX * 1.6).toFixed(2))
+    };
+  });
+};
+
+const resetLuluMotion = () => {
+  window.cancelAnimationFrame(motionFrame);
+  luluMotion.value = { x: 0, y: 0, rotate: 0 };
+};
+
+const registerBondInteraction = () => {
+  const now = Date.now();
+  bondCombo.value = now - lastInteractionAt <= 8000 ? Math.min(5, bondCombo.value + 1) : 1;
+  lastInteractionAt = now;
+  window.clearTimeout(comboTimer);
+  comboTimer = window.setTimeout(() => {
+    bondCombo.value = 0;
+  }, 8000);
+  if (bondCombo.value > 1) {
+    triggerEffect('默', `默契 ×${bondCombo.value}`, 'type-level');
+  }
+};
+
+const getAmbientThoughts = () => {
+  const thoughts = ['我在听哦。', '今天也一起慢慢来。', '你来啦，我刚好没有睡着。'];
+  if (petData.value.hunger <= 35) thoughts.push('小肚子好像在咕咕叫。', '饭碗今天会出现吗？');
+  if (petData.value.energy <= 35) thoughts.push('眼皮有一点点打架。', '要不要一起休息五分钟？');
+  if (petData.value.mood >= 80) thoughts.push('今天的心情闪闪发亮！', '想和你多玩一会儿。');
+  if (monthlyCompanionship.value.visitedDays > 1) thoughts.push(`这个月已经见到你 ${monthlyCompanionship.value.visitedDays} 天啦。`);
+  if (scenePeriod.value === 'night') thoughts.push('夜深啦，别忘了早点休息。');
+  if (scenePeriod.value === 'morning') thoughts.push('早呀，今天也要元气满满。');
+  return thoughts;
+};
+
+const scheduleThought = () => {
+  window.clearTimeout(thoughtTimer);
+  thoughtTimer = window.setTimeout(() => {
+    if (actionCategory.value === 'idle' && petData.value.currentState !== 'SLEEPING') {
+      ambientThought.value = pickOne(getAmbientThoughts());
+      window.clearTimeout(thoughtClearTimer);
+      thoughtClearTimer = window.setTimeout(() => {
+        ambientThought.value = '';
+      }, 4200);
+    }
+    scheduleThought();
+  }, randomBetween(6500, 12000));
+};
+
+const preloadImage = (url) => new Promise((resolve, reject) => {
+  const image = new Image();
+  image.onload = () => resolve(url);
+  image.onerror = () => reject(new Error(`图片加载失败: ${url}`));
+  image.src = url;
+});
+
+const preloadCoreImages = async () => {
+  const coreImages = [
+    luluImages.idle,
+    luluImages.happy,
+    luluImages.feed,
+    luluImages.play,
+    luluImages.touch,
+    luluImages.bath,
+    luluImages.music,
+    luluImages.tapBelly,
+    luluImages.sleep,
+    luluImages.sleepBed,
+    luluImages.sleepFloor
+  ];
+  const results = await Promise.allSettled(coreImages.map(preloadImage));
+  const failed = results
+    .filter((result) => result.status === 'rejected')
+    .map((result) => String(result.reason?.message || result.reason).replace('图片加载失败: ', ''));
+  if (failed.length) {
+    failedImageUrls.value = new Set([...failedImageUrls.value, ...failed]);
+    ElMessage.warning(`有 ${failed.length} 张动作图片未能加载，已自动使用默认图`);
+  }
+  coreImagesReady.value = true;
+};
+
+const handleLuluImageError = (event) => {
+  const failedUrl = event?.currentTarget?.getAttribute('src');
+  if (!failedUrl || failedImageUrls.value.has(failedUrl)) return;
+  failedImageUrls.value = new Set([...failedImageUrls.value, failedUrl]);
+  actionLabel.value = '动作图片走丢了，已经换回默认图';
+  ElMessage.warning('动作图片加载失败，已自动回退');
+};
 
 const getField = (data, upperKey, lowerKey, fallback) => {
   return data?.[upperKey] ?? data?.[lowerKey] ?? fallback;
@@ -576,6 +796,14 @@ const maybeStartAmbientAction = () => {
   startFrameAction('ambient', pickOne(ambientActions), 3000, false, 1350);
 };
 
+const scheduleAmbientAction = () => {
+  window.clearTimeout(ambientTimer);
+  ambientTimer = window.setTimeout(() => {
+    maybeStartAmbientAction();
+    scheduleAmbientAction();
+  }, randomBetween(11000, 24000));
+};
+
 const updatePetData = (data) => {
   if (!data) return;
 
@@ -616,21 +844,31 @@ const normalizeMessage = (message, index) => {
   };
 };
 
-const normalizeMessageResult = (result) => {
-  if (Array.isArray(result)) {
-    return result.map(normalizeMessage);
-  }
-
+const normalizePagedResult = (result, normalizer, fallbackPageSize) => {
   if (result?.isError) {
     ElMessage.warning(result.errMsg || result.message || result.msg || '操作失败');
-    return messages.value;
+    return null;
   }
-
-  if (Array.isArray(result?.result)) {
-    return result.result.map(normalizeMessage);
+  const payload = result?.result ?? result;
+  if (Array.isArray(payload)) {
+    return {
+      items: payload.map(normalizer),
+      page: 1,
+      pageSize: fallbackPageSize,
+      total: payload.length,
+      totalPages: 1
+    };
   }
-
-  return [];
+  const rawItems = getField(payload, 'ITEMS', 'items', getField(payload, 'DATA', 'data', []));
+  const pageSize = Number(getField(payload, 'PAGE_SIZE', 'pageSize', fallbackPageSize)) || fallbackPageSize;
+  const total = Number(getField(payload, 'TOTAL', 'total', Array.isArray(rawItems) ? rawItems.length : 0)) || 0;
+  return {
+    items: Array.isArray(rawItems) ? rawItems.map(normalizer) : [],
+    page: Number(getField(payload, 'PAGE', 'page', 1)) || 1,
+    pageSize,
+    total,
+    totalPages: Math.max(1, Number(getField(payload, 'TOTAL_PAGES', 'totalPages', Math.ceil(total / pageSize))) || 1)
+  };
 };
 
 const normalizeLog = (log, index) => {
@@ -647,11 +885,24 @@ const normalizeLog = (log, index) => {
   };
 };
 
-const fetchLogs = async () => {
+const fetchLogs = async (page = logPagination.value.page) => {
   isLogLoading.value = true;
   try {
-    const result = await sendAxiosRequest('/blog-api/lulu/logs', { userNum: currentUserId });
-    logs.value = Array.isArray(result) ? result.map(normalizeLog) : [];
+    const result = await sendAxiosRequest('/blog-api/lulu/logs', {
+      userNum: currentUserId,
+      page: Math.max(1, Number(page) || 1),
+      pageSize: logPagination.value.pageSize
+    });
+    const pageResult = normalizePagedResult(result, normalizeLog, logPagination.value.pageSize);
+    if (pageResult) {
+      logs.value = pageResult.items;
+      logPagination.value = {
+        page: pageResult.page,
+        pageSize: pageResult.pageSize,
+        total: pageResult.total,
+        totalPages: pageResult.totalPages
+      };
+    }
   } catch (error) {
     console.error('获取 噜噜 日志失败:', error);
     ElMessage.error('日志读取失败');
@@ -662,22 +913,72 @@ const fetchLogs = async () => {
 
 const openLogPanel = async () => {
   isLogPanelOpen.value = true;
-  await fetchLogs();
+  await fetchLogs(1);
+};
+
+const changeLogPage = (page) => {
+  if (page < 1 || page > logPagination.value.totalPages || isLogLoading.value) return;
+  fetchLogs(page);
 };
 
 const getLogIcon = (actionType) => {
   const map = {
     FEED: '食',
     PLAY: '玩',
+    AUTO_CARE: '护',
+    VISIT: '来',
     SLEEP: '睡',
     WAKE: '醒'
   };
   return map[actionType] || '记';
 };
 
+const applyMonthlyCompanionship = (result) => {
+  if (!result || result?.isError) return;
+  const payload = result?.result ?? result;
+  monthlyCompanionship.value = {
+    month: getField(payload, 'MONTH', 'month', ''),
+    visitedDays: Number(getField(payload, 'VISITED_DAYS', 'visitedDays', 0)),
+    missedDays: Number(getField(payload, 'MISSED_DAYS', 'missedDays', 0)),
+    elapsedDays: Number(getField(payload, 'ELAPSED_DAYS', 'elapsedDays', new Date().getDate())),
+    daysInMonth: Number(getField(payload, 'DAYS_IN_MONTH', 'daysInMonth', 30)),
+    visitedDates: getField(payload, 'VISITED_DATES', 'visitedDates', [])
+  };
+};
+
+const fetchMonthlyCompanionship = async () => {
+  try {
+    const result = await sendAxiosRequest('/blog-api/lulu/companionship/monthly', { userNum: currentUserId });
+    applyMonthlyCompanionship(result);
+  } catch (error) {
+    console.error('获取月度陪伴统计失败:', error);
+  }
+};
+
+const recordDailyVisit = async () => {
+  try {
+    const result = await sendAxiosRequest('/blog-api/lulu/visit', { userNum: currentUserId });
+    applyMonthlyCompanionship(result);
+  } catch (error) {
+    console.error('记录噜噜来访失败:', error);
+    fetchMonthlyCompanionship();
+  }
+};
+
 const changeAccessory = async () => {
+  registerBondInteraction();
   try {
     const result = await sendAxiosRequest('/blog-api/lulu/clothes/change', { userNum: currentUserId });
+    const nextIndex = Number(getField(result, 'CLOTHES_INDEX', 'clothesIndex', 0)) % accessoryModes.length;
+    const nextImage = accessoryModes[nextIndex]?.image;
+    if (nextImage) {
+      try {
+        await preloadImage(nextImage);
+      } catch (imageError) {
+        failedImageUrls.value = new Set([...failedImageUrls.value, nextImage]);
+        console.error('换装图片加载失败:', imageError);
+      }
+    }
     applyFunState(result);
     triggerEffect('装', `换成${currentAccessory.value.name}`, 'type-mood');
     startFrameAction('ambient', { label: `噜噜换上了${currentAccessory.value.name}`, frames: [currentAccessory.value.image] }, 2200, false, 1000);
@@ -688,6 +989,7 @@ const changeAccessory = async () => {
 };
 
 const makeWish = () => {
+  registerBondInteraction();
   const wish = pickOne(wishPool);
   wishText.value = wish.length > 6 ? `${wish.slice(0, 6)}...` : wish;
   triggerEffect('愿', wish, 'type-level');
@@ -723,6 +1025,7 @@ const tapLuluBody = (part) => {
   const action = actionMap[part];
   if (!action) return;
 
+  registerBondInteraction();
   startFrameAction('touch', action, 2600, false, 1000);
   triggerEffect(action.icon, action.effect[0], action.effect[1]);
   advanceMission('touch');
@@ -735,26 +1038,51 @@ const scrollMessagesToTop = async () => {
   }
 };
 
-const fetchStatus = async () => {
+const fetchStatus = async (silent = false) => {
+  const hadStatus = ['ready', 'stale'].includes(statusSyncState.value);
+  if (!silent && !hadStatus) {
+    statusSyncState.value = 'loading';
+  }
   try {
     const result = await sendAxiosRequest('/blog-api/lulu/status', { userNum: currentUserId });
     updatePetData(result);
+    statusSyncState.value = 'ready';
   } catch (error) {
     console.error('获取 噜噜 状态失败:', error);
+    statusSyncState.value = hadStatus ? 'stale' : 'error';
   }
 };
 
-const fetchMessages = async () => {
+const fetchMessages = async (page = messagePagination.value.page) => {
   isMessageLoading.value = true;
   try {
-    const result = await sendAxiosRequest('/blog-api/lulu/messages', { userNum: currentUserId });
-    messages.value = normalizeMessageResult(result);
-    await scrollMessagesToTop();
+    const result = await sendAxiosRequest('/blog-api/lulu/messages', {
+      userNum: currentUserId,
+      page: Math.max(1, Number(page) || 1),
+      pageSize: messagePagination.value.pageSize
+    });
+    const pageResult = normalizePagedResult(result, normalizeMessage, messagePagination.value.pageSize);
+    if (pageResult) {
+      messages.value = pageResult.items;
+      messagePagination.value = {
+        page: pageResult.page,
+        pageSize: pageResult.pageSize,
+        total: pageResult.total,
+        totalPages: pageResult.totalPages
+      };
+      await scrollMessagesToTop();
+    }
   } catch (error) {
     console.error('获取 噜噜 留言失败:', error);
+    ElMessage.error('留言读取失败');
   } finally {
     isMessageLoading.value = false;
   }
+};
+
+const changeMessagePage = (page) => {
+  if (page < 1 || page > messagePagination.value.totalPages || isMessageLoading.value) return;
+  fetchMessages(page);
 };
 
 const sendMessage = async () => {
@@ -767,12 +1095,13 @@ const sendMessage = async () => {
       userNum: currentUserId,
       content
     });
-    if (!result?.isError) {
-      messageInput.value = '';
-      triggerEffect('信', '留言已飘出去', 'type-mood');
+    if (result?.isError) {
+      ElMessage.warning(result.errMsg || '留言发送失败');
+      return;
     }
-    messages.value = normalizeMessageResult(result);
-    await scrollMessagesToTop();
+    messageInput.value = '';
+    triggerEffect('信', '留言已飘出去', 'type-mood');
+    await fetchMessages(1);
   } catch (error) {
     console.error('发送 噜噜 留言失败:', error);
     ElMessage.error('留言发送失败');
@@ -790,7 +1119,14 @@ const deleteMessage = async (message) => {
       userNum: currentUserId,
       messageId: message.id
     });
-    messages.value = normalizeMessageResult(result);
+    if (result?.isError) {
+      ElMessage.warning(result.errMsg || '删除失败');
+      return;
+    }
+    const targetPage = messages.value.length === 1 && messagePagination.value.page > 1
+      ? messagePagination.value.page - 1
+      : messagePagination.value.page;
+    await fetchMessages(targetPage);
     ElMessage.success('留言已删除');
   } catch (error) {
     console.error('删除 噜噜 留言失败:', error);
@@ -814,11 +1150,56 @@ const formatMessageTime = (time) => {
   });
 };
 
+const showBlockedReaction = (reason) => {
+  const reactions = {
+    sleeping: {
+      label: '噜噜翻了个身，继续睡觉',
+      frames: [luluImages.sleepFloor],
+      effect: ['正在做美梦', 'type-sleep'],
+      icon: 'Z'
+    },
+    hungry: {
+      label: '噜噜捂着咕咕叫的小肚子',
+      frames: [luluImages.tapBelly],
+      effect: ['先喂我嘛', 'type-food'],
+      icon: '食'
+    },
+    tired: {
+      label: '噜噜累得坐不住啦',
+      frames: [luluImages.sleepFloor],
+      effect: ['需要休息', 'type-sleep'],
+      icon: 'Z'
+    }
+  };
+  const reaction = reactions[reason];
+  if (!reaction) return;
+  startFrameAction('touch', reaction, 2400, false, 900);
+  triggerEffect(reaction.icon, reaction.effect[0], reaction.effect[1]);
+};
+
+const blockUnavailableActivity = () => {
+  if (petData.value.currentState === 'SLEEPING') {
+    showBlockedReaction('sleeping');
+    return true;
+  }
+  if (petData.value.hunger < 15) {
+    showBlockedReaction('hungry');
+    return true;
+  }
+  if (petData.value.energy < 15) {
+    showBlockedReaction('tired');
+    return true;
+  }
+  return false;
+};
+
 const feedLulu = async () => {
   if (isLoading.value) return;
+  registerBondInteraction();
 
   if (petData.value.hunger >= 90) {
-    triggerEffect('!', '噜噜 已经吃饱了', 'type-sleep');
+    startFrameAction('touch', { label: '噜噜拍拍圆滚滚的小肚子', frames: [luluImages.happy] }, 2200, false, 900);
+    triggerEffect('饱', '已经吃饱啦', 'type-food');
     return;
   }
 
@@ -830,8 +1211,10 @@ const feedLulu = async () => {
     updatePetData(result);
     triggerEffect('XP', '经验 +20', 'type-level');
     advanceMission('feed');
+    fetchMonthlyCompanionship();
   } catch (error) {
     console.error('喂食失败:', error);
+    ElMessage.error('喂食没有保存，请稍后重试');
   } finally {
     isLoading.value = false;
   }
@@ -839,19 +1222,8 @@ const feedLulu = async () => {
 
 const playLulu = async () => {
   if (isLoading.value) return;
-
-  if (petData.value.currentState === 'SLEEPING') {
-    triggerEffect('Z', '噜噜 正在睡觉', 'type-sleep');
-    return;
-  }
-  if (petData.value.hunger < 15) {
-    triggerEffect('!', '噜噜 太饿了，需要先喂食', 'type-sleep');
-    return;
-  }
-  if (petData.value.energy < 15) {
-    triggerEffect('!', '噜噜 太累了，先睡一会儿', 'type-sleep');
-    return;
-  }
+  registerBondInteraction();
+  if (blockUnavailableActivity()) return;
 
   startFrameAction('play', pickOne(playActions), 4200);
   isLoading.value = true;
@@ -861,8 +1233,10 @@ const playLulu = async () => {
     updatePetData(result);
     triggerEffect('XP', '经验 +40', 'type-level');
     advanceMission('play');
+    fetchMonthlyCompanionship();
   } catch (error) {
     console.error('玩耍失败:', error);
+    ElMessage.error('玩耍状态没有保存，请稍后重试');
   } finally {
     isLoading.value = false;
   }
@@ -870,19 +1244,8 @@ const playLulu = async () => {
 
 const runPlayLikeAction = async (category, actionList, expText) => {
   if (isLoading.value) return;
-
-  if (petData.value.currentState === 'SLEEPING') {
-    triggerEffect('Z', '噜噜 正在睡觉', 'type-sleep');
-    return;
-  }
-  if (petData.value.hunger < 15) {
-    triggerEffect('!', '噜噜 太饿了，需要先喂食', 'type-sleep');
-    return;
-  }
-  if (petData.value.energy < 15) {
-    triggerEffect('!', '体力不足，先睡一会儿', 'type-sleep');
-    return;
-  }
+  registerBondInteraction();
+  if (blockUnavailableActivity()) return;
 
   startFrameAction(category, pickOne(actionList), 4600, true, 1150);
   isLoading.value = true;
@@ -900,8 +1263,10 @@ const runPlayLikeAction = async (category, actionList, expText) => {
     updatePetData(result);
     triggerEffect('XP', expText, 'type-level');
     advanceMission(category);
+    fetchMonthlyCompanionship();
   } catch (error) {
     console.error(`${category} 互动失败:`, error);
+    ElMessage.error('互动状态没有保存，请稍后重试');
   } finally {
     isLoading.value = false;
   }
@@ -913,8 +1278,52 @@ const bathLulu = () => runPlayLikeAction('bath', bathActions, '经验 +40');
 
 const musicLulu = () => runPlayLikeAction('music', musicActions, '经验 +40');
 
+const playSmartCareAnimation = (action) => {
+  const animationMap = {
+    FEED: () => startFrameAction('feed', pickOne(feedActions), 4200),
+    REST: () => startFrameAction('touch', { label: '智能照顾正在铺小床', frames: [luluImages.sleepBed] }, 3600, false, 900),
+    RESTING: () => startFrameAction('touch', { label: '安静守护噜噜的美梦', frames: [luluImages.sleepFloor] }, 3000, false, 900),
+    COMFORT: () => startFrameAction('touch', pickOne(touchActions), 3800, true, 900),
+    STROLL: () => startFrameAction('play', { label: '和噜噜一起散步', frames: [luluImages.play, luluImages.playChase] }, 4200, true, 720)
+  };
+  (animationMap[action] || animationMap.COMFORT)();
+};
+
+const smartCareLulu = async () => {
+  if (isLoading.value) return;
+
+  registerBondInteraction();
+  playSmartCareAnimation(smartCareAdvice.value.action);
+  isLoading.value = true;
+  try {
+    const result = await sendAxiosRequest('/blog-api/lulu/care', { userNum: currentUserId });
+    const careAction = getField(result, 'CARE_ACTION', 'careAction', smartCareAdvice.value.action);
+    const careMessage = getField(result, 'CARE_MESSAGE', 'careMessage', '噜噜感受到了你的照顾。');
+    const missionType = getField(result, 'CARE_MISSION_TYPE', 'careMissionType', '');
+    const expGain = Number(getField(result, 'CARE_EXP_GAIN', 'careExpGain', 0));
+    const actionAccepted = Boolean(getField(result, 'ACTION_ACCEPTED', 'actionAccepted', true));
+
+    updatePetData(result);
+    playSmartCareAnimation(careAction);
+    triggerEffect('护', careMessage, careAction === 'REST' || careAction === 'RESTING' ? 'type-sleep' : 'type-level');
+    if (actionAccepted && expGain > 0) {
+      triggerEffect('XP', `经验 +${expGain}`, 'type-level');
+    }
+    if (actionAccepted && missionType) {
+      advanceMission(missionType);
+    }
+    fetchMonthlyCompanionship();
+  } catch (error) {
+    console.error('智能照顾失败:', error);
+    ElMessage.error('智能照顾暂时不可用，请稍后重试');
+  } finally {
+    isLoading.value = false;
+  }
+};
+
 const sleepLulu = async () => {
   if (isLoading.value) return;
+  registerBondInteraction();
 
   const isWaking = petData.value.currentState === 'SLEEPING';
   const sleepAction = isWaking ? null : pickOne(sleepActions);
@@ -935,24 +1344,33 @@ const sleepLulu = async () => {
     if (isWaking) {
       triggerEffect('心', '醒啦', 'type-mood');
     }
+    fetchMonthlyCompanionship();
   } catch (error) {
     console.error('切换睡眠状态失败:', error);
+    ElMessage.error('睡眠状态没有保存，请稍后重试');
   } finally {
     isLoading.value = false;
   }
 };
 
 onMounted(() => {
+  preloadCoreImages();
   fetchFunState();
   fetchStatus();
   fetchMessages();
-  pollerTimer = window.setInterval(fetchStatus, 10000);
-  ambientTimer = window.setInterval(maybeStartAmbientAction, 20000);
+  recordDailyVisit();
+  scheduleThought();
+  scheduleAmbientAction();
+  pollerTimer = window.setInterval(() => fetchStatus(true), 10000);
 });
 
 onBeforeUnmount(() => {
   clearActionTimers();
-  window.clearInterval(ambientTimer);
+  window.clearTimeout(ambientTimer);
+  window.clearTimeout(thoughtTimer);
+  window.clearTimeout(thoughtClearTimer);
+  window.clearTimeout(comboTimer);
+  window.cancelAnimationFrame(motionFrame);
   window.clearInterval(pollerTimer);
 });
 </script>
@@ -987,6 +1405,31 @@ onBeforeUnmount(() => {
   background:
     radial-gradient(circle at 48% 45%, rgba(255, 205, 92, 0.38), transparent 30%),
     linear-gradient(135deg, #fff8ed 0%, #edf8ff 50%, #fff3f6 100%);
+  transition: background 1.2s ease;
+}
+
+.scene-morning .scene-background {
+  background:
+    radial-gradient(circle at 45% 42%, rgba(255, 211, 105, 0.45), transparent 31%),
+    linear-gradient(135deg, #fff7e8 0%, #ebf7ff 54%, #fff1e5 100%);
+}
+
+.scene-day .scene-background {
+  background:
+    radial-gradient(circle at 48% 44%, rgba(255, 220, 118, 0.36), transparent 30%),
+    linear-gradient(135deg, #f4fbff 0%, #eaf8ff 52%, #fff8eb 100%);
+}
+
+.scene-evening .scene-background {
+  background:
+    radial-gradient(circle at 48% 44%, rgba(255, 172, 105, 0.34), transparent 31%),
+    linear-gradient(135deg, #fff1e6 0%, #eeeafa 54%, #ffecef 100%);
+}
+
+.scene-night .scene-background {
+  background:
+    radial-gradient(circle at 48% 44%, rgba(136, 154, 255, 0.22), transparent 30%),
+    linear-gradient(135deg, #e8eafa 0%, #dfeaf7 52%, #f1e7f6 100%);
 }
 
 .scene-background::before {
@@ -1026,6 +1469,47 @@ onBeforeUnmount(() => {
   color: #6f7a8a;
   font-size: 14px;
   font-weight: 700;
+}
+
+.sync-notice {
+  margin-top: 7px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #7b8798;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.sync-notice::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  flex: none;
+  border-radius: 50%;
+  background: #54a0ff;
+  box-shadow: 0 0 0 4px rgba(84, 160, 255, 0.12);
+}
+
+.sync-notice.sync-error,
+.sync-notice.sync-stale {
+  color: #b56a43;
+}
+
+.sync-notice.sync-error::before,
+.sync-notice.sync-stale::before {
+  background: #ff9f43;
+  box-shadow: 0 0 0 4px rgba(255, 159, 67, 0.14);
+}
+
+.sync-notice button {
+  border: none;
+  padding: 2px 8px;
+  border-radius: 999px;
+  color: #a4562e;
+  background: rgba(255, 159, 67, 0.14);
+  font: inherit;
+  cursor: pointer;
 }
 
 .level-badge {
@@ -1170,7 +1654,8 @@ onBeforeUnmount(() => {
   font-weight: 800;
 }
 
-.mission-progress {
+.mission-progress,
+.companion-progress {
   width: 100%;
   height: 7px;
   margin-top: 9px;
@@ -1179,11 +1664,19 @@ onBeforeUnmount(() => {
   background: rgba(48, 55, 68, 0.08);
 }
 
-.mission-fill {
+.mission-fill,
+.companion-fill {
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, #ff9f43, #ff6b81);
   transition: width 0.28s ease-out;
+}
+
+.mission-fill {
+  background: linear-gradient(90deg, #ff9f43, #ff6b81);
+}
+
+.companion-fill {
+  background: linear-gradient(90deg, #6c8cff, #b76cff);
 }
 
 .lulu-entity {
@@ -1195,6 +1688,27 @@ onBeforeUnmount(() => {
   display: flex;
   justify-content: center;
   align-items: center;
+  transform: translate3d(var(--lulu-shift-x, 0), var(--lulu-shift-y, 0), 0) rotate(var(--lulu-rotate, 0));
+  transform-origin: 50% 78%;
+  transition: transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
+  will-change: transform;
+}
+
+.bond-badge {
+  position: absolute;
+  top: 9%;
+  right: 5%;
+  z-index: 11;
+  padding: 7px 11px;
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  border-radius: 999px;
+  color: #8654c7;
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: 0 12px 28px rgba(76, 55, 114, 0.14);
+  font-size: 12px;
+  font-weight: 900;
+  pointer-events: none;
+  animation: badgePop 0.28s ease-out;
 }
 
 .lulu-img {
@@ -1269,6 +1783,57 @@ onBeforeUnmount(() => {
   padding: 12px 14px;
   border-radius: 16px;
   background: rgba(84, 160, 255, 0.1);
+}
+
+.care-advice {
+  margin: 0;
+  color: #718096;
+  font-size: 11px;
+  line-height: 1.45;
+  font-weight: 700;
+}
+
+.care-advice strong {
+  display: block;
+  margin-bottom: 2px;
+  color: #416d9e;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.smart-care-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border: none;
+  border-radius: 12px;
+  padding: 9px 11px;
+  color: #563f79;
+  background: linear-gradient(145deg, rgba(154, 118, 255, 0.2), rgba(255, 205, 92, 0.26));
+  box-shadow: inset 0 0 0 1px rgba(121, 88, 193, 0.08);
+  font-size: 12px;
+  font-weight: 900;
+  cursor: pointer;
+  transition: transform 0.18s ease, opacity 0.18s ease;
+}
+
+.smart-care-btn small {
+  overflow: hidden;
+  color: rgba(86, 63, 121, 0.68);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 10px;
+}
+
+.smart-care-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.smart-care-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
 }
 
 .exp-row {
@@ -1569,6 +2134,39 @@ onBeforeUnmount(() => {
   opacity: 0.58;
 }
 
+.pager {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 34px;
+  color: #7b8798;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.pager button {
+  flex: none;
+  border: none;
+  border-radius: 999px;
+  padding: 7px 11px;
+  color: #416d9e;
+  background: rgba(84, 160, 255, 0.12);
+  font: inherit;
+  cursor: pointer;
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+.pager button:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.pager button:disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
+}
+
 .log-overlay {
   position: fixed;
   inset: 0;
@@ -1604,6 +2202,12 @@ onBeforeUnmount(() => {
   font-size: 22px;
   color: #2f3440;
   font-weight: 900;
+}
+
+.log-panel-header h3 small {
+  color: #8a94a6;
+  font-size: 12px;
+  font-weight: 800;
 }
 
 .log-list {
@@ -2013,6 +2617,28 @@ onBeforeUnmount(() => {
   }
 }
 
+@keyframes badgePop {
+  0% {
+    opacity: 0;
+    transform: translateY(5px) scale(0.85);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lulu-entity {
+    transform: none !important;
+    transition: none;
+  }
+
+  .bond-badge {
+    animation: none;
+  }
+}
+
 @media (max-width: 1180px) {
   .lulu-viewport {
     height: auto;
@@ -2092,6 +2718,17 @@ onBeforeUnmount(() => {
     font-size: 12px;
   }
 
+  .sync-notice {
+    margin-top: 4px;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+
+  .sync-notice span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
   .level-badge {
     min-width: 42px;
     width: 42px;
@@ -2158,7 +2795,8 @@ onBeforeUnmount(() => {
     font-size: 11px;
   }
 
-  .mission-progress {
+  .mission-progress,
+  .companion-progress {
     height: 5px;
     margin-top: 6px;
   }
@@ -2224,19 +2862,29 @@ onBeforeUnmount(() => {
     border-radius: 15px;
   }
 
+  .care-advice {
+    grid-column: 1 / -1;
+    grid-row: 3;
+  }
+
+  .smart-care-btn {
+    grid-column: 1;
+    grid-row: 4;
+  }
+
   .exp-row {
     grid-column: 1 / -1;
   }
 
   .log-btn {
-    grid-row: 2;
+    grid-row: 4;
     grid-column: 2;
     padding: 8px 10px;
   }
 
   .exp-bar {
     grid-row: 2;
-    grid-column: 1;
+    grid-column: 1 / -1;
   }
 
   .message-board {
