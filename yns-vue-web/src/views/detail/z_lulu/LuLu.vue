@@ -487,6 +487,9 @@ const luluImages = {
   idlePajamas: img('lulu_fadai_pajamas.png'),
   idleGreenpants: img('lulu_fadai_greenpants.png'),
   idleGreenpantsPuffer: img('lulu_fadai_greenpants_puffer.png'),
+  idleWatermelon: img('lulu_fadai_watermelon.png'),
+  idleSharkSlippers: img('lulu_fadai_shark_slippers.png'),
+  idleDinosaurBox: img('lulu_fadai_dinosaur_box.png'),
   touch: img('lulu_touch.png'),
   bath: img('lulu_bath.png'),
   music: img('lulu_music.png'),
@@ -552,7 +555,10 @@ const accessoryModes = [
   { name: '斜挎小包', image: luluImages.idleCrossbody },
   { name: '睡衣噜', image: luluImages.idlePajamas },
   { name: '绿裤衩噜', image: luluImages.idleGreenpants },
-  { name: '河豚包噜', image: luluImages.idleGreenpantsPuffer }
+  { name: '河豚包噜', image: luluImages.idleGreenpantsPuffer },
+  { name: '西瓜噜', image: luluImages.idleWatermelon },
+  { name: '鲨鱼拖鞋噜', image: luluImages.idleSharkSlippers },
+  { name: '恐龙噜', image: luluImages.idleDinosaurBox }
 ];
 
 const sceneModes = [
@@ -609,8 +615,6 @@ const currentLuluImage = computed(() => {
     requestedImage = npcImages.outing;
   } else if (actionFrames.value.length) {
     requestedImage = actionFrames.value[actionFrameIndex.value % actionFrames.value.length];
-  } else if (activeNPCEvent.value?.type === 'LETTER' && petData.value.currentState !== 'SLEEPING') {
-    requestedImage = luluImages.happy;
   } else if (petData.value.currentState === 'SLEEPING') {
     requestedImage = activeSleepImage.value || luluImages.sleepBed;
   } else {

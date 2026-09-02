@@ -7,3 +7,7 @@ Disallow: /personalCenter
 Disallow: /ynsStudy/MyBlog/content
 
 Sitemap: https://ynsstudy.cn/sitemap.xml
+
+17736427712  15932508442
+
+
