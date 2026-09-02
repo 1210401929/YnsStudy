@@ -126,20 +126,20 @@ func (s *Service) SmartCarePet(ctx context.Context, userNum int64, ip, userAgent
 	return pet, nil
 }
 
-// RecordPetVisit writes at most one passive visit log per day. Active care logs
-// already prove a visit, so opening the page later on the same day adds nothing.
+// RecordPetVisit writes at most one passive visit log per IP per day. The pet is
+// public, so IP must be part of the key for each visitor to build a distinct memory.
 func (s *Service) RecordPetVisit(ctx context.Context, userNum int64, ip, userAgent string) (map[string]any, error) {
 	now := time.Now()
 	dayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 	nextDay := dayStart.AddDate(0, 0, 1)
-	counts, err := s.Repo.Query(ctx, "SELECT COUNT(1) AS TOTAL FROM z_lulu_log WHERE USER_NUM = ? AND CREATE_TIME >= ? AND CREATE_TIME < ?", userNum, dayStart, nextDay)
+	if strings.TrimSpace(ip) == "" {
+		ip = "unknown"
+	}
+	counts, err := s.Repo.Query(ctx, "SELECT COUNT(1) AS TOTAL FROM z_lulu_log WHERE USER_NUM = ? AND IP_ADDRESS = ? AND CREATE_TIME >= ? AND CREATE_TIME < ?", userNum, ip, dayStart, nextDay)
 	if err != nil {
 		return nil, err
 	}
 	if firstCount(counts) == 0 {
-		if strings.TrimSpace(ip) == "" {
-			ip = "unknown"
-		}
 		_, err = s.Repo.Exec(ctx, `INSERT INTO z_lulu_log
 (USER_NUM, ACTION_TYPE, ACTION_NAME, IP_ADDRESS, BROWSER, DEVICE_MODEL, USER_AGENT, REMARK)
 VALUES (?, 'VISIT', '来看噜噜', ?, ?, ?, ?, '今天第一次来看噜噜')`, userNum, ip, parseBrowser(userAgent), parseDevice(userAgent), truncateRunes(userAgent, 500))
@@ -532,8 +532,10 @@ func parseTime(value any) time.Time {
 	switch typed := value.(type) {
 	case time.Time:
 		return typed
+	case []byte:
+		return parseTime(string(typed))
 	case string:
-		for _, layout := range []string{"2006-01-02 15:04:05", time.RFC3339, "2006-01-02T15:04:05"} {
+		for _, layout := range []string{"2006-01-02 15:04:05", time.RFC3339, "2006-01-02T15:04:05", "2006-01-02"} {
 			if parsed, err := time.ParseInLocation(layout, strings.Split(typed, ".")[0], time.Local); err == nil {
 				return parsed
 			}

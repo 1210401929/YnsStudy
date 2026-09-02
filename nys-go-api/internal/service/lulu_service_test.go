@@ -49,3 +49,45 @@ func TestMonthlyCompanionshipResponse(t *testing.T) {
 		t.Fatalf("unexpected companionship response: %#v", response)
 	}
 }
+
+func TestChooseLuluNPCEvent(t *testing.T) {
+	if event := chooseLuluNPCEvent(1, 99, 0); event != nil {
+		t.Fatalf("first-time visitor should not receive NPC event: %#v", event)
+	}
+	if event := chooseLuluNPCEvent(10, 0, 0); event != nil {
+		t.Fatalf("cooldown should suppress NPC event: %#v", event)
+	}
+	if event := chooseLuluNPCEvent(5, 1, 499); event == nil || event.EventType != "OUTING" {
+		t.Fatalf("outing event not selected: %#v", event)
+	}
+	if event := chooseLuluNPCEvent(2, 1, 500); event == nil || event.EventType != "LETTER" {
+		t.Fatalf("letter event not selected: %#v", event)
+	}
+	if event := chooseLuluNPCEvent(20, 1, 800); event != nil {
+		t.Fatalf("ordinary roll should produce no event: %#v", event)
+	}
+}
+
+func TestStableLuluMemorySignature(t *testing.T) {
+	first := stableLuluMemorySignature("192.0.2.10")
+	if first == "" || first != stableLuluMemorySignature("192.0.2.10") {
+		t.Fatalf("memory signature should be non-empty and stable: %q", first)
+	}
+}
+
+func TestStableLuluEventRoll(t *testing.T) {
+	first := stableLuluEventRoll("192.0.2.10", "2026-08-28")
+	if first < 0 || first >= luluNPCEventRollMax {
+		t.Fatalf("event roll out of range: %d", first)
+	}
+	if first != stableLuluEventRoll("192.0.2.10", "2026-08-28") {
+		t.Fatalf("event roll should stay stable for the same IP and day")
+	}
+}
+
+func TestLuluCommunityGoalForDate(t *testing.T) {
+	goal := luluCommunityGoalForDate(time.Date(2026, time.August, 28, 12, 0, 0, 0, time.Local))
+	if goal.GoalType == "" || goal.Target <= 0 || goal.Condition == "" {
+		t.Fatalf("unexpected community goal: %#v", goal)
+	}
+}

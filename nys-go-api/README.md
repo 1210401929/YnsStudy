@@ -33,7 +33,7 @@ https://ynsstudy.cn/api/pub-api/login/qq/callback
 
 1. 将 `seo.frontend_index_file` 改成服务器上 Vue `dist/index.html` 的真实绝对路径。
 2. 把 `deploy/nginx-seo.conf.example` 中的 location 合并到网站现有 Nginx `server`，然后执行 `nginx -t` 并重载。
-3. 部署或升级时依次执行尚未执行过的 `deploy/migrations/001_add_blog_update_time.sql` 和 `deploy/migrations/002_add_lulu_paging_indexes.sql`。前者增加文章更新时间字段；后者为噜噜留言分页、日志分页和月度陪伴统计增加索引。
+3. 部署或升级时依次执行尚未执行过的 `deploy/migrations/001_add_blog_update_time.sql`、`deploy/migrations/002_add_lulu_paging_indexes.sql` 和 `deploy/migrations/003_add_lulu_npc_world.sql`。它们分别增加文章更新时间字段、噜噜分页统计索引，以及噜妹 NPC 事件表与按 IP 长期记忆索引。
 
 部署后使用 `curl https://ynsstudy.cn/oneBlog/真实文章ID` 检查源代码，应能直接找到文章标题、正文、canonical 和 `application/ld+json`，无需等待 JavaScript。
 

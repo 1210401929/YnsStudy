@@ -24,6 +24,7 @@ func (h *Controller) registerLuluRoutes(group *gin.RouterGroup) {
 	group.POST("/fun-state", h.petFunState)
 	group.POST("/mission/advance", h.advancePetMission)
 	group.POST("/clothes/change", h.changePetClothes)
+	group.POST("/world", h.petWorld)
 }
 
 func (h *Controller) luluBody(c *gin.Context) (map[string]any, int64, bool) {
@@ -166,6 +167,15 @@ func (h *Controller) changePetClothes(c *gin.Context) {
 		return
 	}
 	value, err := h.service.ChangePetClothes(c.Request.Context(), userNum)
+	h.writeLulu(c, value, err)
+}
+
+func (h *Controller) petWorld(c *gin.Context) {
+	_, userNum, ok := h.luluBody(c)
+	if !ok {
+		return
+	}
+	value, err := h.service.GetPetWorld(c.Request.Context(), userNum, service.ClientIP(c), c.GetHeader("User-Agent"))
 	h.writeLulu(c, value, err)
 }
 

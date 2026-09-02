@@ -3,11 +3,16 @@
     <section
       ref="stageRef"
       class="lulu-stage"
-      :class="`scene-${scenePeriod}`"
+      :class="[`scene-${scenePeriod}`, { 'has-custom-scene': Boolean(currentScene.image) }]"
       @pointermove="handleStagePointerMove"
       @pointerleave="resetLuluMotion"
     >
-      <div class="scene-background"></div>
+      <div
+        :key="currentScene.name"
+        class="scene-background"
+        :class="{ 'has-scene-image': Boolean(currentScene.image) }"
+        :style="sceneBackgroundStyle"
+      ></div>
 
       <div class="top-status">
         <div class="identity-block">
@@ -75,11 +80,35 @@
           </div>
           <small>缺席 {{ monthlyCompanionship.missedDays }} 天 · 连续 {{ careStreak }} 天</small>
         </div>
+        <button class="community-card" type="button" @click="openWorldPanel">
+          <span>全站共同目标</span>
+          <strong>{{ worldData.communityGoal.title }}</strong>
+          <div class="community-progress">
+            <div class="community-fill" :class="{ completed: worldData.communityGoal.completed }" :style="{ width: `${communityGoalProgress}%` }"></div>
+          </div>
+          <small>
+            {{ worldData.communityGoal.current }}/{{ worldData.communityGoal.target }}
+            · {{ worldData.memory.title }}
+          </small>
+        </button>
       </div>
+
+      <aside v-if="showLumeiLetter" class="npc-letter-popover" aria-live="polite">
+        <img :src="npcImages.letter" alt="噜妹抱着一封信" />
+        <div class="npc-letter-copy">
+          <span>噜妹来啦</span>
+          <strong>{{ activeNPCEvent.title }}</strong>
+          <p>{{ activeNPCEvent.content }}</p>
+          <div>
+            <button type="button" @click="openWorldPanel">打开回忆册</button>
+            <button type="button" class="letter-dismiss" @click="dismissNPCEvent">收到啦</button>
+          </div>
+        </div>
+      </aside>
 
       <div
         class="lulu-entity"
-        :class="[`state-${visualState.toLowerCase()}`, `action-${actionCategory}`]"
+        :class="[`state-${visualState.toLowerCase()}`, `action-${actionCategory}`, { 'is-away-event': isLuluAway }]"
         :style="luluMotionStyle"
       >
         <div v-if="bondCombo > 1" class="bond-badge">默契 ×{{ bondCombo }}</div>
@@ -113,11 +142,11 @@
           class="lulu-img"
           :class="animationClass"
           :src="currentLuluImage"
-          alt="噜噜"
+          :alt="isLuluAway ? '噜噜和噜妹一起外出' : '噜噜'"
           @error="handleLuluImageError"
         />
 
-        <div class="body-hotspots" aria-label="点击噜噜互动">
+        <div v-if="!isLuluAway" class="body-hotspots" aria-label="点击噜噜互动">
           <button class="body-hotspot hotspot-head" type="button" aria-label="摸摸噜噜脑袋" @click="tapLuluBody('head')"></button>
           <button class="body-hotspot hotspot-belly" type="button" aria-label="戳戳噜噜肚子" @click="tapLuluBody('belly')"></button>
           <button class="body-hotspot hotspot-foot" type="button" aria-label="碰碰噜噜脚" @click="tapLuluBody('foot')"></button>
@@ -177,6 +206,10 @@
           <button class="action-btn dress-btn" @click="changeAccessory" :disabled="isActionDisabled">
             <span>换装</span>
             <small>{{ currentAccessory.name }}</small>
+          </button>
+          <button class="action-btn scene-btn" @click="changeScene" :disabled="isActionDisabled">
+            <span>换场景</span>
+            <small>{{ currentScene.name }}</small>
           </button>
         </div>
       </section>
@@ -265,6 +298,71 @@
       </section>
     </div>
 
+    <div v-if="isWorldPanelOpen" class="world-overlay" @click.self="isWorldPanelOpen = false">
+      <section class="world-panel">
+        <div class="world-panel-header">
+          <div>
+            <p class="message-eyebrow">噜噜世界</p>
+            <h3>噜妹来信与我们的回忆</h3>
+          </div>
+          <button class="message-refresh" type="button" @click="isWorldPanelOpen = false">关闭</button>
+        </div>
+
+        <div v-if="isWorldLoading" class="empty-message">回忆册读取中...</div>
+
+        <template v-else>
+          <article class="memory-card">
+            <div class="memory-heading">
+              <span>当前网络的专属记忆</span>
+              <strong>{{ worldData.memory.title }}</strong>
+            </div>
+            <p class="memory-signature">{{ worldData.memory.signature }}</p>
+            <ul>
+              <li v-for="line in worldData.memory.lines" :key="line">{{ line }}</li>
+            </ul>
+          </article>
+
+          <article class="world-goal-card">
+            <div class="world-goal-heading">
+              <div>
+                <span>今天的全站共同目标</span>
+                <strong>{{ worldData.communityGoal.title }}</strong>
+              </div>
+              <b>{{ worldData.communityGoal.current }}/{{ worldData.communityGoal.target }}</b>
+            </div>
+            <div class="community-progress large">
+              <div class="community-fill" :class="{ completed: worldData.communityGoal.completed }" :style="{ width: `${communityGoalProgress}%` }"></div>
+            </div>
+            <p>
+              {{ worldData.communityGoal.participants }} 位朋友参与
+              · {{ worldData.communityGoal.completed ? worldData.communityGoal.reward : `还差 ${worldData.communityGoal.remaining} 次` }}
+            </p>
+          </article>
+
+          <article class="npc-history-card">
+            <div class="npc-history-heading">
+              <img :src="npcImages.letter" alt="噜妹" />
+              <div>
+                <span>噜妹往来日志</span>
+                <strong>{{ worldData.history.length ? '这些小事都被保存下来了' : '第一封信还在路上' }}</strong>
+              </div>
+            </div>
+            <div v-if="!worldData.history.length" class="empty-message compact">噜妹会偶尔寄信，也可能带噜噜出去玩。</div>
+            <div v-else class="npc-history-list">
+              <div v-for="event in worldData.history" :key="event.id" class="npc-history-item">
+                <span>{{ event.type === 'OUTING' ? '游' : '信' }}</span>
+                <div>
+                  <strong>{{ event.title }}</strong>
+                  <p>{{ event.content }}</p>
+                  <time>{{ event.eventDate }}</time>
+                </div>
+              </div>
+            </div>
+          </article>
+        </template>
+      </section>
+    </div>
+
   </div>
 </template>
 
@@ -293,6 +391,27 @@ const logs = ref([]);
 const logPagination = ref({ page: 1, pageSize: 10, total: 0, totalPages: 1 });
 const isLogLoading = ref(false);
 const isLogPanelOpen = ref(false);
+const isWorldLoading = ref(false);
+const isWorldPanelOpen = ref(false);
+const dismissedNPCEventId = ref(null);
+const worldData = ref({
+  event: null,
+  history: [],
+  memory: {
+    title: '今天认识的新朋友',
+    signature: '噜噜正在翻开新的回忆页。',
+    lines: []
+  },
+  communityGoal: {
+    title: '大家一起陪陪噜噜',
+    current: 0,
+    target: 20,
+    remaining: 20,
+    participants: 0,
+    completed: false,
+    reward: '全站解锁一整天的温暖心情'
+  }
+});
 const careStreak = ref(1);
 const monthlyCompanionship = ref({
   month: '',
@@ -322,6 +441,11 @@ const dailyMission = ref({
   reward: '完成后心情会亮一下'
 });
 const accessoryIndex = ref(0);
+const sceneIndex = ref((() => {
+  if (typeof window === 'undefined') return 0;
+  const stored = Number(window.localStorage.getItem('luluSceneIndex'));
+  return Number.isInteger(stored) && stored >= 0 && stored < 6 ? stored : 0;
+})());
 const wishText = ref('抽一句');
 
 let actionTimer = null;
@@ -332,10 +456,17 @@ let thoughtClearTimer = null;
 let comboTimer = null;
 let motionFrame = null;
 let pollerTimer = null;
+let worldRefreshTimer = null;
 let effectIdCounter = 0;
 let lastInteractionAt = 0;
+let lastAnnouncedNPCEventId = null;
 
 const img = (name) => `/picture/lulu/benti/${name}`;
+
+const npcImages = {
+  letter: '/picture/lulu/npc/lumei-letter.webp',
+  outing: '/picture/lulu/npc/lulu-lumei-outing.webp'
+};
 
 const luluImages = {
   idle: img('lulu_fadai.png'),
@@ -424,6 +555,15 @@ const accessoryModes = [
   { name: '河豚包噜', image: luluImages.idleGreenpantsPuffer }
 ];
 
+const sceneModes = [
+  { name: '原始背景', image: '' },
+  { name: '暖暖小屋', image: '/picture/lulu/scenes/scene-cozy-room.webp' },
+  { name: '阳光花园', image: '/picture/lulu/scenes/scene-sunny-garden.webp' },
+  { name: '森林空地', image: '/picture/lulu/scenes/scene-forest-clearing.webp' },
+  { name: '海边露台', image: '/picture/lulu/scenes/scene-seaside-terrace.webp' },
+  { name: '星空营地', image: '/picture/lulu/scenes/scene-starry-camp.webp' }
+];
+
 const missionPool = [
   { type: 'feed', title: '给噜噜准备一顿饭', target: 1, reward: '完成后心情会亮一下' },
   { type: 'play', title: '陪噜噜玩两次', target: 2, reward: '完成后撒一把星星' },
@@ -455,10 +595,22 @@ const visualState = computed(() => {
   return petData.value.currentState || 'IDLE';
 });
 
+const activeNPCEvent = computed(() => worldData.value.event?.active ? worldData.value.event : null);
+
+const isLuluAway = computed(() => activeNPCEvent.value?.type === 'OUTING');
+
+const showLumeiLetter = computed(() => {
+  return activeNPCEvent.value?.type === 'LETTER' && dismissedNPCEventId.value !== activeNPCEvent.value.id;
+});
+
 const currentLuluImage = computed(() => {
   let requestedImage;
-  if (actionFrames.value.length) {
+  if (isLuluAway.value) {
+    requestedImage = npcImages.outing;
+  } else if (actionFrames.value.length) {
     requestedImage = actionFrames.value[actionFrameIndex.value % actionFrames.value.length];
+  } else if (activeNPCEvent.value?.type === 'LETTER' && petData.value.currentState !== 'SLEEPING') {
+    requestedImage = luluImages.happy;
   } else if (petData.value.currentState === 'SLEEPING') {
     requestedImage = activeSleepImage.value || luluImages.sleepBed;
   } else {
@@ -468,6 +620,7 @@ const currentLuluImage = computed(() => {
 });
 
 const animationClass = computed(() => {
+  if (isLuluAway.value) return 'anim-away';
   if (petData.value.currentState === 'SLEEPING') return 'anim-sleep';
 
   const map = {
@@ -482,7 +635,10 @@ const animationClass = computed(() => {
   return map[actionCategory.value] || 'anim-breathe';
 });
 
-const statusText = computed(() => actionLabel.value || ambientThought.value || formatState(visualState.value));
+const statusText = computed(() => {
+  if (isLuluAway.value) return activeNPCEvent.value?.content || '噜噜和噜妹出去玩啦，晚点回来。';
+  return actionLabel.value || ambientThought.value || formatState(visualState.value);
+});
 
 const luluMotionStyle = computed(() => ({
   '--lulu-shift-x': `${luluMotion.value.x}px`,
@@ -495,7 +651,7 @@ const sleepBtnText = computed(() => {
 });
 
 const isActionDisabled = computed(() => {
-  return isLoading.value || !coreImagesReady.value || !['ready', 'stale'].includes(statusSyncState.value);
+  return isLuluAway.value || isLoading.value || !coreImagesReady.value || !['ready', 'stale'].includes(statusSyncState.value);
 });
 
 const syncNotice = computed(() => {
@@ -520,6 +676,13 @@ const floatingMessages = computed(() => {
 
 const currentAccessory = computed(() => accessoryModes[accessoryIndex.value] || accessoryModes[0]);
 
+const currentScene = computed(() => sceneModes[sceneIndex.value] || sceneModes[0]);
+
+const sceneBackgroundStyle = computed(() => {
+  if (!currentScene.value.image) return {};
+  return { backgroundImage: `url("${currentScene.value.image}")` };
+});
+
 const dailyMissionProgress = computed(() => {
   if (!dailyMission.value.target) return 0;
   return Math.min(100, (dailyMission.value.current / dailyMission.value.target) * 100);
@@ -528,6 +691,11 @@ const dailyMissionProgress = computed(() => {
 const monthlyCompanionshipProgress = computed(() => {
   if (!monthlyCompanionship.value.elapsedDays) return 0;
   return Math.min(100, (monthlyCompanionship.value.visitedDays / monthlyCompanionship.value.elapsedDays) * 100);
+});
+
+const communityGoalProgress = computed(() => {
+  if (!worldData.value.communityGoal.target) return 0;
+  return Math.min(100, (worldData.value.communityGoal.current / worldData.value.communityGoal.target) * 100);
 });
 
 const moodWeather = computed(() => {
@@ -653,7 +821,9 @@ const preloadCoreImages = async () => {
     luluImages.tapBelly,
     luluImages.sleep,
     luluImages.sleepBed,
-    luluImages.sleepFloor
+    luluImages.sleepFloor,
+    npcImages.letter,
+    npcImages.outing
   ];
   const results = await Promise.allSettled(coreImages.map(preloadImage));
   const failed = results
@@ -676,6 +846,95 @@ const handleLuluImageError = (event) => {
 
 const getField = (data, upperKey, lowerKey, fallback) => {
   return data?.[upperKey] ?? data?.[lowerKey] ?? fallback;
+};
+
+const normalizeNPCEvent = (event) => {
+  if (!event) return null;
+  return {
+    id: Number(getField(event, 'ID', 'id', 0)),
+    type: getField(event, 'EVENT_TYPE', 'eventType', ''),
+    eventDate: getField(event, 'EVENT_DATE', 'eventDate', ''),
+    title: getField(event, 'TITLE', 'title', ''),
+    content: getField(event, 'CONTENT', 'content', ''),
+    expiresAt: getField(event, 'EXPIRES_AT', 'expiresAt', ''),
+    active: Boolean(getField(event, 'ACTIVE', 'active', false)),
+    createTime: getField(event, 'CREATE_TIME', 'createTime', '')
+  };
+};
+
+const applyLuluWorld = (result) => {
+  const payload = result?.result ?? result;
+  if (!payload || payload?.isError) return;
+
+  const memory = getField(payload, 'MEMORY', 'memory', {});
+  const goal = getField(payload, 'COMMUNITY_GOAL', 'communityGoal', {});
+  const nextEvent = normalizeNPCEvent(getField(payload, 'NPC_EVENT', 'npcEvent', null));
+  const history = getField(payload, 'NPC_HISTORY', 'npcHistory', []);
+
+  worldData.value = {
+    event: nextEvent,
+    history: Array.isArray(history) ? history.map(normalizeNPCEvent).filter(Boolean) : [],
+    memory: {
+      title: getField(memory, 'TITLE', 'title', '今天认识的新朋友'),
+      signature: getField(memory, 'SIGNATURE', 'signature', '噜噜正在翻开新的回忆页。'),
+      lines: getField(memory, 'LINES', 'lines', [])
+    },
+    communityGoal: {
+      title: getField(goal, 'TITLE', 'title', '大家一起陪陪噜噜'),
+      current: Number(getField(goal, 'CURRENT', 'current', 0)),
+      target: Number(getField(goal, 'TARGET', 'target', 20)),
+      remaining: Number(getField(goal, 'REMAINING', 'remaining', 20)),
+      participants: Number(getField(goal, 'PARTICIPANTS', 'participants', 0)),
+      completed: Boolean(getField(goal, 'COMPLETED', 'completed', false)),
+      reward: getField(goal, 'REWARD', 'reward', '全站解锁一整天的温暖心情')
+    }
+  };
+
+  if (nextEvent?.active && nextEvent.id !== lastAnnouncedNPCEventId) {
+    lastAnnouncedNPCEventId = nextEvent.id;
+    if (nextEvent.type === 'LETTER') {
+      triggerEffect('信', '噜妹来信啦', 'type-mood');
+    } else if (nextEvent.type === 'OUTING') {
+      triggerEffect('游', '发现外出彩蛋', 'type-level');
+    }
+  }
+};
+
+const fetchLuluWorld = async (silent = false) => {
+  if (!silent) isWorldLoading.value = true;
+  try {
+    const result = await sendAxiosRequest('/blog-api/lulu/world', { userNum: currentUserId });
+    applyLuluWorld(result);
+  } catch (error) {
+    console.error('获取噜噜世界状态失败:', error);
+  } finally {
+    if (!silent) isWorldLoading.value = false;
+  }
+};
+
+const openWorldPanel = () => {
+  isWorldPanelOpen.value = true;
+  fetchLuluWorld(true);
+};
+
+const dismissNPCEvent = () => {
+  dismissedNPCEventId.value = activeNPCEvent.value?.id ?? null;
+};
+
+const scheduleWorldRefresh = () => {
+  window.clearTimeout(worldRefreshTimer);
+  worldRefreshTimer = window.setTimeout(() => fetchLuluWorld(true), 700);
+};
+
+const setSceneIndex = (value) => {
+  const numericValue = Number(value);
+  const normalized = Number.isFinite(numericValue)
+    ? ((Math.trunc(numericValue) % sceneModes.length) + sceneModes.length) % sceneModes.length
+    : 0;
+  sceneIndex.value = normalized;
+  if (typeof window !== 'undefined') {
+    window.localStorage.setItem('luluSceneIndex', String(normalized));
+  }
 };
 
 const applyFunState = (data) => {
@@ -928,7 +1187,9 @@ const getLogIcon = (actionType) => {
     AUTO_CARE: '护',
     VISIT: '来',
     SLEEP: '睡',
-    WAKE: '醒'
+    WAKE: '醒',
+    NPC_LETTER: '信',
+    NPC_OUTING: '游'
   };
   return map[actionType] || '记';
 };
@@ -986,6 +1247,24 @@ const changeAccessory = async () => {
     console.error('切换 噜噜 衣服失败:', error);
     ElMessage.error('换装失败');
   }
+};
+
+const changeScene = async () => {
+  const nextIndex = (sceneIndex.value + 1) % sceneModes.length;
+  const nextScene = sceneModes[nextIndex];
+  if (nextScene.image) {
+    try {
+      await preloadImage(nextScene.image);
+    } catch (error) {
+      console.error('场景图片加载失败:', error);
+      ElMessage.error('场景图片没有加载成功，请稍后重试');
+      return;
+    }
+  }
+
+  registerBondInteraction();
+  setSceneIndex(nextIndex);
+  triggerEffect('景', nextIndex === 0 ? '回到原始背景' : `来到${nextScene.name}`, 'type-mood');
 };
 
 const makeWish = () => {
@@ -1102,6 +1381,7 @@ const sendMessage = async () => {
     messageInput.value = '';
     triggerEffect('信', '留言已飘出去', 'type-mood');
     await fetchMessages(1);
+    scheduleWorldRefresh();
   } catch (error) {
     console.error('发送 噜噜 留言失败:', error);
     ElMessage.error('留言发送失败');
@@ -1127,6 +1407,7 @@ const deleteMessage = async (message) => {
       ? messagePagination.value.page - 1
       : messagePagination.value.page;
     await fetchMessages(targetPage);
+    scheduleWorldRefresh();
     ElMessage.success('留言已删除');
   } catch (error) {
     console.error('删除 噜噜 留言失败:', error);
@@ -1212,6 +1493,7 @@ const feedLulu = async () => {
     triggerEffect('XP', '经验 +20', 'type-level');
     advanceMission('feed');
     fetchMonthlyCompanionship();
+    scheduleWorldRefresh();
   } catch (error) {
     console.error('喂食失败:', error);
     ElMessage.error('喂食没有保存，请稍后重试');
@@ -1234,6 +1516,7 @@ const playLulu = async () => {
     triggerEffect('XP', '经验 +40', 'type-level');
     advanceMission('play');
     fetchMonthlyCompanionship();
+    scheduleWorldRefresh();
   } catch (error) {
     console.error('玩耍失败:', error);
     ElMessage.error('玩耍状态没有保存，请稍后重试');
@@ -1264,6 +1547,7 @@ const runPlayLikeAction = async (category, actionList, expText) => {
     triggerEffect('XP', expText, 'type-level');
     advanceMission(category);
     fetchMonthlyCompanionship();
+    scheduleWorldRefresh();
   } catch (error) {
     console.error(`${category} 互动失败:`, error);
     ElMessage.error('互动状态没有保存，请稍后重试');
@@ -1313,6 +1597,7 @@ const smartCareLulu = async () => {
       advanceMission(missionType);
     }
     fetchMonthlyCompanionship();
+    scheduleWorldRefresh();
   } catch (error) {
     console.error('智能照顾失败:', error);
     ElMessage.error('智能照顾暂时不可用，请稍后重试');
@@ -1345,6 +1630,7 @@ const sleepLulu = async () => {
       triggerEffect('心', '醒啦', 'type-mood');
     }
     fetchMonthlyCompanionship();
+    scheduleWorldRefresh();
   } catch (error) {
     console.error('切换睡眠状态失败:', error);
     ElMessage.error('睡眠状态没有保存，请稍后重试');
@@ -1353,12 +1639,17 @@ const sleepLulu = async () => {
   }
 };
 
+const initializeLuluWorld = async () => {
+  await recordDailyVisit();
+  await fetchLuluWorld();
+};
+
 onMounted(() => {
   preloadCoreImages();
   fetchFunState();
   fetchStatus();
   fetchMessages();
-  recordDailyVisit();
+  initializeLuluWorld();
   scheduleThought();
   scheduleAmbientAction();
   pollerTimer = window.setInterval(() => fetchStatus(true), 10000);
@@ -1370,6 +1661,7 @@ onBeforeUnmount(() => {
   window.clearTimeout(thoughtTimer);
   window.clearTimeout(thoughtClearTimer);
   window.clearTimeout(comboTimer);
+  window.clearTimeout(worldRefreshTimer);
   window.cancelAnimationFrame(motionFrame);
   window.clearInterval(pollerTimer);
 });
@@ -1405,28 +1697,52 @@ onBeforeUnmount(() => {
   background:
     radial-gradient(circle at 48% 45%, rgba(255, 205, 92, 0.38), transparent 30%),
     linear-gradient(135deg, #fff8ed 0%, #edf8ff 50%, #fff3f6 100%);
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
   transition: background 1.2s ease;
 }
 
-.scene-morning .scene-background {
+.scene-background.has-scene-image {
+  animation: sceneReveal 0.42s ease-out both;
+}
+
+.scene-background.has-scene-image::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.09), transparent 42%, rgba(244, 248, 255, 0.08));
+  pointer-events: none;
+}
+
+.scene-background.has-scene-image ~ .top-status .identity-block {
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.76);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.7);
+  box-shadow: 0 12px 30px rgba(35, 45, 62, 0.1);
+  backdrop-filter: blur(14px);
+}
+
+.scene-morning .scene-background:not(.has-scene-image) {
   background:
     radial-gradient(circle at 45% 42%, rgba(255, 211, 105, 0.45), transparent 31%),
     linear-gradient(135deg, #fff7e8 0%, #ebf7ff 54%, #fff1e5 100%);
 }
 
-.scene-day .scene-background {
+.scene-day .scene-background:not(.has-scene-image) {
   background:
     radial-gradient(circle at 48% 44%, rgba(255, 220, 118, 0.36), transparent 30%),
     linear-gradient(135deg, #f4fbff 0%, #eaf8ff 52%, #fff8eb 100%);
 }
 
-.scene-evening .scene-background {
+.scene-evening .scene-background:not(.has-scene-image) {
   background:
     radial-gradient(circle at 48% 44%, rgba(255, 172, 105, 0.34), transparent 31%),
     linear-gradient(135deg, #fff1e6 0%, #eeeafa 54%, #ffecef 100%);
 }
 
-.scene-night .scene-background {
+.scene-night .scene-background:not(.has-scene-image) {
   background:
     radial-gradient(circle at 48% 44%, rgba(136, 154, 255, 0.22), transparent 30%),
     linear-gradient(135deg, #e8eafa 0%, #dfeaf7 52%, #f1e7f6 100%);
@@ -1619,7 +1935,8 @@ onBeforeUnmount(() => {
 }
 
 .daily-card,
-.streak-card {
+.streak-card,
+.community-card {
   padding: 13px 14px;
   border-radius: 18px;
   background: rgba(255, 255, 255, 0.72);
@@ -1629,7 +1946,8 @@ onBeforeUnmount(() => {
 }
 
 .daily-card span,
-.streak-card span {
+.streak-card span,
+.community-card span {
   display: block;
   color: #7d8796;
   font-size: 12px;
@@ -1637,7 +1955,8 @@ onBeforeUnmount(() => {
 }
 
 .daily-card strong,
-.streak-card strong {
+.streak-card strong,
+.community-card strong {
   display: block;
   margin-top: 4px;
   color: #303744;
@@ -1646,7 +1965,8 @@ onBeforeUnmount(() => {
 }
 
 .daily-card small,
-.streak-card small {
+.streak-card small,
+.community-card small {
   display: block;
   margin-top: 5px;
   color: #8a94a6;
@@ -1655,7 +1975,8 @@ onBeforeUnmount(() => {
 }
 
 .mission-progress,
-.companion-progress {
+.companion-progress,
+.community-progress {
   width: 100%;
   height: 7px;
   margin-top: 9px;
@@ -1679,6 +2000,111 @@ onBeforeUnmount(() => {
   background: linear-gradient(90deg, #6c8cff, #b76cff);
 }
 
+.community-card {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid rgba(255, 255, 255, 0.86);
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+  pointer-events: auto;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.community-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 18px 38px rgba(92, 71, 128, 0.13);
+}
+
+.community-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #ff9d68, #ef6f9c);
+  transition: width 0.35s ease;
+}
+
+.community-fill.completed {
+  background: linear-gradient(90deg, #5bc990, #65a8ff);
+}
+
+.npc-letter-popover {
+  position: absolute;
+  left: calc(50% + 145px);
+  top: clamp(155px, 20vh, 205px);
+  z-index: 7;
+  width: min(380px, 32vw);
+  display: grid;
+  grid-template-columns: 128px minmax(0, 1fr);
+  align-items: end;
+  gap: 2px;
+  pointer-events: none;
+  animation: letterArrive 0.5s cubic-bezier(0.2, 0.82, 0.2, 1) both;
+}
+
+.npc-letter-popover > img {
+  width: 148px;
+  max-height: 245px;
+  object-fit: contain;
+  align-self: end;
+  filter: drop-shadow(0 18px 22px rgba(87, 58, 23, 0.2));
+}
+
+.npc-letter-copy {
+  position: relative;
+  margin-bottom: 34px;
+  padding: 13px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.88);
+  border-radius: 18px 18px 18px 6px;
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 16px 38px rgba(56, 45, 75, 0.14);
+  backdrop-filter: blur(16px);
+  pointer-events: auto;
+}
+
+.npc-letter-copy > span {
+  display: block;
+  color: #dd6d94;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.npc-letter-copy > strong {
+  display: block;
+  margin-top: 2px;
+  color: #353947;
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.npc-letter-copy p {
+  margin: 6px 0 9px;
+  color: #697386;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.55;
+}
+
+.npc-letter-copy div {
+  display: flex;
+  gap: 7px;
+}
+
+.npc-letter-copy button {
+  padding: 6px 9px;
+  border: none;
+  border-radius: 999px;
+  color: #fff;
+  background: #ef7ba4;
+  font-size: 11px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.npc-letter-copy .letter-dismiss {
+  color: #7b7181;
+  background: rgba(115, 103, 128, 0.1);
+}
+
 .lulu-entity {
   position: relative;
   z-index: 3;
@@ -1688,10 +2114,55 @@ onBeforeUnmount(() => {
   display: flex;
   justify-content: center;
   align-items: center;
-  transform: translate3d(var(--lulu-shift-x, 0), var(--lulu-shift-y, 0), 0) rotate(var(--lulu-rotate, 0));
+  transform: translate3d(
+    var(--lulu-shift-x, 0),
+    calc(var(--lulu-shift-y, 0px) + var(--scene-lulu-offset-y, 0px)),
+    0
+  ) rotate(var(--lulu-rotate, 0));
   transform-origin: 50% 78%;
   transition: transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
   will-change: transform;
+}
+
+.lulu-stage.has-custom-scene {
+  --scene-lulu-offset-y: clamp(22px, 3vh, 34px);
+}
+
+.lulu-stage.has-custom-scene .lulu-entity::before {
+  bottom: 2%;
+  width: 60%;
+  height: 10%;
+  background: rgba(55, 49, 35, 0.24);
+  filter: blur(10px);
+}
+
+.lulu-entity.is-away-event {
+  width: min(58vw, 620px);
+}
+
+.lulu-entity.is-away-event::before {
+  bottom: 4%;
+  width: 62%;
+  background: rgba(55, 49, 35, 0.18);
+}
+
+.lulu-entity.is-away-event .body-hotspots {
+  display: none;
+}
+
+.lulu-entity::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: 7%;
+  z-index: 0;
+  width: 54%;
+  height: 9%;
+  border-radius: 50%;
+  background: rgba(55, 49, 35, 0.16);
+  filter: blur(13px);
+  transform: translateX(-50%);
+  pointer-events: none;
 }
 
 .bond-badge {
@@ -1712,11 +2183,17 @@ onBeforeUnmount(() => {
 }
 
 .lulu-img {
+  position: relative;
+  z-index: 2;
   width: 100%;
   height: 100%;
   object-fit: contain;
   filter: drop-shadow(0 28px 38px rgba(93, 63, 15, 0.22));
   transition: opacity 0.18s ease;
+}
+
+.lulu-img.anim-away {
+  animation: awayBreeze 2.6s ease-in-out infinite;
 }
 
 .body-hotspots {
@@ -1882,14 +2359,14 @@ onBeforeUnmount(() => {
 
 .action-grid {
   display: grid;
-  grid-template-columns: repeat(8, minmax(0, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(9, minmax(0, 1fr));
+  gap: 8px;
 }
 
 .action-btn {
   min-width: 0;
   min-height: 70px;
-  padding: 12px 10px;
+  padding: 12px 6px;
   border: none;
   border-radius: 16px;
   cursor: pointer;
@@ -1959,6 +2436,10 @@ onBeforeUnmount(() => {
 
 .dress-btn {
   background: rgba(255, 107, 129, 0.12);
+}
+
+.scene-btn {
+  background: linear-gradient(145deg, rgba(93, 173, 226, 0.16), rgba(120, 224, 143, 0.16));
 }
 
 .message-board {
@@ -2188,6 +2669,196 @@ onBeforeUnmount(() => {
     linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(247, 250, 255, 0.94));
   box-shadow: -22px 0 50px rgba(31, 40, 56, 0.18);
   box-sizing: border-box;
+}
+
+.world-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 42;
+  display: flex;
+  justify-content: flex-end;
+  background: rgba(38, 45, 58, 0.3);
+  backdrop-filter: blur(7px);
+}
+
+.world-panel {
+  width: min(580px, 100%);
+  height: 100%;
+  overflow-y: auto;
+  padding: 24px;
+  box-sizing: border-box;
+  background:
+    radial-gradient(circle at 88% 6%, rgba(255, 188, 210, 0.35), transparent 28%),
+    linear-gradient(180deg, rgba(255, 253, 251, 0.98), rgba(248, 247, 255, 0.97));
+  box-shadow: -22px 0 50px rgba(31, 40, 56, 0.18);
+}
+
+.world-panel-header,
+.world-goal-heading,
+.npc-history-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.world-panel-header h3 {
+  margin: 0;
+  color: #2f3440;
+  font-size: 22px;
+  font-weight: 900;
+}
+
+.memory-card,
+.world-goal-card,
+.npc-history-card {
+  margin-top: 16px;
+  padding: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  border-radius: 22px;
+  box-shadow: 0 16px 38px rgba(47, 54, 72, 0.08);
+}
+
+.memory-card {
+  background: linear-gradient(145deg, rgba(255, 239, 226, 0.92), rgba(255, 245, 250, 0.9));
+}
+
+.memory-heading span,
+.world-goal-heading span,
+.npc-history-heading span {
+  display: block;
+  color: #8e8192;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.memory-heading strong,
+.world-goal-heading strong,
+.npc-history-heading strong {
+  display: block;
+  margin-top: 3px;
+  color: #333846;
+  font-size: 16px;
+  font-weight: 900;
+}
+
+.memory-signature {
+  margin: 12px 0 8px;
+  color: #dc6f91;
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.memory-card ul {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.memory-card li {
+  padding-left: 18px;
+  color: #626d7f;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.55;
+}
+
+.memory-card li::before {
+  content: '·';
+  float: left;
+  margin-left: -14px;
+  color: #ef779e;
+  font-weight: 900;
+}
+
+.world-goal-card {
+  background: linear-gradient(145deg, rgba(231, 245, 255, 0.94), rgba(240, 235, 255, 0.92));
+}
+
+.world-goal-heading b {
+  flex: none;
+  color: #6b70cb;
+  font-size: 20px;
+  font-weight: 900;
+}
+
+.community-progress.large {
+  height: 9px;
+  margin-top: 14px;
+}
+
+.world-goal-card > p {
+  margin: 9px 0 0;
+  color: #6e7890;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.npc-history-card {
+  background: rgba(255, 255, 255, 0.82);
+}
+
+.npc-history-heading {
+  justify-content: flex-start;
+}
+
+.npc-history-heading img {
+  width: 62px;
+  height: 62px;
+  object-fit: contain;
+  object-position: top;
+}
+
+.npc-history-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.npc-history-item {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 10px;
+  padding: 11px;
+  border-radius: 15px;
+  background: rgba(245, 242, 250, 0.76);
+}
+
+.npc-history-item > span {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: #fff;
+  background: linear-gradient(145deg, #f58aad, #ffac75);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.npc-history-item strong {
+  color: #424858;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.npc-history-item p {
+  margin: 3px 0;
+  color: #6c7586;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.npc-history-item time {
+  color: #9aa2af;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.empty-message.compact {
+  padding: 24px 8px 10px;
 }
 
 .log-panel-header {
@@ -2628,6 +3299,37 @@ onBeforeUnmount(() => {
   }
 }
 
+@keyframes sceneReveal {
+  0% {
+    opacity: 0.45;
+    transform: scale(1.012);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes letterArrive {
+  0% {
+    opacity: 0;
+    transform: translate3d(28px, 12px, 0) scale(0.96);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes awayBreeze {
+  0%, 100% {
+    transform: translate3d(-4px, 0, 0) rotate(-0.6deg);
+  }
+  50% {
+    transform: translate3d(5px, -4px, 0) rotate(0.8deg);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .lulu-entity {
     transform: none !important;
@@ -2635,6 +3337,15 @@ onBeforeUnmount(() => {
   }
 
   .bond-badge {
+    animation: none;
+  }
+
+  .scene-background.has-scene-image {
+    animation: none;
+  }
+
+  .npc-letter-popover,
+  .lulu-img.anim-away {
     animation: none;
   }
 }
@@ -2660,6 +3371,10 @@ onBeforeUnmount(() => {
     align-self: start;
     display: grid;
     grid-template-columns: 1fr 1fr;
+  }
+
+  .community-card {
+    grid-column: 1 / -1;
   }
 
   .message-board {
@@ -2768,6 +3483,28 @@ onBeforeUnmount(() => {
     grid-row: 2;
     grid-template-columns: minmax(0, 1.35fr) minmax(92px, 0.65fr);
     gap: 8px;
+  }
+
+  .npc-letter-popover {
+    left: 12px;
+    right: 12px;
+    top: 36%;
+    width: auto;
+    grid-template-columns: 86px minmax(0, 1fr);
+  }
+
+  .npc-letter-popover > img {
+    width: 100px;
+    max-height: 170px;
+  }
+
+  .npc-letter-copy {
+    margin-bottom: 12px;
+    padding: 10px 11px;
+  }
+
+  .lulu-entity.is-away-event {
+    width: min(92vw, 520px);
   }
 
   .daily-card,
@@ -2921,12 +3658,14 @@ onBeforeUnmount(() => {
   }
 
   .daily-card,
-  .streak-card {
+  .streak-card,
+  .community-card {
     padding: 8px 9px;
   }
 
   .daily-card span,
-  .streak-card span {
+  .streak-card span,
+  .community-card span {
     font-size: 10px;
   }
 
@@ -2964,6 +3703,10 @@ onBeforeUnmount(() => {
   }
 
   .log-panel {
+    padding: 18px 14px;
+  }
+
+  .world-panel {
     padding: 18px 14px;
   }
 
