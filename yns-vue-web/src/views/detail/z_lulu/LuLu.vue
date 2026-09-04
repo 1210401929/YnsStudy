@@ -381,7 +381,6 @@ const actionCategory = ref('idle');
 const actionLabel = ref('');
 const actionFrames = ref([]);
 const actionFrameIndex = ref(0);
-const activeSleepImage = ref('');
 const floatingEffects = ref([]);
 const messages = ref([]);
 const messageInput = ref('');
@@ -490,15 +489,23 @@ const luluImages = {
   idleWatermelon: img('lulu_fadai_watermelon.png'),
   idleSharkSlippers: img('lulu_fadai_shark_slippers.png'),
   idleDinosaurBox: img('lulu_fadai_dinosaur_box.png'),
+  sleepFloor: img('lulu_sleep_floor.png'),
+  sleepHoodie: img('lulu_sleep_hoodie.png'),
+  sleepOveralls: img('lulu_sleep_overalls.png'),
+  sleepScarf: img('lulu_sleep_scarf.png'),
+  sleepCrossbody: img('lulu_sleep_crossbody.png'),
+  sleepPajamas: img('lulu_sleep_pajamas.png'),
+  sleepGreenpants: img('lulu_sleep_greenpants.png'),
+  sleepGreenpantsPuffer: img('lulu_sleep_greenpants_puffer.png'),
+  sleepWatermelon: img('lulu_sleep_watermelon.png'),
+  sleepSharkSlippers: img('lulu_sleep_shark_slippers.png'),
+  sleepDinosaurBox: img('lulu_sleep_dinosaur_box.png'),
   touch: img('lulu_touch.png'),
   bath: img('lulu_bath.png'),
   music: img('lulu_music.png'),
   tapHead: img('lulu_tap_head.png'),
   tapBelly: img('lulu_tap_belly.png'),
-  tapFoot: img('lulu_tap_foot.png'),
-  sleep: img('lulu_sleep.png'),
-  sleepFloor: img('lulu_sleep_floor.png'),
-  sleepBed: img('lulu_sleep_bed.png')
+  tapFoot: img('lulu_tap_foot.png')
 };
 
 const petData = ref({
@@ -523,12 +530,6 @@ const playActions = [
   { label: '蹦蹦跳跳', frames: [luluImages.play, luluImages.playDance, luluImages.playChase], effect: ['玩疯了', 'type-mood'] }
 ];
 
-const sleepActions = [
-  { label: '在床上睡觉', image: luluImages.sleepBed, effect: ['盖好被子', 'type-sleep'] },
-  { label: '在地上睡着了', image: luluImages.sleepFloor, effect: ['睡得很香', 'type-sleep'] },
-  { label: '梦见好吃的', image: luluImages.sleep, effect: ['做梦中', 'type-sleep'] }
-];
-
 const ambientActions = [
   { label: '自己看小书', frames: [luluImages.idleBook] },
   { label: '伸个懒腰', frames: [luluImages.idleStretch] },
@@ -548,17 +549,17 @@ const musicActions = [
 ];
 
 const accessoryModes = [
-  { name: '初始衣服', image: luluImages.idle },
-  { name: '蓝色卫衣', image: luluImages.idleHoodie },
-  { name: '绿色背带裤', image: luluImages.idleOveralls },
-  { name: '红围巾套装', image: luluImages.idleScarf },
-  { name: '斜挎小包', image: luluImages.idleCrossbody },
-  { name: '睡衣噜', image: luluImages.idlePajamas },
-  { name: '绿裤衩噜', image: luluImages.idleGreenpants },
-  { name: '河豚包噜', image: luluImages.idleGreenpantsPuffer },
-  { name: '西瓜噜', image: luluImages.idleWatermelon },
-  { name: '鲨鱼拖鞋噜', image: luluImages.idleSharkSlippers },
-  { name: '恐龙噜', image: luluImages.idleDinosaurBox }
+  { name: '初始衣服', image: luluImages.idle, sleepImage: luluImages.sleepFloor },
+  { name: '蓝色卫衣', image: luluImages.idleHoodie, sleepImage: luluImages.sleepHoodie },
+  { name: '绿色背带裤', image: luluImages.idleOveralls, sleepImage: luluImages.sleepOveralls },
+  { name: '红围巾套装', image: luluImages.idleScarf, sleepImage: luluImages.sleepScarf },
+  { name: '斜挎小包', image: luluImages.idleCrossbody, sleepImage: luluImages.sleepCrossbody },
+  { name: '睡衣噜', image: luluImages.idlePajamas, sleepImage: luluImages.sleepPajamas },
+  { name: '绿裤衩噜', image: luluImages.idleGreenpants, sleepImage: luluImages.sleepGreenpants },
+  { name: '河豚包噜', image: luluImages.idleGreenpantsPuffer, sleepImage: luluImages.sleepGreenpantsPuffer },
+  { name: '西瓜噜', image: luluImages.idleWatermelon, sleepImage: luluImages.sleepWatermelon },
+  { name: '鲨鱼拖鞋噜', image: luluImages.idleSharkSlippers, sleepImage: luluImages.sleepSharkSlippers },
+  { name: '恐龙噜', image: luluImages.idleDinosaurBox, sleepImage: luluImages.sleepDinosaurBox }
 ];
 
 const sceneModes = [
@@ -616,11 +617,15 @@ const currentLuluImage = computed(() => {
   } else if (actionFrames.value.length) {
     requestedImage = actionFrames.value[actionFrameIndex.value % actionFrames.value.length];
   } else if (petData.value.currentState === 'SLEEPING') {
-    requestedImage = activeSleepImage.value || luluImages.sleepBed;
+    requestedImage = currentAccessory.value.sleepImage || luluImages.sleepFloor;
   } else {
     requestedImage = currentAccessory.value.image || luluImages.idle;
   }
-  return failedImageUrls.value.has(requestedImage) ? luluImages.idle : requestedImage;
+  if (!failedImageUrls.value.has(requestedImage)) return requestedImage;
+  if (petData.value.currentState === 'SLEEPING' && !failedImageUrls.value.has(luluImages.sleepFloor)) {
+    return luluImages.sleepFloor;
+  }
+  return luluImages.idle;
 });
 
 const animationClass = computed(() => {
@@ -813,6 +818,18 @@ const preloadImage = (url) => new Promise((resolve, reject) => {
   image.src = url;
 });
 
+const preloadAccessoryImages = async (accessory) => {
+  const urls = [...new Set([accessory?.image, accessory?.sleepImage].filter(Boolean))];
+  const results = await Promise.allSettled(urls.map(preloadImage));
+  const failed = results
+    .filter((result) => result.status === 'rejected')
+    .map((result) => String(result.reason?.message || result.reason).replace('图片加载失败: ', ''));
+  if (failed.length) {
+    failedImageUrls.value = new Set([...failedImageUrls.value, ...failed]);
+  }
+  return failed;
+};
+
 const preloadCoreImages = async () => {
   const coreImages = [
     luluImages.idle,
@@ -823,8 +840,6 @@ const preloadCoreImages = async () => {
     luluImages.bath,
     luluImages.music,
     luluImages.tapBelly,
-    luluImages.sleep,
-    luluImages.sleepBed,
     luluImages.sleepFloor,
     npcImages.letter,
     npcImages.outing
@@ -958,6 +973,7 @@ const fetchFunState = async () => {
   try {
     const result = await sendAxiosRequest('/blog-api/lulu/fun-state', { userNum: currentUserId });
     applyFunState(result);
+    await preloadAccessoryImages(currentAccessory.value);
   } catch (error) {
     console.error('获取 噜噜 玩法状态失败:', error);
   }
@@ -1035,20 +1051,15 @@ const startFrameAction = (category, action, duration = 3600, showEffect = true, 
   actionTimer = window.setTimeout(finishAction, duration);
 };
 
-const startSleepStill = (action) => {
+const startSleepStill = () => {
   clearActionTimers();
   finishAction();
-  activeSleepImage.value = action.image;
-  actionLabel.value = action.label;
+  actionCategory.value = 'sleep';
+  actionFrames.value = [currentAccessory.value.sleepImage || luluImages.sleepFloor];
+  actionLabel.value = '睡得很香';
+  triggerEffect('Z', '睡得很香', 'type-sleep');
 
-  const [effectText, effectType] = action.effect || [];
-  if (effectText) {
-    triggerEffect('Z', effectText, effectType);
-  }
-
-  actionTimer = window.setTimeout(() => {
-    actionLabel.value = '';
-  }, 1800);
+  actionTimer = window.setTimeout(finishAction, 1800);
 };
 
 const maybeStartAmbientAction = () => {
@@ -1088,13 +1099,6 @@ const updatePetData = (data) => {
     currentState: nextState
   };
 
-  if (nextState === 'SLEEPING' && !activeSleepImage.value) {
-    activeSleepImage.value = pickOne(sleepActions).image;
-  }
-
-  if (nextState !== 'SLEEPING') {
-    activeSleepImage.value = '';
-  }
 };
 
 const normalizeMessage = (message, index) => {
@@ -1235,18 +1239,16 @@ const changeAccessory = async () => {
   try {
     const result = await sendAxiosRequest('/blog-api/lulu/clothes/change', { userNum: currentUserId });
     const nextIndex = Number(getField(result, 'CLOTHES_INDEX', 'clothesIndex', 0)) % accessoryModes.length;
-    const nextImage = accessoryModes[nextIndex]?.image;
-    if (nextImage) {
-      try {
-        await preloadImage(nextImage);
-      } catch (imageError) {
-        failedImageUrls.value = new Set([...failedImageUrls.value, nextImage]);
-        console.error('换装图片加载失败:', imageError);
-      }
+    const failed = await preloadAccessoryImages(accessoryModes[nextIndex]);
+    if (failed.length) {
+      console.error('换装图片加载失败:', failed);
     }
     applyFunState(result);
     triggerEffect('装', `换成${currentAccessory.value.name}`, 'type-mood');
-    startFrameAction('ambient', { label: `噜噜换上了${currentAccessory.value.name}`, frames: [currentAccessory.value.image] }, 2200, false, 1000);
+    const displayImage = petData.value.currentState === 'SLEEPING'
+      ? currentAccessory.value.sleepImage
+      : currentAccessory.value.image;
+    startFrameAction('ambient', { label: `噜噜换上了${currentAccessory.value.name}`, frames: [displayImage] }, 2200, false, 1000);
   } catch (error) {
     console.error('切换 噜噜 衣服失败:', error);
     ElMessage.error('换装失败');
@@ -1439,7 +1441,7 @@ const showBlockedReaction = (reason) => {
   const reactions = {
     sleeping: {
       label: '噜噜翻了个身，继续睡觉',
-      frames: [luluImages.sleepFloor],
+      frames: [currentAccessory.value.sleepImage || luluImages.sleepFloor],
       effect: ['正在做美梦', 'type-sleep'],
       icon: 'Z'
     },
@@ -1451,7 +1453,7 @@ const showBlockedReaction = (reason) => {
     },
     tired: {
       label: '噜噜累得坐不住啦',
-      frames: [luluImages.sleepFloor],
+      frames: [currentAccessory.value.sleepImage || luluImages.sleepFloor],
       effect: ['需要休息', 'type-sleep'],
       icon: 'Z'
     }
@@ -1569,8 +1571,8 @@ const musicLulu = () => runPlayLikeAction('music', musicActions, '经验 +40');
 const playSmartCareAnimation = (action) => {
   const animationMap = {
     FEED: () => startFrameAction('feed', pickOne(feedActions), 4200),
-    REST: () => startFrameAction('touch', { label: '智能照顾正在铺小床', frames: [luluImages.sleepBed] }, 3600, false, 900),
-    RESTING: () => startFrameAction('touch', { label: '安静守护噜噜的美梦', frames: [luluImages.sleepFloor] }, 3000, false, 900),
+    REST: () => startFrameAction('touch', { label: '智能照顾正在安排休息', frames: [currentAccessory.value.sleepImage || luluImages.sleepFloor] }, 3600, false, 900),
+    RESTING: () => startFrameAction('touch', { label: '安静守护噜噜的美梦', frames: [currentAccessory.value.sleepImage || luluImages.sleepFloor] }, 3000, false, 900),
     COMFORT: () => startFrameAction('touch', pickOne(touchActions), 3800, true, 900),
     STROLL: () => startFrameAction('play', { label: '和噜噜一起散步', frames: [luluImages.play, luluImages.playChase] }, 4200, true, 720)
   };
@@ -1615,10 +1617,9 @@ const sleepLulu = async () => {
   registerBondInteraction();
 
   const isWaking = petData.value.currentState === 'SLEEPING';
-  const sleepAction = isWaking ? null : pickOne(sleepActions);
 
   if (!isWaking) {
-    startSleepStill(sleepAction);
+    startSleepStill();
   } else {
     clearActionTimers();
     finishAction();

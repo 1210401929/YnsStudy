@@ -29,6 +29,7 @@ export default defineConfig(({ mode }) => {
     // 如果是开发环境，添加 server 配置
     if (isDev) {
         baseConfig.server = {
+            host: '127.0.0.1',
             port: 8080,
             open: false,
             proxy: {
