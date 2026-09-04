@@ -1,13 +1,86 @@
 import { fileURLToPath, URL } from 'node:url'
+import { createReadStream, statSync } from 'node:fs'
+import { extname, isAbsolute, relative, resolve } from 'node:path'
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
+
+const luluAssetsDirectory = fileURLToPath(new URL('../lulu', import.meta.url))
+
+const luluAssetMimeTypes = {
+    '.png': 'image/png',
+    '.webp': 'image/webp',
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.gif': 'image/gif',
+    '.svg': 'image/svg+xml',
+    '.avif': 'image/avif'
+}
+
+const serveLuluAsset = (request, response) => {
+    let requestPath
+    try {
+        requestPath = decodeURIComponent((request.url || '/').split('?')[0])
+    } catch {
+        response.statusCode = 400
+        response.end('Invalid asset path')
+        return
+    }
+
+    const assetPath = resolve(luluAssetsDirectory, requestPath.replace(/^[/\\]+/, ''))
+    const relativePath = relative(luluAssetsDirectory, assetPath)
+    if (relativePath.startsWith('..') || isAbsolute(relativePath)) {
+        response.statusCode = 403
+        response.end('Forbidden')
+        return
+    }
+
+    let assetStat
+    try {
+        assetStat = statSync(assetPath)
+    } catch {
+        response.statusCode = 404
+        response.end('Lulu asset not found')
+        return
+    }
+
+    if (!assetStat.isFile()) {
+        response.statusCode = 404
+        response.end('Lulu asset not found')
+        return
+    }
+
+    response.setHeader('Content-Type', luluAssetMimeTypes[extname(assetPath).toLowerCase()] || 'application/octet-stream')
+    response.setHeader('Content-Length', assetStat.size)
+    response.setHeader('Last-Modified', assetStat.mtime.toUTCString())
+    response.setHeader('Cache-Control', 'no-cache')
+
+    if (request.method === 'HEAD') {
+        response.statusCode = 200
+        response.end()
+        return
+    }
+
+    const stream = createReadStream(assetPath)
+    stream.on('error', (error) => response.destroy(error))
+    stream.pipe(response)
+}
+
+const luluExternalAssetsPlugin = () => ({
+    name: 'lulu-external-assets',
+    configureServer(server) {
+        server.middlewares.use('/picture/lulu', serveLuluAsset)
+    },
+    configurePreviewServer(server) {
+        server.middlewares.use('/picture/lulu', serveLuluAsset)
+    }
+})
 
 export default defineConfig(({ mode }) => {
     const isDev = mode === 'development';
 
     // 公共配置（开发和生产通用）
     const baseConfig = {
-        plugins: [vue()],
+        plugins: [vue(), luluExternalAssetsPlugin()],
         resolve: {
             alias: {
                 '@': fileURLToPath(new URL('./src', import.meta.url))

@@ -1,0 +1,12 @@
+# 噜噜素材与 Vue dist 分开部署。
+# Vue 构建产物放在 /var/www/vue_dist，素材目录单独放在 /var/www/lulu。
+
+location ^~ /picture/lulu/ {
+    alias /var/www/lulu/;
+    autoindex off;
+    etag on;
+
+    # 文件名暂未带内容哈希，使用 no-cache 可让浏览器通过 ETag/Last-Modified
+    # 校验更新，替换同名素材后不需要重新构建 Vue。
+    add_header Cache-Control "no-cache" always;
+}
