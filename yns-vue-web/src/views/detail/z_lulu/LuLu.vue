@@ -489,6 +489,7 @@ const luluImages = {
   idleWatermelon: img('lulu_fadai_watermelon.png'),
   idleSharkSlippers: img('lulu_fadai_shark_slippers.png'),
   idleDinosaurBox: img('lulu_fadai_dinosaur_box.png'),
+  idleCockroach: img('lulu_fadai_cockroach.png'),
   sleepFloor: img('lulu_sleep_floor.png'),
   sleepHoodie: img('lulu_sleep_hoodie.png'),
   sleepOveralls: img('lulu_sleep_overalls.png'),
@@ -500,6 +501,7 @@ const luluImages = {
   sleepWatermelon: img('lulu_sleep_watermelon.png'),
   sleepSharkSlippers: img('lulu_sleep_shark_slippers.png'),
   sleepDinosaurBox: img('lulu_sleep_dinosaur_box.png'),
+  sleepCockroach: img('lulu_sleep_cockroach.png'),
   touch: img('lulu_touch.png'),
   bath: img('lulu_bath.png'),
   music: img('lulu_music.png'),
@@ -559,7 +561,8 @@ const accessoryModes = [
   { name: '河豚包噜', image: luluImages.idleGreenpantsPuffer, sleepImage: luluImages.sleepGreenpantsPuffer },
   { name: '西瓜噜', image: luluImages.idleWatermelon, sleepImage: luluImages.sleepWatermelon },
   { name: '鲨鱼拖鞋噜', image: luluImages.idleSharkSlippers, sleepImage: luluImages.sleepSharkSlippers },
-  { name: '恐龙噜', image: luluImages.idleDinosaurBox, sleepImage: luluImages.sleepDinosaurBox }
+  { name: '恐龙噜', image: luluImages.idleDinosaurBox, sleepImage: luluImages.sleepDinosaurBox },
+  { name: '蟑螂噜', image: luluImages.idleCockroach, sleepImage: luluImages.sleepCockroach }
 ];
 
 const sceneModes = [
