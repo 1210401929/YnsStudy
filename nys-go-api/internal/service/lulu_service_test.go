@@ -57,14 +57,33 @@ func TestChooseLuluNPCEvent(t *testing.T) {
 	if event := chooseLuluNPCEvent(10, 0, 0); event != nil {
 		t.Fatalf("cooldown should suppress NPC event: %#v", event)
 	}
-	if event := chooseLuluNPCEvent(5, 1, 499); event == nil || event.EventType != "OUTING" {
+	if event := chooseLuluNPCEvent(5, 1, 249); event == nil || event.EventType != "OUTING" {
 		t.Fatalf("outing event not selected: %#v", event)
 	}
-	if event := chooseLuluNPCEvent(2, 1, 500); event == nil || event.EventType != "LETTER" {
+	if event := chooseLuluNPCEvent(5, 1, 250); event == nil || event.EventType != "LETTER" {
 		t.Fatalf("letter event not selected: %#v", event)
 	}
-	if event := chooseLuluNPCEvent(20, 1, 800); event != nil {
+	if event := chooseLuluNPCEvent(2, 1, 100); event == nil || event.EventType != "LETTER" {
+		t.Fatalf("newer returning visitor should receive a letter instead of an outing: %#v", event)
+	}
+	if event := chooseLuluNPCEvent(20, 1, 900); event != nil {
 		t.Fatalf("ordinary roll should produce no event: %#v", event)
+	}
+}
+
+func TestLumeiLetterContents(t *testing.T) {
+	if got, want := len(lumeiLetterContents), 19; got != want {
+		t.Fatalf("len(lumeiLetterContents) = %d, want %d", got, want)
+	}
+	seen := make(map[string]struct{}, len(lumeiLetterContents))
+	for _, content := range lumeiLetterContents {
+		if content == "" {
+			t.Fatal("letter content should not be empty")
+		}
+		if _, exists := seen[content]; exists {
+			t.Fatalf("duplicate letter content: %q", content)
+		}
+		seen[content] = struct{}{}
 	}
 }
 
