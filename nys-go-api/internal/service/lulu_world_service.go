@@ -11,9 +11,12 @@ import (
 
 const (
 	luluNPCEventRollMax      = 1000
-	luluNPCOutingRollLimit   = 250
-	luluNPCLetterRollLimit   = 900
+	luluNPCOutingRollLimit   = 120
+	luluNPCLetterRollLimit   = 930
 	luluNPCEventCooldownDays = 1
+	lumeiResidentLevel       = 55
+	lumeiSoloOutingRollLimit = 180
+	lumeiSoloOutingCooldown  = 2
 )
 
 type luluNPCEventSpec struct {
@@ -29,6 +32,15 @@ type luluCommunityGoalSpec struct {
 	Target    int
 	Condition string
 	Reward    string
+}
+
+type lumeiWeeklyTaskSpec struct {
+	TaskType    string
+	Title       string
+	Description string
+	Target      int
+	Condition   string
+	Reward      string
 }
 
 var lumeiLetterContents = []string{
@@ -53,6 +65,47 @@ var lumeiLetterContents = []string{
 	"请替我检查一下噜噜有没有按时休息。要是它还在打哈欠，就帮我劝它睡个好觉。",
 }
 
+var lumeiInvitationLetterContents = []string{
+	"最近每次要回去时，我都会忍不住回头看噜噜的小屋。如果能多住几天就好啦。",
+	"我给噜噜画了一张小房间的图，还悄悄画了两把椅子。你猜另一把是给谁的？",
+	"噜噜说这里总会有人来陪它，听起来真温暖。我也可以把这里当成第二个家吗？",
+	"我收好了一只小杯子，下次来时想把它留在噜噜身边，这样就不用每次带来带去啦。",
+	"昨天梦见我和噜噜在同一个房间里醒来，然后一起等你。醒来以后还有一点舍不得。",
+	"如果我以后常常住下，我会负责提醒噜噜按时吃饭，也会记得每天和你打招呼。",
+}
+
+var lumeiPreparingLetterContents = []string{
+	"噜噜说已经帮我留好了一个小角落，我正在挑一只最软的枕头。",
+	"今天装箱时翻出了好多旧信，原来我们已经有这么多回忆了。我会把它们全部带来。",
+	"我想在新房间摆两只杯子，一只给噜噜，一只给经常来看我们的你。",
+	"搬家清单：花边小被子、橘子杯、和噜噜玩的球，还有一大袋期待。",
+	"我练习了好几次「我回来啦」，结果每次都笑场。到时候你可不许笑我哦。",
+	"噜噜已经把房间量了三遍，生怕我的箱子放不下。其实我最想带来的只有回忆。",
+}
+
+var lumeiCountdownLetterContents = []string{
+	"最后一只箱子已经合上啦！下次见面，我可能就不是来做客的了。",
+	"我把钥匙挂绳编好了，是粉色的。噜噜说家里的那把新钥匙已经在等我。",
+	"今晚可能会兴奋得睡不着，因为再往前一点点，我们就不用再说「下次见」啦。",
+	"请帮我告诉噜噜：我马上就到，让它不要又在门口紧张地走来走去。",
+	"这可能是我从远方寄来的最后几封信之一。以后有话，我想当面说给你听。",
+}
+
+var lumeiSoloOutingContents = []string{
+	"噜妹留下小便签：「我去花店挑一盆小花，噜噜会在家陪你，很快回来。」",
+	"噜妹背着小包去买橘子了，桌上压着一张写给你和噜噜的便签。",
+	"噜妹去取新窗帘啦。她特意叮嘱：「我不在时，也要好好陪噜噜哦。」",
+	"噜妹拎着小篮子去市集了，回来时会带一份神秘小点心。",
+	"噜妹去给老朋友送一封信，这次噜噜没有跟去，正在家里等你。",
+}
+
+var lumeiWeeklyTaskPool = []lumeiWeeklyTaskSpec{
+	{TaskType: "FEED", Title: "双人点心准备周", Description: "和噜妹一起给噜噜准备 6 顿好吃的。", Target: 6, Condition: "ACTION_TYPE = 'FEED'", Reward: "解锁一颗橘子点心星"},
+	{TaskType: "PLAY", Title: "噜噜噜妹游戏周", Description: "陪他们完成 5 次玩耍或小游戏。", Target: 5, Condition: "ACTION_TYPE = 'PLAY'", Reward: "解锁双人闪亮心情"},
+	{TaskType: "GOOD_NIGHT", Title: "一起说晚安", Description: "本周陪噜噜入睡或醒来 4 次。", Target: 4, Condition: "ACTION_TYPE IN ('SLEEP', 'WAKE')", Reward: "收藏一枚晚安小月亮"},
+	{TaskType: "CARE", Title: "双人照顾小队", Description: "让智能照顾帮噜噜和噜妹完成 4 件小事。", Target: 4, Condition: "ACTION_TYPE = 'AUTO_CARE'", Reward: "获得本周照顾小能手印记"},
+}
+
 var luluMemorySignatures = []string{
 	"噜噜把你的脚步声认真记进了回忆册。",
 	"每次你来，这间小屋好像都会亮一点。",
@@ -63,11 +116,28 @@ var luluMemorySignatures = []string{
 func (s *Service) GetPetWorld(ctx context.Context, userNum int64, ip, userAgent string) (map[string]any, error) {
 	ip = normalizeLuluIP(ip)
 	now := time.Now()
+	pet, err := s.GetPetStatus(ctx, userNum)
+	if err != nil {
+		return nil, err
+	}
+	petLevel := maxInt(1, model.IntValue(pet, "LEVEL"))
 	memory, visitDays, err := s.getLuluMemory(ctx, userNum, ip, now)
 	if err != nil {
 		return nil, err
 	}
-	event, history, err := s.resolveLuluNPCEvent(ctx, userNum, ip, userAgent, visitDays, now)
+	residency, err := s.getLumeiResidency(ctx, userNum, petLevel, now)
+	if err != nil {
+		return nil, err
+	}
+	residentSince := time.Time{}
+	if value, ok := residency["RESIDENT_SINCE"]; ok {
+		residentSince = parseTime(value)
+	}
+	event, history, err := s.resolveLuluNPCEvent(ctx, userNum, ip, userAgent, visitDays, petLevel, residentSince, now)
+	if err != nil {
+		return nil, err
+	}
+	weeklyTasks, err := s.getLumeiWeeklyTasks(ctx, userNum, ip, petLevel, now)
 	if err != nil {
 		return nil, err
 	}
@@ -76,11 +146,174 @@ func (s *Service) GetPetWorld(ctx context.Context, userNum int64, ip, userAgent 
 		return nil, err
 	}
 	return map[string]any{
-		"NPC_EVENT":      event,
-		"NPC_HISTORY":    history,
-		"MEMORY":         memory,
-		"COMMUNITY_GOAL": goal,
+		"NPC_EVENT":       event,
+		"NPC_HISTORY":     history,
+		"MEMORY":          memory,
+		"COMMUNITY_GOAL":  goal,
+		"LUMEI_RESIDENCY": residency,
+		"LUMEI_WEEKLY":    weeklyTasks,
 	}, nil
+}
+
+func (s *Service) getLumeiResidency(ctx context.Context, userNum int64, petLevel int, now time.Time) (map[string]any, error) {
+	residency := lumeiResidencyResponse(petLevel)
+	if petLevel < lumeiResidentLevel {
+		return residency, nil
+	}
+
+	// The public Lulu has one shared move-in moment. Reusing the existing log table
+	// keeps the milestone visible in the ordinary care log without adding a schema.
+	_, err := s.Repo.Exec(ctx, `INSERT INTO z_lulu_log
+(USER_NUM, ACTION_TYPE, ACTION_NAME, IP_ADDRESS, BROWSER, DEVICE_MODEL, USER_AGENT, REMARK)
+SELECT ?, 'NPC_RESIDENT', '噜妹正式入住', 'system', '噜噜世界', '全站事件', '', '噜噜到达 55 级，噜妹带着行李正式搬来常住啦！'
+WHERE NOT EXISTS (
+	SELECT 1 FROM z_lulu_log WHERE USER_NUM = ? AND ACTION_TYPE = 'NPC_RESIDENT'
+)`, userNum, userNum)
+	if err != nil {
+		return nil, err
+	}
+
+	rows, err := s.Repo.Query(ctx, `SELECT MIN(CREATE_TIME) AS RESIDENT_SINCE
+FROM z_lulu_log WHERE USER_NUM = ? AND ACTION_TYPE = 'NPC_RESIDENT'`, userNum)
+	if err != nil {
+		return nil, err
+	}
+	if len(rows) > 0 && model.Lookup(rows[0], "RESIDENT_SINCE") != nil {
+		residentSince := parseTime(model.Lookup(rows[0], "RESIDENT_SINCE"))
+		if !residentSince.IsZero() {
+			residency["RESIDENT_SINCE"] = residentSince.Format("2006-01-02")
+		}
+	}
+	if _, exists := residency["RESIDENT_SINCE"]; !exists {
+		residency["RESIDENT_SINCE"] = now.Format("2006-01-02")
+	}
+	return residency, nil
+}
+
+func lumeiResidencyResponse(petLevel int) map[string]any {
+	petLevel = maxInt(1, petLevel)
+	remainingLevels := maxInt(0, lumeiResidentLevel-petLevel)
+	progress := minInt(100, petLevel*100/lumeiResidentLevel)
+	status := "NPC"
+	title := "噜妹还住在远方"
+	message := "她会偶尔寄信，也会悄悄来找噜噜玩。"
+	nextLevel := 45
+	nextText := "45 级时，噜妹会说出想留下来的心愿。"
+
+	switch {
+	case petLevel >= lumeiResidentLevel:
+		status = "RESIDENT"
+		title = "噜妹已正式入住"
+		message = "从今天起，她会和噜噜一起在这里等你。"
+		nextLevel = 0
+		nextText = "入住故事已解锁，点击噜妹可以和她说说话。"
+	case petLevel >= 54:
+		status = "COUNTDOWN"
+		title = "噜妹正在收拾最后一只箱子"
+		message = "再升 1 级，噜妹就会正式搬进来。"
+		nextLevel = 55
+		nextText = "55 级解锁噜妹常驻。"
+	case petLevel >= 50:
+		status = "PREPARING"
+		title = "噜妹的小房间准备中"
+		message = "噜噜已经留好了她的椅子和杯子。"
+		nextLevel = 54
+		nextText = "54 级进入最后入住倒计时。"
+	case petLevel >= 45:
+		status = "INVITATION"
+		title = "噜妹想把这里当成第二个家"
+		message = "她在信里问：「以后我可以常常住在这里吗？」"
+		nextLevel = 50
+		nextText = "50 级开始准备噜妹的小房间。"
+	}
+
+	return map[string]any{
+		"STATUS":               status,
+		"RESIDENT":             petLevel >= lumeiResidentLevel,
+		"CURRENT_LEVEL":        petLevel,
+		"TARGET_LEVEL":         lumeiResidentLevel,
+		"REMAINING_LEVELS":      remainingLevels,
+		"PROGRESS":             progress,
+		"TITLE":                title,
+		"MESSAGE":              message,
+		"NEXT_MILESTONE_LEVEL": nextLevel,
+		"NEXT_MILESTONE_TEXT":  nextText,
+		"CHAPTERS": []map[string]any{
+			{"LEVEL": 45, "TITLE": "想留下来的信", "DESCRIPTION": "噜妹第一次说出想把这里当成第二个家。", "UNLOCKED": petLevel >= 45, "CURRENT": petLevel >= 45 && petLevel < 50},
+			{"LEVEL": 50, "TITLE": "准备一个小房间", "DESCRIPTION": "噜噜开始为噜妹准备椅子、杯子和柔软的枕头。", "UNLOCKED": petLevel >= 50, "CURRENT": petLevel >= 50 && petLevel < 54},
+			{"LEVEL": 54, "TITLE": "最后一只搬家箱", "DESCRIPTION": "噜妹寄来倒计时的信，远方的旅程快结束了。", "UNLOCKED": petLevel >= 54, "CURRENT": petLevel == 54},
+			{"LEVEL": 55, "TITLE": "从远方到身边", "DESCRIPTION": "噜妹正式入住，从 NPC 成为常驻伙伴。", "UNLOCKED": petLevel >= 55, "CURRENT": petLevel >= 55},
+		},
+	}
+}
+
+func (s *Service) getLumeiWeeklyTasks(ctx context.Context, userNum int64, ip string, petLevel int, now time.Time) (map[string]any, error) {
+	weekStart := luluWeekStart(now)
+	nextWeek := weekStart.AddDate(0, 0, 7)
+	response := map[string]any{
+		"UNLOCKED":  petLevel >= lumeiResidentLevel,
+		"WEEK_KEY":  weekStart.Format("2006-01-02"),
+		"WEEK_START": weekStart.Format("2006-01-02"),
+		"WEEK_END":   nextWeek.AddDate(0, 0, -1).Format("2006-01-02"),
+		"TASKS":      []map[string]any{},
+	}
+	if petLevel < lumeiResidentLevel {
+		return response, nil
+	}
+
+	specs := lumeiWeeklyTaskSpecsForDate(now)
+	tasks := make([]map[string]any, 0, len(specs))
+	completedCount := 0
+	for index, spec := range specs {
+		query := `SELECT COUNT(1) AS TOTAL FROM z_lulu_log
+WHERE USER_NUM = ? AND IP_ADDRESS = ? AND CREATE_TIME >= ? AND CREATE_TIME < ? AND ` + spec.Condition
+		rows, err := s.Repo.Query(ctx, query, userNum, ip, weekStart, nextWeek)
+		if err != nil {
+			return nil, err
+		}
+		current := int(firstCount(rows))
+		completed := current >= spec.Target
+		if completed {
+			completedCount++
+		}
+		tasks = append(tasks, map[string]any{
+			"ID":          weekStart.Format("20060102") + "-" + spec.TaskType,
+			"TASK_TYPE":   spec.TaskType,
+			"TITLE":       spec.Title,
+			"DESCRIPTION": spec.Description,
+			"CURRENT":     current,
+			"TARGET":      spec.Target,
+			"REMAINING":   maxInt(0, spec.Target-current),
+			"COMPLETED":   completed,
+			"REWARD":      spec.Reward,
+			"ORDER":       index + 1,
+		})
+	}
+	response["TASKS"] = tasks
+	response["COMPLETED_COUNT"] = completedCount
+	response["TOTAL_COUNT"] = len(tasks)
+	response["ALL_COMPLETED"] = len(tasks) > 0 && completedCount == len(tasks)
+	return response, nil
+}
+
+func luluWeekStart(now time.Time) time.Time {
+	dayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	weekday := int(dayStart.Weekday())
+	if weekday == 0 {
+		weekday = 7
+	}
+	return dayStart.AddDate(0, 0, -(weekday - 1))
+}
+
+func lumeiWeeklyTaskSpecsForDate(now time.Time) []lumeiWeeklyTaskSpec {
+	isoYear, isoWeek := now.ISOWeek()
+	count := 1 + isoWeek%2
+	start := (isoYear + isoWeek*3) % len(lumeiWeeklyTaskPool)
+	result := make([]lumeiWeeklyTaskSpec, 0, count)
+	for offset := 0; offset < count; offset++ {
+		result = append(result, lumeiWeeklyTaskPool[(start+offset*2)%len(lumeiWeeklyTaskPool)])
+	}
+	return result
 }
 
 func (s *Service) getLuluMemory(ctx context.Context, userNum int64, ip string, now time.Time) (map[string]any, int, error) {
@@ -170,7 +403,7 @@ func stableLuluEventRoll(ip, eventDate string) int {
 	return int(hasher.Sum32() % luluNPCEventRollMax)
 }
 
-func (s *Service) resolveLuluNPCEvent(ctx context.Context, userNum int64, ip, userAgent string, visitDays int, now time.Time) (any, []map[string]any, error) {
+func (s *Service) resolveLuluNPCEvent(ctx context.Context, userNum int64, ip, userAgent string, visitDays, petLevel int, residentSince, now time.Time) (any, []map[string]any, error) {
 	today := dateString(now)
 	todayRows, err := s.Repo.Query(ctx, `SELECT * FROM z_lulu_npc_event
 WHERE USER_NUM = ? AND IP_ADDRESS = ? AND EVENT_DATE = ? ORDER BY ID DESC LIMIT 1`, userNum, ip, today)
@@ -191,7 +424,14 @@ WHERE USER_NUM = ? AND IP_ADDRESS = ? ORDER BY EVENT_DATE DESC, ID DESC LIMIT 1`
 		}
 		// Keep the result stable for the whole IP/day. Refreshing the page cannot
 		// repeatedly reroll the easter egg and turn a rare event into a common one.
-		spec := chooseLuluNPCEvent(visitDays, daysSinceLast, stableLuluEventRoll(ip, today))
+		roll := stableLuluEventRoll(ip, today)
+		var spec *luluNPCEventSpec
+		if petLevel >= lumeiResidentLevel {
+			daysSinceMoveIn := int(time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location()).Sub(residentSince).Hours() / 24)
+			spec = chooseLumeiSoloOuting(daysSinceLast, daysSinceMoveIn, roll)
+		} else {
+			spec = chooseLuluNPCEvent(visitDays, daysSinceLast, petLevel, roll)
+		}
 		if spec != nil {
 			expiresAt := now.Add(spec.Duration)
 			affected, insertErr := s.Repo.Exec(ctx, `INSERT IGNORE INTO z_lulu_npc_event
@@ -204,6 +444,8 @@ VALUES (?, ?, ?, ?, ?, ?, ?)`, userNum, ip, today, spec.EventType, spec.Title, s
 				actionType, actionName := "NPC_LETTER", "噜妹来信"
 				if spec.EventType == "OUTING" {
 					actionType, actionName = "NPC_OUTING", "和噜妹外出"
+				} else if spec.EventType == "LUMEI_OUTING" {
+					actionType, actionName = "NPC_SOLO_OUTING", "噜妹独自出门"
 				}
 				s.insertPetLog(ctx, userNum, actionType, actionName, ip, userAgent, spec.Title+"："+spec.Content)
 			}
@@ -217,7 +459,10 @@ WHERE USER_NUM = ? AND IP_ADDRESS = ? AND EVENT_DATE = ? ORDER BY ID DESC LIMIT 
 
 	var currentEvent any
 	if len(todayRows) > 0 {
-		currentEvent = luluNPCEventResponse(todayRows[0], now)
+		eventType := model.StringValue(todayRows[0], "EVENT_TYPE")
+		if petLevel < lumeiResidentLevel || eventType == "LUMEI_OUTING" {
+			currentEvent = luluNPCEventResponse(todayRows[0], now)
+		}
 	}
 	historyRows, err := s.Repo.Query(ctx, `SELECT * FROM z_lulu_npc_event
 WHERE USER_NUM = ? AND IP_ADDRESS = ? ORDER BY EVENT_DATE DESC, ID DESC LIMIT 8`, userNum, ip)
@@ -231,11 +476,17 @@ WHERE USER_NUM = ? AND IP_ADDRESS = ? ORDER BY EVENT_DATE DESC, ID DESC LIMIT 8`
 	return currentEvent, history, nil
 }
 
-func chooseLuluNPCEvent(visitDays, daysSinceLast, roll int) *luluNPCEventSpec {
-	if visitDays < 2 || daysSinceLast < luluNPCEventCooldownDays || roll < 0 || roll >= luluNPCEventRollMax {
+func chooseLuluNPCEvent(visitDays, daysSinceLast, petLevel, roll int) *luluNPCEventSpec {
+	if visitDays < 2 || petLevel >= lumeiResidentLevel || daysSinceLast < luluNPCEventCooldownDays || roll < 0 || roll >= luluNPCEventRollMax {
 		return nil
 	}
-	if visitDays >= 5 && roll < luluNPCOutingRollLimit {
+	outingLimit := luluNPCOutingRollLimit
+	letterLimit := luluNPCLetterRollLimit
+	if petLevel >= 45 {
+		outingLimit = 70
+		letterLimit = 980
+	}
+	if visitDays >= 5 && roll < outingLimit {
 		return &luluNPCEventSpec{
 			EventType: "OUTING",
 			Title:     "他们悄悄出门啦",
@@ -243,15 +494,48 @@ func chooseLuluNPCEvent(visitDays, daysSinceLast, roll int) *luluNPCEventSpec {
 			Duration:  10 * time.Minute,
 		}
 	}
-	if roll < luluNPCLetterRollLimit {
-		return &luluNPCEventSpec{
-			EventType: "LETTER",
-			Title:     "噜妹寄来一封信",
-			Content:   lumeiLetterContents[roll%len(lumeiLetterContents)],
-			Duration:  6 * time.Hour,
-		}
+	if roll < letterLimit {
+		return lumeiLetterEventForLevel(petLevel, roll)
 	}
 	return nil
+}
+
+func lumeiLetterEventForLevel(petLevel, roll int) *luluNPCEventSpec {
+	title := "噜妹寄来一封信"
+	contents := lumeiLetterContents
+	duration := 6 * time.Hour
+	switch {
+	case petLevel >= 54:
+		title = "噜妹寄来入住倒计时"
+		contents = lumeiCountdownLetterContents
+		duration = 12 * time.Hour
+	case petLevel >= 50:
+		title = "噜妹寄来一张搬家清单"
+		contents = lumeiPreparingLetterContents
+		duration = 8 * time.Hour
+	case petLevel >= 45:
+		title = "噜妹写下了想留下来的心愿"
+		contents = lumeiInvitationLetterContents
+		duration = 8 * time.Hour
+	}
+	return &luluNPCEventSpec{
+		EventType: "LETTER",
+		Title:     title,
+		Content:   contents[roll%len(contents)],
+		Duration:  duration,
+	}
+}
+
+func chooseLumeiSoloOuting(daysSinceLast, daysSinceMoveIn, roll int) *luluNPCEventSpec {
+	if daysSinceMoveIn < 2 || daysSinceLast < lumeiSoloOutingCooldown || roll < 0 || roll >= lumeiSoloOutingRollLimit {
+		return nil
+	}
+	return &luluNPCEventSpec{
+		EventType: "LUMEI_OUTING",
+		Title:     "噜妹留下一张出门便签",
+		Content:   lumeiSoloOutingContents[roll%len(lumeiSoloOutingContents)],
+		Duration:  90 * time.Minute,
+	}
 }
 
 func luluNPCEventResponse(row map[string]any, now time.Time) map[string]any {

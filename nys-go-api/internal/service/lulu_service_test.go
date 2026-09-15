@@ -51,23 +51,99 @@ func TestMonthlyCompanionshipResponse(t *testing.T) {
 }
 
 func TestChooseLuluNPCEvent(t *testing.T) {
-	if event := chooseLuluNPCEvent(1, 99, 0); event != nil {
+	if event := chooseLuluNPCEvent(1, 99, 10, 0); event != nil {
 		t.Fatalf("first-time visitor should not receive NPC event: %#v", event)
 	}
-	if event := chooseLuluNPCEvent(10, 0, 0); event != nil {
+	if event := chooseLuluNPCEvent(10, 0, 10, 0); event != nil {
 		t.Fatalf("cooldown should suppress NPC event: %#v", event)
 	}
-	if event := chooseLuluNPCEvent(5, 1, 249); event == nil || event.EventType != "OUTING" {
+	if event := chooseLuluNPCEvent(5, 1, 10, 119); event == nil || event.EventType != "OUTING" {
 		t.Fatalf("outing event not selected: %#v", event)
 	}
-	if event := chooseLuluNPCEvent(5, 1, 250); event == nil || event.EventType != "LETTER" {
+	if event := chooseLuluNPCEvent(5, 1, 10, 120); event == nil || event.EventType != "LETTER" {
 		t.Fatalf("letter event not selected: %#v", event)
 	}
-	if event := chooseLuluNPCEvent(2, 1, 100); event == nil || event.EventType != "LETTER" {
+	if event := chooseLuluNPCEvent(2, 1, 10, 100); event == nil || event.EventType != "LETTER" {
 		t.Fatalf("newer returning visitor should receive a letter instead of an outing: %#v", event)
 	}
-	if event := chooseLuluNPCEvent(20, 1, 900); event != nil {
+	if event := chooseLuluNPCEvent(20, 1, 10, 930); event != nil {
 		t.Fatalf("ordinary roll should produce no event: %#v", event)
+	}
+	if event := chooseLuluNPCEvent(20, 1, 45, 950); event == nil || event.EventType != "LETTER" {
+		t.Fatalf("story-stage visitor should receive the higher-probability themed letter: %#v", event)
+	}
+	if event := chooseLuluNPCEvent(20, 1, 55, 200); event != nil {
+		t.Fatalf("resident Lumei should stop sending remote letters: %#v", event)
+	}
+}
+
+func TestLumeiStoryLettersFollowLevel(t *testing.T) {
+	if got := lumeiLetterEventForLevel(44, 7).Title; got != "噜妹寄来一封信" {
+		t.Fatalf("unexpected ordinary letter title: %q", got)
+	}
+	if got := lumeiLetterEventForLevel(45, 7).Title; got != "噜妹写下了想留下来的心愿" {
+		t.Fatalf("unexpected invitation letter title: %q", got)
+	}
+	if got := lumeiLetterEventForLevel(50, 7).Title; got != "噜妹寄来一张搬家清单" {
+		t.Fatalf("unexpected preparing letter title: %q", got)
+	}
+	if got := lumeiLetterEventForLevel(54, 7).Title; got != "噜妹寄来入住倒计时" {
+		t.Fatalf("unexpected countdown letter title: %q", got)
+	}
+}
+
+func TestChooseLumeiSoloOuting(t *testing.T) {
+	if event := chooseLumeiSoloOuting(99, 1, 0); event != nil {
+		t.Fatalf("Lumei should stay home during the first two resident days: %#v", event)
+	}
+	if event := chooseLumeiSoloOuting(1, 10, 0); event != nil {
+		t.Fatalf("solo outing cooldown should be respected: %#v", event)
+	}
+	if event := chooseLumeiSoloOuting(10, 10, lumeiSoloOutingRollLimit); event != nil {
+		t.Fatalf("high roll should not trigger solo outing: %#v", event)
+	}
+	if event := chooseLumeiSoloOuting(10, 10, lumeiSoloOutingRollLimit-1); event == nil || event.EventType != "LUMEI_OUTING" {
+		t.Fatalf("solo outing should be selected: %#v", event)
+	}
+}
+
+func TestLumeiWeeklyTaskSpecs(t *testing.T) {
+	now := time.Date(2026, time.September, 14, 12, 0, 0, 0, time.Local)
+	first := lumeiWeeklyTaskSpecsForDate(now)
+	second := lumeiWeeklyTaskSpecsForDate(now.AddDate(0, 0, 2))
+	if len(first) < 1 || len(first) > 2 || len(first) != len(second) {
+		t.Fatalf("weekly task count should stay between one and two: %#v", first)
+	}
+	for index := range first {
+		if first[index].TaskType != second[index].TaskType || first[index].Target <= 0 || first[index].Condition == "" {
+			t.Fatalf("weekly tasks should be valid and stable: %#v / %#v", first, second)
+		}
+	}
+}
+
+func TestLumeiResidencyResponse(t *testing.T) {
+	tests := []struct {
+		level        int
+		wantStatus   string
+		wantNext     int
+		wantResident bool
+	}{
+		{1, "NPC", 45, false},
+		{45, "INVITATION", 50, false},
+		{50, "PREPARING", 54, false},
+		{54, "COUNTDOWN", 55, false},
+		{55, "RESIDENT", 0, true},
+		{80, "RESIDENT", 0, true},
+	}
+	for _, test := range tests {
+		response := lumeiResidencyResponse(test.level)
+		if response["STATUS"] != test.wantStatus || response["NEXT_MILESTONE_LEVEL"] != test.wantNext || response["RESIDENT"] != test.wantResident {
+			t.Fatalf("lumeiResidencyResponse(%d) = %#v", test.level, response)
+		}
+		progress, ok := response["PROGRESS"].(int)
+		if !ok || progress < 0 || progress > 100 {
+			t.Fatalf("invalid progress at level %d: %#v", test.level, response["PROGRESS"])
+		}
 	}
 }
 

@@ -80,6 +80,17 @@
           </div>
           <small>缺席 {{ monthlyCompanionship.missedDays }} 天 · 连续 {{ careStreak }} 天</small>
         </div>
+        <button class="residency-card" :class="`status-${worldData.residency.status.toLowerCase()}`" type="button" @click="openWorldPanel">
+          <span>噜妹入住计划 · Lv.55</span>
+          <strong>{{ worldData.residency.title }}</strong>
+          <div class="residency-progress">
+            <div class="residency-fill" :style="{ width: `${lumeiResidencyProgress}%` }"></div>
+          </div>
+          <small v-if="worldData.residency.resident">
+            已经常驻 · 本周任务 {{ worldData.weekly.completedCount }}/{{ worldData.weekly.totalCount }}
+          </small>
+          <small v-else>当前 Lv.{{ worldData.residency.currentLevel }} · 还差 {{ worldData.residency.remainingLevels }} 级</small>
+        </button>
         <button class="community-card" type="button" @click="openWorldPanel">
           <span>全站共同目标</span>
           <strong>{{ worldData.communityGoal.title }}</strong>
@@ -104,6 +115,13 @@
             <button type="button" class="letter-dismiss" @click="dismissNPCEvent">收到啦</button>
           </div>
         </div>
+      </aside>
+
+      <aside v-if="isLumeiAway" class="lumei-away-note" aria-live="polite">
+        <span>噜妹的小便签</span>
+        <strong>{{ activeNPCEvent.title }}</strong>
+        <p>{{ activeNPCEvent.content }}</p>
+        <button type="button" @click="openWorldPanel">查看往来记录</button>
       </aside>
 
       <div
@@ -145,6 +163,19 @@
           :alt="isLuluAway ? '噜噜和噜妹一起外出' : '噜噜'"
           @error="handleLuluImageError"
         />
+
+        <button
+          v-if="lumeiIsResident && !isLuluAway && !isLumeiAway"
+          class="lumei-resident"
+          :class="[`pose-${lumeiPose}`, { 'is-talking': Boolean(lumeiSpeechText) }]"
+          type="button"
+          aria-label="和常驻的噜妹说说话"
+          @click.stop="interactWithLumei"
+        >
+          <span v-if="lumeiSpeechText" class="lumei-speech" aria-live="polite">{{ lumeiSpeechText }}</span>
+          <img :src="currentLumeiImage" :alt="lumeiPose === 'sitting' ? '坐在噜噜旁边的噜妹' : '站在噜噜旁边的噜妹'" @error="handleLuluImageError" />
+          <small>噜妹</small>
+        </button>
 
         <div v-if="!isLuluAway" class="body-hotspots" aria-label="点击噜噜互动">
           <button class="body-hotspot hotspot-head" type="button" aria-label="摸摸噜噜脑袋" @click="tapLuluBody('head')"></button>
@@ -311,6 +342,70 @@
         <div v-if="isWorldLoading" class="empty-message">回忆册读取中...</div>
 
         <template v-else>
+          <article class="residency-world-card" :class="`status-${worldData.residency.status.toLowerCase()}`">
+            <img :src="npcImages.resident" alt="噜妹入住形象" />
+            <div class="residency-world-copy">
+              <span>噜妹入住计划 · Lv.{{ worldData.residency.targetLevel }}</span>
+              <strong>{{ worldData.residency.title }}</strong>
+              <p>{{ worldData.residency.message }}</p>
+              <div class="residency-progress large">
+                <div class="residency-fill" :style="{ width: `${lumeiResidencyProgress}%` }"></div>
+              </div>
+              <small v-if="worldData.residency.resident">
+                {{ worldData.residency.residentSince ? `${worldData.residency.residentSince} 正式入住` : '已经正式入住' }}
+              </small>
+              <small v-else>{{ worldData.residency.nextMilestoneText }}</small>
+            </div>
+            <div class="residency-story" aria-label="噜妹入住剧情进度">
+              <div
+                v-for="chapter in worldData.residency.chapters"
+                :key="chapter.level"
+                class="story-chapter"
+                :class="{ unlocked: chapter.unlocked, current: chapter.current }"
+              >
+                <span>Lv.{{ chapter.level }}</span>
+                <strong>{{ chapter.title }}</strong>
+                <small>{{ chapter.unlocked ? chapter.description : '继续陪伴噜噜后解锁' }}</small>
+              </div>
+            </div>
+          </article>
+
+          <article v-if="lumeiIsResident" class="move-in-memory-card">
+            <img :src="npcImages.moveInMemory" alt="噜噜欢迎噜妹入住的纪念画面" />
+            <div>
+              <span>入住纪念</span>
+              <strong>从远方来信，到每天都在身边</strong>
+              <p>{{ worldData.residency.residentSince || 'Lv.55 解锁日' }} · 噜噜和噜妹拥有了共同的家</p>
+            </div>
+          </article>
+
+          <article v-if="worldData.weekly.unlocked" class="weekly-task-card">
+            <div class="weekly-task-heading">
+              <div>
+                <span>你和噜妹的本周双人任务</span>
+                <strong>{{ worldData.weekly.allCompleted ? '本周的小约定全部完成啦' : '和噜噜、噜妹一起完成' }}</strong>
+              </div>
+              <b>{{ worldData.weekly.completedCount }}/{{ worldData.weekly.totalCount }}</b>
+            </div>
+            <small>{{ worldData.weekly.weekStart }} — {{ worldData.weekly.weekEnd }} · 每周一自动更新</small>
+            <div class="weekly-task-list">
+              <div v-for="task in worldData.weekly.tasks" :key="task.id" class="weekly-task-item" :class="{ completed: task.completed }">
+                <div class="weekly-task-title">
+                  <span>{{ task.completed ? '✓' : task.order }}</span>
+                  <div>
+                    <strong>{{ task.title }}</strong>
+                    <p>{{ task.description }}</p>
+                  </div>
+                  <b>{{ Math.min(task.current, task.target) }}/{{ task.target }}</b>
+                </div>
+                <div class="weekly-task-progress">
+                  <div :style="{ width: `${task.progress}%` }"></div>
+                </div>
+                <small>{{ task.completed ? task.reward : `还差 ${task.remaining} 次 · ${task.reward}` }}</small>
+              </div>
+            </div>
+          </article>
+
           <article class="memory-card">
             <div class="memory-heading">
               <span>当前网络的专属记忆</span>
@@ -344,13 +439,15 @@
               <img :src="npcImages.letter" alt="噜妹" />
               <div>
                 <span>噜妹往来日志</span>
-                <strong>{{ worldData.history.length ? '这些小事都被保存下来了' : '第一封信还在路上' }}</strong>
+                <strong>{{ worldData.history.length ? '这些小事都被保存下来了' : (lumeiIsResident ? '从远方到身边，故事还会继续' : '第一封信还在路上') }}</strong>
               </div>
             </div>
-            <div v-if="!worldData.history.length" class="empty-message compact">噜妹会偶尔寄信，也可能带噜噜出去玩。</div>
+            <div v-if="!worldData.history.length" class="empty-message compact">
+              {{ lumeiIsResident ? '噜妹已经住下，过去没有留下的信件不影响接下来的陪伴。' : '噜妹会偶尔寄信，也可能带噜噜出去玩。' }}
+            </div>
             <div v-else class="npc-history-list">
               <div v-for="event in worldData.history" :key="event.id" class="npc-history-item">
-                <span>{{ event.type === 'OUTING' ? '游' : '信' }}</span>
+                <span>{{ event.type === 'OUTING' ? '游' : (event.type === 'LUMEI_OUTING' ? '出' : '信') }}</span>
                 <div>
                   <strong>{{ event.title }}</strong>
                   <p>{{ event.content }}</p>
@@ -360,6 +457,18 @@
             </div>
           </article>
         </template>
+      </section>
+    </div>
+
+    <div v-if="showLumeiMoveIn" class="move-in-overlay" role="dialog" aria-modal="true" aria-labelledby="lumei-move-in-title">
+      <section class="move-in-card">
+        <div class="move-in-sparkles" aria-hidden="true"><span>✦</span><span>♥</span><span>✦</span></div>
+        <img class="move-in-memory-image" :src="npcImages.moveInMemory" alt="噜噜欢迎噜妹入住的纪念画面" />
+        <p>Lv.55 常驻角色解锁</p>
+        <h3 id="lumei-move-in-title">噜妹正式入住啦！</h3>
+        <strong>“以后不用只在信里见面了，我会和噜噜一起在这里等你。”</strong>
+        <small>从现在起，噜妹会常驻在噜噜身边。点击她，还能听到新的悄悄话。</small>
+        <button type="button" @click="acknowledgeLumeiMoveIn">欢迎回家</button>
       </section>
     </div>
 
@@ -393,9 +502,31 @@ const isLogPanelOpen = ref(false);
 const isWorldLoading = ref(false);
 const isWorldPanelOpen = ref(false);
 const dismissedNPCEventId = ref(null);
+const showLumeiMoveIn = ref(false);
+const residentLine = ref('');
+const lumeiPose = ref(Math.random() < 0.46 ? 'sitting' : 'standing');
 const worldData = ref({
   event: null,
   history: [],
+  residency: {
+    status: 'NPC',
+    resident: false,
+    currentLevel: 1,
+    targetLevel: 55,
+    remainingLevels: 54,
+    progress: 1,
+    title: '噜妹还住在远方',
+    message: '她会偶尔寄信，也会悄悄来找噜噜玩。',
+    nextMilestoneLevel: 45,
+    nextMilestoneText: '45 级时，噜妹会说出想留下来的心愿。',
+    residentSince: '',
+    chapters: [
+      { level: 45, title: '想留下来的信', description: '', unlocked: false, current: false },
+      { level: 50, title: '准备一个小房间', description: '', unlocked: false, current: false },
+      { level: 54, title: '最后一只搬家箱', description: '', unlocked: false, current: false },
+      { level: 55, title: '从远方到身边', description: '', unlocked: false, current: false }
+    ]
+  },
   memory: {
     title: '今天认识的新朋友',
     signature: '噜噜正在翻开新的回忆页。',
@@ -409,6 +540,16 @@ const worldData = ref({
     participants: 0,
     completed: false,
     reward: '全站解锁一整天的温暖心情'
+  },
+  weekly: {
+    unlocked: false,
+    weekKey: '',
+    weekStart: '',
+    weekEnd: '',
+    completedCount: 0,
+    totalCount: 0,
+    allCompleted: false,
+    tasks: []
   }
 });
 const careStreak = ref(1);
@@ -456,6 +597,8 @@ let comboTimer = null;
 let motionFrame = null;
 let pollerTimer = null;
 let worldRefreshTimer = null;
+let residentLineTimer = null;
+let lumeiPoseTimer = null;
 let effectIdCounter = 0;
 let lastInteractionAt = 0;
 let lastAnnouncedNPCEventId = null;
@@ -464,7 +607,10 @@ const img = (name) => `/picture/lulu/benti/${name}.webp`;
 
 const npcImages = {
   letter: '/picture/lulu/npc/lumei-letter.webp',
-  outing: '/picture/lulu/npc/lulu-lumei-outing.webp'
+  outing: '/picture/lulu/npc/lulu-lumei-outing.webp',
+  resident: '/picture/lulu/npc/lumei-resident.webp',
+  residentSitting: '/picture/lulu/npc/lumei-resident-sitting.webp',
+  moveInMemory: '/picture/lulu/npc/lulu-lumei-move-in-memory.webp'
 };
 
 const luluImages = {
@@ -612,8 +758,29 @@ const activeNPCEvent = computed(() => worldData.value.event?.active ? worldData.
 
 const isLuluAway = computed(() => activeNPCEvent.value?.type === 'OUTING');
 
+const isLumeiAway = computed(() => activeNPCEvent.value?.type === 'LUMEI_OUTING');
+
 const showLumeiLetter = computed(() => {
   return activeNPCEvent.value?.type === 'LETTER' && dismissedNPCEventId.value !== activeNPCEvent.value.id;
+});
+
+const lumeiIsResident = computed(() => Boolean(worldData.value.residency.resident));
+
+const currentLumeiImage = computed(() => {
+  if (petData.value.currentState === 'SLEEPING' || lumeiPose.value === 'sitting') {
+    return npcImages.residentSitting;
+  }
+  return npcImages.resident;
+});
+
+const lumeiSpeechText = computed(() => {
+  if (residentLine.value) return residentLine.value;
+  if (petData.value.currentState === 'SLEEPING') return '嘘，噜噜睡着啦，我们小声一点。';
+  return '';
+});
+
+const lumeiResidencyProgress = computed(() => {
+  return Math.max(0, Math.min(100, Number(worldData.value.residency.progress) || 0));
 });
 
 const currentLuluImage = computed(() => {
@@ -848,7 +1015,10 @@ const preloadCoreImages = async () => {
     luluImages.tapBelly,
     luluImages.sleepFloor,
     npcImages.letter,
-    npcImages.outing
+    npcImages.outing,
+    npcImages.resident,
+    npcImages.residentSitting,
+    npcImages.moveInMemory
   ];
   const results = await Promise.allSettled(coreImages.map(preloadImage));
   const failed = results
@@ -887,6 +1057,61 @@ const normalizeNPCEvent = (event) => {
   };
 };
 
+const normalizeLumeiResidency = (residency) => {
+  const rawChapters = getField(residency, 'CHAPTERS', 'chapters', []);
+  return {
+    status: getField(residency, 'STATUS', 'status', 'NPC'),
+    resident: Boolean(getField(residency, 'RESIDENT', 'resident', false)),
+    currentLevel: Number(getField(residency, 'CURRENT_LEVEL', 'currentLevel', displayLevel.value)),
+    targetLevel: Number(getField(residency, 'TARGET_LEVEL', 'targetLevel', 55)),
+    remainingLevels: Number(getField(residency, 'REMAINING_LEVELS', 'remainingLevels', Math.max(0, 55 - displayLevel.value))),
+    progress: Number(getField(residency, 'PROGRESS', 'progress', Math.min(100, displayLevel.value * 100 / 55))),
+    title: getField(residency, 'TITLE', 'title', '噜妹还住在远方'),
+    message: getField(residency, 'MESSAGE', 'message', '她会偶尔寄信，也会悄悄来找噜噜玩。'),
+    nextMilestoneLevel: Number(getField(residency, 'NEXT_MILESTONE_LEVEL', 'nextMilestoneLevel', 45)),
+    nextMilestoneText: getField(residency, 'NEXT_MILESTONE_TEXT', 'nextMilestoneText', '45 级时，噜妹会说出想留下来的心愿。'),
+    residentSince: getField(residency, 'RESIDENT_SINCE', 'residentSince', ''),
+    chapters: Array.isArray(rawChapters) ? rawChapters.map((chapter) => ({
+      level: Number(getField(chapter, 'LEVEL', 'level', 0)),
+      title: getField(chapter, 'TITLE', 'title', ''),
+      description: getField(chapter, 'DESCRIPTION', 'description', ''),
+      unlocked: Boolean(getField(chapter, 'UNLOCKED', 'unlocked', false)),
+      current: Boolean(getField(chapter, 'CURRENT', 'current', false))
+    })) : []
+  };
+};
+
+const normalizeLumeiWeekly = (weekly) => {
+  const rawTasks = getField(weekly, 'TASKS', 'tasks', []);
+  const tasks = Array.isArray(rawTasks) ? rawTasks.map((task, index) => {
+    const current = Number(getField(task, 'CURRENT', 'current', 0));
+    const target = Number(getField(task, 'TARGET', 'target', 1)) || 1;
+    return {
+      id: getField(task, 'ID', 'id', `weekly-${index}`),
+      taskType: getField(task, 'TASK_TYPE', 'taskType', ''),
+      title: getField(task, 'TITLE', 'title', ''),
+      description: getField(task, 'DESCRIPTION', 'description', ''),
+      current,
+      target,
+      remaining: Number(getField(task, 'REMAINING', 'remaining', Math.max(0, target - current))),
+      completed: Boolean(getField(task, 'COMPLETED', 'completed', false)),
+      reward: getField(task, 'REWARD', 'reward', ''),
+      order: Number(getField(task, 'ORDER', 'order', index + 1)),
+      progress: Math.max(0, Math.min(100, current * 100 / target))
+    };
+  }) : [];
+  return {
+    unlocked: Boolean(getField(weekly, 'UNLOCKED', 'unlocked', false)),
+    weekKey: getField(weekly, 'WEEK_KEY', 'weekKey', ''),
+    weekStart: getField(weekly, 'WEEK_START', 'weekStart', ''),
+    weekEnd: getField(weekly, 'WEEK_END', 'weekEnd', ''),
+    completedCount: Number(getField(weekly, 'COMPLETED_COUNT', 'completedCount', 0)),
+    totalCount: Number(getField(weekly, 'TOTAL_COUNT', 'totalCount', tasks.length)),
+    allCompleted: Boolean(getField(weekly, 'ALL_COMPLETED', 'allCompleted', false)),
+    tasks
+  };
+};
+
 const applyLuluWorld = (result) => {
   const payload = result?.result ?? result;
   if (!payload || payload?.isError) return;
@@ -895,10 +1120,14 @@ const applyLuluWorld = (result) => {
   const goal = getField(payload, 'COMMUNITY_GOAL', 'communityGoal', {});
   const nextEvent = normalizeNPCEvent(getField(payload, 'NPC_EVENT', 'npcEvent', null));
   const history = getField(payload, 'NPC_HISTORY', 'npcHistory', []);
+  const residency = normalizeLumeiResidency(getField(payload, 'LUMEI_RESIDENCY', 'lumeiResidency', {}));
+  const weekly = normalizeLumeiWeekly(getField(payload, 'LUMEI_WEEKLY', 'lumeiWeekly', {}));
 
   worldData.value = {
     event: nextEvent,
     history: Array.isArray(history) ? history.map(normalizeNPCEvent).filter(Boolean) : [],
+    residency,
+    weekly,
     memory: {
       title: getField(memory, 'TITLE', 'title', '今天认识的新朋友'),
       signature: getField(memory, 'SIGNATURE', 'signature', '噜噜正在翻开新的回忆页。'),
@@ -915,12 +1144,20 @@ const applyLuluWorld = (result) => {
     }
   };
 
+  if (residency.resident && typeof window !== 'undefined' && window.localStorage.getItem('lumeiResidentIntroSeenV2') !== '1') {
+    showLumeiMoveIn.value = true;
+  } else if (!residency.resident) {
+    showLumeiMoveIn.value = false;
+  }
+
   if (nextEvent?.active && nextEvent.id !== lastAnnouncedNPCEventId) {
     lastAnnouncedNPCEventId = nextEvent.id;
     if (nextEvent.type === 'LETTER') {
       triggerEffect('信', '噜妹来信啦', 'type-mood');
     } else if (nextEvent.type === 'OUTING') {
       triggerEffect('游', '发现外出彩蛋', 'type-level');
+    } else if (nextEvent.type === 'LUMEI_OUTING') {
+      triggerEffect('出', '噜妹留下了出门便签', 'type-mood');
     }
   }
 };
@@ -944,6 +1181,68 @@ const openWorldPanel = () => {
 
 const dismissNPCEvent = () => {
   dismissedNPCEventId.value = activeNPCEvent.value?.id ?? null;
+};
+
+const lumeiResidentDialogues = [
+  '你来啦！我和噜噜刚刚还在说你。',
+  '住在这里以后，每天都能等你回来啦。',
+  '我把橘子分了一半给噜噜，另一半留给你。',
+  '今天也要摸摸噜噜，它其实特别期待。',
+  '我的小房间收拾好啦，花边一点也没有弄皱。',
+  '外面的云很好看，不过在这里陪你们也很好。',
+  '悄悄告诉你：噜噜刚才又打了一个大哈欠。',
+  '以后有开心的事，要同时讲给我和噜噜听哦。'
+];
+
+const lumeiFeedReactions = [
+  '这顿闻起来好香，噜噜要慢慢吃哦。',
+  '我来帮它数数吃了几口。',
+  '噜噜今天的饭量还是圆滚滚的。',
+  '吃完记得擦擦嘴，我可看见啦。',
+  '这一口看起来最好吃，留给噜噜！'
+];
+
+const lumeiPlayReactions = [
+  '加油加油，我来当裁判！',
+  '噜噜跑反方向啦，快回来！',
+  '下一局也要带上我哦。',
+  '我宣布：今天的冠军是开心！',
+  '慢一点，我的花边都快笑歪啦。'
+];
+
+const showLumeiReaction = (lines, duration = 4200, forcePose = '') => {
+  if (!lumeiIsResident.value || isLumeiAway.value) return;
+  if (forcePose) lumeiPose.value = forcePose;
+  window.clearTimeout(residentLineTimer);
+  residentLine.value = pickOne(lines);
+  residentLineTimer = window.setTimeout(() => {
+    residentLine.value = '';
+  }, duration);
+};
+
+const interactWithLumei = () => {
+  showLumeiReaction(lumeiResidentDialogues);
+  registerBondInteraction();
+  triggerEffect('妹', '噜妹回应了你', 'type-mood');
+};
+
+const acknowledgeLumeiMoveIn = () => {
+  if (typeof window !== 'undefined') {
+    window.localStorage.setItem('lumeiResidentIntroSeenV2', '1');
+  }
+  showLumeiMoveIn.value = false;
+  showLumeiReaction(['我真的住下来啦，以后请多关照！'], 4600, 'standing');
+  triggerEffect('家', '噜妹正式入住', 'type-level');
+};
+
+const scheduleLumeiPose = () => {
+  window.clearTimeout(lumeiPoseTimer);
+  lumeiPoseTimer = window.setTimeout(() => {
+    if (lumeiIsResident.value && !isLumeiAway.value && petData.value.currentState !== 'SLEEPING') {
+      lumeiPose.value = Math.random() < 0.48 ? 'sitting' : 'standing';
+    }
+    scheduleLumeiPose();
+  }, randomBetween(28000, 52000));
 };
 
 const scheduleWorldRefresh = () => {
@@ -1203,7 +1502,9 @@ const getLogIcon = (actionType) => {
     SLEEP: '睡',
     WAKE: '醒',
     NPC_LETTER: '信',
-    NPC_OUTING: '游'
+    NPC_OUTING: '游',
+    NPC_SOLO_OUTING: '出',
+    NPC_RESIDENT: '家'
   };
   return map[actionType] || '记';
 };
@@ -1493,6 +1794,9 @@ const feedLulu = async () => {
   if (petData.value.hunger >= 90) {
     startFrameAction('touch', { label: '噜噜拍拍圆滚滚的小肚子', frames: [luluImages.happy] }, 2200, false, 900);
     triggerEffect('饱', '已经吃饱啦', 'type-food');
+    if (Math.random() < 0.45) {
+      showLumeiReaction(['它的小肚子已经装不下啦。', '先让噜噜消化一会儿吧。']);
+    }
     return;
   }
 
@@ -1503,6 +1807,9 @@ const feedLulu = async () => {
     const result = await sendAxiosRequest('/blog-api/lulu/feed', { userNum: currentUserId });
     updatePetData(result);
     triggerEffect('XP', '经验 +20', 'type-level');
+    if (Math.random() < 0.45) {
+      showLumeiReaction(lumeiFeedReactions);
+    }
     advanceMission('feed');
     fetchMonthlyCompanionship();
     scheduleWorldRefresh();
@@ -1526,6 +1833,7 @@ const playLulu = async () => {
     const result = await sendAxiosRequest('/blog-api/lulu/play', { userNum: currentUserId, actionName: '玩耍' });
     updatePetData(result);
     triggerEffect('XP', '经验 +40', 'type-level');
+    showLumeiReaction(lumeiPlayReactions);
     advanceMission('play');
     fetchMonthlyCompanionship();
     scheduleWorldRefresh();
@@ -1639,6 +1947,9 @@ const sleepLulu = async () => {
 
     if (isWaking) {
       triggerEffect('心', '醒啦', 'type-mood');
+      showLumeiReaction(['噜噜醒啦，刚才做了一个很香的梦。', '早呀噜噜，睡饱以后再一起玩吧。'], 4200, 'standing');
+    } else {
+      showLumeiReaction(['嘘，噜噜刚刚睡着，我们小声一点。', '让它好好睡一会儿，我会在旁边看着。'], 5200, 'sitting');
     }
     fetchMonthlyCompanionship();
     scheduleWorldRefresh();
@@ -1663,6 +1974,7 @@ onMounted(() => {
   initializeLuluWorld();
   scheduleThought();
   scheduleAmbientAction();
+  scheduleLumeiPose();
   pollerTimer = window.setInterval(() => fetchStatus(true), 10000);
 });
 
@@ -1673,6 +1985,8 @@ onBeforeUnmount(() => {
   window.clearTimeout(thoughtClearTimer);
   window.clearTimeout(comboTimer);
   window.clearTimeout(worldRefreshTimer);
+  window.clearTimeout(residentLineTimer);
+  window.clearTimeout(lumeiPoseTimer);
   window.cancelAnimationFrame(motionFrame);
   window.clearInterval(pollerTimer);
 });
@@ -1947,6 +2261,7 @@ onBeforeUnmount(() => {
 
 .daily-card,
 .streak-card,
+.residency-card,
 .community-card {
   padding: 13px 14px;
   border-radius: 18px;
@@ -1958,6 +2273,7 @@ onBeforeUnmount(() => {
 
 .daily-card span,
 .streak-card span,
+.residency-card span,
 .community-card span {
   display: block;
   color: #7d8796;
@@ -1967,6 +2283,7 @@ onBeforeUnmount(() => {
 
 .daily-card strong,
 .streak-card strong,
+.residency-card strong,
 .community-card strong {
   display: block;
   margin-top: 4px;
@@ -1977,6 +2294,7 @@ onBeforeUnmount(() => {
 
 .daily-card small,
 .streak-card small,
+.residency-card small,
 .community-card small {
   display: block;
   margin-top: 5px;
@@ -1987,6 +2305,7 @@ onBeforeUnmount(() => {
 
 .mission-progress,
 .companion-progress,
+.residency-progress,
 .community-progress {
   width: 100%;
   height: 7px;
@@ -2011,6 +2330,7 @@ onBeforeUnmount(() => {
   background: linear-gradient(90deg, #6c8cff, #b76cff);
 }
 
+.residency-card,
 .community-card {
   width: 100%;
   box-sizing: border-box;
@@ -2022,9 +2342,32 @@ onBeforeUnmount(() => {
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
+.residency-card:hover,
 .community-card:hover {
   transform: translateY(-2px);
   box-shadow: 0 18px 38px rgba(92, 71, 128, 0.13);
+}
+
+.residency-card {
+  background:
+    radial-gradient(circle at 92% 12%, rgba(255, 215, 121, 0.33), transparent 35%),
+    rgba(255, 249, 252, 0.78);
+}
+
+.residency-card.status-resident {
+  border-color: rgba(255, 202, 222, 0.92);
+  box-shadow: 0 15px 36px rgba(226, 101, 151, 0.13);
+}
+
+.residency-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #ffbd64, #ed75a5);
+  transition: width 0.4s ease;
+}
+
+.status-resident .residency-fill {
+  background: linear-gradient(90deg, #ef7ba4, #9c7ae8, #65b6e8);
 }
 
 .community-fill {
@@ -2116,6 +2459,56 @@ onBeforeUnmount(() => {
   background: rgba(115, 103, 128, 0.1);
 }
 
+.lumei-away-note {
+  position: absolute;
+  left: calc(50% + 165px);
+  top: clamp(155px, 20vh, 205px);
+  z-index: 7;
+  width: min(300px, 28vw);
+  padding: 15px 16px;
+  box-sizing: border-box;
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  border-radius: 20px 20px 6px 20px;
+  color: #5c6372;
+  background:
+    linear-gradient(150deg, rgba(255, 252, 239, 0.95), rgba(255, 238, 247, 0.94));
+  box-shadow: 0 17px 38px rgba(64, 49, 71, 0.15);
+  backdrop-filter: blur(15px);
+  animation: letterArrive 0.4s ease both;
+}
+
+.lumei-away-note > span {
+  color: #da6e96;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.lumei-away-note > strong {
+  display: block;
+  margin-top: 3px;
+  color: #373c49;
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.lumei-away-note > p {
+  margin: 7px 0 10px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.55;
+}
+
+.lumei-away-note > button {
+  padding: 7px 10px;
+  border: 0;
+  border-radius: 999px;
+  color: #fff;
+  background: #e9799f;
+  font-size: 11px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
 .lulu-entity {
   position: relative;
   z-index: 3;
@@ -2205,6 +2598,93 @@ onBeforeUnmount(() => {
 
 .lulu-img.anim-away {
   animation: awayBreeze 2.6s ease-in-out infinite;
+}
+
+.lumei-resident {
+  position: absolute;
+  right: -38%;
+  bottom: 2%;
+  z-index: 10;
+  width: 60%;
+  height: 72%;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+  transform-origin: center bottom;
+  animation: lumeiBreathe 3.1s ease-in-out infinite;
+}
+
+.lumei-resident::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: 2%;
+  z-index: -1;
+  width: 54%;
+  height: 8%;
+  border-radius: 50%;
+  background: rgba(55, 49, 35, 0.14);
+  filter: blur(8px);
+  transform: translateX(-50%);
+}
+
+.lumei-resident > img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: drop-shadow(0 20px 25px rgba(93, 63, 15, 0.2));
+  transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.lumei-resident:hover > img,
+.lumei-resident.is-talking > img {
+  transform: translateY(-4px) rotate(1.5deg) scale(1.025);
+}
+
+.lumei-resident.pose-sitting {
+  right: -41%;
+  bottom: -1%;
+  width: 64%;
+  height: 70%;
+}
+
+.lumei-resident > small {
+  position: absolute;
+  right: 13%;
+  bottom: 5%;
+  padding: 4px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  border-radius: 999px;
+  color: #c45f89;
+  background: rgba(255, 255, 255, 0.84);
+  box-shadow: 0 8px 18px rgba(75, 53, 87, 0.12);
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.lumei-speech {
+  position: absolute;
+  right: -8%;
+  top: -9%;
+  z-index: 3;
+  width: max-content;
+  max-width: 230px;
+  padding: 9px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.94);
+  border-radius: 16px 16px 5px 16px;
+  color: #575d6b;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 13px 30px rgba(72, 54, 81, 0.15);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.45;
+  text-align: left;
+  animation: badgePop 0.25s ease-out;
 }
 
 .body-hotspots {
@@ -2721,6 +3201,7 @@ onBeforeUnmount(() => {
 }
 
 .memory-card,
+.residency-world-card,
 .world-goal-card,
 .npc-history-card {
   margin-top: 16px;
@@ -2728,6 +3209,284 @@ onBeforeUnmount(() => {
   border: 1px solid rgba(255, 255, 255, 0.9);
   border-radius: 22px;
   box-shadow: 0 16px 38px rgba(47, 54, 72, 0.08);
+}
+
+.residency-world-card {
+  display: grid;
+  grid-template-columns: 132px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 14% 20%, rgba(255, 210, 119, 0.28), transparent 34%),
+    linear-gradient(145deg, rgba(255, 239, 246, 0.96), rgba(245, 239, 255, 0.92));
+}
+
+.residency-world-card.status-resident {
+  background:
+    radial-gradient(circle at 14% 20%, rgba(255, 210, 119, 0.35), transparent 34%),
+    linear-gradient(145deg, rgba(255, 232, 242, 0.98), rgba(238, 244, 255, 0.95));
+}
+
+.residency-world-card > img {
+  width: 142px;
+  height: 142px;
+  margin: -8px 0 -18px -10px;
+  object-fit: contain;
+  filter: drop-shadow(0 15px 20px rgba(86, 57, 24, 0.16));
+}
+
+.residency-world-copy > span {
+  color: #d66d96;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.residency-world-copy > strong {
+  display: block;
+  margin-top: 3px;
+  color: #353947;
+  font-size: 17px;
+  font-weight: 900;
+}
+
+.residency-world-copy > p {
+  margin: 7px 0 0;
+  color: #687286;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+.residency-progress.large {
+  height: 8px;
+  margin-top: 10px;
+}
+
+.residency-world-copy > small {
+  display: block;
+  margin-top: 7px;
+  color: #8b7e91;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.residency-story {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 5px;
+}
+
+.story-chapter {
+  position: relative;
+  min-width: 0;
+  padding: 10px;
+  border-radius: 14px;
+  opacity: 0.55;
+  background: rgba(255, 255, 255, 0.65);
+}
+
+.story-chapter.unlocked {
+  opacity: 1;
+}
+
+.story-chapter.current {
+  outline: 2px solid rgba(235, 116, 160, 0.4);
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.story-chapter > span {
+  color: #d46e96;
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.story-chapter > strong {
+  display: block;
+  margin-top: 3px;
+  color: #454a58;
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 1.35;
+}
+
+.story-chapter > small {
+  display: block;
+  margin-top: 5px;
+  color: #818999;
+  font-size: 9px;
+  line-height: 1.45;
+}
+
+.move-in-memory-card {
+  position: relative;
+  margin-top: 16px;
+  min-height: 230px;
+  overflow: hidden;
+  border-radius: 22px;
+  box-shadow: 0 18px 42px rgba(61, 46, 49, 0.14);
+}
+
+.move-in-memory-card > img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+}
+
+.move-in-memory-card > div {
+  position: absolute;
+  inset: auto 0 0;
+  padding: 38px 18px 16px;
+  color: #fff;
+  background: linear-gradient(transparent, rgba(64, 47, 44, 0.84));
+}
+
+.move-in-memory-card span {
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+}
+
+.move-in-memory-card strong {
+  display: block;
+  margin-top: 3px;
+  font-size: 17px;
+  font-weight: 900;
+}
+
+.move-in-memory-card p {
+  margin: 4px 0 0;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.weekly-task-card {
+  margin-top: 16px;
+  padding: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.92);
+  border-radius: 22px;
+  background: linear-gradient(145deg, rgba(235, 249, 244, 0.96), rgba(239, 242, 255, 0.94));
+  box-shadow: 0 16px 38px rgba(47, 54, 72, 0.08);
+}
+
+.weekly-task-heading,
+.weekly-task-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.weekly-task-heading span {
+  color: #5e9581;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.weekly-task-heading strong {
+  display: block;
+  margin-top: 3px;
+  color: #343b48;
+  font-size: 16px;
+  font-weight: 900;
+}
+
+.weekly-task-heading > b {
+  flex: none;
+  color: #6686d7;
+  font-size: 20px;
+  font-weight: 900;
+}
+
+.weekly-task-card > small {
+  display: block;
+  margin-top: 7px;
+  color: #84909c;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.weekly-task-list {
+  display: grid;
+  gap: 9px;
+  margin-top: 13px;
+}
+
+.weekly-task-item {
+  padding: 11px;
+  border-radius: 15px;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.weekly-task-item.completed {
+  background: rgba(239, 255, 246, 0.88);
+}
+
+.weekly-task-title > span {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: #fff;
+  background: linear-gradient(145deg, #7aa8ed, #a17ee8);
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.weekly-task-item.completed .weekly-task-title > span {
+  background: linear-gradient(145deg, #55bd87, #7bd3a0);
+}
+
+.weekly-task-title > div {
+  min-width: 0;
+  flex: 1;
+}
+
+.weekly-task-title strong {
+  color: #424958;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.weekly-task-title p {
+  margin: 2px 0 0;
+  color: #747f8e;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.weekly-task-title > b {
+  flex: none;
+  color: #68778d;
+  font-size: 12px;
+}
+
+.weekly-task-progress {
+  height: 6px;
+  margin-top: 9px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(72, 85, 102, 0.09);
+}
+
+.weekly-task-progress > div {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #63c792, #76a8ee);
+  transition: width 0.35s ease;
+}
+
+.weekly-task-item > small {
+  display: block;
+  margin-top: 6px;
+  color: #7e8795;
+  font-size: 10px;
+  font-weight: 800;
 }
 
 .memory-card {
@@ -2870,6 +3629,109 @@ onBeforeUnmount(() => {
 
 .empty-message.compact {
   padding: 24px 8px 10px;
+}
+
+.move-in-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  box-sizing: border-box;
+  background: rgba(43, 43, 58, 0.38);
+  backdrop-filter: blur(10px);
+  animation: moveInReveal 0.3s ease both;
+}
+
+.move-in-card {
+  position: relative;
+  width: min(430px, 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 24px 30px 28px;
+  box-sizing: border-box;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  border-radius: 30px;
+  text-align: center;
+  background:
+    radial-gradient(circle at 50% 16%, rgba(255, 213, 112, 0.35), transparent 31%),
+    linear-gradient(160deg, rgba(255, 255, 255, 0.98), rgba(255, 237, 247, 0.98));
+  box-shadow: 0 34px 80px rgba(55, 42, 68, 0.26);
+  animation: moveInCard 0.48s cubic-bezier(0.2, 0.85, 0.25, 1.1) both;
+}
+
+.move-in-card > img {
+  width: min(260px, 72vw);
+  height: 250px;
+  margin: -16px 0 -24px;
+  object-fit: contain;
+  filter: drop-shadow(0 20px 24px rgba(95, 60, 20, 0.18));
+}
+
+.move-in-card > .move-in-memory-image {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 9;
+  margin: 0 0 14px;
+  border-radius: 20px;
+  object-fit: cover;
+  filter: none;
+  box-shadow: 0 16px 30px rgba(91, 62, 41, 0.16);
+}
+
+.move-in-card > p {
+  margin: 0;
+  color: #d76d95;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+}
+
+.move-in-card > h3 {
+  margin: 6px 0 9px;
+  color: #333743;
+  font-size: 27px;
+  font-weight: 900;
+}
+
+.move-in-card > strong {
+  color: #62697a;
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+.move-in-card > small {
+  margin-top: 9px;
+  color: #8b91a0;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.move-in-card > button {
+  margin-top: 18px;
+  min-width: 150px;
+  padding: 11px 20px;
+  border: 0;
+  border-radius: 999px;
+  color: #fff;
+  background: linear-gradient(135deg, #ed7aa4, #9c79e8);
+  box-shadow: 0 12px 24px rgba(190, 93, 145, 0.25);
+  font-size: 14px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.move-in-sparkles {
+  position: absolute;
+  inset: 40px 34px auto;
+  display: flex;
+  justify-content: space-between;
+  color: #f09bb7;
+  font-size: 20px;
+  pointer-events: none;
 }
 
 .log-panel-header {
@@ -3341,6 +4203,31 @@ onBeforeUnmount(() => {
   }
 }
 
+@keyframes lumeiBreathe {
+  0%, 100% {
+    transform: translateY(0) rotate(-0.4deg);
+  }
+  50% {
+    transform: translateY(-4px) rotate(0.7deg);
+  }
+}
+
+@keyframes moveInReveal {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes moveInCard {
+  from {
+    opacity: 0;
+    transform: translateY(22px) scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .lulu-entity {
     transform: none !important;
@@ -3356,6 +4243,10 @@ onBeforeUnmount(() => {
   }
 
   .npc-letter-popover,
+  .lumei-away-note,
+  .lumei-resident,
+  .move-in-overlay,
+  .move-in-card,
   .lulu-img.anim-away {
     animation: none;
   }
@@ -3384,8 +4275,9 @@ onBeforeUnmount(() => {
     grid-template-columns: 1fr 1fr;
   }
 
-  .community-card {
-    grid-column: 1 / -1;
+  .community-card,
+  .residency-card {
+    grid-column: auto;
   }
 
   .message-board {
@@ -3514,19 +4406,31 @@ onBeforeUnmount(() => {
     padding: 10px 11px;
   }
 
+  .lumei-away-note {
+    left: 12px;
+    right: 12px;
+    top: 34%;
+    width: auto;
+    max-width: 360px;
+  }
+
   .lulu-entity.is-away-event {
     width: min(92vw, 520px);
   }
 
   .daily-card,
-  .streak-card {
+  .streak-card,
+  .residency-card,
+  .community-card {
     min-width: 0;
     padding: 9px 10px;
     border-radius: 16px;
   }
 
   .daily-card strong,
-  .streak-card strong {
+  .streak-card strong,
+  .residency-card strong,
+  .community-card strong {
     margin-top: 2px;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -3535,7 +4439,9 @@ onBeforeUnmount(() => {
   }
 
   .daily-card small,
-  .streak-card small {
+  .streak-card small,
+  .residency-card small,
+  .community-card small {
     margin-top: 4px;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -3544,7 +4450,9 @@ onBeforeUnmount(() => {
   }
 
   .mission-progress,
-  .companion-progress {
+  .companion-progress,
+  .residency-progress,
+  .community-progress {
     height: 5px;
     margin-top: 6px;
   }
@@ -3553,6 +4461,22 @@ onBeforeUnmount(() => {
     grid-row: 3;
     align-self: center;
     width: min(76vw, 42svh, 360px);
+  }
+
+  .lumei-resident {
+    right: -27%;
+    width: 55%;
+    height: 68%;
+  }
+
+  .lumei-resident.pose-sitting {
+    right: -29%;
+    width: 58%;
+  }
+
+  .lumei-speech {
+    right: -2%;
+    max-width: min(210px, 54vw);
   }
 
   .action-dock {
@@ -3670,18 +4594,66 @@ onBeforeUnmount(() => {
 
   .daily-card,
   .streak-card,
+  .residency-card,
   .community-card {
     padding: 8px 9px;
   }
 
   .daily-card span,
   .streak-card span,
+  .residency-card span,
   .community-card span {
     font-size: 10px;
   }
 
   .lulu-entity {
     width: min(84vw, 40svh, 330px);
+  }
+
+  .lumei-resident {
+    right: -8%;
+    width: 48%;
+  }
+
+  .lumei-resident.pose-sitting {
+    right: -10%;
+    width: 52%;
+  }
+
+  .residency-world-card {
+    grid-template-columns: 92px minmax(0, 1fr);
+    padding: 14px;
+  }
+
+  .residency-world-card > img {
+    width: 104px;
+    height: 112px;
+    margin-left: -12px;
+  }
+
+  .residency-story {
+    grid-auto-flow: column;
+    grid-auto-columns: 132px;
+    grid-template-columns: none;
+    overflow-x: auto;
+    padding: 2px 2px 7px;
+    scroll-snap-type: x proximity;
+  }
+
+  .story-chapter {
+    scroll-snap-align: start;
+  }
+
+  .weekly-task-card {
+    padding: 14px;
+  }
+
+  .weekly-task-title p {
+    display: none;
+  }
+
+  .move-in-card {
+    padding-inline: 20px;
   }
 
   .status-bubble {
