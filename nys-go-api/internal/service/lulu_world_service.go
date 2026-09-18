@@ -203,22 +203,40 @@ func lumeiResidencyResponse(petLevel int) map[string]any {
 	switch {
 	case petLevel >= lumeiResidentLevel:
 		status = "RESIDENT"
-		title = "噜妹已正式入住"
-		message = "从今天起，她会和噜噜一起在这里等你。"
+		title = "噜妹的小家完成啦"
+		message = "椅子、杯子、床铺和小屋都准备好了，噜妹已经正式住在噜噜身边。"
 		nextLevel = 0
 		nextText = "入住故事已解锁，点击噜妹可以和她说说话。"
 	case petLevel >= 54:
 		status = "COUNTDOWN"
-		title = "噜妹正在收拾最后一只箱子"
-		message = "再升 1 级，噜妹就会正式搬进来。"
+		title = "噜妹的行李到了"
+		message = "最后一只行李箱已经放在床边，再升 1 级就能正式入住。"
 		nextLevel = 55
 		nextText = "55 级解锁噜妹常驻。"
+	case petLevel >= 53:
+		status = "PREPARING"
+		title = "小房子的屋顶搭好了"
+		message = "噜噜给床搭上了小屋形的屋顶和花边帘子，房间越来越像家。"
+		nextLevel = 54
+		nextText = "54 级，噜妹的最后一只行李箱会送到。"
+	case petLevel >= 52:
+		status = "PREPARING"
+		title = "软软的床铺好了"
+		message = "奶油色枕头和粉色格纹被子已经铺好，噜妹随时都能睡个好觉。"
+		nextLevel = 53
+		nextText = "53 级，为床搭好小屋形的屋顶。"
+	case petLevel >= 51:
+		status = "PREPARING"
+		title = "两只杯子摆好了"
+		message = "小圆桌上放着一只橘色杯子和一只粉色杯子，以后可以一起喝热饮。"
+		nextLevel = 52
+		nextText = "52 级，为噜妹铺好床和被子。"
 	case petLevel >= 50:
 		status = "PREPARING"
-		title = "噜妹的小房间准备中"
-		message = "噜噜已经留好了她的椅子和杯子。"
-		nextLevel = 54
-		nextText = "54 级进入最后入住倒计时。"
+		title = "第一把椅子到位"
+		message = "噜噜先搬来一把粉色软垫椅，噜妹终于有了自己的位置。"
+		nextLevel = 51
+		nextText = "51 级，添上小圆桌和两只杯子。"
 	case petLevel >= 45:
 		status = "INVITATION"
 		title = "噜妹想把这里当成第二个家"
@@ -226,6 +244,8 @@ func lumeiResidencyResponse(petLevel int) map[string]any {
 		nextLevel = 50
 		nextText = "50 级开始准备噜妹的小房间。"
 	}
+
+	homeStage := lumeiHomeStageResponse(petLevel)
 
 	return map[string]any{
 		"STATUS":               status,
@@ -238,12 +258,64 @@ func lumeiResidencyResponse(petLevel int) map[string]any {
 		"MESSAGE":              message,
 		"NEXT_MILESTONE_LEVEL": nextLevel,
 		"NEXT_MILESTONE_TEXT":  nextText,
+		"HOME_STAGE":           homeStage,
 		"CHAPTERS": []map[string]any{
 			{"LEVEL": 45, "TITLE": "想留下来的信", "DESCRIPTION": "噜妹第一次说出想把这里当成第二个家。", "UNLOCKED": petLevel >= 45, "CURRENT": petLevel >= 45 && petLevel < 50},
-			{"LEVEL": 50, "TITLE": "准备一个小房间", "DESCRIPTION": "噜噜开始为噜妹准备椅子、杯子和柔软的枕头。", "UNLOCKED": petLevel >= 50, "CURRENT": petLevel >= 50 && petLevel < 54},
-			{"LEVEL": 54, "TITLE": "最后一只搬家箱", "DESCRIPTION": "噜妹寄来倒计时的信，远方的旅程快结束了。", "UNLOCKED": petLevel >= 54, "CURRENT": petLevel == 54},
-			{"LEVEL": 55, "TITLE": "从远方到身边", "DESCRIPTION": "噜妹正式入住，从 NPC 成为常驻伙伴。", "UNLOCKED": petLevel >= 55, "CURRENT": petLevel >= 55},
+			{"LEVEL": 50, "TITLE": "第一把椅子", "DESCRIPTION": "粉色软垫椅先搬进了空房间。", "UNLOCKED": petLevel >= 50, "CURRENT": petLevel == 50},
+			{"LEVEL": 51, "TITLE": "小桌与杯子", "DESCRIPTION": "桌上摆好一橘一粉两只杯子。", "UNLOCKED": petLevel >= 51, "CURRENT": petLevel == 51},
+			{"LEVEL": 52, "TITLE": "床和软被", "DESCRIPTION": "枕头与粉色格纹被子已经铺好。", "UNLOCKED": petLevel >= 52, "CURRENT": petLevel == 52},
+			{"LEVEL": 53, "TITLE": "小屋成形", "DESCRIPTION": "床边搭起小屋形屋顶和花边帘子。", "UNLOCKED": petLevel >= 53, "CURRENT": petLevel == 53},
+			{"LEVEL": 54, "TITLE": "最后的行李", "DESCRIPTION": "行李箱和搬家纸箱已经送到床边。", "UNLOCKED": petLevel >= 54, "CURRENT": petLevel == 54},
+			{"LEVEL": 55, "TITLE": "完整的小家", "DESCRIPTION": "全部物品归位，噜妹正式成为常驻伙伴。", "UNLOCKED": petLevel >= 55, "CURRENT": petLevel >= 55},
 		},
+	}
+}
+
+func lumeiHomeStageResponse(petLevel int) map[string]any {
+	level := 0
+	title := "小房间还在计划中"
+	description := "到达 50 级后，噜噜会开始一件件准备噜妹的新家。"
+	items := []string{}
+
+	switch {
+	case petLevel >= 55:
+		level = 55
+		title = "完整的小家"
+		description = "所有家具和生活用品都已归位，噜妹正式入住。"
+		items = []string{"粉色软垫椅", "小圆桌与两只杯子", "床与格纹被子", "小屋形床顶", "灯、绿植与拖鞋"}
+	case petLevel >= 54:
+		level = 54
+		title = "行李已经到达"
+		description = "家具全部准备好，噜妹的行李箱和纸箱也送到了。"
+		items = []string{"粉色软垫椅", "小圆桌与两只杯子", "床与格纹被子", "小屋形床顶", "行李箱与纸箱"}
+	case petLevel >= 53:
+		level = 53
+		title = "小屋已经成形"
+		description = "床边搭好了小屋形屋顶和花边帘子。"
+		items = []string{"粉色软垫椅", "小圆桌与两只杯子", "床与格纹被子", "小屋形床顶"}
+	case petLevel >= 52:
+		level = 52
+		title = "床和被子准备好了"
+		description = "柔软的枕头与粉色格纹被子已经铺好。"
+		items = []string{"粉色软垫椅", "小圆桌与两只杯子", "床与格纹被子"}
+	case petLevel >= 51:
+		level = 51
+		title = "桌子和杯子准备好了"
+		description = "房间里多了一张小圆桌和两只专属杯子。"
+		items = []string{"粉色软垫椅", "小圆桌与两只杯子"}
+	case petLevel >= 50:
+		level = 50
+		title = "第一把椅子准备好了"
+		description = "空房间里先放进了一把属于噜妹的粉色软垫椅。"
+		items = []string{"粉色软垫椅"}
+	}
+
+	return map[string]any{
+		"LEVEL":       level,
+		"TITLE":       title,
+		"DESCRIPTION": description,
+		"ITEMS":       items,
+		"COMPLETE":    petLevel >= lumeiResidentLevel,
 	}
 }
 

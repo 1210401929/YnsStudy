@@ -81,15 +81,25 @@
           <small>缺席 {{ monthlyCompanionship.missedDays }} 天 · 连续 {{ careStreak }} 天</small>
         </div>
         <button class="residency-card" :class="`status-${worldData.residency.status.toLowerCase()}`" type="button" @click="openWorldPanel">
-          <span>噜妹入住计划 · Lv.55</span>
-          <strong>{{ worldData.residency.title }}</strong>
-          <div class="residency-progress">
-            <div class="residency-fill" :style="{ width: `${lumeiResidencyProgress}%` }"></div>
+          <div class="residency-card-layout">
+            <div class="residency-card-copy">
+              <span>噜妹入住计划 · Lv.55</span>
+              <strong>{{ worldData.residency.title }}</strong>
+              <div class="residency-progress">
+                <div class="residency-fill" :style="{ width: `${lumeiResidencyProgress}%` }"></div>
+              </div>
+              <small v-if="worldData.residency.resident">
+                已经常驻 · 本周任务 {{ worldData.weekly.completedCount }}/{{ worldData.weekly.totalCount }}
+              </small>
+              <small v-else>当前 Lv.{{ worldData.residency.currentLevel }} · 还差 {{ worldData.residency.remainingLevels }} 级</small>
+            </div>
+            <img
+              v-if="currentResidencyStageImage"
+              class="residency-stage-thumb"
+              :src="currentResidencyStageImage"
+              :alt="worldData.residency.homeStage.title"
+            />
           </div>
-          <small v-if="worldData.residency.resident">
-            已经常驻 · 本周任务 {{ worldData.weekly.completedCount }}/{{ worldData.weekly.totalCount }}
-          </small>
-          <small v-else>当前 Lv.{{ worldData.residency.currentLevel }} · 还差 {{ worldData.residency.remainingLevels }} 级</small>
         </button>
         <button class="community-card" type="button" @click="openWorldPanel">
           <span>全站共同目标</span>
@@ -123,6 +133,19 @@
         <p>{{ activeNPCEvent.content }}</p>
         <button type="button" @click="openWorldPanel">查看往来记录</button>
       </aside>
+
+      <button
+        v-if="showMoveInTruck"
+        class="move-in-truck"
+        type="button"
+        :title="`查看入住计划：${moveInTruckCaption}`"
+        aria-label="查看噜妹搬家和入住进度"
+        @click="openWorldPanel"
+      >
+        <span class="move-in-truck-badge">Lv.{{ worldData.residency.homeStage.level }} · 搬家进行中</span>
+        <img :src="npcImages.moveInTruck" alt="装着噜妹行李的橘色搬家车" />
+        <small>{{ moveInTruckCaption }}</small>
+      </button>
 
       <div
         class="lulu-entity"
@@ -343,7 +366,12 @@
 
         <template v-else>
           <article class="residency-world-card" :class="`status-${worldData.residency.status.toLowerCase()}`">
-            <img :src="npcImages.resident" alt="噜妹入住形象" />
+            <div v-if="currentResidencyStageImage" class="residency-stage-visual">
+              <img :src="currentResidencyStageImage" :alt="worldData.residency.homeStage.title" />
+              <span>Lv.{{ worldData.residency.homeStage.level }}</span>
+              <small v-if="worldData.residency.homeStage.complete">完全体</small>
+            </div>
+            <img v-else class="residency-character-preview" :src="npcImages.resident" alt="噜妹入住形象" />
             <div class="residency-world-copy">
               <span>噜妹入住计划 · Lv.{{ worldData.residency.targetLevel }}</span>
               <strong>{{ worldData.residency.title }}</strong>
@@ -356,6 +384,13 @@
               </small>
               <small v-else>{{ worldData.residency.nextMilestoneText }}</small>
             </div>
+            <div v-if="worldData.residency.homeStage.items.length" class="residency-stage-items">
+              <span>当前房间已有</span>
+              <p>{{ worldData.residency.homeStage.description }}</p>
+              <div>
+                <small v-for="item in worldData.residency.homeStage.items" :key="item">✓ {{ item }}</small>
+              </div>
+            </div>
             <div class="residency-story" aria-label="噜妹入住剧情进度">
               <div
                 v-for="chapter in worldData.residency.chapters"
@@ -363,6 +398,10 @@
                 class="story-chapter"
                 :class="{ unlocked: chapter.unlocked, current: chapter.current }"
               >
+                <div v-if="chapter.level >= 50" class="story-chapter-art" :class="{ locked: !chapter.unlocked }">
+                  <img v-if="chapter.unlocked" :src="residencyStageImageForLevel(chapter.level)" :alt="chapter.title" />
+                  <span v-else aria-hidden="true">?</span>
+                </div>
                 <span>Lv.{{ chapter.level }}</span>
                 <strong>{{ chapter.title }}</strong>
                 <small>{{ chapter.unlocked ? chapter.description : '继续陪伴噜噜后解锁' }}</small>
@@ -520,11 +559,21 @@ const worldData = ref({
     nextMilestoneLevel: 45,
     nextMilestoneText: '45 级时，噜妹会说出想留下来的心愿。',
     residentSince: '',
+    homeStage: {
+      level: 0,
+      title: '小房间还在计划中',
+      description: '到达 50 级后，噜噜会开始一件件准备噜妹的新家。',
+      items: [],
+      complete: false
+    },
     chapters: [
       { level: 45, title: '想留下来的信', description: '', unlocked: false, current: false },
-      { level: 50, title: '准备一个小房间', description: '', unlocked: false, current: false },
-      { level: 54, title: '最后一只搬家箱', description: '', unlocked: false, current: false },
-      { level: 55, title: '从远方到身边', description: '', unlocked: false, current: false }
+      { level: 50, title: '第一把椅子', description: '', unlocked: false, current: false },
+      { level: 51, title: '小桌与杯子', description: '', unlocked: false, current: false },
+      { level: 52, title: '床和软被', description: '', unlocked: false, current: false },
+      { level: 53, title: '小屋成形', description: '', unlocked: false, current: false },
+      { level: 54, title: '最后的行李', description: '', unlocked: false, current: false },
+      { level: 55, title: '完整的小家', description: '', unlocked: false, current: false }
     ]
   },
   memory: {
@@ -599,9 +648,11 @@ let pollerTimer = null;
 let worldRefreshTimer = null;
 let residentLineTimer = null;
 let lumeiPoseTimer = null;
+let moveInThoughtTimer = null;
 let effectIdCounter = 0;
 let lastInteractionAt = 0;
 let lastAnnouncedNPCEventId = null;
+let lastAnnouncedMoveInStage = 0;
 
 const img = (name) => `/picture/lulu/benti/${name}.webp`;
 
@@ -610,8 +661,19 @@ const npcImages = {
   outing: '/picture/lulu/npc/lulu-lumei-outing.webp',
   resident: '/picture/lulu/npc/lumei-resident.webp',
   residentSitting: '/picture/lulu/npc/lumei-resident-sitting.webp',
-  moveInMemory: '/picture/lulu/npc/lulu-lumei-move-in-memory.webp'
+  moveInMemory: '/picture/lulu/npc/lulu-lumei-move-in-memory.webp',
+  moveInTruck: '/picture/lulu/npc/lumei-moving-truck.webp',
+  homeStages: {
+    50: '/picture/lulu/npc/lumei-home-stage-50.webp',
+    51: '/picture/lulu/npc/lumei-home-stage-51.webp',
+    52: '/picture/lulu/npc/lumei-home-stage-52.webp',
+    53: '/picture/lulu/npc/lumei-home-stage-53.webp',
+    54: '/picture/lulu/npc/lumei-home-stage-54.webp',
+    55: '/picture/lulu/npc/lumei-home-stage-55.webp'
+  }
 };
+
+const residencyStageImageForLevel = (level) => npcImages.homeStages[Number(level)] || '';
 
 const luluImages = {
   idle: img('lulu_fadai'),
@@ -765,6 +827,29 @@ const showLumeiLetter = computed(() => {
 });
 
 const lumeiIsResident = computed(() => Boolean(worldData.value.residency.resident));
+
+const currentResidencyStageImage = computed(() => {
+  return residencyStageImageForLevel(worldData.value.residency.homeStage.level);
+});
+
+const showMoveInTruck = computed(() => {
+  const stageLevel = Number(worldData.value.residency.homeStage.level);
+  return stageLevel >= 50
+    && stageLevel < 55
+    && !isLuluAway.value
+    && !isLumeiAway.value;
+});
+
+const moveInTruckCaption = computed(() => {
+  const captions = {
+    50: '第一把小椅子已经送到啦',
+    51: '小桌和两只杯子刚刚下车',
+    52: '软床和香香的被子正在搬',
+    53: '小屋材料开始安装啦',
+    54: '最后一车行李已经到门口'
+  };
+  return captions[Number(worldData.value.residency.homeStage.level)] || '看看噜妹的搬家进度';
+});
 
 const currentLumeiImage = computed(() => {
   if (petData.value.currentState === 'SLEEPING' || lumeiPose.value === 'sitting') {
@@ -959,8 +1044,70 @@ const registerBondInteraction = () => {
   }
 };
 
+const getMoveInThoughts = (stageLevel) => {
+  const thoughtsByLevel = {
+    50: [
+      '要好好搬家，让噜妹有个香香的家。',
+      '先把椅子放稳，噜妹坐着才不会摇摇晃晃。',
+      '房间还空空的，不过第一件家具已经到啦。'
+    ],
+    51: [
+      '一只橘色杯子、一只粉色杯子，刚刚好。',
+      '小桌擦得亮亮的，噜妹回来就能喝热饮。',
+      '我把杯子摆了三遍，这次一定很整齐。'
+    ],
+    52: [
+      '被子要晒得香香的，噜妹一定会喜欢。',
+      '枕头拍得软软的，今晚再检查一遍。',
+      '床边要留一点位置，方便噜妹放拖鞋。'
+    ],
+    53: [
+      '小屋顶搭好啦，我要看看帘子有没有挂歪。',
+      '再装一点点，噜妹的小家就越来越完整啦。',
+      '灯串亮起来的时候，整个房间都暖暖的。'
+    ],
+    54: [
+      '行李都到门口啦，再升一级噜妹就回家！',
+      '最后一箱要轻轻搬，里面可能是噜妹喜欢的东西。',
+      '我要把门口收拾干净，等噜妹正式回家。'
+    ]
+  };
+  return thoughtsByLevel[Number(stageLevel)] || [];
+};
+
+const showAmbientThought = (text, duration = 4200) => {
+  if (!text) return;
+  ambientThought.value = text;
+  window.clearTimeout(thoughtClearTimer);
+  thoughtClearTimer = window.setTimeout(() => {
+    ambientThought.value = '';
+  }, duration);
+};
+
+const announceMoveInStage = (stageLevel, attempt = 0) => {
+  const normalizedLevel = Number(stageLevel);
+  const moveInThoughts = getMoveInThoughts(normalizedLevel);
+  if (!moveInThoughts.length || lastAnnouncedMoveInStage === normalizedLevel) return;
+
+  lastAnnouncedMoveInStage = normalizedLevel;
+  window.clearTimeout(moveInThoughtTimer);
+  moveInThoughtTimer = window.setTimeout(() => {
+    const canSpeak = !isLuluAway.value
+      && actionCategory.value === 'idle'
+      && petData.value.currentState !== 'SLEEPING';
+    if (!canSpeak && attempt < 3) {
+      lastAnnouncedMoveInStage = 0;
+      announceMoveInStage(normalizedLevel, attempt + 1);
+      return;
+    }
+    if (canSpeak) showAmbientThought(pickOne(moveInThoughts), 5600);
+  }, attempt === 0 ? 1100 : 2400);
+};
+
 const getAmbientThoughts = () => {
   const thoughts = ['我在听哦。', '今天也一起慢慢来。', '你来啦，我刚好没有睡着。'];
+  const moveInThoughts = getMoveInThoughts(worldData.value.residency.homeStage.level);
+  if (moveInThoughts.length) thoughts.push(...moveInThoughts, pickOne(moveInThoughts));
   if (petData.value.hunger <= 35) thoughts.push('小肚子好像在咕咕叫。', '饭碗今天会出现吗？');
   if (petData.value.energy <= 35) thoughts.push('眼皮有一点点打架。', '要不要一起休息五分钟？');
   if (petData.value.mood >= 80) thoughts.push('今天的心情闪闪发亮！', '想和你多玩一会儿。');
@@ -974,11 +1121,7 @@ const scheduleThought = () => {
   window.clearTimeout(thoughtTimer);
   thoughtTimer = window.setTimeout(() => {
     if (actionCategory.value === 'idle' && petData.value.currentState !== 'SLEEPING') {
-      ambientThought.value = pickOne(getAmbientThoughts());
-      window.clearTimeout(thoughtClearTimer);
-      thoughtClearTimer = window.setTimeout(() => {
-        ambientThought.value = '';
-      }, 4200);
+      showAmbientThought(pickOne(getAmbientThoughts()));
     }
     scheduleThought();
   }, randomBetween(6500, 12000));
@@ -1018,7 +1161,9 @@ const preloadCoreImages = async () => {
     npcImages.outing,
     npcImages.resident,
     npcImages.residentSitting,
-    npcImages.moveInMemory
+    npcImages.moveInMemory,
+    npcImages.moveInTruck,
+    ...Object.values(npcImages.homeStages)
   ];
   const results = await Promise.allSettled(coreImages.map(preloadImage));
   const failed = results
@@ -1059,6 +1204,8 @@ const normalizeNPCEvent = (event) => {
 
 const normalizeLumeiResidency = (residency) => {
   const rawChapters = getField(residency, 'CHAPTERS', 'chapters', []);
+  const rawHomeStage = getField(residency, 'HOME_STAGE', 'homeStage', {});
+  const rawStageItems = getField(rawHomeStage, 'ITEMS', 'items', []);
   return {
     status: getField(residency, 'STATUS', 'status', 'NPC'),
     resident: Boolean(getField(residency, 'RESIDENT', 'resident', false)),
@@ -1071,6 +1218,13 @@ const normalizeLumeiResidency = (residency) => {
     nextMilestoneLevel: Number(getField(residency, 'NEXT_MILESTONE_LEVEL', 'nextMilestoneLevel', 45)),
     nextMilestoneText: getField(residency, 'NEXT_MILESTONE_TEXT', 'nextMilestoneText', '45 级时，噜妹会说出想留下来的心愿。'),
     residentSince: getField(residency, 'RESIDENT_SINCE', 'residentSince', ''),
+    homeStage: {
+      level: Number(getField(rawHomeStage, 'LEVEL', 'level', 0)),
+      title: getField(rawHomeStage, 'TITLE', 'title', '小房间还在计划中'),
+      description: getField(rawHomeStage, 'DESCRIPTION', 'description', '到达 50 级后，噜噜会开始一件件准备噜妹的新家。'),
+      items: Array.isArray(rawStageItems) ? rawStageItems : [],
+      complete: Boolean(getField(rawHomeStage, 'COMPLETE', 'complete', false))
+    },
     chapters: Array.isArray(rawChapters) ? rawChapters.map((chapter) => ({
       level: Number(getField(chapter, 'LEVEL', 'level', 0)),
       title: getField(chapter, 'TITLE', 'title', ''),
@@ -1143,6 +1297,8 @@ const applyLuluWorld = (result) => {
       reward: getField(goal, 'REWARD', 'reward', '全站解锁一整天的温暖心情')
     }
   };
+
+  announceMoveInStage(residency.homeStage.level);
 
   if (residency.resident && typeof window !== 'undefined' && window.localStorage.getItem('lumeiResidentIntroSeenV2') !== '1') {
     showLumeiMoveIn.value = true;
@@ -1987,6 +2143,7 @@ onBeforeUnmount(() => {
   window.clearTimeout(worldRefreshTimer);
   window.clearTimeout(residentLineTimer);
   window.clearTimeout(lumeiPoseTimer);
+  window.clearTimeout(moveInThoughtTimer);
   window.cancelAnimationFrame(motionFrame);
   window.clearInterval(pollerTimer);
 });
@@ -2354,6 +2511,27 @@ onBeforeUnmount(() => {
     rgba(255, 249, 252, 0.78);
 }
 
+.residency-card-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 72px;
+  align-items: center;
+  gap: 9px;
+}
+
+.residency-card-copy {
+  min-width: 0;
+}
+
+.residency-stage-thumb {
+  display: block;
+  width: 72px;
+  aspect-ratio: 3 / 2;
+  object-fit: cover;
+  border: 2px solid rgba(255, 255, 255, 0.92);
+  border-radius: 12px;
+  box-shadow: 0 8px 18px rgba(94, 67, 46, 0.16);
+}
+
 .residency-card.status-resident {
   border-color: rgba(255, 202, 222, 0.92);
   box-shadow: 0 15px 36px rgba(226, 101, 151, 0.13);
@@ -2507,6 +2685,90 @@ onBeforeUnmount(() => {
   font-size: 11px;
   font-weight: 900;
   cursor: pointer;
+}
+
+.move-in-truck {
+  position: absolute;
+  right: clamp(10px, 2.8vw, 48px);
+  bottom: clamp(205px, 24vh, 255px);
+  z-index: 2;
+  width: min(32vw, 410px);
+  display: grid;
+  justify-items: center;
+  padding: 0;
+  border: 0;
+  color: #654636;
+  background: transparent;
+  cursor: pointer;
+  isolation: isolate;
+}
+
+.move-in-truck::before {
+  content: '';
+  position: absolute;
+  left: 12%;
+  right: 8%;
+  bottom: 15%;
+  z-index: -1;
+  height: 12%;
+  border-radius: 50%;
+  background: rgba(71, 48, 35, 0.2);
+  filter: blur(14px);
+}
+
+.move-in-truck > img {
+  width: 100%;
+  height: auto;
+  display: block;
+  filter: drop-shadow(0 18px 24px rgba(89, 55, 36, 0.17));
+  transform-origin: 50% 88%;
+  animation: moveInTruckIdle 2.8s ease-in-out infinite;
+  transition: filter 0.2s ease, transform 0.2s ease;
+}
+
+.move-in-truck:hover > img {
+  animation-play-state: paused;
+  filter: drop-shadow(0 22px 28px rgba(89, 55, 36, 0.23)) brightness(1.03);
+  transform: translateY(-5px) scale(1.02);
+}
+
+.move-in-truck:focus-visible {
+  outline: 3px solid rgba(241, 137, 96, 0.72);
+  outline-offset: 7px;
+  border-radius: 24px;
+}
+
+.move-in-truck-badge,
+.move-in-truck > small {
+  position: absolute;
+  z-index: 2;
+  border: 1px solid rgba(255, 255, 255, 0.88);
+  border-radius: 999px;
+  background: rgba(255, 250, 242, 0.9);
+  box-shadow: 0 10px 24px rgba(80, 55, 42, 0.13);
+  backdrop-filter: blur(10px);
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.move-in-truck-badge {
+  top: 5%;
+  right: 2%;
+  padding: 7px 11px;
+  color: #d96945;
+  font-size: 12px;
+}
+
+.move-in-truck > small {
+  bottom: 0;
+  left: 50%;
+  max-width: 92%;
+  padding: 8px 13px;
+  overflow: hidden;
+  color: #654636;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  transform: translateX(-50%);
 }
 
 .lulu-entity {
@@ -3213,9 +3475,9 @@ onBeforeUnmount(() => {
 
 .residency-world-card {
   display: grid;
-  grid-template-columns: 132px minmax(0, 1fr);
-  align-items: center;
-  gap: 12px;
+  grid-template-columns: 200px minmax(0, 1fr);
+  align-items: start;
+  gap: 14px;
   overflow: hidden;
   background:
     radial-gradient(circle at 14% 20%, rgba(255, 210, 119, 0.28), transparent 34%),
@@ -3228,12 +3490,52 @@ onBeforeUnmount(() => {
     linear-gradient(145deg, rgba(255, 232, 242, 0.98), rgba(238, 244, 255, 0.95));
 }
 
-.residency-world-card > img {
+.residency-character-preview {
   width: 142px;
   height: 142px;
   margin: -8px 0 -18px -10px;
   object-fit: contain;
   filter: drop-shadow(0 15px 20px rgba(86, 57, 24, 0.16));
+}
+
+.residency-stage-visual {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 3 / 2;
+  overflow: hidden;
+  border: 2px solid rgba(255, 255, 255, 0.92);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.74);
+  box-shadow: 0 12px 28px rgba(90, 63, 38, 0.13);
+}
+
+.residency-stage-visual > img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.residency-stage-visual > span,
+.residency-stage-visual > small {
+  position: absolute;
+  top: 9px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  color: #fff;
+  background: rgba(72, 57, 46, 0.74);
+  backdrop-filter: blur(7px);
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.residency-stage-visual > span {
+  left: 9px;
+}
+
+.residency-stage-visual > small {
+  right: 9px;
+  background: rgba(223, 91, 143, 0.83);
 }
 
 .residency-world-copy > span {
@@ -3271,12 +3573,54 @@ onBeforeUnmount(() => {
   font-weight: 800;
 }
 
+.residency-stage-items {
+  grid-column: 1 / -1;
+  padding: 11px 12px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.66);
+}
+
+.residency-stage-items > span {
+  color: #b25e82;
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.residency-stage-items > p {
+  margin: 4px 0 0;
+  color: #766c78;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.residency-stage-items > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 7px;
+}
+
+.residency-stage-items small {
+  padding: 5px 8px;
+  border-radius: 999px;
+  color: #6f6070;
+  background: rgba(255, 237, 244, 0.92);
+  font-size: 9px;
+  font-weight: 800;
+}
+
 .residency-story {
   grid-column: 1 / -1;
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-auto-flow: column;
+  grid-auto-columns: 148px;
+  grid-template-columns: none;
   gap: 8px;
   margin-top: 5px;
+  overflow-x: auto;
+  padding: 2px 2px 8px;
+  scroll-snap-type: x proximity;
 }
 
 .story-chapter {
@@ -3286,6 +3630,7 @@ onBeforeUnmount(() => {
   border-radius: 14px;
   opacity: 0.55;
   background: rgba(255, 255, 255, 0.65);
+  scroll-snap-align: start;
 }
 
 .story-chapter.unlocked {
@@ -3295,6 +3640,30 @@ onBeforeUnmount(() => {
 .story-chapter.current {
   outline: 2px solid rgba(235, 116, 160, 0.4);
   background: rgba(255, 255, 255, 0.9);
+}
+
+.story-chapter-art {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  aspect-ratio: 3 / 2;
+  margin-bottom: 8px;
+  overflow: hidden;
+  border-radius: 10px;
+  background: rgba(235, 224, 231, 0.75);
+}
+
+.story-chapter-art > img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.story-chapter-art.locked > span {
+  color: rgba(119, 102, 116, 0.62);
+  font-size: 22px;
+  font-weight: 900;
 }
 
 .story-chapter > span {
@@ -4212,6 +4581,18 @@ onBeforeUnmount(() => {
   }
 }
 
+@keyframes moveInTruckIdle {
+  0%, 100% {
+    transform: translateY(0) rotate(-0.15deg);
+  }
+  48% {
+    transform: translateY(-4px) rotate(0.2deg);
+  }
+  55% {
+    transform: translateY(-2px) rotate(-0.1deg);
+  }
+}
+
 @keyframes moveInReveal {
   from { opacity: 0; }
   to { opacity: 1; }
@@ -4245,6 +4626,7 @@ onBeforeUnmount(() => {
   .npc-letter-popover,
   .lumei-away-note,
   .lumei-resident,
+  .move-in-truck > img,
   .move-in-overlay,
   .move-in-card,
   .lulu-img.anim-away {
@@ -4262,6 +4644,12 @@ onBeforeUnmount(() => {
   .lulu-stage {
     height: auto;
     min-height: 780px;
+  }
+
+  .move-in-truck {
+    right: 16px;
+    bottom: 225px;
+    width: min(38vw, 340px);
   }
 
   .fun-hud {
@@ -4412,6 +4800,23 @@ onBeforeUnmount(() => {
     top: 34%;
     width: auto;
     max-width: 360px;
+  }
+
+  .move-in-truck {
+    right: -8px;
+    bottom: 188px;
+    width: min(42vw, 260px);
+  }
+
+  .move-in-truck-badge {
+    top: 2%;
+    padding: 5px 8px;
+    font-size: 10px;
+  }
+
+  .move-in-truck > small {
+    padding: 6px 9px;
+    font-size: 10px;
   }
 
   .lulu-entity.is-away-event {
@@ -4610,6 +5015,24 @@ onBeforeUnmount(() => {
     width: min(84vw, 40svh, 330px);
   }
 
+  .move-in-truck {
+    right: -16px;
+    bottom: 154px;
+    width: min(47vw, 190px);
+  }
+
+  .move-in-truck-badge {
+    right: 0;
+    max-width: 94%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .move-in-truck > small {
+    bottom: -2px;
+    max-width: 96%;
+  }
+
   .lumei-resident {
     right: -8%;
     width: 48%;
@@ -4621,27 +5044,32 @@ onBeforeUnmount(() => {
   }
 
   .residency-world-card {
-    grid-template-columns: 92px minmax(0, 1fr);
+    grid-template-columns: 1fr;
     padding: 14px;
   }
 
-  .residency-world-card > img {
+  .residency-character-preview {
     width: 104px;
     height: 112px;
     margin-left: -12px;
   }
 
-  .residency-story {
-    grid-auto-flow: column;
-    grid-auto-columns: 132px;
-    grid-template-columns: none;
-    overflow-x: auto;
-    padding: 2px 2px 7px;
-    scroll-snap-type: x proximity;
+  .residency-stage-visual {
+    width: 100%;
   }
 
-  .story-chapter {
-    scroll-snap-align: start;
+  .residency-card-layout {
+    grid-template-columns: minmax(0, 1fr) 58px;
+    gap: 6px;
+  }
+
+  .residency-stage-thumb {
+    width: 58px;
+    border-radius: 9px;
+  }
+
+  .residency-story {
+    grid-auto-columns: 132px;
   }
 
   .weekly-task-card {

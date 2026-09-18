@@ -130,7 +130,10 @@ func TestLumeiResidencyResponse(t *testing.T) {
 	}{
 		{1, "NPC", 45, false},
 		{45, "INVITATION", 50, false},
-		{50, "PREPARING", 54, false},
+		{50, "PREPARING", 51, false},
+		{51, "PREPARING", 52, false},
+		{52, "PREPARING", 53, false},
+		{53, "PREPARING", 54, false},
 		{54, "COUNTDOWN", 55, false},
 		{55, "RESIDENT", 0, true},
 		{80, "RESIDENT", 0, true},
@@ -143,6 +146,13 @@ func TestLumeiResidencyResponse(t *testing.T) {
 		progress, ok := response["PROGRESS"].(int)
 		if !ok || progress < 0 || progress > 100 {
 			t.Fatalf("invalid progress at level %d: %#v", test.level, response["PROGRESS"])
+		}
+		homeStage, ok := response["HOME_STAGE"].(map[string]any)
+		if !ok {
+			t.Fatalf("missing home stage at level %d: %#v", test.level, response["HOME_STAGE"])
+		}
+		if test.level >= 50 && homeStage["LEVEL"] != minInt(test.level, lumeiResidentLevel) {
+			t.Fatalf("unexpected home stage at level %d: %#v", test.level, homeStage)
 		}
 	}
 }
