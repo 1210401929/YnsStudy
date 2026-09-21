@@ -190,13 +190,13 @@
         <button
           v-if="lumeiIsResident && !isLuluAway && !isLumeiAway"
           class="lumei-resident"
-          :class="[`pose-${lumeiPose}`, { 'is-talking': Boolean(lumeiSpeechText) }]"
+          :class="[`pose-${lumeiDisplayPose}`, `activity-${lumeiActivity}`, { 'is-talking': Boolean(lumeiSpeechText) }]"
           type="button"
           aria-label="和常驻的噜妹说说话"
           @click.stop="interactWithLumei"
         >
           <span v-if="lumeiSpeechText" class="lumei-speech" aria-live="polite">{{ lumeiSpeechText }}</span>
-          <img :src="currentLumeiImage" :alt="lumeiPose === 'sitting' ? '坐在噜噜旁边的噜妹' : '站在噜噜旁边的噜妹'" @error="handleLuluImageError" />
+          <img :src="currentLumeiImage" :alt="currentLumeiImageAlt" @error="handleLuluImageError" />
           <small>噜妹</small>
         </button>
 
@@ -630,10 +630,11 @@ const dailyMission = ref({
   reward: '完成后心情会亮一下'
 });
 const accessoryIndex = ref(0);
+const SCENE_MODE_COUNT = 7;
 const sceneIndex = ref((() => {
   if (typeof window === 'undefined') return 0;
   const stored = Number(window.localStorage.getItem('luluSceneIndex'));
-  return Number.isInteger(stored) && stored >= 0 && stored < 6 ? stored : 0;
+  return Number.isInteger(stored) && stored >= 0 && stored < SCENE_MODE_COUNT ? stored : 0;
 })());
 const wishText = ref('抽一句');
 
@@ -649,6 +650,7 @@ let worldRefreshTimer = null;
 let residentLineTimer = null;
 let lumeiPoseTimer = null;
 let moveInThoughtTimer = null;
+let residentAssetsPreloadPromise = null;
 let effectIdCounter = 0;
 let lastInteractionAt = 0;
 let lastAnnouncedNPCEventId = null;
@@ -661,6 +663,10 @@ const npcImages = {
   outing: '/picture/lulu/npc/lulu-lumei-outing.webp',
   resident: '/picture/lulu/npc/lumei-resident.webp',
   residentSitting: '/picture/lulu/npc/lumei-resident-sitting.webp',
+  residentPlay: '/picture/lulu/npc/lumei-resident-play.webp',
+  residentFeed: '/picture/lulu/npc/lumei-resident-feed.webp',
+  residentMusic: '/picture/lulu/npc/lumei-resident-music.webp',
+  residentBath: '/picture/lulu/npc/lumei-resident-bath.webp',
   moveInMemory: '/picture/lulu/npc/lulu-lumei-move-in-memory.webp',
   moveInTruck: '/picture/lulu/npc/lumei-moving-truck.webp',
   homeStages: {
@@ -782,7 +788,8 @@ const sceneModes = [
   { name: '阳光花园', image: '/picture/lulu/scenes/scene-sunny-garden.webp' },
   { name: '森林空地', image: '/picture/lulu/scenes/scene-forest-clearing.webp' },
   { name: '海边露台', image: '/picture/lulu/scenes/scene-seaside-terrace.webp' },
-  { name: '星空营地', image: '/picture/lulu/scenes/scene-starry-camp.webp' }
+  { name: '星空营地', image: '/picture/lulu/scenes/scene-starry-camp.webp' },
+  { name: '噜妹的小家', image: '/picture/lulu/scenes/scene-lumei-home.webp', requiresResident: true }
 ];
 
 const missionPool = [
@@ -851,11 +858,44 @@ const moveInTruckCaption = computed(() => {
   return captions[Number(worldData.value.residency.homeStage.level)] || '看看噜妹的搬家进度';
 });
 
+const lumeiActivity = computed(() => {
+  if (petData.value.currentState === 'SLEEPING') return 'sleep';
+  const supportedActions = ['feed', 'play', 'music', 'bath'];
+  return supportedActions.includes(actionCategory.value) ? actionCategory.value : 'idle';
+});
+
+const lumeiDisplayPose = computed(() => {
+  if (lumeiActivity.value === 'sleep') return 'sitting';
+  if (lumeiActivity.value !== 'idle') return 'standing';
+  return lumeiPose.value;
+});
+
 const currentLumeiImage = computed(() => {
-  if (petData.value.currentState === 'SLEEPING' || lumeiPose.value === 'sitting') {
-    return npcImages.residentSitting;
+  const actionImages = {
+    feed: npcImages.residentFeed,
+    play: npcImages.residentPlay,
+    music: npcImages.residentMusic,
+    bath: npcImages.residentBath
+  };
+  let requestedImage = npcImages.resident;
+  if (actionImages[lumeiActivity.value]) {
+    requestedImage = actionImages[lumeiActivity.value];
+  } else if (lumeiDisplayPose.value === 'sitting') {
+    requestedImage = npcImages.residentSitting;
   }
-  return npcImages.resident;
+  return failedImageUrls.value.has(requestedImage) ? npcImages.resident : requestedImage;
+});
+
+const currentLumeiImageAlt = computed(() => {
+  const descriptions = {
+    feed: '拿着点心和手帕照顾噜噜的噜妹',
+    play: '陪噜噜一起玩球的噜妹',
+    music: '戴着耳机和噜噜一起跳舞的噜妹',
+    bath: '拿着浴巾和小刷子帮忙的噜妹',
+    sleep: '坐在噜噜旁边轻声守护的噜妹'
+  };
+  return descriptions[lumeiActivity.value]
+    || (lumeiDisplayPose.value === 'sitting' ? '坐在噜噜旁边的噜妹' : '站在噜噜旁边的噜妹');
 });
 
 const lumeiSpeechText = computed(() => {
@@ -943,7 +983,12 @@ const floatingMessages = computed(() => {
 
 const currentAccessory = computed(() => accessoryModes[accessoryIndex.value] || accessoryModes[0]);
 
-const currentScene = computed(() => sceneModes[sceneIndex.value] || sceneModes[0]);
+const isSceneUnlocked = (scene) => !scene?.requiresResident || lumeiIsResident.value;
+
+const currentScene = computed(() => {
+  const selectedScene = sceneModes[sceneIndex.value] || sceneModes[0];
+  return isSceneUnlocked(selectedScene) ? selectedScene : sceneModes[0];
+});
 
 const sceneBackgroundStyle = computed(() => {
   if (!currentScene.value.image) return {};
@@ -1146,6 +1191,26 @@ const preloadAccessoryImages = async (accessory) => {
   return failed;
 };
 
+const preloadLumeiResidentAssets = () => {
+  if (residentAssetsPreloadPromise) return residentAssetsPreloadPromise;
+  const urls = [
+    npcImages.residentPlay,
+    npcImages.residentFeed,
+    npcImages.residentMusic,
+    npcImages.residentBath
+  ];
+  residentAssetsPreloadPromise = Promise.allSettled(urls.map(preloadImage)).then((results) => {
+    const failed = results
+      .filter((result) => result.status === 'rejected')
+      .map((result) => String(result.reason?.message || result.reason).replace('图片加载失败: ', ''));
+    if (failed.length) {
+      failedImageUrls.value = new Set([...failedImageUrls.value, ...failed]);
+    }
+    return failed;
+  });
+  return residentAssetsPreloadPromise;
+};
+
 const preloadCoreImages = async () => {
   const coreImages = [
     luluImages.idle,
@@ -1300,6 +1365,10 @@ const applyLuluWorld = (result) => {
 
   announceMoveInStage(residency.homeStage.level);
 
+  if (residency.resident) {
+    preloadLumeiResidentAssets();
+  }
+
   if (residency.resident && typeof window !== 'undefined' && window.localStorage.getItem('lumeiResidentIntroSeenV2') !== '1') {
     showLumeiMoveIn.value = true;
   } else if (!residency.resident) {
@@ -1347,7 +1416,19 @@ const lumeiResidentDialogues = [
   '我的小房间收拾好啦，花边一点也没有弄皱。',
   '外面的云很好看，不过在这里陪你们也很好。',
   '悄悄告诉你：噜噜刚才又打了一个大哈欠。',
-  '以后有开心的事，要同时讲给我和噜噜听哦。'
+  '以后有开心的事，要同时讲给我和噜噜听哦。',
+  '噜噜把窗边最暖的位置留给我了，它其实很会照顾人。',
+  '我和噜噜约好，谁先起床谁就把窗帘拉开。',
+  '刚才噜噜想偷吃我的小饼干，被我发现啦。',
+  '今天轮到我整理房间，噜噜负责把玩具放回去。',
+  '噜噜说你一来，整个小家都会热闹起来。',
+  '我最喜欢和噜噜一起坐在花毯上晒太阳。',
+  '晚上我会帮噜噜盖好被角，你不用担心。',
+  '我们给你留了一只杯子，回来就可以一起喝热饮。',
+  '噜噜刚刚练习讲笑话，我笑得头顶光环都歪啦。',
+  '如果你今天有点累，就坐下来陪我们发会儿呆吧。',
+  '我和噜噜正在比赛谁能先听见你来的脚步声。',
+  '小家已经收拾好啦，现在只差你常来看看我们。'
 ];
 
 const lumeiFeedReactions = [
@@ -1355,7 +1436,11 @@ const lumeiFeedReactions = [
   '我来帮它数数吃了几口。',
   '噜噜今天的饭量还是圆滚滚的。',
   '吃完记得擦擦嘴，我可看见啦。',
-  '这一口看起来最好吃，留给噜噜！'
+  '这一口看起来最好吃，留给噜噜！',
+  '噜噜，慢一点，脸颊都快塞成小面包啦。',
+  '我把手帕准备好了，吃完要擦得香香的。',
+  '下一顿换我和你一起准备，好不好？',
+  '看它吃得这么认真，我也觉得肚子饿啦。'
 ];
 
 const lumeiPlayReactions = [
@@ -1363,11 +1448,54 @@ const lumeiPlayReactions = [
   '噜噜跑反方向啦，快回来！',
   '下一局也要带上我哦。',
   '我宣布：今天的冠军是开心！',
-  '慢一点，我的花边都快笑歪啦。'
+  '慢一点，我的花边都快笑歪啦。',
+  '球到我这里啦，噜噜快接住！',
+  '噜噜不许耍赖，刚才明明是我先碰到球。',
+  '再玩一局吧，这次我和你一队！',
+  '噜噜跳得好高，我也要试试看。',
+  '今天的花毯就是我们的比赛场！'
+];
+
+const lumeiTouchReactions = [
+  '噜噜被摸得眼睛都眯起来啦。',
+  '再摸摸耳朵，它最喜欢那里。',
+  '噜噜嘴上不说，其实特别期待你摸摸它。',
+  '轻轻的哦，我也来陪它坐一会儿。',
+  '它现在一定觉得心里暖呼呼的。',
+  '摸完噜噜，也别忘了和我击个掌呀。'
+];
+
+const lumeiBathReactions = [
+  '小刷子准备好啦，噜噜今天要洗得香香的。',
+  '噜噜别乱跑，泡泡都追到耳朵上啦。',
+  '我负责递浴巾，你负责帮它冲干净。',
+  '洗完以后要马上擦干，不然会打喷嚏的。',
+  '这个泡泡像不像噜噜圆圆的小肚子？',
+  '香香噜噜出浴啦，给它盖上软毛巾！'
+];
+
+const lumeiMusicReactions = [
+  '噜噜，这一拍要一起抬手！',
+  '我听见最喜欢的那一段啦，一起跳！',
+  '噜噜踩到我的拍子了，不过没关系。',
+  '音乐一响，小家好像也跟着摇起来啦。',
+  '下一首让你选，我和噜噜负责伴舞。',
+  '转一圈，再和噜噜碰一下手！'
+];
+
+const lumeiAmbientDialogues = [
+  '噜噜，你把玩具收好了吗？我可要检查啦。',
+  '今天的阳光正好，我们一起在花毯上坐坐吧。',
+  '噜噜刚才偷偷给我的花浇了两遍水。',
+  '我给噜噜留了一半点心，也给你留了一份。',
+  '小家安安静静的时候，能听见噜噜的小呼吸。',
+  '噜噜说等你回来，再开始今天的小游戏。',
+  '我们刚把两只杯子摆好，你喜欢橘色还是粉色？',
+  '晚一点我和噜噜要一起看看窗外的星星。'
 ];
 
 const showLumeiReaction = (lines, duration = 4200, forcePose = '') => {
-  if (!lumeiIsResident.value || isLumeiAway.value) return;
+  if (!lumeiIsResident.value || isLumeiAway.value || !lines?.length) return;
   if (forcePose) lumeiPose.value = forcePose;
   window.clearTimeout(residentLineTimer);
   residentLine.value = pickOne(lines);
@@ -1394,8 +1522,16 @@ const acknowledgeLumeiMoveIn = () => {
 const scheduleLumeiPose = () => {
   window.clearTimeout(lumeiPoseTimer);
   lumeiPoseTimer = window.setTimeout(() => {
-    if (lumeiIsResident.value && !isLumeiAway.value && petData.value.currentState !== 'SLEEPING') {
+    if (
+      lumeiIsResident.value
+      && !isLumeiAway.value
+      && petData.value.currentState !== 'SLEEPING'
+      && actionCategory.value === 'idle'
+    ) {
       lumeiPose.value = Math.random() < 0.48 ? 'sitting' : 'standing';
+      if (Math.random() < 0.36) {
+        showLumeiReaction(lumeiAmbientDialogues, 5200);
+      }
     }
     scheduleLumeiPose();
   }, randomBetween(28000, 52000));
@@ -1719,7 +1855,14 @@ const changeAccessory = async () => {
 };
 
 const changeScene = async () => {
-  const nextIndex = (sceneIndex.value + 1) % sceneModes.length;
+  let nextIndex = sceneIndex.value;
+  for (let offset = 1; offset <= sceneModes.length; offset += 1) {
+    const candidateIndex = (sceneIndex.value + offset) % sceneModes.length;
+    if (isSceneUnlocked(sceneModes[candidateIndex])) {
+      nextIndex = candidateIndex;
+      break;
+    }
+  }
   const nextScene = sceneModes[nextIndex];
   if (nextScene.image) {
     try {
@@ -1963,7 +2106,7 @@ const feedLulu = async () => {
     const result = await sendAxiosRequest('/blog-api/lulu/feed', { userNum: currentUserId });
     updatePetData(result);
     triggerEffect('XP', '经验 +20', 'type-level');
-    if (Math.random() < 0.45) {
+    if (Math.random() < 0.65) {
       showLumeiReaction(lumeiFeedReactions);
     }
     advanceMission('feed');
@@ -2021,6 +2164,12 @@ const runPlayLikeAction = async (category, actionList, expText) => {
     });
     updatePetData(result);
     triggerEffect('XP', expText, 'type-level');
+    const lumeiReactionMap = {
+      touch: lumeiTouchReactions,
+      bath: lumeiBathReactions,
+      music: lumeiMusicReactions
+    };
+    showLumeiReaction(lumeiReactionMap[category]);
     advanceMission(category);
     fetchMonthlyCompanionship();
     scheduleWorldRefresh();
@@ -2864,11 +3013,11 @@ onBeforeUnmount(() => {
 
 .lumei-resident {
   position: absolute;
-  right: -38%;
-  bottom: 2%;
+  right: -52%;
+  bottom: -1%;
   z-index: 10;
-  width: 60%;
-  height: 72%;
+  width: 85%;
+  height: 96%;
   display: flex;
   align-items: flex-end;
   justify-content: center;
@@ -2909,10 +3058,26 @@ onBeforeUnmount(() => {
 }
 
 .lumei-resident.pose-sitting {
-  right: -41%;
-  bottom: -1%;
-  width: 64%;
-  height: 70%;
+  right: -45%;
+  bottom: -2%;
+  width: 72%;
+  height: 79%;
+}
+
+.lumei-resident.activity-feed {
+  animation: lumeiFeedHelp 1.8s ease-in-out infinite;
+}
+
+.lumei-resident.activity-play {
+  animation: lumeiPlayAlong 1.05s ease-in-out infinite;
+}
+
+.lumei-resident.activity-music {
+  animation: lumeiDanceAlong 0.92s ease-in-out infinite;
+}
+
+.lumei-resident.activity-bath {
+  animation: lumeiBathHelp 1.65s ease-in-out infinite;
 }
 
 .lumei-resident > small {
@@ -4581,6 +4746,42 @@ onBeforeUnmount(() => {
   }
 }
 
+@keyframes lumeiFeedHelp {
+  0%, 100% {
+    transform: translateY(0) rotate(-0.5deg);
+  }
+  50% {
+    transform: translateY(-3px) rotate(0.8deg);
+  }
+}
+
+@keyframes lumeiPlayAlong {
+  0%, 100% {
+    transform: translateY(0) rotate(-1deg) scale(1);
+  }
+  48% {
+    transform: translateY(-10px) rotate(1.4deg) scale(1.025);
+  }
+}
+
+@keyframes lumeiDanceAlong {
+  0%, 100% {
+    transform: translateY(0) rotate(-1.8deg);
+  }
+  50% {
+    transform: translateY(-7px) rotate(2.2deg);
+  }
+}
+
+@keyframes lumeiBathHelp {
+  0%, 100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-4px) rotate(1.2deg);
+  }
+}
+
 @keyframes moveInTruckIdle {
   0%, 100% {
     transform: translateY(0) rotate(-0.15deg);
@@ -4869,14 +5070,15 @@ onBeforeUnmount(() => {
   }
 
   .lumei-resident {
-    right: -27%;
-    width: 55%;
-    height: 68%;
+    right: -38%;
+    width: 76%;
+    height: 86%;
   }
 
   .lumei-resident.pose-sitting {
-    right: -29%;
-    width: 58%;
+    right: -34%;
+    width: 67%;
+    height: 74%;
   }
 
   .lumei-speech {
@@ -5034,13 +5236,15 @@ onBeforeUnmount(() => {
   }
 
   .lumei-resident {
-    right: -8%;
-    width: 48%;
+    right: -17%;
+    width: 68%;
+    height: 79%;
   }
 
   .lumei-resident.pose-sitting {
-    right: -10%;
-    width: 52%;
+    right: -14%;
+    width: 61%;
+    height: 70%;
   }
 
   .residency-world-card {
