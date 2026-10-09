@@ -63,6 +63,8 @@
       loop
       preload="metadata"
       playsinline
+      @play="isAudioPlaying = true"
+      @pause="isAudioPlaying = false"
   ></audio>
 
   <div class="music-mini" v-if="!isSelf && bgAudio">
@@ -103,7 +105,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, nextTick, onMounted } from 'vue'
+import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { ElMessage } from 'element-plus'
 import { sendAxiosRequest } from '@/utils/common.js'
 import { useUserStore } from '@/stores/main/user.js'
@@ -112,7 +114,9 @@ const props = defineProps({
   isSelf: { type: Boolean, default: false },
   userName: { type: String, default: '' },
   initBgImage: { type: String, default: '' },
-  initBgAudio: { type: String, default: '' }
+  initBgAudio: { type: String, default: '' },
+  // 进入页面后自动播放背景音乐（浏览器拦截时，在用户第一次点击页面时开始播放）
+  autoPlay: { type: Boolean, default: false }
 })
 
 const emit = defineEmits(['updateBgStyle'])
@@ -219,6 +223,9 @@ const applyBgAudioUrl = () => {
 function setAudioSrc(src) {
   bgAudio.value = src
   nextTickPlayIfWanted()
+  if (props.autoPlay) {
+    nextTick(tryAutoPlay)
+  }
 }
 
 const toggleAudio = async () => {
@@ -227,7 +234,10 @@ const toggleAudio = async () => {
   if (isAudioPlaying.value) {
     el.pause()
     isAudioPlaying.value = false
+    rememberPaused(true)
+    stopWaitingForInteraction()
   } else {
+    rememberPaused(false)
     try {
       await el.play()
       isAudioPlaying.value = true
@@ -235,6 +245,67 @@ const toggleAudio = async () => {
       console.error("播放音乐失败,音乐链接或已失效")
     }
   }
+}
+
+// ==== 自动播放 ====
+// 浏览器不允许页面在用户操作前出声：先直接尝试播放，被拦截后等用户第一次点击/轻触/按键时再播放。
+// 用户手动暂停过就记在本地，之后不再自动播放，直到他再次手动点播放。
+const PAUSED_STORAGE_KEY = 'ynsBgMusicPaused'
+const INTERACTION_EVENTS = ['pointerdown', 'pointerup', 'touchend', 'keydown']
+
+function isRememberedPaused() {
+  try {
+    return localStorage.getItem(PAUSED_STORAGE_KEY) === '1'
+  } catch (e) {
+    return false
+  }
+}
+
+function rememberPaused(paused) {
+  try {
+    if (paused) localStorage.setItem(PAUSED_STORAGE_KEY, '1')
+    else localStorage.removeItem(PAUSED_STORAGE_KEY)
+  } catch (e) {
+    // 隐私模式等情况下无法写入本地存储，忽略即可
+  }
+}
+
+function canAutoPlay() {
+  return props.autoPlay && bgAudio.value && bgAudioRef.value && !isAudioPlaying.value && !isRememberedPaused()
+}
+
+function tryAutoPlay() {
+  if (!canAutoPlay()) return
+  applyVolume()
+  applyMute()
+  bgAudioRef.value.play().then(() => {
+    stopWaitingForInteraction()
+  }).catch((e) => {
+    if (e && e.name === 'NotAllowedError') {
+      waitForInteraction()
+    } else {
+      console.error("播放音乐失败,音乐链接或已失效")
+    }
+  })
+}
+
+let waitingForInteraction = false
+
+// 在捕获阶段监听，不影响用户这次点击原本要做的事
+function onFirstInteraction() {
+  tryAutoPlay()
+}
+
+function waitForInteraction() {
+  if (waitingForInteraction) return
+  waitingForInteraction = true
+  INTERACTION_EVENTS.forEach(type => document.addEventListener(type, onFirstInteraction, true))
+}
+
+function stopWaitingForInteraction() {
+  if (!waitingForInteraction) return
+  waitingForInteraction = false
+  INTERACTION_EVENTS.forEach(type => document.removeEventListener(type, onFirstInteraction, true))
 }
 
 const applyVolume = () => {
@@ -273,6 +344,8 @@ onMounted(() => {
   applyVolume()
   applyMute()
 })
+
+onBeforeUnmount(stopWaitingForInteraction)
 </script>
 
 <style scoped>

@@ -25,6 +25,7 @@
           :user-name="user.name"
           :init-bg-image="serverBgImage"
           :init-bg-audio="serverBgAudio"
+          :auto-play="true"
           @update-bg-style="handleBgStyleUpdate"
       />
 
