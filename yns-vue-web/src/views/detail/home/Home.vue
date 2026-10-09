@@ -1,183 +1,173 @@
 <template>
-  <div class="home">
+  <div class="desk">
     <Announcement v-for="al in topAlert" :key="al.GUID" :TEXT="al.TEXT" :URL="al.URL" :URLNAME="al.URLNAME"/>
 
-    <header class="masthead">
-      <div class="masthead-inner">
-        <div class="masthead-intro">
-          <p class="masthead-date">{{ todayText }}</p>
-          <h1 class="masthead-title">YnsStudy</h1>
-          <p class="masthead-desc">记录编程学习、技术实践与生活思考。</p>
-          <nav class="masthead-links" aria-label="快捷入口">
-            <a href="#" @click.prevent="goToPublishBlog">写文章</a>
-            <a href="#" @click.prevent="goToUpload">上传资源</a>
-            <a href="#" @click.prevent="goMe">我的主页</a>
-            <a href="#" @click.prevent="goToAdmin">关于站长</a>
+    <div class="desk-inner">
+      <!-- 封面标签 -->
+      <header class="cover">
+        <div class="cover-label">
+          <span class="tape tape-left"></span>
+          <span class="tape tape-right"></span>
+          <h1 class="cover-title">YnsStudy 学习手账</h1>
+          <p class="cover-desc">记录编程学习、技术实践与生活思考。</p>
+          <p v-if="siteStats" class="cover-stats">
+            写了 <b>{{ formatCount(siteStats.ARTICLENUM) }}</b> 篇，
+            被翻阅 <b>{{ formatCount(siteStats.VIEW_PAGE) }}</b> 次，
+            <b>{{ formatCount(siteStats.USERNUM) }}</b> 位朋友来过
+          </p>
+        </div>
+        <div class="date-stamp" aria-hidden="true">
+          <span class="stamp-month">{{ today.month }}月</span>
+          <span class="stamp-day">{{ today.day }}</span>
+          <span class="stamp-week">周{{ today.weekday }}</span>
+        </div>
+      </header>
+
+      <div class="layout">
+        <main class="notebook">
+          <!-- 本子顶部的索引标签 -->
+          <nav class="index-tabs" aria-label="快捷入口">
+            <a href="#" class="index-tab tab-yellow" @click.prevent="goToPublishBlog">写文章</a>
+            <a href="#" class="index-tab tab-green" @click.prevent="goToUpload">上传资源</a>
+            <a href="#" class="index-tab tab-pink" @click.prevent="goMe">我的主页</a>
+            <a href="#" class="index-tab tab-blue" @click.prevent="goToAdmin">关于站长</a>
           </nav>
-        </div>
 
-        <dl v-if="siteStats" class="masthead-stats">
-          <div class="stat">
-            <dt>文章</dt>
-            <dd>{{ formatCount(siteStats.ARTICLENUM) }}</dd>
+          <div class="page">
+            <div class="page-head">
+              <h2 class="hand page-title">
+                {{ activeKeyword ? `找到的「${activeKeyword}」` : '最近写下的' }}
+                <small v-if="activeKeyword && !loading">共 {{ total }} 篇</small>
+              </h2>
+              <label class="search">
+                <span class="hand search-label">找一找</span>
+                <input
+                    v-model="searchKeyword"
+                    type="search"
+                    placeholder="标题或正文里的字"
+                    aria-label="搜索文章"
+                    @input="debouncedSearch"
+                    @keydown.enter="searchNow"
+                />
+                <button v-if="searchKeyword" type="button" class="search-clear" aria-label="清除搜索" @click="clearSearch">×</button>
+              </label>
+            </div>
+
+            <ol class="entries">
+              <li
+                  v-for="(article, index) in articles"
+                  :key="article.GUID"
+                  class="entry"
+                  @click="openBlog(article)"
+              >
+                <time class="entry-date hand" :datetime="article.DATE.iso">
+                  <span class="entry-md">{{ article.DATE.month }}月{{ article.DATE.day }}日</span>
+                  <span class="entry-week">{{ article.DATE.year }} · 周{{ article.DATE.weekday }}</span>
+                </time>
+
+                <div class="entry-body">
+                  <h3 class="entry-title">
+                    <a :href="blogHref(article.GUID)" target="_blank" rel="noopener" @click.stop>{{ article.BLOG_TITLE }}</a>
+                  </h3>
+                  <p v-if="article.EXCERPT" class="entry-excerpt">{{ article.EXCERPT }}</p>
+                  <div class="entry-meta">
+                    <el-avatar :src="article.AVATAR" :size="20" class="meta-avatar">
+                      {{ article.USERNAME?.charAt(0) }}
+                    </el-avatar>
+                    <span>{{ article.USERNAME }}</span>
+                    <span class="meta-dot">·</span>
+                    <span>{{ formatCount(article.VIEW_PAGE) }} 次阅读</span>
+                  </div>
+                </div>
+
+                <figure v-if="article.ILLUSTRATION" class="polaroid" :class="index % 2 ? 'tilt-left' : 'tilt-right'">
+                  <span class="tape tape-photo"></span>
+                  <img
+                      :src="article.ILLUSTRATION"
+                      :alt="`${article.BLOG_TITLE} 的配图`"
+                      loading="lazy"
+                      decoding="async"
+                      @error="article.ILLUSTRATION = ''"
+                  />
+                </figure>
+              </li>
+            </ol>
+
+            <div v-if="loading && !articles.length" class="entries-loading" aria-hidden="true">
+              <div v-for="n in 3" :key="n" class="ghost-entry">
+                <span class="ghost ghost-date"></span>
+                <div class="ghost-lines">
+                  <span class="ghost ghost-title"></span>
+                  <span class="ghost"></span>
+                  <span class="ghost ghost-short"></span>
+                </div>
+              </div>
+            </div>
+
+            <div v-if="!loading && !articles.length" class="page-empty hand">
+              <p>{{ activeKeyword ? '翻遍了也没找到，换个词试试？' : '这一页还是空白的。' }}</p>
+              <button v-if="activeKeyword" type="button" class="paper-button" @click="clearSearch">不找了</button>
+            </div>
+
+            <div ref="sentinelRef" class="page-foot">
+              <span v-if="loading && articles.length" class="hand foot-text">正在翻页…</span>
+              <button
+                  v-else-if="!noMore && articles.length"
+                  type="button"
+                  class="paper-button"
+                  @click="fetchArticles"
+              >翻下一页</button>
+              <span v-else-if="noMore && articles.length" class="hand foot-text">— 写到这里就没有了 —</span>
+            </div>
           </div>
-          <div class="stat">
-            <dt>阅读</dt>
-            <dd>{{ formatCount(siteStats.VIEW_PAGE) }}</dd>
-          </div>
-          <div class="stat">
-            <dt>社区动态</dt>
-            <dd>{{ formatCount(siteStats.COMMUNITYNUM) }}</dd>
-          </div>
-          <div class="stat">
-            <dt>用户</dt>
-            <dd>{{ formatCount(siteStats.USERNUM) }}</dd>
-          </div>
-        </dl>
-      </div>
-    </header>
+        </main>
 
-    <div class="layout">
-      <main class="feed">
-        <div class="feed-head">
-          <h2 class="section-label">
-            {{ activeKeyword ? `“${activeKeyword}” 的搜索结果` : '最新文章' }}
-          </h2>
-          <label class="search">
-            <svg class="search-icon" viewBox="0 0 24 24" aria-hidden="true">
-              <circle cx="11" cy="11" r="6.5"/>
-              <path d="M16 16l4.5 4.5"/>
-            </svg>
-            <input
-                v-model="searchKeyword"
-                type="search"
-                placeholder="搜索标题或正文"
-                aria-label="搜索文章"
-                @input="debouncedSearch"
-                @keydown.enter="searchNow"
-            />
-            <button v-if="searchKeyword" type="button" class="search-clear" aria-label="清除搜索" @click="clearSearch">
-              ×
-            </button>
-          </label>
-        </div>
+        <aside class="sidebar">
+          <section v-if="hotBlogs.length" class="sticky-note">
+            <span class="tape tape-note"></span>
+            <h2 class="hand note-title">最近大家在看</h2>
+            <ol class="hot-list">
+              <li v-for="(blog, index) in hotBlogs" :key="blog.GUID" class="hot-item" @click="openBlog(blog)">
+                <span class="hot-no hand">{{ index + 1 }}.</span>
+                <div class="hot-body">
+                  <a class="hot-title" :href="blogHref(blog.GUID)" :title="blog.BLOG_TITLE" target="_blank" rel="noopener" @click.stop>
+                    {{ blog.BLOG_TITLE }}
+                  </a>
+                  <span class="hot-meta">{{ blog.USERNAME }} · {{ formatCount(blog.VIEW_PAGE) }} 阅读 · {{ formatCount(blog.COMMENT_COUNT) }} 评论</span>
+                </div>
+              </li>
+            </ol>
+          </section>
 
-        <p v-if="activeKeyword && !loading" class="feed-hint">共找到 {{ total }} 篇</p>
-
-        <ol class="article-list">
-          <li
-              v-for="article in articles"
-              :key="article.GUID"
-              class="article"
-              :class="{ 'has-cover': article.ILLUSTRATION }"
-              @click="openBlog(article)"
-          >
-            <time class="article-date" :datetime="article.DATE.iso">
-              <span class="article-day">{{ article.DATE.monthDay }}</span>
-              <span class="article-year">{{ article.DATE.year }}</span>
-            </time>
-
-            <div class="article-main">
-              <h3 class="article-title">
-                <a :href="blogHref(article.GUID)" target="_blank" rel="noopener" @click.stop>{{ article.BLOG_TITLE }}</a>
-              </h3>
-              <p v-if="article.EXCERPT" class="article-excerpt">{{ article.EXCERPT }}</p>
-              <div class="article-meta">
-                <el-avatar :src="article.AVATAR" :size="20" class="meta-avatar">
-                  {{ article.USERNAME?.charAt(0) }}
+          <section v-if="authors.length" class="card">
+            <h2 class="hand card-title">常来写字的人</h2>
+            <ul class="author-list">
+              <li v-for="author in authors" :key="author.USERCODE" class="author" @click="openUser(author.USERCODE)">
+                <el-avatar :src="author.AVATAR" :size="38" class="author-avatar">
+                  {{ author.USERNAME?.charAt(0) }}
                 </el-avatar>
-                <span class="meta-author">{{ article.USERNAME }}</span>
-                <span class="meta-sep"></span>
-                <span>{{ formatCount(article.VIEW_PAGE) }} 阅读</span>
-              </div>
-            </div>
+                <div class="author-body">
+                  <span class="author-name">{{ author.USERNAME || '未命名' }}</span>
+                  <span class="author-remark">{{ author.REMARK || '还没有写签名' }}</span>
+                </div>
+                <span class="author-count hand">{{ formatCount(author.ARTICLE_COUNT) }} 篇</span>
+              </li>
+            </ul>
+          </section>
 
-            <img
-                v-if="article.ILLUSTRATION"
-                :src="article.ILLUSTRATION"
-                :alt="`${article.BLOG_TITLE} 的配图`"
-                class="article-cover"
-                loading="lazy"
-                decoding="async"
-                @error="article.ILLUSTRATION = ''"
-            />
-          </li>
-        </ol>
-
-        <div v-if="loading && !articles.length" class="article-skeleton" aria-hidden="true">
-          <div v-for="n in 4" :key="n" class="skeleton-row">
-            <span class="skeleton-date"></span>
-            <div class="skeleton-lines">
-              <span class="skeleton-line w-60"></span>
-              <span class="skeleton-line w-90"></span>
-              <span class="skeleton-line w-30"></span>
-            </div>
-          </div>
-        </div>
-
-        <div v-if="!loading && !articles.length" class="feed-empty">
-          <p>{{ activeKeyword ? '没有找到相关文章，换个关键词试试。' : '这里还没有文章。' }}</p>
-          <button v-if="activeKeyword" type="button" class="text-button" @click="clearSearch">清除搜索</button>
-        </div>
-
-        <div ref="sentinelRef" class="feed-foot">
-          <span v-if="loading && articles.length" class="feed-status">加载中…</span>
-          <button
-              v-else-if="!noMore && articles.length"
-              type="button"
-              class="text-button"
-              @click="fetchArticles"
-          >加载更多</button>
-          <span v-else-if="noMore && articles.length" class="feed-status">已经到底了</span>
-        </div>
-      </main>
-
-      <aside class="sidebar">
-        <section v-if="hotBlogs.length" class="panel">
-          <h2 class="section-label">热门文章</h2>
-          <ol class="rank-list">
-            <li v-for="(blog, index) in hotBlogs" :key="blog.GUID" class="rank-item" @click="openBlog(blog)">
-              <span class="rank-no" :class="{ top: index < 3 }">{{ String(index + 1).padStart(2, '0') }}</span>
-              <div class="rank-body">
-                <a class="rank-title" :href="blogHref(blog.GUID)" :title="blog.BLOG_TITLE" target="_blank" rel="noopener" @click.stop>
-                  {{ blog.BLOG_TITLE }}
-                </a>
-                <span class="rank-meta">
-                  {{ blog.USERNAME }} · {{ formatCount(blog.VIEW_PAGE) }} 阅读 · {{ formatCount(blog.COMMENT_COUNT) }} 评论
-                </span>
-              </div>
-            </li>
-          </ol>
-        </section>
-
-        <section v-if="authors.length" class="panel">
-          <h2 class="section-label">活跃作者</h2>
-          <ul class="author-list">
-            <li v-for="author in authors" :key="author.USERCODE" class="author" @click="openUser(author.USERCODE)">
-              <el-avatar :src="author.AVATAR" :size="36" class="author-avatar">
-                {{ author.USERNAME?.charAt(0) }}
-              </el-avatar>
-              <div class="author-body">
-                <span class="author-name">{{ author.USERNAME || '未命名' }}</span>
-                <span class="author-remark">{{ author.REMARK || '这个人还没有写签名' }}</span>
-              </div>
-              <span class="author-count">{{ formatCount(author.ARTICLE_COUNT) }}<small>篇</small></span>
-            </li>
-          </ul>
-        </section>
-
-        <section v-if="hotFiles.length" class="panel">
-          <h2 class="section-label">资源下载</h2>
-          <ul class="file-list">
-            <li v-for="file in hotFiles" :key="file.GUID" class="file" @click="openFile(file)">
-              <span class="file-ext">{{ fileExt(file.ORIGINALFILENAME) }}</span>
-              <span class="file-name" :title="file.ORIGINALFILENAME">{{ file.ORIGINALFILENAME }}</span>
-              <span class="file-count">{{ formatCount(file.DOWNNUM) }} 次</span>
-            </li>
-          </ul>
-          <a href="#" class="panel-more" @click.prevent="goToUpload">全部资源</a>
-        </section>
-      </aside>
+          <section v-if="hotFiles.length" class="card envelope">
+            <h2 class="hand card-title">资料袋</h2>
+            <ul class="file-list">
+              <li v-for="file in hotFiles" :key="file.GUID" class="file" @click="openFile(file)">
+                <span class="file-ext">{{ fileExt(file.ORIGINALFILENAME) }}</span>
+                <span class="file-name" :title="file.ORIGINALFILENAME">{{ file.ORIGINALFILENAME }}</span>
+                <span class="file-count">{{ formatCount(file.DOWNNUM) }} 次</span>
+              </li>
+            </ul>
+            <a href="#" class="hand envelope-more" @click.prevent="goToUpload">去资源页看看 →</a>
+          </section>
+        </aside>
+      </div>
     </div>
   </div>
 </template>
@@ -204,9 +194,9 @@ const authors = computed(() => homeStore.homeData.higAuthor || []);
 const hotFiles = computed(() => homeStore.homeData.hotFileData || []);
 
 const WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六'];
-const todayText = (() => {
+const today = (() => {
   const now = new Date();
-  return `${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日 · 星期${WEEKDAYS[now.getDay()]}`;
+  return { month: now.getMonth() + 1, day: now.getDate(), weekday: WEEKDAYS[now.getDay()] };
 })();
 
 const formatCount = (value) => {
@@ -221,10 +211,11 @@ const formatCount = (value) => {
 const parseArticleDate = (value) => {
   const match = String(value || '').match(/(\d{4})-(\d{2})-(\d{2})/);
   if (!match) {
-    return { year: '', monthDay: '', iso: '' };
+    return { year: '', month: '', day: '', weekday: '', iso: '' };
   }
   const [, year, month, day] = match;
-  return { year, monthDay: `${month}.${day}`, iso: `${year}-${month}-${day}` };
+  const weekday = WEEKDAYS[new Date(Number(year), Number(month) - 1, Number(day)).getDay()];
+  return { year, month: Number(month), day: Number(day), weekday, iso: `${year}-${month}-${day}` };
 };
 
 const buildExcerpt = (html) => extractPlainTextFromHTML(html || '').replace(/\s+/g, ' ').trim().slice(0, 160);
@@ -311,7 +302,7 @@ const clearSearch = () => {
   searchNow();
 };
 
-// 滚动到列表底部时自动加载下一页；“加载更多”按钮作为兜底。
+// 滚动到列表底部时自动加载下一页；“翻下一页”按钮作为兜底。
 const sentinelRef = ref(null);
 let observer = null;
 
@@ -399,180 +390,276 @@ function goMe() {
 </script>
 
 <style scoped>
-.home {
-  --ink: #1f2328;
-  --ink-soft: #4b5563;
-  --muted: #8a8f98;
-  --line: #e7e5e0;
-  --paper: #faf9f6;
-  --surface: #ffffff;
-  --accent: #0b6fa4;
-  --serif: "Noto Serif SC", "Source Han Serif SC", "Songti SC", "STSong", serif;
+.desk {
+  --ink: #2b2a27;
+  --ink-soft: #57534c;
+  --muted: #918b80;
+  --paper: #fffdf8;
+  --desk: #efe8da;
+  --rule: #e6dfd1;
+  --margin-red: #e8a59b;
+  --pen: #2f5d8a;
+  --tape-yellow: rgba(246, 214, 120, 0.78);
+  --tape-green: rgba(160, 205, 180, 0.78);
+  --tape-pink: rgba(240, 175, 175, 0.75);
+  --hand: "Kaiti SC", "STKaiti", "KaiTi", "楷体", "AR PL UKai CN", serif;
 
   min-height: 100%;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
-  background: var(--paper);
+  padding: 0 0 72px;
   color: var(--ink);
-  padding-bottom: 64px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  background-color: var(--desk);
+  /* 点阵底纹 */
+  background-image: radial-gradient(rgba(120, 104, 80, 0.18) 1px, transparent 1px);
+  background-size: 22px 22px;
 }
 
-/* ============ 页头 ============ */
-.masthead {
-  border-bottom: 1px solid var(--line);
-  background: var(--surface);
-}
-
-.masthead-inner {
+.desk-inner {
   max-width: 1120px;
   margin: 0 auto;
-  padding: 40px 24px 32px;
+  padding: 36px 24px 0;
+}
+
+.hand {
+  font-family: var(--hand);
+  font-weight: normal;
+}
+
+/* 半透明的和纸胶带 */
+.tape {
+  position: absolute;
+  width: 84px;
+  height: 22px;
+  background: var(--tape-yellow);
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
+  /* 胶带两端的锯齿撕口 */
+  -webkit-mask: linear-gradient(90deg, transparent 0 2px, #000 2px calc(100% - 2px), transparent calc(100% - 2px)),
+  repeating-linear-gradient(0deg, #000 0 3px, transparent 3px 5px);
+  mask: linear-gradient(90deg, transparent 0 2px, #000 2px calc(100% - 2px), transparent calc(100% - 2px)),
+  repeating-linear-gradient(0deg, #000 0 3px, transparent 3px 5px);
+  pointer-events: none;
+}
+
+/* ============ 封面 ============ */
+.cover {
+  position: relative;
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: space-between;
-  gap: 32px;
+  gap: 24px;
+  margin-bottom: 40px;
 }
 
-.masthead-date {
-  margin: 0 0 10px;
-  font-size: 13px;
-  color: var(--muted);
-  letter-spacing: 0.04em;
+.cover-label {
+  position: relative;
+  max-width: 560px;
+  padding: 28px 36px 24px;
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  box-shadow: 0 1px 2px rgba(60, 50, 30, 0.06), 0 8px 20px -12px rgba(60, 50, 30, 0.25);
+  transform: rotate(-0.8deg);
 }
 
-.masthead-title {
+.tape-left {
+  top: -10px;
+  left: -22px;
+  transform: rotate(-32deg);
+}
+
+.tape-right {
+  top: -9px;
+  right: -20px;
+  background: var(--tape-green);
+  transform: rotate(28deg);
+}
+
+.cover-title {
   margin: 0;
-  font-family: var(--serif);
-  font-size: 44px;
-  font-weight: 700;
-  line-height: 1.1;
-  letter-spacing: -0.01em;
+  font-family: var(--hand);
+  font-size: 34px;
+  font-weight: normal;
+  letter-spacing: 0.02em;
 }
 
-.masthead-desc {
-  margin: 12px 0 0;
+.cover-desc {
+  margin: 8px 0 0;
+  font-size: 14px;
+  color: var(--ink-soft);
+}
+
+.cover-stats {
+  margin: 14px 0 0;
+  padding-top: 12px;
+  border-top: 1px dashed var(--rule);
+  font-family: var(--hand);
   font-size: 15px;
   color: var(--ink-soft);
 }
 
-.masthead-links {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 20px;
-  margin-top: 20px;
+.cover-stats b {
+  font-family: Georgia, "Times New Roman", serif;
+  font-weight: normal;
+  font-size: 18px;
+  color: var(--pen);
+  padding: 0 2px;
 }
 
-.masthead-links a {
-  font-size: 14px;
-  color: var(--ink);
-  text-decoration: none;
-  border-bottom: 1px solid var(--line);
-  padding-bottom: 2px;
-  transition: border-color 0.15s, color 0.15s;
-}
-
-.masthead-links a:hover {
-  color: var(--accent);
-  border-color: var(--accent);
-}
-
-.masthead-stats {
-  display: flex;
-  margin: 0;
+/* 日期印章 */
+.date-stamp {
   flex-shrink: 0;
+  width: 108px;
+  height: 108px;
+  margin-right: 12px;
+  border: 2px solid rgba(194, 72, 62, 0.75);
+  border-radius: 50%;
+  outline: 1px solid rgba(194, 72, 62, 0.45);
+  outline-offset: 3px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: rgba(194, 72, 62, 0.85);
+  font-family: var(--hand);
+  transform: rotate(-10deg);
+  opacity: 0.9;
 }
 
-.stat {
-  padding: 0 24px;
-  border-left: 1px solid var(--line);
+.stamp-month,
+.stamp-week {
+  font-size: 13px;
+  letter-spacing: 0.1em;
 }
 
-.stat:first-child {
-  border-left: none;
-  padding-left: 0;
-}
-
-.stat:last-child {
-  padding-right: 0;
-}
-
-.stat dt {
-  font-size: 12px;
-  color: var(--muted);
-  margin-bottom: 6px;
-}
-
-.stat dd {
-  margin: 0;
-  font-size: 24px;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
+.stamp-day {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 38px;
+  line-height: 1.05;
 }
 
 /* ============ 布局 ============ */
 .layout {
-  max-width: 1120px;
-  margin: 0 auto;
-  padding: 32px 24px 0;
   display: grid;
   grid-template-columns: minmax(0, 1fr) 300px;
-  gap: 56px;
+  gap: 40px;
   align-items: start;
 }
 
-.section-label {
-  margin: 0;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--ink);
-  letter-spacing: 0.06em;
+/* ============ 本子 ============ */
+.notebook {
+  position: relative;
+  padding-top: 30px;
 }
 
-/* ============ 文章列表 ============ */
-.feed-head {
+.index-tabs {
+  position: absolute;
+  top: 0;
+  right: 24px;
   display: flex;
-  align-items: center;
+  gap: 6px;
+}
+
+.index-tab {
+  display: block;
+  padding: 6px 14px 12px;
+  border-radius: 6px 6px 0 0;
+  font-family: var(--hand);
+  font-size: 14px;
+  color: var(--ink);
+  text-decoration: none;
+  transform: translateY(4px);
+  transition: transform 0.15s ease;
+}
+
+.index-tab:hover {
+  transform: translateY(0);
+}
+
+.tab-yellow { background: #f6e3a1; }
+.tab-green { background: #c7e2cf; }
+.tab-pink { background: #f3cccc; }
+.tab-blue { background: #c9dbeb; }
+
+.page {
+  position: relative;
+  z-index: 1;
+  padding: 28px 32px 32px 64px;
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  border-radius: 2px 6px 6px 2px;
+  box-shadow: 0 1px 2px rgba(60, 50, 30, 0.06), 0 12px 28px -18px rgba(60, 50, 30, 0.35);
+}
+
+/* 左侧装订孔 */
+.page::before {
+  content: "";
+  position: absolute;
+  top: 18px;
+  bottom: 18px;
+  left: 16px;
+  width: 14px;
+  background-image: radial-gradient(circle at 7px 7px, var(--desk) 5px, rgba(120, 104, 80, 0.25) 5.5px, transparent 6.5px);
+  background-size: 14px 44px;
+}
+
+/* 页边红线 */
+.page::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 46px;
+  width: 1px;
+  background: var(--margin-red);
+  opacity: 0.6;
+}
+
+.page-head {
+  display: flex;
+  align-items: flex-end;
   justify-content: space-between;
   gap: 16px;
-  padding-bottom: 12px;
-  border-bottom: 2px solid var(--ink);
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--rule);
+}
+
+.page-title {
+  margin: 0;
+  font-size: 24px;
+}
+
+.page-title small {
+  margin-left: 8px;
+  font-size: 14px;
+  color: var(--muted);
 }
 
 .search {
-  position: relative;
   display: flex;
-  align-items: center;
-  width: 240px;
-  border-bottom: 1px solid var(--line);
-  transition: border-color 0.15s;
+  align-items: baseline;
+  gap: 8px;
+  width: 250px;
+  border-bottom: 1px solid var(--ink-soft);
 }
 
-.search:focus-within {
-  border-color: var(--ink);
-}
-
-.search-icon {
-  width: 16px;
-  height: 16px;
+.search-label {
   flex-shrink: 0;
-  fill: none;
-  stroke: var(--muted);
-  stroke-width: 1.8;
-  stroke-linecap: round;
+  font-size: 15px;
+  color: var(--ink-soft);
 }
 
 .search input {
   flex: 1;
   min-width: 0;
+  padding: 4px 0;
   border: none;
   outline: none;
   background: transparent;
-  padding: 6px 8px;
   font-size: 14px;
-  color: var(--ink);
+  color: var(--pen);
 }
 
 .search input::placeholder {
-  color: var(--muted);
+  color: #b9b2a6;
 }
 
 .search input::-webkit-search-cancel-button {
@@ -582,87 +669,79 @@ function goMe() {
 .search-clear {
   border: none;
   background: none;
-  padding: 0 2px;
+  padding: 0;
   font-size: 18px;
   line-height: 1;
   color: var(--muted);
   cursor: pointer;
 }
 
-.search-clear:hover {
-  color: var(--ink);
-}
-
-.feed-hint {
-  margin: 12px 0 0;
-  font-size: 13px;
-  color: var(--muted);
-}
-
-.article-list {
+/* ============ 一篇日记 ============ */
+.entries {
   list-style: none;
   margin: 0;
   padding: 0;
 }
 
-.article {
+.entry {
   display: grid;
-  grid-template-columns: 64px minmax(0, 1fr);
+  grid-template-columns: 96px minmax(0, 1fr) auto;
   gap: 20px;
-  padding: 24px 0;
-  border-bottom: 1px solid var(--line);
+  align-items: start;
+  padding: 26px 0;
+  border-bottom: 1px dashed var(--rule);
   cursor: pointer;
 }
 
-.article.has-cover {
-  grid-template-columns: 64px minmax(0, 1fr) 148px;
+.entry:last-child {
+  border-bottom: none;
 }
 
-.article-date {
+.entry-date {
   display: flex;
   flex-direction: column;
-  padding-top: 3px;
-  font-variant-numeric: tabular-nums;
+  gap: 2px;
+  padding-top: 2px;
+  color: var(--ink-soft);
 }
 
-.article-day {
-  font-size: 18px;
-  font-weight: 600;
+.entry-md {
+  font-size: 17px;
   color: var(--ink);
 }
 
-.article-year {
-  margin-top: 2px;
-  font-size: 12px;
+.entry-week {
+  font-size: 13px;
   color: var(--muted);
 }
 
-.article-title {
+.entry-title {
   margin: 0;
   font-size: 19px;
   font-weight: 600;
-  line-height: 1.45;
+  line-height: 1.5;
 }
 
-.article-title a {
+/* 荧光笔划过标题 */
+.entry-title a {
   color: var(--ink);
   text-decoration: none;
-  background-image: linear-gradient(var(--accent), var(--accent));
-  background-size: 0 1px;
+  background-image: linear-gradient(transparent 58%, rgba(250, 216, 96, 0.7) 58%, rgba(250, 216, 96, 0.7) 92%, transparent 92%);
+  background-size: 0 100%;
   background-repeat: no-repeat;
-  background-position: 0 100%;
-  transition: background-size 0.25s, color 0.15s;
+  transition: background-size 0.35s ease;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
 }
 
-.article:hover .article-title a {
-  color: var(--accent);
-  background-size: 100% 1px;
+.entry:hover .entry-title a {
+  background-size: 100% 100%;
 }
 
-.article-excerpt {
+.entry-excerpt {
   margin: 8px 0 0;
   font-size: 14px;
-  line-height: 1.75;
+  line-height: 1.8;
   color: var(--ink-soft);
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -671,10 +750,10 @@ function goMe() {
   word-break: break-word;
 }
 
-.article-meta {
+.entry-meta {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   margin-top: 12px;
   font-size: 12px;
   color: var(--muted);
@@ -683,121 +762,166 @@ function goMe() {
 .meta-avatar {
   flex-shrink: 0;
   font-size: 11px;
-  background: #e9e6df;
+  background: #ece4d3;
   color: var(--ink-soft);
 }
 
-.meta-author {
-  color: var(--ink-soft);
+.meta-dot {
+  color: #c9c1b3;
 }
 
-.meta-sep {
-  width: 3px;
-  height: 3px;
-  border-radius: 50%;
-  background: currentColor;
+/* 拍立得配图 */
+.polaroid {
+  position: relative;
+  margin: 2px 4px 0 0;
+  padding: 6px 6px 18px;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(60, 50, 30, 0.18);
+  transition: transform 0.2s ease;
 }
 
-.article-cover {
-  width: 148px;
-  height: 100px;
+.polaroid img {
+  display: block;
+  width: 132px;
+  height: 92px;
   object-fit: cover;
-  border-radius: 4px;
-  background: #efede8;
+  background: #efe9dd;
+}
+
+.tilt-right { transform: rotate(2deg); }
+.tilt-left { transform: rotate(-2deg); }
+
+.entry:hover .polaroid {
+  transform: rotate(0deg);
+}
+
+.tape-photo {
+  top: -9px;
+  left: 50%;
+  width: 56px;
+  height: 18px;
+  margin-left: -28px;
+  background: var(--tape-pink);
+  transform: rotate(-4deg);
+}
+
+.tilt-left .tape-photo {
+  background: var(--tape-green);
+  transform: rotate(5deg);
 }
 
 /* 加载占位 */
-.skeleton-row {
+.ghost-entry {
   display: grid;
-  grid-template-columns: 64px 1fr;
+  grid-template-columns: 96px 1fr;
   gap: 20px;
-  padding: 24px 0;
-  border-bottom: 1px solid var(--line);
+  padding: 26px 0;
+  border-bottom: 1px dashed var(--rule);
 }
 
-.skeleton-date,
-.skeleton-line {
-  display: block;
-  border-radius: 3px;
-  background: linear-gradient(90deg, #efede8 25%, #f6f4f0 50%, #efede8 75%);
-  background-size: 200% 100%;
-  animation: shimmer 1.4s ease-in-out infinite;
-}
-
-.skeleton-date {
-  width: 44px;
-  height: 32px;
-}
-
-.skeleton-lines {
+.ghost-lines {
   display: flex;
   flex-direction: column;
   gap: 10px;
 }
 
-.skeleton-line {
+.ghost {
+  display: block;
   height: 12px;
+  border-radius: 3px;
+  background: #f1ebdf;
+  animation: fade 1.4s ease-in-out infinite;
 }
 
-.skeleton-line.w-60 { width: 60%; height: 18px; }
-.skeleton-line.w-90 { width: 90%; }
-.skeleton-line.w-30 { width: 30%; }
+.ghost-date { width: 60px; height: 16px; }
+.ghost-title { width: 55%; height: 18px; }
+.ghost-short { width: 30%; }
 
-@keyframes shimmer {
-  from { background-position: 100% 0; }
-  to { background-position: -100% 0; }
+@keyframes fade {
+  50% { opacity: 0.45; }
 }
 
-.feed-empty {
-  padding: 56px 0;
+.page-empty {
+  padding: 56px 0 24px;
   text-align: center;
+  font-size: 17px;
   color: var(--muted);
-  font-size: 14px;
 }
 
-.feed-empty p {
-  margin: 0 0 12px;
+.page-empty p {
+  margin: 0 0 14px;
 }
 
-.feed-foot {
-  padding: 28px 0 0;
+.page-foot {
+  padding-top: 24px;
   text-align: center;
   min-height: 24px;
 }
 
-.feed-status {
-  font-size: 13px;
+.foot-text {
+  font-size: 15px;
   color: var(--muted);
 }
 
-.text-button {
-  border: 1px solid var(--line);
-  background: var(--surface);
+.paper-button {
+  position: relative;
+  padding: 8px 26px 8px 22px;
+  border: 1px solid var(--rule);
+  background: #fbf6ea;
+  font-family: var(--hand);
+  font-size: 15px;
   color: var(--ink);
-  padding: 8px 22px;
-  border-radius: 999px;
-  font-size: 13px;
   cursor: pointer;
-  transition: border-color 0.15s, color 0.15s;
+  /* 右上角折页 */
+  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%);
+  transition: background-color 0.15s;
 }
 
-.text-button:hover {
-  border-color: var(--ink);
+.paper-button::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 10px;
+  height: 10px;
+  background: linear-gradient(225deg, transparent 50%, #e9e0cc 50%);
+}
+
+.paper-button:hover {
+  background: #f6edd8;
 }
 
 /* ============ 侧栏 ============ */
 .sidebar {
   display: flex;
   flex-direction: column;
-  gap: 40px;
+  gap: 36px;
+  padding-top: 30px;
 }
 
-.panel .section-label {
-  padding-bottom: 12px;
-  border-bottom: 2px solid var(--ink);
+.sticky-note {
+  position: relative;
+  padding: 26px 22px 18px;
+  background: #fbf0b4;
+  box-shadow: 0 1px 2px rgba(60, 50, 30, 0.1), 0 10px 18px -12px rgba(60, 50, 30, 0.4);
+  transform: rotate(1.2deg);
 }
 
-.rank-list,
+.tape-note {
+  top: -11px;
+  left: 50%;
+  margin-left: -42px;
+  background: rgba(255, 255, 255, 0.55);
+  transform: rotate(-3deg);
+}
+
+.note-title,
+.card-title {
+  margin: 0 0 10px;
+  font-size: 20px;
+}
+
+.hot-list,
 .author-list,
 .file-list {
   list-style: none;
@@ -805,37 +929,34 @@ function goMe() {
   padding: 0;
 }
 
-.rank-item {
+.hot-item {
   display: flex;
-  gap: 14px;
-  padding: 14px 0;
-  border-bottom: 1px solid var(--line);
+  gap: 8px;
+  padding: 9px 0;
+  border-bottom: 1px solid rgba(160, 135, 60, 0.18);
   cursor: pointer;
 }
 
-.rank-no {
+.hot-item:last-child {
+  border-bottom: none;
+}
+
+.hot-no {
   flex-shrink: 0;
   width: 22px;
-  padding-top: 1px;
-  font-family: var(--serif);
-  font-size: 15px;
-  font-weight: 700;
-  color: #c4c1ba;
-  font-variant-numeric: tabular-nums;
+  font-size: 17px;
+  line-height: 1.35;
+  color: #a2802a;
 }
 
-.rank-no.top {
-  color: var(--accent);
-}
-
-.rank-body {
+.hot-body {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 3px;
   min-width: 0;
 }
 
-.rank-title {
+.hot-title {
   font-size: 14px;
   line-height: 1.55;
   color: var(--ink);
@@ -847,37 +968,53 @@ function goMe() {
   word-break: break-word;
 }
 
-.rank-item:hover .rank-title {
-  color: var(--accent);
+.hot-item:hover .hot-title {
+  text-decoration: underline;
+  text-decoration-color: var(--pen);
+  text-underline-offset: 3px;
 }
 
-.rank-meta {
+.hot-meta {
   font-size: 12px;
-  color: var(--muted);
+  color: #8b7d55;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.card {
+  position: relative;
+  padding: 20px 22px 14px;
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  box-shadow: 0 1px 2px rgba(60, 50, 30, 0.06);
 }
 
 .author {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px 0;
-  border-bottom: 1px solid var(--line);
+  padding: 10px 0;
+  border-bottom: 1px dashed var(--rule);
   cursor: pointer;
+}
+
+.author:last-child {
+  border-bottom: none;
 }
 
 .author-avatar {
   flex-shrink: 0;
-  background: #e9e6df;
+  background: #ece4d3;
   color: var(--ink-soft);
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 1px var(--rule);
 }
 
 .author-body {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 2px;
   flex: 1;
   min-width: 0;
 }
@@ -885,11 +1022,10 @@ function goMe() {
 .author-name {
   font-size: 14px;
   font-weight: 600;
-  color: var(--ink);
 }
 
 .author:hover .author-name {
-  color: var(--accent);
+  color: var(--pen);
 }
 
 .author-remark {
@@ -903,117 +1039,140 @@ function goMe() {
 .author-count {
   flex-shrink: 0;
   font-size: 15px;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
+  color: var(--pen);
 }
 
-.author-count small {
-  margin-left: 2px;
-  font-size: 11px;
-  font-weight: 400;
-  color: var(--muted);
+/* 牛皮纸资料袋 */
+.envelope {
+  background: #e7d6b5;
+  border-color: #d8c49d;
+}
+
+.envelope::before {
+  content: "";
+  position: absolute;
+  top: 8px;
+  left: 10px;
+  right: 10px;
+  border-top: 1px dashed rgba(110, 85, 40, 0.35);
+}
+
+.envelope .card-title {
+  margin-top: 6px;
 }
 
 .file {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 12px 0;
-  border-bottom: 1px solid var(--line);
+  margin-bottom: 8px;
+  padding: 8px 10px;
+  background: #fffaf0;
   font-size: 13px;
+  box-shadow: 0 1px 1px rgba(110, 85, 40, 0.15);
   cursor: pointer;
+  transition: transform 0.15s ease;
+}
+
+.file:hover {
+  transform: translateX(3px);
 }
 
 .file-ext {
   flex-shrink: 0;
-  min-width: 40px;
-  padding: 2px 0;
-  border: 1px solid var(--line);
-  border-radius: 3px;
-  text-align: center;
+  min-width: 38px;
   font-size: 10px;
-  font-weight: 600;
+  font-weight: 700;
   letter-spacing: 0.04em;
-  color: var(--ink-soft);
+  color: #8a6a32;
 }
 
 .file-name {
   flex: 1;
   min-width: 0;
-  color: var(--ink);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.file:hover .file-name {
-  color: var(--accent);
 }
 
 .file-count {
   flex-shrink: 0;
   font-size: 12px;
   color: var(--muted);
-  font-variant-numeric: tabular-nums;
 }
 
-.panel-more {
+.envelope-more {
   display: inline-block;
-  margin-top: 14px;
-  font-size: 13px;
-  color: var(--ink-soft);
+  margin-top: 4px;
+  font-size: 15px;
+  color: #6e5528;
   text-decoration: none;
 }
 
-.panel-more::after {
-  content: " →";
-}
-
-.panel-more:hover {
-  color: var(--accent);
+.envelope-more:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 /* ============ 响应式 ============ */
 @media (max-width: 960px) {
-  .masthead-inner {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
   .layout {
     grid-template-columns: minmax(0, 1fr);
-    gap: 48px;
+  }
+
+  .sidebar {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 28px;
+    padding-top: 8px;
   }
 }
 
 @media (max-width: 640px) {
-  .masthead-inner {
-    padding: 28px 16px 24px;
-    gap: 24px;
-  }
-
-  .masthead-title {
-    font-size: 34px;
-  }
-
-  .masthead-stats {
-    width: 100%;
-  }
-
-  .stat {
-    flex: 1;
-    padding: 0 12px;
-  }
-
-  .stat dd {
-    font-size: 20px;
-  }
-
-  .layout {
+  .desk-inner {
     padding: 24px 16px 0;
   }
 
-  .feed-head {
+  .cover {
+    margin-bottom: 28px;
+  }
+
+  .cover-label {
+    padding: 22px 20px 18px;
+    transform: none;
+  }
+
+  .cover-title {
+    font-size: 27px;
+  }
+
+  .date-stamp {
+    display: none;
+  }
+
+  .index-tabs {
+    right: 8px;
+    gap: 4px;
+  }
+
+  .index-tab {
+    padding: 5px 9px 11px;
+    font-size: 13px;
+  }
+
+  .page {
+    padding: 20px 16px 24px 40px;
+  }
+
+  .page::before {
+    left: 8px;
+  }
+
+  .page::after {
+    left: 30px;
+  }
+
+  .page-head {
     flex-direction: column;
     align-items: stretch;
   }
@@ -1022,36 +1181,38 @@ function goMe() {
     width: 100%;
   }
 
-  .article,
-  .article.has-cover {
-    grid-template-columns: minmax(0, 1fr) 96px;
-    gap: 14px;
+  .entry {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 6px 14px;
     padding: 20px 0;
   }
 
-  .article:not(.has-cover) {
-    grid-template-columns: minmax(0, 1fr);
+  .entry-date {
+    grid-column: 1 / -1;
+    flex-direction: row;
+    align-items: baseline;
+    gap: 8px;
   }
 
-  .article-date {
-    display: none;
-  }
-
-  .article-title {
+  .entry-title {
     font-size: 17px;
   }
 
-  .article-cover {
-    width: 96px;
-    height: 72px;
+  .polaroid {
+    padding: 4px 4px 12px;
   }
 
-  .skeleton-row {
+  .polaroid img {
+    width: 84px;
+    height: 64px;
+  }
+
+  .ghost-entry {
     grid-template-columns: 1fr;
   }
 
-  .skeleton-date {
-    display: none;
+  .sticky-note {
+    transform: none;
   }
 }
 </style>
