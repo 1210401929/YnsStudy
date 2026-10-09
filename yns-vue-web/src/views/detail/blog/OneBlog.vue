@@ -264,7 +264,7 @@ const handleArticleNotFound = () => {
   align-items: flex-start;
   gap: 28px;
   width: 100%;
-  max-width: 1440px;
+  max-width: 1600px;
   margin: 0 auto;
   padding: 32px 24px;
   flex: 1;
