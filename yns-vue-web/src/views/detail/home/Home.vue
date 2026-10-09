@@ -73,7 +73,15 @@
                     <el-avatar :src="article.AVATAR" :size="20" class="meta-avatar">
                       {{ article.USERNAME?.charAt(0) }}
                     </el-avatar>
-                    <span>{{ article.USERNAME }}</span>
+                    <a
+                        v-if="article.USERNUM"
+                        class="meta-author"
+                        :href="`/user/${encodeURIComponent(article.USERNUM)}`"
+                        target="_blank"
+                        rel="noopener"
+                        @click.stop
+                    >{{ article.USERNAME }}</a>
+                    <span v-else>{{ article.USERNAME }}</span>
                   </div>
                 </div>
 
@@ -750,6 +758,16 @@ function goMe() {
   -webkit-box-orient: vertical;
   overflow: hidden;
   word-break: break-word;
+}
+
+.meta-author {
+  color: inherit;
+  text-decoration: none;
+}
+
+.meta-author:hover {
+  color: var(--j-pen);
+  text-decoration: underline;
 }
 
 .entry-meta {

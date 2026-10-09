@@ -1,49 +1,149 @@
-# 将下面几段放进 ynsstudy.cn 对应的 server { ... }，并置于通用 location / 之前。
-# Vue 静态目录示例；必须与 config.yaml 的 seo.frontend_index_file 指向同一个 dist。
-root /usr/share/nginx/html;
+# ynsstudy.cn 的 SEO 相关 Nginx 配置示例。
+# 合并到线上配置后执行 nginx -t 检查，再 nginx -s reload。
+# 你原有的 /api/、/uploadFile/、/picture/lulu 等反向代理或别名 location 继续保留，放在下面通用 location / 之前即可。
 
-# 首页首个 HTML 由 Go 输出站点介绍和最新文章真实链接，随后仍由 Vue 接管。
-location = / {
-    proxy_pass http://127.0.0.1:8889;
-    proxy_set_header Host $host;
-    proxy_set_header X-Real-IP $remote_addr;
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    proxy_set_header X-Forwarded-Proto $scheme;
+# ---------- www 统一跳转到主域名，避免同一内容出现两个站点 ----------
+server {
+    listen 443 ssl;
+    server_name www.ynsstudy.cn;
+    # 证书沿用主站证书（需包含 www.ynsstudy.cn）
+    # ssl_certificate     /path/to/fullchain.pem;
+    # ssl_certificate_key /path/to/privkey.pem;
+    return 301 https://ynsstudy.cn$request_uri;
 }
 
-# 文章详情首个 HTML 交给 Go 动态生成。Go 会把真实文章注入 Vue 的 index.html，
-# 浏览器随后继续加载原 Vue 资源，现有评论、点赞、登录等交互不受影响。
-location ~ ^/oneBlog/[^/]+/?$ {
-    proxy_pass http://127.0.0.1:8889;
-    proxy_set_header Host $host;
-    proxy_set_header X-Real-IP $remote_addr;
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    proxy_set_header X-Forwarded-Proto $scheme;
+server {
+    listen 80;
+    server_name ynsstudy.cn www.ynsstudy.cn;
+    return 301 https://ynsstudy.cn$request_uri;
 }
 
-# 动态 sitemap 和 RSS 都由 Go 从数据库实时生成，新文章无需重新打包 Vue。
-location = /sitemap.xml {
-    proxy_pass http://127.0.0.1:8889;
-    proxy_set_header Host $host;
-    proxy_set_header X-Forwarded-Proto $scheme;
-}
+server {
+    listen 443 ssl;
+    server_name ynsstudy.cn;
+    # ssl_certificate     /path/to/fullchain.pem;
+    # ssl_certificate_key /path/to/privkey.pem;
 
-location = /rss.xml {
-    proxy_pass http://127.0.0.1:8889;
-    proxy_set_header Host $host;
-    proxy_set_header X-Forwarded-Proto $scheme;
-}
+    # Vue 静态目录示例；必须与 config.yaml 的 seo.frontend_index_file 指向同一个 dist。
+    root /usr/share/nginx/html;
 
-# robots.txt 已随 Vue dist 发布，直接由 Nginx 返回即可。
-location = /robots.txt {
-    try_files /robots.txt =404;
-}
+    # ---------- 压缩：JS/CSS/JSON/XML 默认不在 gzip 范围内，需要显式声明 ----------
+    gzip on;
+    gzip_vary on;
+    gzip_comp_level 6;
+    gzip_min_length 1024;
+    gzip_proxied any;
+    gzip_types text/plain text/css text/xml application/javascript application/json application/xml application/rss+xml image/svg+xml;
 
-# 保留现有 RSS 预览页面，但明确禁止它参与搜索结果竞争。
-location = /rss {
-    add_header X-Robots-Tag "noindex, follow" always;
-    try_files /index.html =404;
-}
+    # ---------- 交给 Go 动态输出的页面 ----------
+    # 首页首个 HTML 由 Go 输出站点介绍和最新文章真实链接，随后仍由 Vue 接管。
+    location = / {
+        proxy_pass http://127.0.0.1:8889;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
 
-# 你原有的 /api/ 反向代理配置继续保留。
-# 通用 Vue History 路由仍然使用：try_files $uri $uri/ /index.html;
+    # 文章详情首个 HTML 交给 Go 动态生成。Go 会把真实文章注入 Vue 的 index.html，
+    # 浏览器随后继续加载原 Vue 资源，现有评论、点赞、登录等交互不受影响。
+    location ~ ^/oneBlog/[^/]+/?$ {
+        proxy_pass http://127.0.0.1:8889;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # 动态 sitemap 和 RSS 都由 Go 从数据库实时生成，新文章无需重新打包 Vue。
+    location = /sitemap.xml {
+        proxy_pass http://127.0.0.1:8889;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location = /rss.xml {
+        proxy_pass http://127.0.0.1:8889;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # 文章归档（/archive、/archive/page/N）是 Go 输出的完整页面，让搜索引擎能顺着分页找到所有旧文章。
+    location ~ ^/archive(/page/[0-9]+)?/?$ {
+        proxy_pass http://127.0.0.1:8889;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # IndexNow 密钥文件，由 Go 根据 config.yaml 的 seo.indexnow_key 返回。
+    location = /indexnow.txt {
+        proxy_pass http://127.0.0.1:8889;
+        proxy_set_header Host $host;
+    }
+
+    # robots.txt 随 Vue dist 发布，直接由 Nginx 返回。
+    location = /robots.txt {
+        try_files /robots.txt =404;
+    }
+
+    # ---------- 重复地址统一 301 ----------
+    location = /welcome {
+        return 301 /;
+    }
+
+    location ~ ^/ynsStudy/?$ {
+        return 301 /ynsStudy/Home;
+    }
+
+    # ---------- 打包产物：文件名带 hash，可以长期缓存 ----------
+    location /assets/ {
+        expires 1y;
+        add_header Cache-Control "public, max-age=31536000, immutable";
+        try_files $uri =404;
+    }
+
+    # ---------- 已知的 Vue 前端路由，返回 index.html（200） ----------
+    # 新增前端页面时，需要在这里同步加上路径，否则会返回 404。
+    location ~ ^/ynsStudy/(Home|MyBlog|MyBlog/content|Resources|Community|FriendLink|About)/?$ {
+        add_header Cache-Control "no-cache";
+        try_files /index.html =404;
+    }
+
+    location ~ ^/(user|userV2)/[^/]+(/[^/]+)?/?$ {
+        add_header Cache-Control "no-cache";
+        try_files /index.html =404;
+    }
+
+    location ~ ^/personInfomation/[^/]+/?$ {
+        add_header Cache-Control "no-cache";
+        try_files /index.html =404;
+    }
+
+    location ~ ^/(sso|personalCenter|YnsStudyAi|lulu)/?$ {
+        add_header Cache-Control "no-cache";
+        try_files /index.html =404;
+    }
+
+    # 保留现有 RSS 预览页面，但明确禁止它参与搜索结果竞争。
+    location = /rss {
+        add_header Cache-Control "no-cache";
+        add_header X-Robots-Tag "noindex, follow" always;
+        try_files /index.html =404;
+    }
+
+    # ---------- 其他地址：存在的静态文件直接返回，不存在的返回真正的 404 ----------
+    # 404 时仍然输出 index.html，由 Vue 展示站内 404 页面，但 HTTP 状态码保持 404，
+    # 搜索引擎不会把它当作正常页面收录（不再是“软 404”）。
+    location / {
+        try_files $uri =404;
+    }
+
+    error_page 404 /index.html;
+    location = /index.html {
+        add_header Cache-Control "no-cache";
+    }
+
+    # 你原有的 /api/、/uploadFile/ 等 location 放在这里或上面任意位置均可（前缀匹配不会与上面的正则冲突）。
+}

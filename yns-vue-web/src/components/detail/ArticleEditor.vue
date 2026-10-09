@@ -65,6 +65,7 @@
 </template>
 
 <script setup>
+import {compressImage, IMAGE_PRESETS} from '@/utils/imageCompress.js'
 import '@wangeditor/editor/dist/css/style.css'
 import {
   ref,
@@ -102,8 +103,10 @@ const toolbarConfig = {excludeKeys: ['insertVideo', 'uploadVideo']}
 
 /* ---------- 独立上传函数 ---------- */
 async function uploadImage(file) {
+  // 上传前压缩并转为 WebP，减少文章页加载的图片体积
+  const compressed = await compressImage(file, IMAGE_PRESETS.article)
   const formData = new FormData()
-  formData.append('file', file)
+  formData.append('file', compressed)
   formData.append('spliceUrl', 'editorImage')
   const res = await sendAxiosRequest('/pub-api/upload/uploadFile', formData)
   if (res && !res.isError) return res.result.fileViewUrl

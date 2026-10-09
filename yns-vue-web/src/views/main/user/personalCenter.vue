@@ -84,6 +84,7 @@
 
 
 <script setup>
+import {compressImage, IMAGE_PRESETS} from '@/utils/imageCompress.js'
 import {ref} from 'vue'
 import {ElMessage} from 'element-plus'
 import {useUserStore} from "@/stores/main/user.js";
@@ -139,8 +140,10 @@ const resetForm = () => {
 // 上传逻辑
 const customUploadRequest = async (options) => {
   const {file} = options;
+  // 头像显示尺寸很小，上传前缩小并转为 WebP
+  const compressed = await compressImage(file, IMAGE_PRESETS.avatar);
   const formData = new FormData();
-  formData.append('file', file);
+  formData.append('file', compressed);
   formData.append('spliceUrl', "userAvatar");
   try {
     const res = await sendAxiosRequest('/pub-api/upload/uploadFile', formData);

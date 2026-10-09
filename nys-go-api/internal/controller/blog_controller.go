@@ -71,6 +71,12 @@ func (h *Controller) registerArticleRoutes(group *gin.RouterGroup) {
 		}
 	})
 	group.Any("/getAllBlog", h.getAllBlogs)
+	group.Any("/getArticleLinks", func(c *gin.Context) {
+		body, ok := requireBody(c)
+		if ok {
+			writeResult(c, h.service.GetArticleLinks(c.Request.Context(), stringParam(body, "blogId")))
+		}
+	})
 	group.Any("/addBlogCat", func(c *gin.Context) {
 		body, ok := requireBody(c)
 		if ok {

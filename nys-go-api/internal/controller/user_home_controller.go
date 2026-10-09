@@ -80,6 +80,11 @@ func (h *Controller) registerHomeRoutes(group *gin.RouterGroup) {
 		body, _ := readBody(c)
 		writeResult(c, h.service.GetHighQualityAuthors(c.Request.Context(), parseIntOr(stringParam(body, "num"), 4)))
 	})
+	// 首页封面下方的最新文章，只返回标题等轻量字段
+	group.Any("/getLatestArticles", func(c *gin.Context) {
+		body, _ := readBody(c)
+		writeResult(c, h.service.GetLatestBlogsForSEO(c.Request.Context(), parseIntOr(stringParam(body, "num"), 6)))
+	})
 	group.GET("/sitemap_blog.xml", h.sitemapBlogs)
 	group.GET("/sitemap_user.xml", h.sitemapUsers)
 	group.GET("/rss.xml", h.rss)

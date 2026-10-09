@@ -3,6 +3,8 @@ import { createReadStream, statSync } from 'node:fs'
 import { extname, isAbsolute, relative, resolve } from 'node:path'
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
+import Components from 'unplugin-vue-components/vite'
+import { ElementPlusResolver } from 'unplugin-vue-components/resolvers'
 
 const luluAssetsDirectory = fileURLToPath(new URL('../lulu', import.meta.url))
 
@@ -80,7 +82,15 @@ export default defineConfig(({ mode }) => {
 
     // 公共配置（开发和生产通用）
     const baseConfig = {
-        plugins: [vue(), luluExternalAssetsPlugin()],
+        plugins: [
+            vue(),
+            // Element Plus 组件按需引入；样式仍由 main.js 全量引入，保证手账主题覆盖顺序不变
+            Components({
+                resolvers: [ElementPlusResolver({ importStyle: false })],
+                dts: false
+            }),
+            luluExternalAssetsPlugin()
+        ],
         resolve: {
             alias: {
                 '@': fileURLToPath(new URL('./src', import.meta.url))
@@ -96,6 +106,17 @@ export default defineConfig(({ mode }) => {
             sourcemap: false, // 生产环境务必关闭，防止源码泄露
             minify: 'esbuild', // 确保开启压缩
             chunkSizeWarningLimit: 1500, // 优化打包体验
+            rollupOptions: {
+                output: {
+                    // 第三方库单独成包，业务代码更新时浏览器可继续使用缓存
+                    manualChunks(id) {
+                        if (!id.includes('node_modules')) return
+                        if (id.includes('@wangeditor')) return 'vendor-editor'
+                        if (id.includes('element-plus') || id.includes('@element-plus')) return 'vendor-element'
+                        if (/node_modules\/(vue|@vue|vue-router|pinia|@vueuse)\//.test(id)) return 'vendor-vue'
+                    }
+                }
+            }
         }
     };
 

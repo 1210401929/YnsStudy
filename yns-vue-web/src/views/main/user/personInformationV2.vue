@@ -197,7 +197,7 @@
 import {ref, onMounted, computed, defineAsyncComponent, watch} from 'vue'
 import {ElMessage} from 'element-plus'
 import {useRoute, useRouter} from 'vue-router'
-import { useHead } from '@vueuse/head'; // 1. 引入 useHead
+import {useSeo} from '@/utils/seo.js';
 import { pubFormatDate, sendAxiosRequest, stripImages, downloadFileByUrl } from '@/utils/common.js'
 
 import BackgroundAndMusic from "@/components/detail/personInformation/BackgroundAndMusic.vue";
@@ -242,19 +242,20 @@ const fileSection = ref(null)
 const showWelcome = ref(false);
 const showFriendLink = ref(false);
 
-// 2. 定义响应式的 SEO 数据源，给定默认值
-const seoTitle = ref('ynsStudy的个人博客');
-const seoDescription = ref('ynsStudy的个人博客');
+// SEO：主页统一以 /user/:u 为收录地址；带文章 ID 打开时，文章本身以 /oneBlog/:id 为准
+const seoTitle = ref('个人主页 - YnsStudy');
+const seoDescription = ref('');
+const userNotFound = ref(false);
 
-useHead({
-  title: seoTitle,
-  meta: [
-    {
-      name: 'description',
-      content: seoDescription
-    }
-  ]
-});
+useSeo(() => ({
+  title: seoTitle.value,
+  description: seoDescription.value,
+  type: 'profile',
+  path: route.params.blogId
+      ? `/oneBlog/${encodeURIComponent(route.params.blogId)}`
+      : `/user/${encodeURIComponent(route.params.u || '')}`,
+  noindex: !route.params.u || userNotFound.value
+}));
 
 const initPageData = async () => {
   const userNum = route.params.u;
@@ -268,8 +269,8 @@ const initPageData = async () => {
       targetUserCode.value = parsedCode;
       user.value = res.result;
       // 设置页面标题
-      seoTitle.value = (user.value.name || '用户') + "的个人博客";
-      seoDescription.value = seoTitle.value;
+      seoTitle.value = (user.value.name || '用户') + "的个人主页 - YnsStudy";
+      seoDescription.value = user.value.remark || `${user.value.name || '用户'} 在 YnsStudy 发表的文章、动态与分享的资源。`;
 
       isPageReady.value = true;
       await Promise.all([
@@ -278,6 +279,7 @@ const initPageData = async () => {
         setPersonInfo(parsedCode)
       ]);
     } else {
+      userNotFound.value = true;
       ElMessage.error("未找到对应用户信息");
     }
   } catch (e) {

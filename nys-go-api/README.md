@@ -27,7 +27,13 @@ https://ynsstudy.cn/api/pub-api/login/qq/callback
 
 ## SEO 部署
 
-文章会持续新增，单纯 Vue CSR 或构建时 Prerender 无法保证新文章的首次 HTML 包含正文。因此将首页 `/`、`/oneBlog/:id`、`/sitemap.xml` 和 `/rss.xml` 交给 Go 动态输出：首页包含站点介绍和最新文章链接，文章页包含真实正文，其他页面继续由原 Vue + Nginx 提供。
+文章会持续新增，单纯 Vue CSR 或构建时 Prerender 无法保证新文章的首次 HTML 包含正文。因此将首页 `/`、`/oneBlog/:id`、`/archive`、`/sitemap.xml` 和 `/rss.xml` 交给 Go 动态输出：首页包含站点介绍和最新文章链接，文章页包含真实正文、上一篇/下一篇和同作者文章链接，`/archive`（及 `/archive/page/N`）是按发布时间分页的全部文章归档，其他页面继续由原 Vue + Nginx 提供。
+
+`security.whitelist` 需要包含 `/archive`、`/archive/**` 和 `/indexnow.txt`，否则这些公开页面会被鉴权拦截。
+
+### IndexNow（Bing 等搜索引擎）
+
+在 `seo.indexnow_key` 填写 8-128 位字母、数字或连字符组成的密钥后，Go 会在 `/indexnow.txt` 公开该密钥，并在公开文章发布、修改、改为私密或删除时，后台推送文章地址和 `/archive` 到 `https://api.indexnow.org/indexnow`。推送失败只写日志，不影响发文。本地开发请保持为空，避免把测试数据推送给搜索引擎。Google 不支持 IndexNow，依靠 sitemap 发现新文章。
 
 部署时需要完成以下三项：
 

@@ -51,12 +51,12 @@
 </template>
 
 <script setup>
-import {ref, onMounted, watch} from 'vue';
+import {ref, computed, onMounted, watch} from 'vue';
 import {useRouter, useRoute} from 'vue-router';
 import LoginDialog from '@/components/main/LoginDialog.vue';
 import * as menuUtil from '@/utils/menu.js';
 import {Menu} from '@element-plus/icons-vue';
-import { useHead } from '@vueuse/head'; // 1. 引入 useHead
+import {useSeo} from '@/utils/seo.js';
 
 const router = useRouter();
 const route = useRoute();
@@ -71,25 +71,21 @@ const navigateTo = (routerName) => {
     router.push({name: routerName});
   }
 };
-// 2. 定义响应式的 SEO 数据源，给定默认值
-const seoTitle = ref('ynsStudy');
-const seoDescription = ref('');
-
-useHead({
-  title: seoTitle,
-  meta: [
-    {
-      name: 'description',
-      content: seoDescription
-    }
-  ]
+// 各栏目页使用 menu.js 中配置的标题和描述
+const currentMenu = computed(() => menuItems.value.find(item => route.matched.some(record => record.name === item.router)));
+useSeo(() => {
+  const menu = currentMenu.value;
+  if (!menu) return {path: route.path, noindex: !!route.meta.noindex};
+  return {
+    title: menu.title,
+    description: menu.description,
+    path: menu.path,
+    noindex: !!route.meta.noindex
+  };
 });
 
 onMounted(() => {
-  const path = window.location.pathname.split('/')[2];
-  activeMenu.value = path;
-  seoTitle.value = menuItems.value.filter(item => item.router === activeMenu.value)[0]["name"] + " - ynsStudy";
-  seoDescription.value = seoTitle.value;
+  activeMenu.value = window.location.pathname.split('/')[2];
 });
 
 //监听路由  如果改变,则修改菜单栏选中内容
@@ -98,8 +94,6 @@ watch(() => route.name, (newValue) => {
   const routerNames = menuItems.value.map(item => item.router);
   if (routerNames.indexOf(newValue) !== -1) {
     activeMenu.value = newValue;
-    seoTitle.value = menuItems.value.filter(item => item.router === activeMenu.value)[0]["name"] + " - ynsStudy";
-    seoDescription.value = seoTitle.value;
   }
 })
 

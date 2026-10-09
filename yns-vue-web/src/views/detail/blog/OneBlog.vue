@@ -13,7 +13,7 @@
       <main class="article-not-found">
         <h1>文章不存在</h1>
         <p>这篇文章可能已删除、设为私密或地址有误。</p>
-        <router-link to="/ynsStudy/MyBlog">返回博客列表</router-link>
+        <router-link to="/ynsStudy/Home">查看最新文章</router-link>
       </main>
     </template>
 
@@ -85,7 +85,7 @@ const handleBgStyleUpdate = (style) => {
 const canonicalUrl = computed(() => `${window.location.origin}/oneBlog/${encodeURIComponent(blogId)}`);
 const seoTitle = ref('博客详情 - YnsStudy');
 const seoDescription = ref('YnsStudy 博客文章详情');
-const seoImage = ref(`${window.location.origin}/finder.png`);
+const seoImage = ref(`${window.location.origin}/og-image.png`);
 const seoAuthor = ref('YnsStudy');
 const seoPublished = ref('');
 const seoModified = ref('');
@@ -121,14 +121,16 @@ useHead(() => {
     publisher: {
       '@type': 'Organization',
       name: 'YnsStudy',
-      url: window.location.origin
+      url: window.location.origin,
+      logo: `${window.location.origin}/icon-512.png`
     },
     image: seoImage.value ? [seoImage.value] : undefined
   };
   return {
     title: seoTitle.value,
     link: [
-      {rel: 'canonical', href: canonicalUrl.value},
+      // 文章不存在时只输出 noindex，不再声明 canonical，避免两个信号互相矛盾
+      ...(articleNotFound.value ? [] : [{rel: 'canonical', href: canonicalUrl.value}]),
       {rel: 'alternate', type: 'application/rss+xml', title: 'YnsStudy RSS', href: `${window.location.origin}/rss.xml`}
     ],
     meta: [
@@ -185,7 +187,7 @@ const contentAndCommentIsLoad = ({blogContent}) => {
     seoPublished.value = toISODate(blogContent.CREATE_TIME);
     seoModified.value = toISODate(blogContent.UPDATE_TIME) || seoPublished.value;
     const firstImage = extractFirstImage(blogContent.MAINTEXT);
-    seoImage.value = firstImage ? new URL(firstImage, window.location.origin).href : `${window.location.origin}/finder.png`;
+    seoImage.value = firstImage ? new URL(firstImage, window.location.origin).href : `${window.location.origin}/og-image.png`;
 
     nextTick(() => {
       window.prerenderReady = true;

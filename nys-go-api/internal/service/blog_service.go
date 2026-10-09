@@ -42,7 +42,15 @@ func (s *Service) AddBlog(ctx context.Context, blog map[string]any) model.Result
 			return dbFailure("提交文章编号", err)
 		}
 	}
-	return s.SaveAll(ctx, "add", "BLOGINFO", []map[string]any{blog}, "GUID")
+	result := s.SaveAll(ctx, "add", "BLOGINFO", []map[string]any{blog}, "GUID")
+	if !result.IsError && isPublicBlogType(model.StringValue(blog, "BLOG_TYPE")) {
+		s.NotifyBlogChanged(model.StringValue(blog, "GUID"))
+	}
+	return result
+}
+
+func isPublicBlogType(blogType string) bool {
+	return strings.EqualFold(strings.TrimSpace(blogType), "public")
 }
 
 // normalizeNewBlog reproduces the field filtering previously provided by the
@@ -95,7 +103,7 @@ func (s *Service) GetBlog(c *gin.Context, blogID string) model.Result {
 	if user, err := s.CurrentUser(c); err == nil {
 		userCode = user.Code
 	}
-	query := `SELECT b.*, u.AVATAR FROM blogInfo b
+	query := `SELECT b.*, u.AVATAR, u.USERNUM FROM blogInfo b
 LEFT JOIN userInfo u ON b.USERCODE = u.CODE
 WHERE b.GUID = ? AND (b.USERCODE = ? OR b.BLOG_TYPE = 'public')`
 	rows, err := s.Repo.Query(contextOf(c), query, blogID, userCode)
@@ -111,7 +119,7 @@ WHERE b.GUID = ? AND (b.USERCODE = ? OR b.BLOG_TYPE = 'public')`
 // GetPublicBlogForSEO 只读取公开文章，不增加阅读量。
 // 搜索引擎抓取会比较频繁，如果复用普通详情接口会把爬虫访问错误地计入 VIEW_PAGE。
 func (s *Service) GetPublicBlogForSEO(ctx context.Context, blogID string) (map[string]any, bool, error) {
-	rows, err := s.Repo.Query(ctx, `SELECT b.*, u.AVATAR
+	rows, err := s.Repo.Query(ctx, `SELECT b.*, u.AVATAR, u.USERNUM
 FROM blogInfo b
 LEFT JOIN userInfo u ON b.USERCODE = u.CODE
 WHERE b.GUID = ? AND b.BLOG_TYPE = 'public'
@@ -137,7 +145,7 @@ func (s *Service) GetAllBlogs(ctx context.Context, page, pageSize int, keyword s
 		countArgs = append(countArgs, like, like)
 	}
 	listArgs = append(listArgs, pageSize, (page-1)*pageSize)
-	rows, err := s.Repo.Query(ctx, "SELECT b.*, u.AVATAR FROM blogInfo b LEFT JOIN userInfo u ON b.USERCODE = u.CODE"+where+" ORDER BY b.CREATE_TIME DESC LIMIT ? OFFSET ?", listArgs...)
+	rows, err := s.Repo.Query(ctx, "SELECT b.*, u.AVATAR, u.USERNUM FROM blogInfo b LEFT JOIN userInfo u ON b.USERCODE = u.CODE"+where+" ORDER BY b.CREATE_TIME DESC LIMIT ? OFFSET ?", listArgs...)
 	if err != nil {
 		return dbFailure("查询文章", err)
 	}
@@ -149,10 +157,11 @@ func (s *Service) GetAllBlogs(ctx context.Context, page, pageSize int, keyword s
 }
 
 func (s *Service) UpdateBlog(ctx context.Context, guid, title, content, blogType string) model.Result {
-	rows, err := s.Repo.Query(ctx, "SELECT MAINTEXT FROM blogInfo WHERE GUID = ?", guid)
+	rows, err := s.Repo.Query(ctx, "SELECT MAINTEXT, BLOG_TYPE FROM blogInfo WHERE GUID = ?", guid)
 	if err != nil || len(rows) == 0 {
 		return model.Failure("修改异常!")
 	}
+	wasPublic := isPublicBlogType(model.StringValue(rows[0], "BLOG_TYPE"))
 	oldURLs := extractImageURLs(model.StringValue(rows[0], "MAINTEXT"))
 	newURLs := extractImageURLs(content)
 	removed := difference(oldURLs, newURLs)
@@ -166,6 +175,10 @@ func (s *Service) UpdateBlog(ctx context.Context, guid, title, content, blogType
 	}
 	if _, err := s.Repo.Exec(ctx, query, title, content, blogType, guid); err != nil {
 		return dbFailure("修改文章", err)
+	}
+	// 公开文章被修改或改为私密时都要通知，后者让搜索引擎发现页面已不可访问。
+	if wasPublic || isPublicBlogType(blogType) {
+		s.NotifyBlogChanged(guid)
 	}
 	return model.Success("执行成功，影响行数：1")
 }
@@ -185,10 +198,11 @@ func (s *Service) DeleteBlog(ctx context.Context, guid string) model.Result {
 	if strings.TrimSpace(guid) == "" {
 		return model.Failure("未传入删除主键!")
 	}
-	rows, err := s.Repo.Query(ctx, "SELECT MAINTEXT FROM blogInfo WHERE GUID = ?", guid)
+	rows, err := s.Repo.Query(ctx, "SELECT MAINTEXT, BLOG_TYPE FROM blogInfo WHERE GUID = ?", guid)
 	if err != nil || len(rows) == 0 {
 		return model.Failure("删除异常!")
 	}
+	wasPublic := isPublicBlogType(model.StringValue(rows[0], "BLOG_TYPE"))
 	if result := s.DeleteUploadedFiles(extractImageURLs(model.StringValue(rows[0], "MAINTEXT"))); result.IsError {
 		return result
 	}
@@ -198,6 +212,9 @@ func (s *Service) DeleteBlog(ctx context.Context, guid string) model.Result {
 	)
 	if err != nil {
 		return dbFailure("删除文章", err)
+	}
+	if wasPublic {
+		s.NotifyBlogChanged(guid)
 	}
 	return model.Success("删除成功")
 }
