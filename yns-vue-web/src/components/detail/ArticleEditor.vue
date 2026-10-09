@@ -1,23 +1,23 @@
 <!--编辑器公共组件-->
 <template>
-  <div class="editor-container">
+  <div class="editor-container" :class="isReadOnly ? 'is-reading' : 'is-editing'">
     <!-- 公开 / 私密 -->
     <el-radio-group
         v-if="!isReadOnly"
         v-model="isPublic"
-        style="margin-bottom: 10px"
+        class="visibility-switch"
     >
       <el-radio-button :label="true">公开</el-radio-button>
       <el-radio-button :label="false">私密</el-radio-button>
     </el-radio-group>
 
     <!-- 标题 -->
-    <el-input
+    <input
         v-if="!isReadOnly"
         v-model="localTitle"
+        class="title-input"
         placeholder="请输入文章标题"
-        size="large"
-        style="margin-bottom: 10px"
+        maxlength="200"
     />
 
     <!-- 编辑器 -->
@@ -26,7 +26,7 @@
           v-if="!isReadOnly"
           :editor="editorRef"
           :defaultConfig="toolbarConfig"
-          style="border-bottom: 1px solid #ccc"
+          class="editor-toolbar"
       />
 
       <div ref="editorWrapper">
@@ -44,8 +44,8 @@
     <div v-if="!isReadOnly" class="bottom-buttons">
       <!-- 左侧 AI 按钮 -->
       <div class="left-buttons">
-        <el-button type="success" round @click="aiButtonMh">Ai帮写</el-button>
-        <el-button type="primary" round @click="aiButtonXx">Ai续写</el-button>
+        <button type="button" class="ai-button" @click="aiButtonMh">Ai帮写</button>
+        <button type="button" class="ai-button" @click="aiButtonXx">Ai续写</button>
       </div>
 
       <!-- 右侧 取消/提交 按钮 -->
@@ -401,6 +401,158 @@ watch(() => props.content, (v) => (localContent.value = v))
 
 :deep(img) {
   cursor: zoom-in;
+}
+
+/* ============ 手账风格 ============ */
+.visibility-switch {
+  margin-bottom: 14px;
+}
+
+.title-input {
+  width: 100%;
+  margin-bottom: 14px;
+  padding: 8px 2px;
+  border: none;
+  border-bottom: 1px solid var(--j-rule-strong);
+  outline: none;
+  background: transparent;
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--j-ink);
+  box-sizing: border-box;
+  transition: border-color 0.15s;
+}
+
+.title-input:focus {
+  border-bottom-color: var(--j-ink);
+}
+
+.title-input::placeholder {
+  font-weight: normal;
+  font-family: var(--j-hand);
+  color: #b9b2a6;
+}
+
+.is-editing .editor-wrapper {
+  border: 1px solid var(--j-rule) !important;
+  background: #fffefb;
+}
+
+.editor-toolbar {
+  border-bottom: 1px solid var(--j-rule);
+}
+
+.is-editing :deep(.w-e-toolbar),
+.is-editing :deep(.w-e-bar) {
+  background-color: var(--j-paper-warm);
+}
+
+.bottom-buttons {
+  background-color: transparent;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.ai-button {
+  margin-right: 8px;
+  padding: 5px 12px;
+  border: 1px dashed var(--j-rule-strong);
+  background: transparent;
+  font-family: var(--j-hand);
+  font-size: 14px;
+  color: var(--j-ink-soft);
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.ai-button:hover {
+  border-color: var(--j-pen);
+  color: var(--j-pen);
+}
+
+/* 阅读模式下的正文排版 */
+.is-reading :deep(.w-e-text) {
+  font-size: 16px;
+  line-height: 1.9;
+  color: var(--j-ink);
+}
+
+.is-reading :deep(.w-e-text h1),
+.is-reading :deep(.w-e-text h2),
+.is-reading :deep(.w-e-text h3),
+.is-reading :deep(.w-e-text h4) {
+  margin: 1.6em 0 0.6em;
+  line-height: 1.4;
+  color: var(--j-ink);
+}
+
+.is-reading :deep(.w-e-text h2) {
+  font-size: 22px;
+  padding-bottom: 6px;
+  border-bottom: 1px dashed var(--j-rule-strong);
+}
+
+.is-reading :deep(.w-e-text h3) {
+  font-size: 19px;
+}
+
+.is-reading :deep(.w-e-text a) {
+  color: var(--j-pen);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.is-reading :deep(.w-e-text blockquote) {
+  margin: 1em 0;
+  padding: 10px 16px;
+  border-left: 4px solid #e8c95b;
+  background: #fdf6d8;
+  color: var(--j-ink-soft);
+}
+
+.is-reading :deep(.w-e-text pre) {
+  padding: 14px 16px;
+  border: 1px solid var(--j-rule);
+  border-radius: 3px;
+  background: #f7f3ea;
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.is-reading :deep(.w-e-text :not(pre) > code) {
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: #f3ecdc;
+  color: #8a4b2f;
+  font-size: 0.9em;
+}
+
+.is-reading :deep(.w-e-text img) {
+  max-width: 100%;
+  padding: 6px;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(60, 50, 30, 0.2);
+  box-sizing: border-box;
+}
+
+.is-reading :deep(.w-e-text table) {
+  border-collapse: collapse;
+}
+
+.is-reading :deep(.w-e-text th),
+.is-reading :deep(.w-e-text td) {
+  border: 1px solid var(--j-rule-strong);
+  padding: 6px 10px;
+}
+
+.is-reading :deep(.w-e-text th) {
+  background: var(--j-paper-warm);
+}
+
+.is-reading :deep(.w-e-text hr) {
+  border: none;
+  border-top: 1px dashed var(--j-rule-strong);
+  margin: 2em 0;
 }
 
 /* 移动端适配 */

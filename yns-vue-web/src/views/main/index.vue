@@ -4,7 +4,6 @@
       <div class="topbar-inner">
         <a href="/" class="brand" @click.prevent="router.push('/')">
           <span class="brand-name">YnsStudy</span>
-          <span class="brand-sub">学习手账</span>
         </a>
 
         <nav class="nav desktop-only" aria-label="主导航">
@@ -29,7 +28,7 @@
     </header>
 
     <el-drawer v-model="drawerVisible" direction="ltr" size="72%" :with-header="false" class="nav-drawer">
-      <div class="drawer-brand">YnsStudy <small>学习手账</small></div>
+      <div class="drawer-brand">YnsStudy</div>
       <nav class="drawer-nav">
         <a
             v-for="item in menuItems"

@@ -236,13 +236,6 @@ html, body {
   gap: 8px;
 }
 
-.journal-footer .beian-container::before {
-  content: "— 谢谢你翻到这里 —";
-  font-family: var(--j-hand);
-  font-size: 15px;
-  color: var(--j-ink-soft);
-}
-
 .journal-footer .footer-contact p {
   color: var(--j-muted);
 }

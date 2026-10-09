@@ -1,5 +1,5 @@
 <template>
-  <div class="welcome j-desk">
+  <div class="welcome j-desk" :class="currentTheme">
     <header class="welcome-nav">
       <span class="welcome-brand">YnsStudy</span>
       <nav class="welcome-links">
@@ -14,39 +14,41 @@
 
     <main class="welcome-main">
       <!-- 合着的手账本 -->
-      <div class="cover" role="img" aria-label="YnsStudy 学习手账封面">
+      <div class="cover">
         <span class="cover-spine"></span>
         <span class="cover-band"></span>
         <div class="cover-label">
           <span class="j-tape j-tape--top"></span>
-          <p class="cover-kicker">学习手账 · {{ year }}</p>
-          <h1 class="cover-title">YnsStudy</h1>
-          <p class="cover-slogan">少一点迷茫，多一点引导</p>
-          <p class="cover-owner">属于每一个正在学习的人</p>
+          <p class="cover-kicker">YnsStudy</p>
+          <h1 class="cover-title">探索知识的边界</h1>
+          <h2 class="cover-slogan">少一点迷茫，多一点引导</h2>
         </div>
       </div>
 
       <!-- 贴在旁边的便签，就是入口 -->
       <div class="notes">
-        <p class="notes-intro">学习之路不再孤单，<br>永远相信美好的事情即将发生。</p>
-        <a href="/ynsStudy/Home" class="note note-yellow" @click.prevent="buttonClick('article')">
-          <span class="note-title">翻开看看</span>
-          <span class="note-desc">文章、资源和社区都在里面</span>
-        </a>
+        <p class="notes-intro"><span>学习之路不再孤单，</span><span>永远相信美好的事情即将发生</span></p>
         <a href="/YnsStudyAi" class="note note-green" @click.prevent="buttonClick('ai')">
-          <span class="note-title">问问智能助手</span>
-          <span class="note-desc">卡住的时候，找它聊聊</span>
+          <span class="note-title">智能助手</span>
+        </a>
+        <a href="/ynsStudy/Home" class="note note-yellow" @click.prevent="buttonClick('article')">
+          <span class="note-title">内容社区</span>
         </a>
         <a href="/ynsStudy/About" class="note note-pink" @click.prevent="buttonClick('aboutWe')">
-          <span class="note-title">认识一下我们</span>
-          <span class="note-desc">这个小站是怎么来的</span>
+          <span class="note-title">关于我们</span>
         </a>
       </div>
     </main>
+
+    <!-- 底部互动提示 -->
+    <footer class="interaction-hint">
+      <span>按 <kbd>B</kbd> 键切换主题强调色</span>
+    </footer>
   </div>
 </template>
 
 <script setup>
+import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from "vue-router"
 import { useHead } from '@vueuse/head'
 import LoginDialog from "@/components/main/LoginDialog.vue"
@@ -64,7 +66,23 @@ useHead({
   ]
 })
 
-const year = new Date().getFullYear()
+// 按 B 键切换封面的颜色
+const themes = ['theme-green', 'theme-blue', 'theme-red']
+const currentTheme = ref(themes[0])
+
+const switchTheme = () => {
+  const index = themes.indexOf(currentTheme.value)
+  currentTheme.value = themes[(index + 1) % themes.length]
+}
+
+const handleKey = (e) => {
+  if (e && e.key && e.key.toLowerCase() === 'b') {
+    switchTheme()
+  }
+}
+
+onMounted(() => window.addEventListener('keydown', handleKey))
+onBeforeUnmount(() => window.removeEventListener('keydown', handleKey))
 
 const menuClick = (menu) => router.push({ name: menu.router })
 
@@ -79,6 +97,10 @@ const buttonClick = (type) => {
 </script>
 
 <style scoped>
+.theme-green { --cover-color: #3f5a57; --band-color: #b5473d; }
+.theme-blue { --cover-color: #34496b; --band-color: #d9a441; }
+.theme-red { --cover-color: #7a3b36; --band-color: #3f5a57; }
+
 .welcome {
   min-height: 100vh;
   display: flex;
@@ -138,7 +160,8 @@ const buttonClick = (type) => {
   width: 380px;
   height: 500px;
   border-radius: 4px 14px 14px 4px;
-  background-color: #3f5a57;
+  background-color: var(--cover-color);
+  transition: background-color 0.5s ease;
   /* 布纹 */
   background-image: repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.035) 0 1px, transparent 1px 3px),
   repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.04) 0 1px, transparent 1px 3px);
@@ -169,15 +192,16 @@ const buttonClick = (type) => {
   bottom: -2px;
   right: 44px;
   width: 12px;
-  background: #b5473d;
+  background: var(--band-color);
+  transition: background-color 0.5s ease;
   box-shadow: 1px 0 2px rgba(0, 0, 0, 0.3), inset -2px 0 2px rgba(0, 0, 0, 0.15);
 }
 
 .cover-label {
   position: absolute;
   top: 120px;
-  left: 50px;
-  right: 72px;
+  left: 44px;
+  right: 66px;
   padding: 28px 22px 22px;
   background: var(--j-paper);
   border: 1px solid #e8e0cf;
@@ -197,12 +221,14 @@ const buttonClick = (type) => {
   margin: 10px 0 0;
   font-family: var(--j-hand);
   font-weight: normal;
-  font-size: 44px;
-  line-height: 1.1;
+  font-size: 30px;
+  line-height: 1.25;
+  white-space: nowrap;
 }
 
 .cover-slogan {
   margin: 16px 0 0;
+  font-weight: normal;
   padding-top: 14px;
   border-top: 1px dashed var(--j-rule-strong);
   font-family: var(--j-hand);
@@ -210,19 +236,16 @@ const buttonClick = (type) => {
   color: var(--j-ink-soft);
 }
 
-.cover-owner {
-  margin: 18px 0 0;
-  font-size: 12px;
-  color: var(--j-muted);
-  letter-spacing: 0.05em;
-}
-
 /* ============ 便签入口 ============ */
 .notes {
   display: flex;
   flex-direction: column;
   gap: 22px;
-  width: 300px;
+  width: 320px;
+}
+
+.notes-intro span {
+  display: inline-block;
 }
 
 .notes-intro {
@@ -265,8 +288,8 @@ const buttonClick = (type) => {
   transform: translateX(4px);
 }
 
-.note-yellow { background: var(--j-note); transform: rotate(-1.5deg); }
-.note-green { background: #d4ead9; transform: rotate(1deg); margin-left: 18px; }
+.note-green { background: #d4ead9; transform: rotate(-1.5deg); }
+.note-yellow { background: var(--j-note); transform: rotate(1deg); margin-left: 18px; }
 .note-pink { background: #f6d9d6; transform: rotate(-0.8deg); }
 
 .note-title {
@@ -274,9 +297,21 @@ const buttonClick = (type) => {
   font-size: 20px;
 }
 
-.note-desc {
+.interaction-hint {
+  padding: 0 24px 28px;
+  text-align: center;
   font-size: 13px;
-  color: var(--j-ink-soft);
+  color: var(--j-muted);
+}
+
+kbd {
+  padding: 1px 7px;
+  border: 1px solid var(--j-rule-strong);
+  border-radius: 3px;
+  background: var(--j-paper);
+  box-shadow: 0 2px 0 var(--j-rule-strong);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color: var(--cover-color);
 }
 
 @media (max-width: 860px) {
@@ -306,11 +341,12 @@ const buttonClick = (type) => {
   }
 
   .cover-title {
-    font-size: 36px;
+    font-size: 24px;
   }
 
   .cover-slogan {
-    font-size: 15px;
+    font-size: 14px;
+    white-space: nowrap;
   }
 
   .notes {
@@ -318,7 +354,7 @@ const buttonClick = (type) => {
     max-width: 340px;
   }
 
-  .note-green {
+  .note-yellow {
     margin-left: 0;
   }
 }

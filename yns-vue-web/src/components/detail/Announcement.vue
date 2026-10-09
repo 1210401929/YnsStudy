@@ -53,11 +53,6 @@ const props = defineProps({
   color: var(--j-ink);
 }
 
-.alert-content::before {
-  content: "便签 · ";
-  color: var(--j-stamp);
-}
-
 .alert-link {
   color: var(--j-pen);
   text-decoration: underline;
