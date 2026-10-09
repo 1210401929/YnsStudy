@@ -194,17 +194,22 @@ func (s *Service) Register(ctx context.Context, userName, userCode, password, co
 	}}, "GUID")
 }
 
+// editableUserFields 是用户可以在个人中心自行修改的字段。ROLE、ISBAN、PASSWORD 等不允许通过此接口修改。
+var editableUserFields = []string{"NAME", "REMARK", "EMAIL", "PHONE", "AVATAR"}
+
 func (s *Service) ChangeUserInfo(c *gin.Context, userInfo map[string]any) model.Result {
 	current, err := s.CurrentUser(c)
 	if err != nil {
 		return model.Failure("当前用户未登录或已过期!")
 	}
-	if fmt.Sprint(userInfo["CODE"]) != current.Code {
+	if code := fmt.Sprint(model.Lookup(userInfo, "CODE")); code != "<nil>" && code != current.Code {
 		return model.Failure("正在修改其他用户的信息,非法操作!")
 	}
 	newPassword := fmt.Sprint(userInfo["NEWPASSWORD"])
-	delete(userInfo, "NEWPASSWORD")
-	result := s.SaveAll(contextOf(c), "edit", "userInfo", []map[string]any{userInfo}, "GUID")
+	// 只更新白名单字段，并且只能更新当前登录用户自己的记录
+	data := pickFields(userInfo, editableUserFields...)
+	data["GUID"] = current.GUID
+	result := s.SaveAll(contextOf(c), "edit", "userInfo", []map[string]any{data}, "GUID")
 	if result.IsError {
 		return model.Failure("修改失败!" + result.ErrMsg)
 	}
@@ -241,7 +246,8 @@ func (s *Service) getUser(ctx context.Context, field, value, emptyMessage string
 	if len(rows) == 0 {
 		return model.Failure("未查询到账号信息!")
 	}
-	return model.Success(model.UserFromRow(rows[0]).Public())
+	// 这些接口不需要登录即可调用，不能返回手机号
+	return model.Success(model.UserFromRow(rows[0]).PublicProfile())
 }
 
 func (s *Service) GetUsersByName(ctx context.Context, name string) model.Result {
@@ -251,7 +257,12 @@ func (s *Service) GetUsersByName(ctx context.Context, name string) model.Result 
 	return s.SelectList(ctx, "SELECT CODE, NAME, AVATAR, REMARK FROM userInfo WHERE NAME LIKE ?", []any{"%" + name + "%"})
 }
 
-func (s *Service) GetAllUsers(ctx context.Context, page, pageSize int, keyword string) model.Result {
+// GetAllUsers 是后台用户管理列表，仅超级管理员可用，且不返回密码相关字段。
+func (s *Service) GetAllUsers(c *gin.Context, page, pageSize int, keyword string) model.Result {
+	if _, failure := s.requireSuperAdmin(c); failure != nil {
+		return *failure
+	}
+	ctx := contextOf(c)
 	page, pageSize = normalizePage(page, pageSize)
 	where := ""
 	args := make([]any, 0, 4)
@@ -271,10 +282,30 @@ func (s *Service) GetAllUsers(ctx context.Context, page, pageSize int, keyword s
 	if err != nil {
 		return dbFailure("统计用户", err)
 	}
+	for _, row := range rows {
+		for _, secret := range []string{"PASSWORD", "PASSWORDSALT", "password", "passwordsalt"} {
+			delete(row, secret)
+		}
+	}
 	return model.Success(map[string]any{"total": firstCount(countRows), "data": rows})
 }
 
-func (s *Service) OperationUser(ctx context.Context, userID, operation string) model.Result {
+// OperationUser 设置/撤销管理员、封禁/解封，仅超级管理员可用，且不能操作超级管理员本人。
+func (s *Service) OperationUser(c *gin.Context, userID, operation string) model.Result {
+	if _, failure := s.requireSuperAdmin(c); failure != nil {
+		return *failure
+	}
+	ctx := contextOf(c)
+	target, err := s.Repo.Query(ctx, "SELECT CODE FROM userInfo WHERE GUID = ? LIMIT 1", userID)
+	if err != nil {
+		return dbFailure("查询用户", err)
+	}
+	if len(target) == 0 {
+		return model.Failure("用户不存在")
+	}
+	if model.StringValue(target[0], "CODE") == s.superAdminCode() {
+		return model.Failure("不能对超级管理员执行此操作")
+	}
 	set := map[string]string{
 		"setAdmin": "ROLE = 'admin'", "removeAdmin": "ROLE = '1'", "ban": "ISBAN = '1'", "removeBan": "ISBAN = ''",
 	}[operation]

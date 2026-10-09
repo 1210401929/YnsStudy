@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -37,8 +38,7 @@ func TestAllCompatibilityRoutesAreRegistered(t *testing.T) {
 		"/pub-api/api/getCurrentCity", "/pub-api/api/getClientIpAddress",
 		"/pub-api/login/sendPhoneCode", "/pub-api/login/loginByPhoneCode", "/pub-api/login/qq/authorize", "/pub-api/login/qq/callback", "/pub-api/login/logout", "/pub-api/login/loginUser", "/pub-api/login/checkUserLogin", "/pub-api/login/changePassWord", "/pub-api/login/register", "/pub-api/login/changeUserInfo", "/pub-api/login/deleteUserAvatarFile", "/pub-api/login/getUserInfoByCode", "/pub-api/login/getUserInfoByNum", "/pub-api/login/getUserInfoByName", "/pub-api/login/getAllUserInfo", "/pub-api/login/operationUser",
 		"/pub-api/notice/addNotice", "/pub-api/notice/getNotice", "/pub-api/notice/readNotice", "/pub-api/notice/allReadNotice",
-		"/pub-api/sql/selectList", "/pub-api/sql/selectListByParams", "/pub-api/sql/deleteBySql", "/pub-api/sql/updateBySql", "/pub-api/sql/exeSql", "/pub-api/sql/exeSqlByParams", "/pub-api/sql/exeSqlListByParams", "/pub-api/sql/exeSqlComposite", "/pub-api/sql/saveAllTableData", "/pub-api/sql/saveAllTableDataByParams",
-		"/pub-api/upload/uploadFile", "/pub-api/upload/deleteFileByUrl", "/pub-api/upload/deleteFileByUrls",
+		"/pub-api/upload/uploadFile",
 		"/blog-api/sso/addAnnouncement", "/blog-api/sso/editAnnouncement", "/blog-api/sso/getAllAnnouncement", "/blog-api/sso/getAnnouncementByType", "/blog-api/sso/deleteAnnouncement",
 		"/blog-api/community/addCommunity", "/blog-api/community/deleteCommunity", "/blog-api/community/setTopCommunity", "/blog-api/community/getAllCommunity", "/blog-api/community/addComment", "/blog-api/community/getComment",
 		"/blog-api/friendLink/addFriendLink", "/blog-api/friendLink/updateFriendLink", "/blog-api/friendLink/deleteFriendLink", "/blog-api/friendLink/getFriendLink", "/blog-api/friendLink/getFriendLinks",
@@ -52,6 +52,12 @@ func TestAllCompatibilityRoutesAreRegistered(t *testing.T) {
 	for _, path := range expected {
 		if !registered[path] {
 			t.Errorf("缺少兼容路由 %s", path)
+		}
+	}
+	// 这些旧接口允许执行任意 SQL 或删除任意文件，已移除，不能再被注册回来
+	for path := range registered {
+		if strings.HasPrefix(path, "/pub-api/sql/") || strings.HasPrefix(path, "/pub-api/upload/deleteFileByUrl") {
+			t.Errorf("不安全的旧接口仍然存在: %s", path)
 		}
 	}
 }

@@ -1,4 +1,4 @@
-import { computed, unref } from 'vue'
+import { computed, onBeforeUnmount, reactive, unref, watch } from 'vue'
 import { useHead } from '@vueuse/head'
 
 export const SITE_NAME = 'YnsStudy'
@@ -8,6 +8,24 @@ export const DEFAULT_DESCRIPTION = 'YnsStudy 个人博客，记录编程学习�
 export const DEFAULT_IMAGE_PATH = '/og-image.png'
 
 export const siteOrigin = () => window.location.origin
+
+/**
+ * 当前页面是否声明了 noindex（例如文章或用户不存在）。
+ * App.vue 的全站默认值据此不再输出 canonical，避免 noindex 与 canonical 两个信号互相矛盾。
+ */
+// 每个页面单独登记，避免路由切换时旧页面卸载把新页面的状态清掉
+const noindexOwners = reactive(new Set())
+export const pageNoindex = computed(() => noindexOwners.size > 0)
+
+/** 页面组件调用：把自身的 noindex 状态同步给全站默认值，卸载时自动移除。 */
+export function usePageNoindex(source) {
+    const owner = Symbol('noindex')
+    watch(source, (value) => {
+        if (value) noindexOwners.add(owner)
+        else noindexOwners.delete(owner)
+    }, { immediate: true })
+    onBeforeUnmount(() => noindexOwners.delete(owner))
+}
 
 // 页面地址只保留路径，查询参数和 hash 不参与 canonical，避免同一页面出现多个收录地址
 export const absoluteUrl = (path = '/') => siteOrigin() + (path.startsWith('/') ? path : '/' + path)
@@ -43,11 +61,13 @@ export function removeStaticSeoTags() {
  *   image        分享图片绝对地址
  *   jsonLd       结构化数据对象
  */
-export function useSeo(source) {
+export function useSeo(source, { root = false } = {}) {
     const seo = computed(() => {
         const raw = typeof source === 'function' ? source() : unref(source)
         return raw || {}
     })
+    // App.vue 的全站默认值（root）只读取页面的 noindex 状态，其他调用方负责上报
+    if (!root) usePageNoindex(() => seo.value.noindex)
 
     useHead(() => {
         const { title, description, path, noindex, type, image, jsonLd } = seo.value

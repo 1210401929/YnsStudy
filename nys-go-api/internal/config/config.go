@@ -72,7 +72,12 @@ type SecurityConfig struct {
 	SessionExpirationSecond int      `yaml:"session_expiration_seconds"`
 	SessionCookieSecure     bool     `yaml:"session_cookie_secure"`
 	Whitelist               []string `yaml:"whitelist"`
+	// SuperAdminCode 是唯一的超级管理员账号，需与前端 vue-config.js 的 adminUserCode 一致；为空时使用 DefaultSuperAdminCode。
+	SuperAdminCode string `yaml:"super_admin_code"`
 }
+
+// DefaultSuperAdminCode 与前端 adminUserCode 的默认值保持一致。
+const DefaultSuperAdminCode = "yulei"
 
 type QQOAuthConfig struct {
 	Enabled                bool   `yaml:"enabled"`

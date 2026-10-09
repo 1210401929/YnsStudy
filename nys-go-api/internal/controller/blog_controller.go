@@ -29,7 +29,7 @@ func (h *Controller) registerAnnouncementRoutes(group *gin.RouterGroup) {
 	group.Any("/editAnnouncement", func(c *gin.Context) {
 		body, ok := requireBody(c)
 		if ok {
-			writeResult(c, h.service.EditAnnouncement(c.Request.Context(), nestedMap(body, "announcement")))
+			writeResult(c, h.service.EditAnnouncement(c, nestedMap(body, "announcement")))
 		}
 	})
 	group.Any("/getAllAnnouncement", func(c *gin.Context) { writeResult(c, h.service.GetAllAnnouncements(c.Request.Context())) })
@@ -42,7 +42,7 @@ func (h *Controller) registerAnnouncementRoutes(group *gin.RouterGroup) {
 	group.Any("/deleteAnnouncement", func(c *gin.Context) {
 		body, ok := requireBody(c)
 		if ok {
-			writeResult(c, h.service.DeleteAnnouncement(c.Request.Context(), stringParam(body, "guid")))
+			writeResult(c, h.service.DeleteAnnouncement(c, stringParam(body, "guid")))
 		}
 	})
 }
@@ -52,7 +52,7 @@ func (h *Controller) registerArticleRoutes(group *gin.RouterGroup) {
 	group.Any("/deleteBlog", func(c *gin.Context) {
 		body, ok := requireBody(c)
 		if ok {
-			writeResult(c, h.service.DeleteBlog(c.Request.Context(), stringParam(body, "guid")))
+			writeResult(c, h.service.DeleteBlog(c, stringParam(body, "guid")))
 		}
 	})
 	group.Any("/updateBlog", h.updateBlog)
@@ -80,13 +80,13 @@ func (h *Controller) registerArticleRoutes(group *gin.RouterGroup) {
 	group.Any("/addBlogCat", func(c *gin.Context) {
 		body, ok := requireBody(c)
 		if ok {
-			writeResult(c, h.service.AddBlogCategory(c.Request.Context(), nestedMap(body, "blogCat")))
+			writeResult(c, h.service.AddBlogCategory(c, nestedMap(body, "blogCat")))
 		}
 	})
 	group.Any("/updateBlogCat", func(c *gin.Context) {
 		body, ok := requireBody(c)
 		if ok {
-			writeResult(c, h.service.UpdateBlogCategoryInfo(c.Request.Context(), nestedMap(body, "blogCat")))
+			writeResult(c, h.service.UpdateBlogCategoryInfo(c, nestedMap(body, "blogCat")))
 		}
 	})
 	group.Any("/getUserBlogCat", func(c *gin.Context) {
@@ -98,7 +98,7 @@ func (h *Controller) registerArticleRoutes(group *gin.RouterGroup) {
 	group.Any("/deleteBlogCat", func(c *gin.Context) {
 		body, ok := requireBody(c)
 		if ok {
-			writeResult(c, h.service.DeleteBlogCategory(c.Request.Context(), stringParam(body, "guid")))
+			writeResult(c, h.service.DeleteBlogCategory(c, stringParam(body, "guid")))
 		}
 	})
 	group.Any("/addComment", h.addBlogComment)
@@ -111,7 +111,7 @@ func (h *Controller) registerArticleRoutes(group *gin.RouterGroup) {
 	group.Any("/deleteComment", func(c *gin.Context) {
 		body, ok := requireBody(c)
 		if ok {
-			writeResult(c, h.service.DeleteBlogComment(c.Request.Context(), stringParam(body, "blogGuid")))
+			writeResult(c, h.service.DeleteBlogComment(c, stringParam(body, "blogGuid")))
 		}
 	})
 	group.Any("/giveLikeBlog", func(c *gin.Context) { h.blogReaction(c, "like", false) })
@@ -129,7 +129,7 @@ func (h *Controller) addBlog(c *gin.Context) {
 		return
 	}
 	blog := nestedMap(body, "blogContent")
-	writeResult(c, h.service.AddBlog(c.Request.Context(), blog))
+	writeResult(c, h.service.AddBlog(c, blog))
 }
 
 func (h *Controller) updateBlog(c *gin.Context) {
@@ -137,7 +137,7 @@ func (h *Controller) updateBlog(c *gin.Context) {
 	if !ok {
 		return
 	}
-	writeResult(c, h.service.UpdateBlog(c.Request.Context(), stringParam(body, "guid"), stringParam(body, "title"), stringParam(body, "content"), stringParam(body, "blog_type")))
+	writeResult(c, h.service.UpdateBlog(c, stringParam(body, "guid"), stringParam(body, "title"), stringParam(body, "content"), stringParam(body, "blog_type")))
 }
 
 func (h *Controller) updateBlogCategory(c *gin.Context) {
@@ -145,7 +145,7 @@ func (h *Controller) updateBlogCategory(c *gin.Context) {
 	if !ok {
 		return
 	}
-	writeResult(c, h.service.UpdateBlogCategory(c.Request.Context(), stringParam(body, "blogId"), stringParam(body, "catId")))
+	writeResult(c, h.service.UpdateBlogCategory(c, stringParam(body, "blogId"), stringParam(body, "catId")))
 }
 
 func (h *Controller) getAllBlogs(c *gin.Context) {
@@ -202,13 +202,13 @@ func (h *Controller) registerCommunityRoutes(group *gin.RouterGroup) {
 	group.Any("/deleteCommunity", func(c *gin.Context) {
 		body, ok := requireBody(c)
 		if ok {
-			writeResult(c, h.service.DeleteCommunity(c.Request.Context(), stringParam(body, "communityGuid")))
+			writeResult(c, h.service.DeleteCommunity(c, stringParam(body, "communityGuid")))
 		}
 	})
 	group.Any("/setTopCommunity", func(c *gin.Context) {
 		body, ok := requireBody(c)
 		if ok {
-			writeResult(c, h.service.SetTopCommunity(c.Request.Context(), stringParam(body, "communityGuid"), stringParam(body, "isTop")))
+			writeResult(c, h.service.SetTopCommunity(c, stringParam(body, "communityGuid"), stringParam(body, "isTop")))
 		}
 	})
 	group.Any("/getAllCommunity", h.getAllCommunities)
@@ -238,19 +238,19 @@ func (h *Controller) registerFriendLinkRoutes(group *gin.RouterGroup) {
 	group.Any("/addFriendLink", func(c *gin.Context) {
 		body, ok := requireBody(c)
 		if ok {
-			writeResult(c, h.service.AddFriendLink(c.Request.Context(), nestedMap(body, "friendLink")))
+			writeResult(c, h.service.AddFriendLink(c, nestedMap(body, "friendLink")))
 		}
 	})
 	group.Any("/updateFriendLink", func(c *gin.Context) {
 		body, ok := requireBody(c)
 		if ok {
-			writeResult(c, h.service.UpdateFriendLink(c.Request.Context(), nestedMap(body, "friendLink")))
+			writeResult(c, h.service.UpdateFriendLink(c, nestedMap(body, "friendLink")))
 		}
 	})
 	group.Any("/deleteFriendLink", func(c *gin.Context) {
 		body, ok := requireBody(c)
 		if ok {
-			writeResult(c, h.service.DeleteFriendLink(c.Request.Context(), stringParam(body, "friendLinkId")))
+			writeResult(c, h.service.DeleteFriendLink(c, stringParam(body, "friendLinkId")))
 		}
 	})
 	group.Any("/getFriendLink", func(c *gin.Context) {
@@ -266,13 +266,13 @@ func (h *Controller) registerResourceRoutes(group *gin.RouterGroup) {
 	group.Any("/addFileInfo", func(c *gin.Context) {
 		body, ok := requireBody(c)
 		if ok {
-			writeResult(c, h.service.AddFileInfo(c.Request.Context(), nestedMap(body, "fileInfo")))
+			writeResult(c, h.service.AddFileInfo(c, nestedMap(body, "fileInfo")))
 		}
 	})
 	group.Any("/delFileInfo", func(c *gin.Context) {
 		body, ok := requireBody(c)
 		if ok {
-			writeResult(c, h.service.DeleteFileInfo(c.Request.Context(), stringParam(body, "guid"), stringParam(body, "url")))
+			writeResult(c, h.service.DeleteFileInfo(c, stringParam(body, "guid")))
 		}
 	})
 	group.Any("/getAllFile", h.getAllFiles)
@@ -291,7 +291,7 @@ func (h *Controller) registerResourceRoutes(group *gin.RouterGroup) {
 	group.Any("/updateFileInfo", func(c *gin.Context) {
 		body, ok := requireBody(c)
 		if ok {
-			writeResult(c, h.service.UpdateFileInfo(c.Request.Context(), stringParam(body, "guid"), stringParam(body, "originalFileName"), stringParam(body, "remark")))
+			writeResult(c, h.service.UpdateFileInfo(c, stringParam(body, "guid"), stringParam(body, "originalFileName"), stringParam(body, "remark")))
 		}
 	})
 	group.Any("/setFileDownNum", func(c *gin.Context) {
@@ -315,6 +315,10 @@ func (h *Controller) consistencyFileCheck(c *gin.Context) {
 	fileType := stringParam(body, "type")
 	if fileType == "" {
 		fileType = c.Query("type")
+	}
+	if failure := h.service.AuthorizeSuperAdmin(c); failure != nil {
+		writeResult(c, *failure)
+		return
 	}
 	writeResult(c, h.service.CheckFileConsistency(c.Request.Context(), fileType))
 }

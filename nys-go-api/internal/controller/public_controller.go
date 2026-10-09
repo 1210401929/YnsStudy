@@ -35,22 +35,10 @@ func (h *Controller) registerPublicRoutes(router *gin.Engine) {
 	notice.Any("/readNotice", h.readNotice)
 	notice.Any("/allReadNotice", h.readAllNotices)
 
-	sql := router.Group("/pub-api/sql")
-	sql.Any("/selectList", h.selectList)
-	sql.Any("/selectListByParams", h.selectList)
-	sql.Any("/deleteBySql", h.executeSQL)
-	sql.Any("/updateBySql", h.executeSQL)
-	sql.Any("/exeSql", h.executeSQL)
-	sql.Any("/exeSqlByParams", h.executeSQL)
-	sql.Any("/exeSqlListByParams", h.executeSQLList)
-	sql.Any("/exeSqlComposite", h.executeSQLComposite)
-	sql.Any("/saveAllTableData", h.saveAll)
-	sql.Any("/saveAllTableDataByParams", h.saveAll)
-
+	// 旧系统的 /pub-api/sql/**（任意 SQL）和 /pub-api/upload/deleteFileByUrl(s)（按地址删除任意文件）
+	// 已移除：前端没有调用，且任何登录用户都能借此读写整个数据库或删除他人文件。
 	upload := router.Group("/pub-api/upload")
 	upload.POST("/uploadFile", h.uploadFile)
-	upload.POST("/deleteFileByUrl", h.deleteFile)
-	upload.POST("/deleteFileByUrls", h.deleteFiles)
 }
 
 func (h *Controller) sendPhoneCode(c *gin.Context) {
@@ -141,7 +129,7 @@ func (h *Controller) getAllUsers(c *gin.Context) {
 	if !ok {
 		return
 	}
-	writeResult(c, h.service.GetAllUsers(c.Request.Context(), intParam(body, "page", 1), intParam(body, "pageSize", 10), stringParam(body, "keyword")))
+	writeResult(c, h.service.GetAllUsers(c, intParam(body, "page", 1), intParam(body, "pageSize", 10), stringParam(body, "keyword")))
 }
 
 func (h *Controller) operationUser(c *gin.Context) {
@@ -149,7 +137,7 @@ func (h *Controller) operationUser(c *gin.Context) {
 	if !ok {
 		return
 	}
-	writeResult(c, h.service.OperationUser(c.Request.Context(), stringParam(body, "userId"), stringParam(body, "type")))
+	writeResult(c, h.service.OperationUser(c, stringParam(body, "userId"), stringParam(body, "type")))
 }
 
 func (h *Controller) addNotice(c *gin.Context) {
@@ -157,15 +145,12 @@ func (h *Controller) addNotice(c *gin.Context) {
 	if !ok {
 		return
 	}
-	writeResult(c, h.service.AddNotice(c.Request.Context(), stringParam(body, "sendUserCode"), stringParam(body, "receiverUserCode"), stringParam(body, "type"), stringParam(body, "execute"), stringParam(body, "remark")))
+	writeResult(c, h.service.AddNotice(c, stringParam(body, "receiverUserCode"), stringParam(body, "type"), stringParam(body, "execute"), stringParam(body, "remark")))
 }
 
+// getNotice 只处理当前登录用户自己的通知，请求中的账号参数不再使用。
 func (h *Controller) getNotice(c *gin.Context) {
-	body, ok := requireBody(c)
-	if !ok {
-		return
-	}
-	writeResult(c, h.service.GetNotices(c.Request.Context(), stringParam(body, "userCode")))
+	writeResult(c, h.service.GetNotices(c))
 }
 
 func (h *Controller) readNotice(c *gin.Context) {
@@ -173,55 +158,12 @@ func (h *Controller) readNotice(c *gin.Context) {
 	if !ok {
 		return
 	}
-	writeResult(c, h.service.ReadNotice(c.Request.Context(), stringParam(body, "guid")))
+	writeResult(c, h.service.ReadNotice(c, stringParam(body, "guid")))
 }
 
+// readAllNotices 只处理当前登录用户自己的通知，请求中的账号参数不再使用。
 func (h *Controller) readAllNotices(c *gin.Context) {
-	body, ok := requireBody(c)
-	if !ok {
-		return
-	}
-	writeResult(c, h.service.ReadAllNotices(c.Request.Context(), stringParam(body, "userCode")))
-}
-
-func (h *Controller) selectList(c *gin.Context) {
-	body, ok := requireBody(c)
-	if !ok {
-		return
-	}
-	writeResult(c, h.service.SelectList(c.Request.Context(), stringParam(body, "sql"), anySlice(body["params"])))
-}
-
-func (h *Controller) executeSQL(c *gin.Context) {
-	body, ok := requireBody(c)
-	if !ok {
-		return
-	}
-	writeResult(c, h.service.ExecuteSQL(c.Request.Context(), stringParam(body, "sql"), anySlice(body["params"])))
-}
-
-func (h *Controller) executeSQLList(c *gin.Context) {
-	body, ok := requireBody(c)
-	if !ok {
-		return
-	}
-	writeResult(c, h.service.ExecuteSQLBatch(c.Request.Context(), stringSlice(body["sqls"]), nestedAnySlices(body["params"]), false))
-}
-
-func (h *Controller) executeSQLComposite(c *gin.Context) {
-	body, ok := requireBody(c)
-	if !ok {
-		return
-	}
-	writeResult(c, h.service.ExecuteSQLBatch(c.Request.Context(), stringSlice(body["sqls"]), nestedAnySlices(body["params"]), true))
-}
-
-func (h *Controller) saveAll(c *gin.Context) {
-	body, ok := requireBody(c)
-	if !ok {
-		return
-	}
-	writeResult(c, h.service.SaveAll(c.Request.Context(), stringParam(body, "saveType"), stringParam(body, "tableName"), mapSlice(body["data"]), stringParam(body, "key")))
+	writeResult(c, h.service.ReadAllNotices(c))
 }
 
 func (h *Controller) uploadFile(c *gin.Context) {
@@ -231,20 +173,4 @@ func (h *Controller) uploadFile(c *gin.Context) {
 		return
 	}
 	writeResult(c, h.service.SaveUploadedFile(file, c.PostForm("spliceUrl")))
-}
-
-func (h *Controller) deleteFile(c *gin.Context) {
-	body, ok := requireBody(c)
-	if !ok {
-		return
-	}
-	writeResult(c, h.service.DeleteUploadedFile(stringParam(body, "url")))
-}
-
-func (h *Controller) deleteFiles(c *gin.Context) {
-	body, ok := requireBody(c)
-	if !ok {
-		return
-	}
-	writeResult(c, h.service.DeleteUploadedFiles(stringSlice(body["urls"])))
 }

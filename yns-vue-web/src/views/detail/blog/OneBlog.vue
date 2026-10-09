@@ -29,6 +29,7 @@
             :user="authorInfo"
             :target-user-code="targetUserCode"
             @open-chat=""
+            @blog-click="openLikedOrCollectedBlog"
         />
 
         <article class="content-side">
@@ -47,8 +48,10 @@
 
 <script setup>
 import {computed, nextTick, ref} from "vue";
-import { useRoute } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
+import { pubOpenOneBlog } from "@/utils/blogUtil.js";
 import { useHead } from '@vueuse/head';
+import { usePageNoindex } from '@/utils/seo.js';
 import {
   sendAxiosRequest,
   extractPlainTextFromHTML,
@@ -65,12 +68,20 @@ const userStore = useUserStore();
 userStore.initFromLocal();
 
 const route = useRoute();
+const router = useRouter();
+
+// 左侧作者信息里“点赞数/收藏数”弹窗中的文章：与站内其他列表一致，在新标签页打开
+const openLikedOrCollectedBlog = (blog) => {
+  if (blog?.GUID) pubOpenOneBlog(router, blog.GUID);
+};
 const blogId = route.params.g;
 
 const targetUserCode = ref('');
 const authorInfo = ref({});
 const articleTitle = ref("");
 const articleNotFound = ref(false);
+// 文章不存在时通知全站默认 SEO 不再输出 canonical
+usePageNoindex(articleNotFound);
 
 // ==== 背景与音乐 ====
 const bgMusicComponentRef = ref(null);
@@ -149,7 +160,23 @@ useHead(() => {
       {name: 'twitter:description', content: seoDescription.value},
       {name: 'twitter:image', content: seoImage.value}
     ],
-    script: [{type: 'application/ld+json', children: JSON.stringify(structuredData)}]
+    script: [
+      {key: 'ld-article', type: 'application/ld+json', children: JSON.stringify(structuredData)},
+      // 与 Go 输出的首屏保持一致：首页 → 文章归档 → 当前文章；文章不存在时不输出
+      ...(articleNotFound.value ? [] : [{
+        key: 'ld-breadcrumb',
+        type: 'application/ld+json',
+        children: JSON.stringify({
+          '@context': 'https://schema.org',
+          '@type': 'BreadcrumbList',
+          itemListElement: [
+            {'@type': 'ListItem', position: 1, name: 'YnsStudy', item: `${window.location.origin}/`},
+            {'@type': 'ListItem', position: 2, name: '文章归档', item: `${window.location.origin}/archive`},
+            {'@type': 'ListItem', position: 3, name: articleTitle.value || '博客详情'}
+          ]
+        })
+      }])
+    ]
   };
 });
 

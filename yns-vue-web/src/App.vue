@@ -45,12 +45,12 @@ import { computed, ref, onMounted, onUnmounted } from 'vue';
 import { useRoute } from 'vue-router';
 import { Top } from "@element-plus/icons-vue";// 引入 Top 图标
 import {getSendAxiosUrl} from "@/utils/common.js";
-import {useSeo} from "@/utils/seo.js";
+import {useSeo, pageNoindex} from "@/utils/seo.js";
 
 const route = useRoute();
 
 // 全站默认 SEO：页面没有单独设置时使用；路由 meta.noindex 标记不参与收录的页面
-useSeo(() => ({path: route.path, noindex: !!route.meta.noindex}));
+useSeo(() => ({path: route.path, noindex: !!route.meta.noindex || pageNoindex.value}), {root: true});
 // 噜噜页面保持原有样式，其余页面使用手账风格的页脚
 const isLuluPage = computed(() => route.name === 'lulu');
 

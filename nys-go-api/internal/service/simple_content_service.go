@@ -13,24 +13,31 @@ func (s *Service) AddAnnouncement(c *gin.Context, announcement map[string]any) m
 	if fmt.Sprint(announcement["TEXT"]) == "" {
 		return model.Failure("未传递有效内容:text")
 	}
-	user, err := s.CurrentUser(c)
-	if err != nil {
-		return model.Failure("用户未登录!")
+	actor, failure := s.requireSuperAdmin(c)
+	if failure != nil {
+		return *failure
 	}
-	announcement["userCode"] = user.Code
-	announcement["userName"] = user.Name
+	announcement["userCode"] = actor.Code()
+	announcement["userName"] = actor.User.Name
 	return s.SaveAll(contextOf(c), "add", "announcementInfo", []map[string]any{announcement}, "GUID")
 }
 
-func (s *Service) EditAnnouncement(ctx context.Context, announcement map[string]any) model.Result {
+func (s *Service) EditAnnouncement(c *gin.Context, announcement map[string]any) model.Result {
+	if _, failure := s.requireSuperAdmin(c); failure != nil {
+		return *failure
+	}
+	ctx := contextOf(c)
 	if fmt.Sprint(announcement["TEXT"]) == "" {
 		return model.Failure("未传递有效内容:text")
 	}
 	return s.SaveAll(ctx, "edit", "announcementInfo", []map[string]any{announcement}, "GUID")
 }
 
-func (s *Service) DeleteAnnouncement(ctx context.Context, guid string) model.Result {
-	return s.ExecuteSQL(ctx, "DELETE FROM announcementInfo WHERE GUID = ?", []any{guid})
+func (s *Service) DeleteAnnouncement(c *gin.Context, guid string) model.Result {
+	if _, failure := s.requireSuperAdmin(c); failure != nil {
+		return *failure
+	}
+	return s.ExecuteSQL(contextOf(c), "DELETE FROM announcementInfo WHERE GUID = ?", []any{guid})
 }
 
 func (s *Service) GetAllAnnouncements(ctx context.Context) model.Result {
@@ -41,16 +48,52 @@ func (s *Service) GetAnnouncementsByType(ctx context.Context, announcementType s
 	return s.SelectList(ctx, "SELECT * FROM announcementInfo WHERE ISENABLE = '1' AND TYPE = ? ORDER BY TYPE, CREATE_TIME DESC", []any{announcementType})
 }
 
-func (s *Service) AddFriendLink(ctx context.Context, value map[string]any) model.Result {
-	return s.SaveAll(ctx, "add", "friendLinkInfo", []map[string]any{value}, "GUID")
+// friendLinkFields 是友链允许由客户端填写的字段。
+var friendLinkFields = []string{"NAME", "LINK", "AVATAR", "REMARK", "LINK_TYPE"}
+
+func (s *Service) AddFriendLink(c *gin.Context, value map[string]any) model.Result {
+	actor, failure := s.requireLogin(c)
+	if failure != nil {
+		return *failure
+	}
+	data := pickFields(value, append([]string{"GUID"}, friendLinkFields...)...)
+	data["USERCODE"] = actor.Code()
+	data["USERNAME"] = actor.User.Name
+	return s.SaveAll(contextOf(c), "add", "friendLinkInfo", []map[string]any{data}, "GUID")
 }
 
-func (s *Service) UpdateFriendLink(ctx context.Context, value map[string]any) model.Result {
-	return s.SaveAll(ctx, "edit", "friendLinkInfo", []map[string]any{value}, "GUID")
+// requireFriendLinkManager：友链发布者本人或任意管理员可以修改、删除（与前端 isAdmin || 本人 的显示规则一致）。
+func (s *Service) requireFriendLinkManager(c *gin.Context, guid string) *model.Result {
+	actor, failure := s.requireLogin(c)
+	if failure != nil {
+		return failure
+	}
+	row, failure := s.loadRow(c, "friendLinkInfo", guid)
+	if failure != nil {
+		return failure
+	}
+	if !actor.IsAdmin && model.StringValue(row, "USERCODE") != actor.Code() {
+		result := model.Failure(msgForbidden)
+		return &result
+	}
+	return nil
 }
 
-func (s *Service) DeleteFriendLink(ctx context.Context, guid string) model.Result {
-	return s.ExecuteSQL(ctx, "DELETE FROM friendLinkInfo WHERE GUID = ?", []any{guid})
+func (s *Service) UpdateFriendLink(c *gin.Context, value map[string]any) model.Result {
+	guid := model.StringValue(value, "GUID")
+	if failure := s.requireFriendLinkManager(c, guid); failure != nil {
+		return *failure
+	}
+	data := pickFields(value, friendLinkFields...)
+	data["GUID"] = guid
+	return s.SaveAll(contextOf(c), "edit", "friendLinkInfo", []map[string]any{data}, "GUID")
+}
+
+func (s *Service) DeleteFriendLink(c *gin.Context, guid string) model.Result {
+	if failure := s.requireFriendLinkManager(c, guid); failure != nil {
+		return *failure
+	}
+	return s.ExecuteSQL(contextOf(c), "DELETE FROM friendLinkInfo WHERE GUID = ?", []any{guid})
 }
 
 func (s *Service) GetFriendLink(ctx context.Context, guid string) model.Result {

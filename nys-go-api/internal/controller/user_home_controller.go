@@ -54,7 +54,7 @@ func (h *Controller) registerUserInformationRoutes(group *gin.RouterGroup) {
 	group.Any("/setPersonInfo", func(c *gin.Context) {
 		body, ok := requireBody(c)
 		if ok {
-			writeResult(c, h.service.SetPersonInfo(c.Request.Context(), stringParam(body, "userCode"), stringParam(body, "fieldName"), stringParam(body, "fieldValue")))
+			writeResult(c, h.service.SetPersonInfo(c, stringParam(body, "userCode"), stringParam(body, "fieldName"), stringParam(body, "fieldValue")))
 		}
 	})
 	group.Any("/getPersonInfo", func(c *gin.Context) {

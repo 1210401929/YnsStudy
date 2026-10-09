@@ -72,4 +72,5 @@ internal/session/       Redis 会话
 - 普通业务响应继续使用 `{isError, errMsg, result}`。
 - 原网关的白名单、JWT、内部调用密钥和 AES 请求/响应加密已迁移为 Gin 中间件。
 - Redis 继续负责会话、短信验证码和评论限流；将 `redis.enabled` 设为 `false` 时会使用进程内缓存，适合本地临时调试。
-- `/pub-api/sql/**` 为旧系统兼容接口，能直接执行 SQL，默认仍受鉴权保护。新增业务应优先在 service/repository 中使用参数化 SQL。
+- 旧系统的 `/pub-api/sql/**`（直接执行 SQL）和 `/pub-api/upload/deleteFileByUrl(s)`（按地址删除文件）已移除：前端没有使用，而任何登录用户都能借此读写整个数据库或删除他人文件。新增业务在 service/repository 中使用参数化 SQL。
+- 写操作的权限在后端校验（`internal/service/permission.go`），规则与前端一致：作者本人可以管理自己的内容；管理员（`userInfo.ROLE = 'admin'`）可以管理除超级管理员以外的内容；超级管理员（`security.super_admin_code`，默认 `yulei`，需与前端 `vue-config.js` 的 `adminUserCode` 一致）可以管理全部内容，并独占后台管理（用户管理、公告、文件一致性检查、社区置顶）。作者、发送者等身份字段一律取自当前登录用户，不信任请求体。
