@@ -6,7 +6,7 @@
     </div>
 
     <!-- 备案信息区域 -->
-    <footer class="beian-info">
+    <footer class="beian-info" :class="{ 'journal-footer': !isLuluPage }">
       <div class="beian-container">
         <div class="beian-text">
           <div class="footer-contact">
@@ -32,7 +32,7 @@
     </footer>
 
     <!-- 回到顶部按钮 -->
-    <div class="scroll-to-top" :class="{ hidden: !showScrollButton }" @click="scrollToTop" >
+    <div class="scroll-to-top" :class="{ hidden: !showScrollButton, 'journal-top': !isLuluPage }" title="回到顶部" @click="scrollToTop" >
       <el-icon><Top/></el-icon>
     </div>
   </div>
@@ -40,9 +40,14 @@
 
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue';
+import { computed, ref, onMounted, onUnmounted } from 'vue';
+import { useRoute } from 'vue-router';
 import { Top } from "@element-plus/icons-vue";// 引入 Top 图标
 import {getSendAxiosUrl} from "@/utils/common.js";
+
+const route = useRoute();
+// 噜噜页面保持原有样式，其余页面使用手账风格的页脚
+const isLuluPage = computed(() => route.name === 'lulu');
 
 const showScrollButton = ref(false);
 const hover = ref(false); // 用于控制鼠标移入移出时的透明度变化
@@ -218,8 +223,62 @@ html, body {
     font-size: 18px;
   }
 }
+
+/* ============ 手账风格页脚 ============ */
+.beian-info.journal-footer {
+  background: transparent;
+  border-top: 1px dashed var(--j-rule-strong);
+  color: var(--j-muted);
+  padding: 28px 0 22px;
+}
+
+.journal-footer .beian-container {
+  gap: 8px;
+}
+
+.journal-footer .beian-container::before {
+  content: "— 谢谢你翻到这里 —";
+  font-family: var(--j-hand);
+  font-size: 15px;
+  color: var(--j-ink-soft);
+}
+
+.journal-footer .footer-contact p {
+  color: var(--j-muted);
+}
+
+.journal-footer .footer-contact a {
+  color: var(--j-pen);
+}
+
+.journal-footer .footer-records a {
+  color: var(--j-muted);
+}
+
+.journal-footer .footer-records a:hover {
+  color: var(--j-ink);
+}
+
+.journal-footer .beian-copy {
+  color: #b5aea2;
+}
+
+.scroll-to-top.journal-top {
+  border-radius: 2px;
+  background: var(--j-note);
+  color: var(--j-ink);
+  box-shadow: 0 1px 2px rgba(60, 50, 30, 0.12), 0 8px 14px -10px rgba(60, 50, 30, 0.45);
+  transform: rotate(-4deg);
+}
+
+.scroll-to-top.journal-top:hover {
+  background: #f8e88f;
+  color: var(--j-ink);
+  box-shadow: 0 1px 2px rgba(60, 50, 30, 0.12), 0 10px 18px -10px rgba(60, 50, 30, 0.5);
+  transform: rotate(0deg) translateY(-2px);
+}
+
+.scroll-to-top.journal-top.hidden {
+  transform: rotate(-4deg) translateY(20px);
+}
 </style>
-
-
-
-

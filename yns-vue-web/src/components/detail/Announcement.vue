@@ -27,25 +27,41 @@ const props = defineProps({
 </script>
 
 <style scoped>
+/* 公告：一张贴在页面顶部的黄色便签 */
 .custom-alert {
   display: flex;
   justify-content: center;
   align-items: center;
   text-align: center;
+  max-width: 1120px;
+  margin: 12px auto 0;
+  border: none;
+  border-radius: 2px;
+  background: var(--j-note);
+  color: var(--j-ink);
+  box-shadow: 0 1px 2px rgba(60, 50, 30, 0.1), 0 8px 14px -12px rgba(60, 50, 30, 0.45);
+}
 
-  margin-top: 6px;
-  border: 1px solid #dcdfe6; /* 浅灰色边框 */
-  border-radius: 6px;        /* 稍微圆角，让边框柔和 */
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05); /* 可选：轻微阴影 */
+.custom-alert :deep(.el-alert__close-btn) {
+  color: var(--j-ink-soft);
 }
 
 .alert-content {
   text-align: center;
+  font-family: var(--j-hand);
+  font-size: 15px;
+  color: var(--j-ink);
+}
+
+.alert-content::before {
+  content: "便签 · ";
+  color: var(--j-stamp);
 }
 
 .alert-link {
-  color: #409EFF;
+  color: var(--j-pen);
   text-decoration: underline;
+  text-underline-offset: 3px;
   margin-left: 4px;
 }
 </style>

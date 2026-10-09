@@ -1,0 +1,335 @@
+/*
+ * 手账风格的公共样式
+ * 颜色、纸张、胶带、便签、手写字体等，供各页面复用；同时覆盖 Element Plus 的主题变量，
+ * 让按钮、输入框、弹窗等组件与页面保持同一种气质。
+ */
+
+:root {
+    --j-ink: #2b2a27;
+    --j-ink-soft: #57534c;
+    --j-muted: #918b80;
+    --j-paper: #fffdf8;
+    --j-paper-warm: #fbf6ea;
+    --j-desk: #efe8da;
+    --j-rule: #e6dfd1;
+    --j-rule-strong: #d6ccb8;
+    --j-margin-red: #e8a59b;
+    --j-pen: #2f5d8a;
+    --j-stamp: #c2483e;
+    --j-note: #fbf0b4;
+    --j-kraft: #e7d6b5;
+    --j-highlight: rgba(250, 216, 96, 0.7);
+    --j-tape-yellow: rgba(246, 214, 120, 0.78);
+    --j-tape-green: rgba(160, 205, 180, 0.78);
+    --j-tape-pink: rgba(240, 175, 175, 0.75);
+    --j-tape-blue: rgba(165, 195, 225, 0.78);
+    --j-shadow: 0 1px 2px rgba(60, 50, 30, 0.06), 0 10px 24px -16px rgba(60, 50, 30, 0.35);
+    --j-hand: "Kaiti SC", "STKaiti", "KaiTi", "楷体", "AR PL UKai CN", serif;
+    --j-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    --j-num: Georgia, "Times New Roman", serif;
+
+    /* Element Plus 主题 */
+    --el-color-primary: #2f5d8a;
+    --el-color-primary-light-3: #6d8ead;
+    --el-color-primary-light-5: #97aec5;
+    --el-color-primary-light-7: #c1cedc;
+    --el-color-primary-light-8: #d5dfe8;
+    --el-color-primary-light-9: #eaeff3;
+    --el-color-primary-dark-2: #264a6e;
+    --el-color-success: #4f8a5b;
+    --el-color-success-light-3: #84ad8c;
+    --el-color-success-light-5: #a7c4ac;
+    --el-color-success-light-7: #cadccd;
+    --el-color-success-light-8: #dce8de;
+    --el-color-success-light-9: #edf3ee;
+    --el-color-success-dark-2: #3f6e49;
+    --el-color-danger: #c2483e;
+    --el-color-danger-light-3: #d47f78;
+    --el-color-danger-light-5: #e0a39f;
+    --el-color-danger-light-7: #edc8c5;
+    --el-color-danger-light-8: #f3dad8;
+    --el-color-danger-light-9: #f9edec;
+    --el-color-danger-dark-2: #9b3a32;
+    --el-color-warning: #b98a2e;
+    --el-color-warning-light-3: #ceac6d;
+    --el-color-warning-light-5: #dcc596;
+    --el-color-warning-light-7: #eadcc0;
+    --el-color-warning-light-8: #f1e8d5;
+    --el-color-warning-light-9: #f8f3ea;
+    --el-color-warning-dark-2: #946e25;
+    --el-text-color-primary: #2b2a27;
+    --el-text-color-regular: #57534c;
+    --el-text-color-secondary: #918b80;
+    --el-text-color-placeholder: #b9b2a6;
+    --el-border-color: #e1d9c9;
+    --el-border-color-light: #e6dfd1;
+    --el-border-color-lighter: #ece6da;
+    --el-border-color-extra-light: #f2ede3;
+    --el-fill-color: #f3eee3;
+    --el-fill-color-light: #f7f3ea;
+    --el-fill-color-lighter: #faf7f0;
+    --el-fill-color-blank: #fffdf8;
+    --el-bg-color: #fffdf8;
+    --el-bg-color-overlay: #fffdf8;
+    --el-mask-color: rgba(60, 50, 30, 0.35);
+    --el-border-radius-base: 4px;
+    --el-border-radius-small: 3px;
+    --el-font-family: var(--j-sans);
+    --el-box-shadow-light: 0 2px 12px rgba(60, 50, 30, 0.12);
+}
+
+body {
+    font-family: var(--j-sans);
+    color: var(--j-ink);
+    background-color: var(--j-desk);
+}
+
+/* ============ 通用：桌面与纸张 ============ */
+
+/* 点阵纸桌面 */
+.j-desk {
+    background-color: var(--j-desk);
+    background-image: radial-gradient(rgba(120, 104, 80, 0.18) 1px, transparent 1px);
+    background-size: 22px 22px;
+}
+
+/* 一张纸 */
+.j-paper {
+    position: relative;
+    background: var(--j-paper);
+    border: 1px solid var(--j-rule);
+    box-shadow: var(--j-shadow);
+}
+
+/* 黄色便签 */
+.j-note {
+    position: relative;
+    background: var(--j-note);
+    box-shadow: 0 1px 2px rgba(60, 50, 30, 0.1), 0 10px 18px -12px rgba(60, 50, 30, 0.4);
+}
+
+/* 牛皮纸 */
+.j-kraft {
+    position: relative;
+    background: var(--j-kraft);
+    border: 1px solid #d8c49d;
+}
+
+/* 手写字 */
+.j-hand {
+    font-family: var(--j-hand);
+    font-weight: normal;
+}
+
+/* 区块标题：楷体 + 下方短虚线 */
+.j-title {
+    margin: 0 0 12px;
+    font-family: var(--j-hand);
+    font-weight: normal;
+    font-size: 20px;
+    color: var(--j-ink);
+}
+
+/* 半透明和纸胶带，需放在 position: relative 的容器内并自行定位 */
+.j-tape {
+    position: absolute;
+    width: 84px;
+    height: 22px;
+    background: var(--j-tape-yellow);
+    box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
+    -webkit-mask: linear-gradient(90deg, transparent 0 2px, #000 2px calc(100% - 2px), transparent calc(100% - 2px)),
+    repeating-linear-gradient(0deg, #000 0 3px, transparent 3px 5px);
+    mask: linear-gradient(90deg, transparent 0 2px, #000 2px calc(100% - 2px), transparent calc(100% - 2px)),
+    repeating-linear-gradient(0deg, #000 0 3px, transparent 3px 5px);
+    pointer-events: none;
+    z-index: 2;
+}
+
+.j-tape--green { background: var(--j-tape-green); }
+.j-tape--pink { background: var(--j-tape-pink); }
+.j-tape--blue { background: var(--j-tape-blue); }
+.j-tape--white { background: rgba(255, 255, 255, 0.6); }
+
+/* 顶部居中的一条胶带 */
+.j-tape--top {
+    top: -11px;
+    left: 50%;
+    margin-left: -42px;
+    transform: rotate(-3deg);
+}
+
+/* 荧光笔划过 */
+.j-marker {
+    background-image: linear-gradient(transparent 58%, var(--j-highlight) 58%, var(--j-highlight) 92%, transparent 92%);
+    -webkit-box-decoration-break: clone;
+    box-decoration-break: clone;
+}
+
+/* 折角纸片按钮 */
+.j-button {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 8px 24px 8px 20px;
+    border: 1px solid var(--j-rule-strong);
+    background: var(--j-paper-warm);
+    font-family: var(--j-hand);
+    font-size: 15px;
+    color: var(--j-ink);
+    text-decoration: none;
+    cursor: pointer;
+    clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%);
+    transition: background-color 0.15s;
+}
+
+.j-button::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 10px;
+    height: 10px;
+    background: linear-gradient(225deg, transparent 50%, #e2d7c1 50%);
+}
+
+.j-button:hover {
+    background: #f4ead3;
+}
+
+.j-button:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+/* 页面通用容器 */
+.j-page {
+    min-height: 100%;
+    padding: 32px 24px 72px;
+    box-sizing: border-box;
+}
+
+.j-container {
+    max-width: 1120px;
+    margin: 0 auto;
+}
+
+/* 页面头部：贴胶带的标签 */
+.j-label {
+    position: relative;
+    display: inline-block;
+    padding: 18px 28px 16px;
+    background: var(--j-paper);
+    border: 1px solid var(--j-rule);
+    box-shadow: var(--j-shadow);
+    transform: rotate(-0.6deg);
+}
+
+.j-label h1,
+.j-label h2 {
+    margin: 0;
+    font-family: var(--j-hand);
+    font-weight: normal;
+    font-size: 28px;
+    color: var(--j-ink);
+}
+
+.j-label p {
+    margin: 6px 0 0;
+    font-size: 14px;
+    color: var(--j-ink-soft);
+}
+
+/* 小标签（如分类、文件类型） */
+.j-chip {
+    display: inline-block;
+    padding: 1px 8px;
+    border: 1px solid var(--j-rule-strong);
+    border-radius: 3px;
+    font-size: 12px;
+    color: var(--j-ink-soft);
+    background: var(--j-paper);
+}
+
+/* 空白提示 */
+.j-empty {
+    padding: 48px 0;
+    text-align: center;
+    font-family: var(--j-hand);
+    font-size: 17px;
+    color: var(--j-muted);
+}
+
+@media (max-width: 640px) {
+    .j-page {
+        padding: 20px 16px 56px;
+    }
+
+    .j-label {
+        transform: none;
+    }
+
+    .j-label h1,
+    .j-label h2 {
+        font-size: 24px;
+    }
+}
+
+/* ============ Element Plus 组件微调 ============ */
+
+.el-button {
+    font-weight: normal;
+}
+
+.el-dialog {
+    --el-dialog-bg-color: var(--j-paper);
+    --el-dialog-border-radius: 4px;
+    border: 1px solid var(--j-rule);
+    box-shadow: 0 20px 50px -20px rgba(60, 50, 30, 0.45);
+}
+
+.el-dialog__title {
+    font-family: var(--j-hand);
+    font-size: 20px;
+    color: var(--j-ink);
+}
+
+.el-drawer {
+    --el-drawer-bg-color: var(--j-paper);
+}
+
+.el-card {
+    --el-card-bg-color: var(--j-paper);
+    --el-card-border-color: var(--j-rule);
+    --el-card-border-radius: 3px;
+}
+
+.el-card.is-always-shadow,
+.el-card.is-hover-shadow:hover {
+    box-shadow: var(--j-shadow);
+}
+
+.el-message-box {
+    --el-messagebox-border-radius: 4px;
+    border: 1px solid var(--j-rule);
+}
+
+.el-message-box__title {
+    font-family: var(--j-hand);
+    font-size: 18px;
+}
+
+.el-tag {
+    --el-tag-border-radius: 3px;
+}
+
+.el-alert {
+    --el-alert-border-radius-base: 3px;
+}
+
+.el-input__wrapper,
+.el-textarea__inner,
+.el-select__wrapper {
+    background-color: #fffefb;
+}
