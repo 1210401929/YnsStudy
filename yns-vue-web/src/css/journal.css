@@ -6,8 +6,8 @@
 
 :root {
     --j-ink: #2b2a27;
-    --j-ink-soft: #57534c;
-    --j-muted: #918b80;
+    --j-ink-soft: #4d4943;
+    --j-muted: #7d776c;
     --j-paper: #fffdf8;
     --j-paper-warm: #fbf6ea;
     --j-desk: #efe8da;
@@ -24,7 +24,7 @@
     --j-tape-pink: rgba(240, 175, 175, 0.75);
     --j-tape-blue: rgba(165, 195, 225, 0.78);
     --j-shadow: 0 1px 2px rgba(60, 50, 30, 0.06), 0 10px 24px -16px rgba(60, 50, 30, 0.35);
-    --j-hand: "Kaiti SC", "STKaiti", "KaiTi", "楷体", "AR PL UKai CN", serif;
+    --j-hand: "LXGW WenKai Screen", "Kaiti SC", "STKaiti", "KaiTi", "楷体", serif;
     --j-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
     --j-num: Georgia, "Times New Roman", serif;
 
@@ -58,9 +58,9 @@
     --el-color-warning-light-9: #f8f3ea;
     --el-color-warning-dark-2: #946e25;
     --el-text-color-primary: #2b2a27;
-    --el-text-color-regular: #57534c;
-    --el-text-color-secondary: #918b80;
-    --el-text-color-placeholder: #b9b2a6;
+    --el-text-color-regular: #4d4943;
+    --el-text-color-secondary: #7d776c;
+    --el-text-color-placeholder: #a39c90;
     --el-border-color: #e1d9c9;
     --el-border-color-light: #e6dfd1;
     --el-border-color-lighter: #ece6da;
@@ -89,7 +89,7 @@
     --w-e-textarea-selected-border-color: #e8c95b;
     --w-e-textarea-handler-bg-color: #2f5d8a;
     --w-e-toolbar-bg-color: #fbf6ea;
-    --w-e-toolbar-color: #57534c;
+    --w-e-toolbar-color: #4d4943;
     --w-e-toolbar-active-bg-color: #f3ead3;
     --w-e-toolbar-active-color: #2b2a27;
     --w-e-toolbar-border-color: #e6dfd1;

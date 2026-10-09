@@ -400,8 +400,8 @@ function goMe() {
 <style scoped>
 .desk {
   --ink: #2b2a27;
-  --ink-soft: #57534c;
-  --muted: #918b80;
+  --ink-soft: #4d4943;
+  --muted: #7d776c;
   --paper: #fffdf8;
   --desk: #efe8da;
   --rule: #e6dfd1;
@@ -410,7 +410,7 @@ function goMe() {
   --tape-yellow: rgba(246, 214, 120, 0.78);
   --tape-green: rgba(160, 205, 180, 0.78);
   --tape-pink: rgba(240, 175, 175, 0.75);
-  --hand: "Kaiti SC", "STKaiti", "KaiTi", "楷体", "AR PL UKai CN", serif;
+  --hand: "LXGW WenKai Screen", "Kaiti SC", "STKaiti", "KaiTi", "楷体", serif;
 
   min-height: 100%;
   padding: 0 0 72px;
@@ -661,7 +661,7 @@ function goMe() {
 }
 
 .search input::placeholder {
-  color: #b9b2a6;
+  color: #a39c90;
 }
 
 .search input::-webkit-search-cancel-button {

@@ -430,7 +430,7 @@ watch(() => props.content, (v) => (localContent.value = v))
 .title-input::placeholder {
   font-weight: normal;
   font-family: var(--j-hand);
-  color: #b9b2a6;
+  color: #a39c90;
 }
 
 .is-editing .editor-wrapper {
