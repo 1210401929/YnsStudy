@@ -471,55 +471,62 @@ watch(() => props.content, (v) => (localContent.value = v))
 }
 
 /* 阅读模式下的正文排版 */
+/* 阅读时正文与标题左对齐 */
+.is-reading :deep(.w-e-text-container) {
+  padding: 0;
+}
+
 .is-reading :deep(.w-e-text) {
   font-size: 16px;
   line-height: 1.9;
   color: var(--j-ink);
 }
 
-.is-reading :deep(.w-e-text h1),
-.is-reading :deep(.w-e-text h2),
-.is-reading :deep(.w-e-text h3),
-.is-reading :deep(.w-e-text h4) {
+.is-reading :deep(.w-e-text-container [data-slate-editor] h1),
+.is-reading :deep(.w-e-text-container [data-slate-editor] h2),
+.is-reading :deep(.w-e-text-container [data-slate-editor] h3),
+.is-reading :deep(.w-e-text-container [data-slate-editor] h4) {
   margin: 1.6em 0 0.6em;
   line-height: 1.4;
   color: var(--j-ink);
 }
 
-.is-reading :deep(.w-e-text h2) {
+.is-reading :deep(.w-e-text-container [data-slate-editor] h2) {
   font-size: 22px;
   padding-bottom: 6px;
   border-bottom: 1px dashed var(--j-rule-strong);
 }
 
-.is-reading :deep(.w-e-text h3) {
+.is-reading :deep(.w-e-text-container [data-slate-editor] h3) {
   font-size: 19px;
 }
 
-.is-reading :deep(.w-e-text a) {
+.is-reading :deep(.w-e-text-container [data-slate-editor] a) {
   color: var(--j-pen);
   text-decoration: underline;
   text-underline-offset: 3px;
 }
 
-.is-reading :deep(.w-e-text blockquote) {
+.is-reading :deep(.w-e-text-container [data-slate-editor] blockquote) {
   margin: 1em 0;
   padding: 10px 16px;
   border-left: 4px solid #e8c95b;
   background: #fdf6d8;
   color: var(--j-ink-soft);
+  line-height: 1.8;
 }
 
-.is-reading :deep(.w-e-text pre) {
+.is-reading :deep(.w-e-text-container [data-slate-editor] pre > code) {
   padding: 14px 16px;
   border: 1px solid var(--j-rule);
   border-radius: 3px;
   background: #f7f3ea;
   font-size: 13px;
   line-height: 1.7;
+  text-shadow: none;
 }
 
-.is-reading :deep(.w-e-text :not(pre) > code) {
+.is-reading :deep(.w-e-text-container [data-slate-editor] :not(pre) > code) {
   padding: 1px 6px;
   border-radius: 3px;
   background: #f3ecdc;
@@ -527,7 +534,7 @@ watch(() => props.content, (v) => (localContent.value = v))
   font-size: 0.9em;
 }
 
-.is-reading :deep(.w-e-text img) {
+.is-reading :deep(.w-e-text-container [data-slate-editor] img) {
   max-width: 100%;
   padding: 6px;
   background: #fff;
@@ -535,21 +542,21 @@ watch(() => props.content, (v) => (localContent.value = v))
   box-sizing: border-box;
 }
 
-.is-reading :deep(.w-e-text table) {
+.is-reading :deep(.w-e-text-container [data-slate-editor] table) {
   border-collapse: collapse;
 }
 
-.is-reading :deep(.w-e-text th),
-.is-reading :deep(.w-e-text td) {
+.is-reading :deep(.w-e-text-container [data-slate-editor] th),
+.is-reading :deep(.w-e-text-container [data-slate-editor] td) {
   border: 1px solid var(--j-rule-strong);
   padding: 6px 10px;
 }
 
-.is-reading :deep(.w-e-text th) {
+.is-reading :deep(.w-e-text-container [data-slate-editor] th) {
   background: var(--j-paper-warm);
 }
 
-.is-reading :deep(.w-e-text hr) {
+.is-reading :deep(.w-e-text-container [data-slate-editor] hr) {
   border: none;
   border-top: 1px dashed var(--j-rule-strong);
   margin: 2em 0;

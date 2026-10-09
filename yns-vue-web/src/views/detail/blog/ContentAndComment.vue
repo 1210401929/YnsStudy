@@ -1,15 +1,14 @@
 <template>
-  <el-row ref="layoutRowRef" :gutter="20" class="article-view-row" justify="space-between" align="top">
+  <el-row ref="layoutRowRef" :gutter="28" class="article-view-row" justify="space-between" align="top">
     <!-- 左侧文章区域 -->
-    <el-col :xs="24" :sm="24"
-            :md="17"
-            :lg="17"
-            class="smooth-col">
-      <el-card class="article-card">
+    <el-col :xs="24" :sm="24" :md="17" :lg="17">
+      <article class="article-sheet">
+        <span class="j-tape j-tape--top"></span>
+
         <div class="author-info">
           <el-avatar
               :src="blogContent.AVATAR"
-              size="large"
+              :size="42"
               class="author-avatar"
               alt="用户头像"
               @click="avatarClick(blogContent)"
@@ -27,69 +26,47 @@
         <div class="article-header">
           <h1 v-if="route.name === 'oneBlog'">{{ blogContent.BLOG_TITLE }}</h1>
           <h2 v-else>{{ blogContent.BLOG_TITLE }}</h2>
-          <div style="display: flex; gap: 8px;">
-            <el-button size="small" type="primary" plain @click="openOneBlog"
-                       v-if="route.name!=='oneBlog'">
-              专注模式
-            </el-button>
-            <el-button size="small" type="warning" plain @click="editorVisible = true"
-                       v-if="canEditOrDelete">
-              编辑文章
-            </el-button>
-            <el-button size="small" type="danger" plain @click="deleteArticle"
-                       v-if="canEditOrDelete">
-              删除文章
-            </el-button>
+          <div class="article-tools">
+            <button v-if="route.name!=='oneBlog'" type="button" class="tool-link" @click="openOneBlog">专注模式</button>
+            <button v-if="canEditOrDelete" type="button" class="tool-link" @click="editorVisible = true">编辑文章</button>
+            <button v-if="canEditOrDelete" type="button" class="tool-link danger" @click="deleteArticle">删除文章</button>
           </div>
         </div>
 
         <ArticleEditor :isReadOnly="true" :content="blogContent.MAINTEXT"/>
 
         <div class="article-bottom-actions">
-          <el-divider>文章完</el-divider>
+          <p class="end-mark">文章完</p>
           <div class="bottom-action-buttons">
-            <el-button :type="blogContent.$userIsLike ? 'primary' : 'default'"
-                       :plain="!blogContent.$userIsLike"
-                       round
-                       size="large"
-                       @click="handleLike">
+            <button type="button" class="j-button" :class="{ 'is-on': blogContent.$userIsLike }" @click="handleLike">
               👍 {{ blogContent.$userIsLike ? '已赞' : '点赞' }} {{ blogLikeNum > 0 ? `(${blogLikeNum})` : '' }}
-            </el-button>
+            </button>
 
-            <el-button :type="blogContent.$userIsCollect ? 'warning' : 'default'"
-                       :plain="!blogContent.$userIsCollect"
-                       round
-                       size="large"
-                       :icon="Star"
-                       @click="handleCollect">
+            <button type="button" class="j-button" :class="{ 'is-on': blogContent.$userIsCollect }" @click="handleCollect">
+              <el-icon><Star/></el-icon>
               {{ blogContent.$userIsCollect ? '已收藏' : '收藏' }} {{ blogCollectNum > 0 ? `(${blogCollectNum})` : '' }}
-            </el-button>
+            </button>
 
-            <el-button type="success"
-                       plain
-                       round
-                       size="large"
-                       :icon="Comment"
-                       @click="showCommentFun"
-                       v-if="!showComment">
+            <button v-if="!showComment" type="button" class="j-button" @click="showCommentFun">
+              <el-icon><Comment/></el-icon>
               参与讨论 {{ blogComment.length > 0 ? `(${blogComment.length})` : '' }}
-            </el-button>
+            </button>
           </div>
         </div>
-      </el-card>
+      </article>
     </el-col>
 
     <!-- 右侧区域：评论区 or 目录区 -->
-    <el-col :xs="24" :sm="24" :md="7" :lg="7" class="smooth-col">
-      <!-- 核心：独立悬浮的包裹层，纯 JS 操控其 translateY -->
-      <div ref="rightSidebarRef" style="will-change: transform;">
+    <el-col :xs="24" :sm="24" :md="7" :lg="7">
+      <!-- 独立悬浮的包裹层，纯 JS 操控其 translateY -->
+      <div ref="rightSidebarRef" class="side-float">
         <!-- 评论区 -->
-        <el-card v-if="showComment" shadow="hover" class="comment-card">
+        <section v-if="showComment" class="comment-card">
           <div class="comment-header">
             <h3>互动评论 <span class="comment-count-badge">{{ blogComment.length }}</span></h3>
-            <el-button type="info" plain size="small" :icon="Right" @click="showComment = false">
-              收起评论
-            </el-button>
+            <button type="button" class="tool-link" @click="showComment = false">
+              收起评论 <el-icon><Right/></el-icon>
+            </button>
           </div>
 
           <div v-for="(comment, i) in visibleComments" :key="comment.GUID || i" class="comment-item">
@@ -110,15 +87,12 @@
               </div>
 
               <div class="comment-actions" v-show="activeCommentId === comment.GUID">
-                <el-button link type="primary" size="small" class="reply-btn"
-                           @click.stop="replyComment(comment.GUID, comment)">
-                  回复
-                </el-button>
-                <el-button link type="danger" size="small" class="reply-btn-red"
-                           @click.stop="deleteComment(comment.GUID)"
-                           v-if="(userStore?.userBean?.code && comment.USERCODE===userStore.userBean.code) ||(getCurrentUserAdminObject().isAdmin && comment.USERCODE!==adminUserCode) ||getCurrentUserAdminObject().adminLevel==='superAdmin'">
+                <button type="button" class="tool-link" @click.stop="replyComment(comment.GUID, comment)">回复</button>
+                <button type="button" class="tool-link danger"
+                        @click.stop="deleteComment(comment.GUID)"
+                        v-if="(userStore?.userBean?.code && comment.USERCODE===userStore.userBean.code) ||(getCurrentUserAdminObject().isAdmin && comment.USERCODE!==adminUserCode) ||getCurrentUserAdminObject().adminLevel==='superAdmin'">
                   删除
-                </el-button>
+                </button>
               </div>
             </div>
 
@@ -149,10 +123,9 @@
             </div>
 
             <div class="children-comments" v-if="comment.children?.length">
-              <el-button link type="primary" size="small" class="toggle-children-btn"
-                         @click="toggleChildren(comment.GUID)">
+              <button type="button" class="tool-link toggle-children-btn" @click="toggleChildren(comment.GUID)">
                 {{ isChildrenVisible[comment.GUID] ? '收起回复' : `查看回复 (${comment.children.length})` }}
-              </el-button>
+              </button>
 
               <div v-show="isChildrenVisible[comment.GUID]" class="children-list">
                 <div v-for="(child, idx) in comment.children" :key="child.GUID || idx" class="comment-child"
@@ -177,29 +150,26 @@
                   </div>
 
                   <div class="comment-actions" v-show="activeCommentId === child.GUID">
-                    <el-button link type="primary" size="small" class="reply-btn"
-                               @click.stop="replyComment(comment.GUID, child)">
-                      回复
-                    </el-button>
-                    <el-button link type="danger" size="small" class="reply-btn-red"
-                               @click.stop="deleteComment(child.GUID, comment.GUID)"
-                               v-if="(userStore?.userBean?.code && child.USERCODE===userStore.userBean.code) ||(getCurrentUserAdminObject().isAdmin && child.USERCODE!==adminUserCode) ||getCurrentUserAdminObject().adminLevel==='superAdmin'">
+                    <button type="button" class="tool-link" @click.stop="replyComment(comment.GUID, child)">回复</button>
+                    <button type="button" class="tool-link danger"
+                            @click.stop="deleteComment(child.GUID, comment.GUID)"
+                            v-if="(userStore?.userBean?.code && child.USERCODE===userStore.userBean.code) ||(getCurrentUserAdminObject().isAdmin && child.USERCODE!==adminUserCode) ||getCurrentUserAdminObject().adminLevel==='superAdmin'">
                       删除
-                    </el-button>
+                    </button>
                   </div>
                 </div>
               </div>
             </div>
           </div>
 
-          <div v-if="blogComment.length > 5" style="margin-top: 10px; text-align: center;">
-            <el-button text type="primary" @click="toggleComments">
+          <div v-if="blogComment.length > 5" class="comment-more">
+            <button type="button" class="tool-link" @click="toggleComments">
               {{ showAllComments ? '收起部分评论' : '展开全部评论' }}
-            </el-button>
+            </button>
           </div>
 
           <div class="comment-input-area">
-            <el-divider border-style="dashed">发表评论</el-divider>
+            <p class="input-title">发表评论</p>
             <el-row :gutter="[10, 10]" v-if="showMainGuestForm" class="guest-form-row">
               <el-col :xs="24" :sm="12">
                 <el-input v-model="guestInfo.nickname" :prefix-icon="User" placeholder="昵称 (选填)" size="default" clearable />
@@ -228,10 +198,11 @@
               </el-button>
             </div>
           </div>
-        </el-card>
+        </section>
 
         <!-- 目录区：固定显示 -->
-        <el-card v-else shadow="hover" class="toc-fixed-card">
+        <section v-else class="toc-fixed-card">
+          <span class="j-tape j-tape--green toc-tape"></span>
           <div class="toc-title">文章目录</div>
           <el-scrollbar max-height="600px">
             <div v-if="tocList.length === 0" class="toc-empty">暂无目录或提取中...</div>
@@ -239,39 +210,34 @@
                  class="toc-item"
                  :class="['toc-level-' + item.level, { 'is-active': activeTocId === item.id }]"
                  @click="scrollToAnchor(item.id)">
-              {{ item.text }}
+              <span>{{ item.text }}</span>
             </div>
           </el-scrollbar>
-        </el-card>
+        </section>
       </div>
     </el-col>
   </el-row>
 
-  <!-- 悬浮按钮：始终显示 -->
+  <!-- 悬浮按钮：贴在屏幕右边缘的索引标签 -->
   <div class="floating-wrapper">
-    <div class="floating-buttons glass-effect">
-      <el-tooltip :content="blogContent.$userIsLike ? '取消点赞' : '点赞'" placement="left" effect="dark">
-        <div class="btn-wrap">
-          <el-button circle :class="['floating-btn', blogContent.$userIsLike ? 'is-active-btn' : '']" @click="handleLike">
-            👍
-          </el-button>
-        </div>
-      </el-tooltip>
+    <el-tooltip :content="blogContent.$userIsLike ? '取消点赞' : '点赞'" placement="left">
+      <button type="button" class="side-tab tab-yellow" :class="{ 'is-on': blogContent.$userIsLike }" @click="handleLike">
+        👍
+      </button>
+    </el-tooltip>
 
-      <el-tooltip :content="blogContent.$userIsCollect ? '取消收藏' : '收藏'" placement="left" effect="dark">
-        <div class="btn-wrap">
-          <el-button circle :class="['floating-btn', blogContent.$userIsCollect ? 'is-active-btn' : '']" :icon="Star" @click="handleCollect"/>
-        </div>
-      </el-tooltip>
+    <el-tooltip :content="blogContent.$userIsCollect ? '取消收藏' : '收藏'" placement="left">
+      <button type="button" class="side-tab tab-green" :class="{ 'is-on': blogContent.$userIsCollect }" @click="handleCollect">
+        <el-icon><Star/></el-icon>
+      </button>
+    </el-tooltip>
 
-      <el-tooltip :content="showComment ? '关闭评论' : '打开评论'" placement="left" effect="dark">
-        <div class="btn-wrap">
-          <el-button circle class="floating-btn" :icon="Comment" @click="showCommentFun" style="position: relative;">
-            <el-badge v-if="blogComment.length > 0" :value="blogComment.length" type="danger" class="floating-badge"/>
-          </el-button>
-        </div>
-      </el-tooltip>
-    </div>
+    <el-tooltip :content="showComment ? '关闭评论' : '打开评论'" placement="left">
+      <button type="button" class="side-tab tab-pink" :class="{ 'is-on': showComment }" @click="showCommentFun">
+        <el-icon><Comment/></el-icon>
+        <span v-if="blogComment.length > 0" class="side-tab-badge">{{ blogComment.length }}</span>
+      </button>
+    </el-tooltip>
   </div>
 
   <!-- 编辑弹窗 -->
@@ -853,17 +819,16 @@ function deleteArticle() {
   })
 }
 
-// 根据用户名生成固定的扁平化透明渐变样式
+// 根据用户名生成固定的头像底色（取自胶带配色）
 const getAvatarStyle = (name) => {
   if (!name) return {};
 
-  // 预设扁平化与透明质感的配色池 (bg: 背景色, text: 文字色)
   const colors = [
-    { bg: 'rgba(64, 158, 255, 0.15)', text: '#409eff' }, // 科技蓝
-    { bg: 'rgba(103, 194, 58, 0.15)', text: '#67c23a' }, // 清新绿
-    { bg: 'rgba(230, 162, 60, 0.15)', text: '#e6a23c' }, // 活力橙
-    { bg: 'rgba(245, 108, 108, 0.15)', text: '#f56c6c' }, // 热情红
-    { bg: 'rgba(142, 113, 199, 0.15)', text: '#8e71c7' }  // 优雅紫
+    { bg: '#f6e3a1', text: '#7a5c12' },
+    { bg: '#c7e2cf', text: '#2f6040' },
+    { bg: '#f3cccc', text: '#8a3a34' },
+    { bg: '#c9dbeb', text: '#2f5d8a' },
+    { bg: '#e2d5c0', text: '#6b5330' }
   ];
 
   // 简单的字符串哈希算法，确保同一个名字每次计算出的颜色都是固定的
@@ -878,18 +843,12 @@ const getAvatarStyle = (name) => {
   return {
     backgroundColor: selectedColor.bg,
     color: selectedColor.text,
-    fontWeight: '600',
-    backdropFilter: 'blur(4px)', // 配合透明玻璃质感
-    border: `1px solid ${selectedColor.bg}` // 极细边框增加精致度
+    fontWeight: '600'
   };
 };
 </script>
 
 <style scoped>
-.smooth-col {
-  transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
-}
-
 .article-view-row {
   margin: 0;
   padding: 0;
@@ -897,142 +856,224 @@ const getAvatarStyle = (name) => {
   align-items: flex-start;
 }
 
-/* ====== 文章主体区域 ====== */
-.article-card {
+/* 给屏幕右边缘的索引标签留出位置 */
+@media (min-width: 992px) {
+  .article-view-row {
+    padding-right: 44px;
+  }
+}
+
+/* ====== 文章：一张贴着胶带的纸 ====== */
+.article-sheet {
+  position: relative;
   min-height: 80vh;
-  margin-top: 0;
-  display: flex;
-  flex-direction: column;
-  background-color: #ffffff;
-  border-radius: 12px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+  padding: 34px 40px 28px 64px;
+  background: var(--j-paper);
+  border: 1px solid var(--j-rule);
+  box-shadow: var(--j-shadow);
+  box-sizing: border-box;
+}
+
+/* 页边红线 */
+.article-sheet::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 40px;
+  width: 1px;
+  background: var(--j-margin-red);
+  opacity: 0.55;
 }
 
 .author-info {
   display: flex;
   align-items: center;
-  gap: 14px;
-  margin-bottom: 20px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid #f0f0f0;
+  gap: 12px;
+  margin-bottom: 18px;
+  padding-bottom: 14px;
+  border-bottom: 1px dashed var(--j-rule);
 }
 
 .author-avatar {
-  width: 50px !important;
-  height: 50px !important;
-  font-size: 20px;
-  background-color: #e6f1fc;
-  color: #409eff;
+  flex-shrink: 0;
+  font-size: 18px;
+  background-color: #ece4d3;
+  color: var(--j-ink-soft);
   cursor: pointer;
-  transition: transform 0.2s;
-}
-
-.author-avatar:hover {
-  transform: scale(1.05);
 }
 
 .author-text {
   display: flex;
   flex-direction: column;
+  gap: 2px;
   cursor: pointer;
 }
 
 .author-name {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
-  color: #2c3e50;
+  color: var(--j-ink);
+}
+
+.author-text:hover .author-name {
+  color: var(--j-pen);
 }
 
 .author-tagline {
-  font-size: 13px;
-  color: #909399;
-  margin-top: 2px;
+  font-family: var(--j-hand);
+  font-size: 14px;
+  color: var(--j-muted);
 }
 
 .article-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  margin-bottom: 15px;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 18px;
 }
 
+.article-header h1,
 .article-header h2 {
   margin: 0;
-  font-size: 24px;
-  color: #303133;
+  font-size: 26px;
+  line-height: 1.45;
+  color: var(--j-ink);
+}
+
+.article-tools {
+  display: flex;
+  flex-shrink: 0;
+  gap: 4px;
+  padding-top: 6px;
+}
+
+/* 文字按钮 */
+.tool-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 6px;
+  border: none;
+  background: none;
+  font-size: 13px;
+  color: var(--j-pen);
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-underline-offset: 3px;
+  transition: text-decoration-color 0.15s;
+}
+
+.tool-link:hover {
+  text-decoration-color: currentColor;
+}
+
+.tool-link.danger {
+  color: var(--j-stamp);
 }
 
 /* 文章底部互动区 */
 .article-bottom-actions {
   margin-top: 40px;
-  padding-top: 20px;
+  padding-top: 8px;
+}
+
+.end-mark {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 0;
+  font-family: var(--j-hand);
+  font-size: 15px;
+  color: var(--j-muted);
+}
+
+.end-mark::before,
+.end-mark::after {
+  content: "";
+  flex: 1;
+  border-top: 1px dashed var(--j-rule-strong);
 }
 
 .bottom-action-buttons {
   display: flex;
   justify-content: center;
-  gap: 20px;
-  margin-top: 20px;
-  margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin: 24px 0 8px;
+}
+
+.bottom-action-buttons .j-button.is-on {
+  background: var(--j-note);
+  border-color: #e3cf7a;
 }
 
 /* ====== 评论区 ====== */
 .comment-card {
+  position: relative;
   display: flex;
   flex-direction: column;
-  margin-top: 0;
-  border-radius: 12px;
-  background-color: #fafbfc;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+  padding: 20px 18px 18px;
+  background: var(--j-paper-warm);
+  border: 1px solid var(--j-rule);
+  box-shadow: var(--j-shadow);
   max-height: calc(100vh - 40px);
-  /* 清除了原来的 position: sticky */
   overflow-y: auto;
+  box-sizing: border-box;
 }
 
 .comment-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid #ebeef5;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px dashed var(--j-rule-strong);
 }
 
 .comment-header h3 {
   margin: 0;
-  font-size: 16px;
   display: flex;
   align-items: center;
   gap: 8px;
+  font-family: var(--j-hand);
+  font-weight: normal;
+  font-size: 19px;
 }
 
 .comment-count-badge {
-  background: #f56c6c;
-  color: white;
+  min-width: 20px;
+  padding: 0 6px;
   border-radius: 10px;
-  padding: 0 8px;
+  background: var(--j-stamp);
+  color: #fff;
+  font-family: var(--j-sans);
   font-size: 12px;
-  font-weight: normal;
+  line-height: 18px;
+  text-align: center;
 }
 
 .comment-item {
-  margin-bottom: 16px;
-  border-bottom: 1px dashed #ebeef5;
-  padding-bottom: 12px;
+  padding: 6px 0 10px;
+  border-bottom: 1px dashed var(--j-rule);
 }
 
-.comment-main-row, .comment-child {
+.comment-main-row,
+.comment-child {
   display: flex;
   align-items: flex-start;
-  gap: 12px;
+  gap: 10px;
   padding: 8px 6px;
-  border-radius: 8px;
+  border-radius: 3px;
   transition: background-color 0.2s ease;
   cursor: pointer;
 }
 
-.comment-main-row:hover, .comment-child:hover {
-  background-color: #f0f4f8;
+.comment-main-row:hover,
+.comment-child:hover {
+  background-color: rgba(250, 216, 96, 0.18);
 }
 
 .avatar-container {
@@ -1041,75 +1082,60 @@ const getAvatarStyle = (name) => {
 }
 
 .author-avatar-comment {
-  width: 36px !important;
-  height: 36px !important;
+  width: 34px !important;
+  height: 34px !important;
 }
 
 .child-avatar {
-  width: 28px !important;
-  height: 28px !important;
+  width: 26px !important;
+  height: 26px !important;
+  font-size: 12px;
 }
 
 .comment-content-block {
   flex: 1;
   min-width: 0;
-  line-height: 1.6;
+  line-height: 1.65;
 }
 
 .comment-user-name {
-  font-size: 14px;
-  font-weight: 600;
-  color: #409eff;
   margin-right: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--j-pen);
 }
 
 .child-name {
-  color: #67c23a;
+  color: #4f8a5b;
 }
 
 .comment-text {
   font-size: 14px;
-  color: #333;
+  color: var(--j-ink);
   word-wrap: break-word;
   word-break: break-all;
 }
 
 .reply-to-text {
-  font-size: 13px;
-  color: #909399;
   margin: 0 4px;
+  font-size: 13px;
+  color: var(--j-muted);
 }
 
 .reply-to-name {
-  color: #409eff;
+  color: var(--j-pen);
   font-weight: 600;
-  cursor: pointer;
-  transition: color 0.2s ease;
-}
-
-.reply-to-name:hover {
-  text-decoration: underline;
-  color: #66b1ff;
 }
 
 .comment-actions {
   flex-shrink: 0;
   display: flex;
-  gap: 8px;
-  opacity: 0.8;
-  margin-left: 8px;
-}
-
-.comment-actions .el-button {
-  margin: 0 !important;
+  gap: 2px;
 }
 
 .reply-input-wrapper {
-  margin-top: 8px;
-  padding-left: 48px;
-  background: transparent;
-  padding-bottom: 10px;
-  border-radius: 6px;
+  margin-top: 6px;
+  padding: 0 0 8px 44px;
 }
 
 .reply-action-group {
@@ -1119,22 +1145,46 @@ const getAvatarStyle = (name) => {
 }
 
 .children-comments {
-  margin-left: 48px;
-  margin-top: 4px;
+  margin: 2px 0 0 44px;
+}
+
+.toggle-children-btn {
+  padding-left: 0;
 }
 
 .children-list {
-  border-left: 2px solid #e4e7ed;
+  margin-top: 6px;
   padding-left: 10px;
-  margin-top: 8px;
+  border-left: 2px solid #ead9a0;
+}
+
+.comment-more {
+  margin-top: 10px;
+  text-align: center;
 }
 
 .comment-input-area {
-  margin-top: 20px;
+  margin-top: 18px;
+}
+
+.input-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 12px;
+  font-family: var(--j-hand);
+  font-size: 16px;
+  color: var(--j-ink-soft);
+}
+
+.input-title::after {
+  content: "";
+  flex: 1;
+  border-top: 1px dashed var(--j-rule-strong);
 }
 
 .guest-form-row {
-  margin-bottom: 12px;
+  margin-bottom: 10px;
 }
 
 .comment-submit-row {
@@ -1146,134 +1196,132 @@ const getAvatarStyle = (name) => {
 
 .hint-text {
   font-size: 12px;
-  color: #b1b3b8;
+  color: var(--j-muted);
 }
 
-/* ====== 固定目录卡片 ====== */
+/* ====== 目录：一张索引卡 ====== */
 .toc-fixed-card {
-  border-radius: 12px;
-  background: #ffffff;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
-  /* 清除了原来的 position: sticky */
+  position: relative;
+  padding: 24px 18px 16px;
+  background: var(--j-paper);
+  border: 1px solid var(--j-rule);
+  box-shadow: var(--j-shadow);
+}
+
+.toc-tape {
+  top: -10px;
+  left: 22px;
+  transform: rotate(-4deg);
 }
 
 .toc-title {
-  font-weight: 600;
-  font-size: 16px;
   margin-bottom: 12px;
-  padding-bottom: 10px;
-  border-bottom: 1px solid #f0f2f5;
-  color: #303133;
+  font-family: var(--j-hand);
+  font-size: 19px;
+  color: var(--j-ink);
 }
 
 .toc-empty {
-  font-size: 13px;
-  color: #999;
-  padding: 10px;
-  text-align: center;
+  padding: 10px 4px;
+  font-family: var(--j-hand);
+  font-size: 15px;
+  color: var(--j-muted);
 }
 
 .toc-item {
-  padding: 8px 12px;
-  cursor: pointer;
+  padding: 7px 4px;
+  border-bottom: 1px dashed var(--j-rule);
   font-size: 14px;
-  color: #606266;
-  border-radius: 6px;
-  transition: all 0.2s ease;
-  border-left: 3px solid transparent;
+  line-height: 20px;
+  color: var(--j-ink-soft);
+  cursor: pointer;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
+.toc-item span {
+  background-repeat: no-repeat;
+  background-image: linear-gradient(transparent 55%, var(--j-highlight) 55%, var(--j-highlight) 95%, transparent 95%);
+  background-size: 0 100%;
+  transition: background-size 0.3s ease;
+}
+
 .toc-item:hover {
-  background-color: #f5f7fa;
-  color: #409eff;
+  color: var(--j-ink);
 }
 
 .toc-item.is-active {
-  color: #409eff;
-  background-color: #ecf5ff;
-  font-weight: 600;
-  border-left-color: #409eff;
+  color: var(--j-ink);
 }
 
-.toc-level-2 { padding-left: 12px; }
-.toc-level-3 { padding-left: 24px; font-size: 13px; }
-.toc-level-4 { padding-left: 36px; font-size: 12px; }
+.toc-item.is-active span {
+  background-size: 100% 100%;
+}
+
+.toc-level-2 { padding-left: 4px; }
+.toc-level-3 { padding-left: 18px; font-size: 13px; }
+.toc-level-4 { padding-left: 32px; font-size: 12px; }
 
 :deep(h1), :deep(h2), :deep(h3), :deep(h4) {
   scroll-margin-top: 80px;
 }
 
-/* ====== 悬浮工具栏 ====== */
+/* ====== 悬浮工具：屏幕右边缘的索引标签 ====== */
 .floating-wrapper {
   position: fixed;
   top: 50%;
-  right: 30px;
+  right: 0;
   transform: translateY(-50%);
   z-index: 1000;
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: flex-end;
+  gap: 8px;
 }
 
-.glass-effect {
-  background: rgba(255, 255, 255, 0.7);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255,255,255,0.5);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
-  border-radius: 40px;
-  padding: 12px 8px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 16px;
-}
-
-.glass-effect .btn-wrap {
+.side-tab {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin: 0 !important;
-  padding: 0 !important;
-}
-
-.glass-effect .el-button {
-  margin: 0 !important;
-}
-
-.floating-btn {
-  width: 44px !important;
-  height: 44px !important;
-  font-size: 20px !important;
-  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1) !important;
+  width: 42px;
+  height: 40px;
+  padding: 0 0 0 4px;
   border: none;
-  background: transparent;
-  box-shadow: none;
-  color: #606266;
-  display: flex;
-  justify-content: center;
-  align-items: center;
+  border-radius: 6px 0 0 6px;
+  font-size: 17px;
+  color: var(--j-ink);
+  cursor: pointer;
+  box-shadow: -1px 1px 3px rgba(60, 50, 30, 0.15);
+  transition: width 0.2s ease;
 }
 
-.floating-btn:hover {
-  background: rgba(64, 158, 255, 0.1);
-  color: #409eff;
-  transform: translateY(-2px);
+.side-tab:hover,
+.side-tab.is-on {
+  width: 52px;
 }
 
-.is-active-btn {
-  color: #409eff !important;
-  background: rgba(64, 158, 255, 0.15) !important;
+.side-tab.is-on {
+  box-shadow: -2px 2px 6px rgba(60, 50, 30, 0.25);
 }
 
-.floating-badge {
+.tab-yellow { background: #f6e3a1; }
+.tab-green { background: #c7e2cf; }
+.tab-pink { background: #f3cccc; }
+
+.side-tab-badge {
   position: absolute;
-  top: -2px;
-  right: 0;
+  top: -6px;
+  left: -6px;
+  min-width: 18px;
+  padding: 0 4px;
+  border-radius: 9px;
+  background: var(--j-stamp);
+  color: #fff;
+  font-size: 11px;
+  line-height: 18px;
+  box-sizing: border-box;
 }
 
 /* =========================================================================
@@ -1283,16 +1331,41 @@ const getAvatarStyle = (name) => {
   .comment-card {
     max-height: none !important;
     overflow-y: visible !important;
-    margin-top: 15px;
+    margin-top: 18px;
   }
 
   .toc-fixed-card {
-    margin-top: 15px;
+    margin-top: 18px;
   }
 
   .floating-wrapper {
-    right: 15px;
-    transform: translateY(-20%);
+    top: auto;
+    bottom: 90px;
+    transform: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .article-sheet {
+    padding: 26px 16px 20px 30px;
+  }
+
+  .article-sheet::before {
+    left: 16px;
+  }
+
+  .article-header {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .article-header h1,
+  .article-header h2 {
+    font-size: 22px;
+  }
+
+  .article-tools {
+    padding-top: 0;
   }
 }
 </style>

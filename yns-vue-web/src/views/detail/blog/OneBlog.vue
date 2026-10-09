@@ -1,5 +1,5 @@
 <template>
-  <div class="blog-detail-page" :style="currentBgStyle">
+  <div class="blog-detail-page j-desk" :style="currentBgStyle">
     <BackgroundAndMusic
         ref="bgMusicComponentRef"
         :is-self="false"
@@ -202,7 +202,6 @@ const handleArticleNotFound = () => {
 </script>
 
 <style scoped>
-/* 🌟 修复 1：最外层加上防溢出外壳，彻底消灭横向滚动条 */
 .blog-detail-page {
   min-height: 100vh;
   display: flex;
@@ -211,8 +210,6 @@ const handleArticleNotFound = () => {
   background-position: center;
   background-attachment: fixed;
   transition: background-image .3s ease;
-
-  /* 核心限制属性 */
   width: 100%;
   max-width: 100vw;
   overflow-x: hidden;
@@ -228,86 +225,99 @@ const handleArticleNotFound = () => {
   to { opacity: 1; }
 }
 
-/* 顶部信息栏 */
+/* 顶部：一条纸边 */
 .blog-top-bar {
+  position: relative;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  background-color: rgba(255, 255, 255, 0.15);
-  padding: 20px 20px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
+  justify-content: center;
+  padding: 16px 20px;
+  background: var(--j-paper);
+  border-bottom: 1px solid var(--j-rule);
+  box-shadow: 0 6px 14px -12px rgba(60, 50, 30, 0.35);
+}
+
+.blog-top-bar::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 3px;
+  border-bottom: 1px dashed var(--j-rule);
 }
 
 .blog-title {
-  font-size: 18px;
-  font-weight: bold;
   flex: 1;
+  max-width: 900px;
+  overflow: hidden;
   text-align: center;
-  color: #333;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-family: var(--j-hand);
+  font-size: 19px;
+  color: var(--j-ink);
 }
 
 /* 主体两栏 */
 .main-body {
   display: flex;
   align-items: flex-start;
-  gap: 24px;
-  padding: 20px;
+  gap: 28px;
+  width: 100%;
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 32px 24px;
   flex: 1;
   box-sizing: border-box;
-  /* 🌟 防止内部子元素过大 */
-  max-width: 100%;
 }
 
 .content-side {
   flex: 1;
-  /* 🌟 修复 2：加入 Flex 终极防撑破属性与盒模型约束 */
   min-width: 0;
   max-width: 100%;
   box-sizing: border-box;
-
-  background: rgba(255, 255, 255, 0.5);
-  border-radius: 12px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-  padding: 24px;
   min-height: 82vh;
 }
 
+/* 文章不存在：一张便签 */
 .article-not-found {
-  width: min(680px, calc(100% - 32px));
-  margin: 12vh auto;
-  padding: 42px 28px;
+  position: relative;
+  width: min(560px, calc(100% - 32px));
+  margin: 14vh auto;
+  padding: 40px 28px 32px;
   box-sizing: border-box;
   text-align: center;
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow: 0 16px 45px rgba(31, 45, 61, 0.12);
+  background: var(--j-note);
+  box-shadow: 0 1px 2px rgba(60, 50, 30, 0.1), 0 16px 28px -16px rgba(60, 50, 30, 0.45);
+  transform: rotate(-1deg);
 }
 
 .article-not-found h1 {
   margin-top: 0;
+  font-family: var(--j-hand);
+  font-weight: normal;
   font-size: 28px;
 }
 
 .article-not-found p {
-  color: #68788a;
+  color: var(--j-ink-soft);
 }
 
 .article-not-found a {
-  color: #087cad;
+  color: var(--j-pen);
 }
 
-/* 移动端适配 */
 @media (max-width: 768px) {
   .main-body {
     flex-direction: column;
     gap: 20px;
-    padding: 12px; /* 移动端稍微减小外边距 */
+    padding: 16px 12px;
   }
+
   .content-side {
-    width: 100%; /* 🌟 确保手机端占比 100% 不越界 */
-    padding: 16px; /* 移动端减小内边距 */
+    width: 100%;
   }
-  /* 🌟 确保左侧的 UserInfo 在移动端也不会撑破屏幕 */
+
   :deep(.user-info-container) {
     width: 100%;
     max-width: 100%;

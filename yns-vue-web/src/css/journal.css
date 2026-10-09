@@ -78,6 +78,26 @@
     --el-box-shadow-light: 0 2px 12px rgba(60, 50, 30, 0.12);
 }
 
+/* wangEditor 富文本编辑器配色（:root:root 提高优先级，覆盖编辑器自带的 :root 变量） */
+:root:root {
+    --w-e-textarea-bg-color: #fffefb;
+    --w-e-textarea-color: #2b2a27;
+    --w-e-textarea-border-color: #e1d9c9;
+    --w-e-textarea-slight-bg-color: #f7f3ea;
+    --w-e-textarea-slight-border-color: #e6dfd1;
+    --w-e-textarea-slight-color: #c9c1b3;
+    --w-e-textarea-selected-border-color: #e8c95b;
+    --w-e-textarea-handler-bg-color: #2f5d8a;
+    --w-e-toolbar-bg-color: #fbf6ea;
+    --w-e-toolbar-color: #57534c;
+    --w-e-toolbar-active-bg-color: #f3ead3;
+    --w-e-toolbar-active-color: #2b2a27;
+    --w-e-toolbar-border-color: #e6dfd1;
+    --w-e-toolbar-disabled-color: #b9b2a6;
+    --w-e-modal-button-bg-color: #fbf6ea;
+    --w-e-modal-button-border-color: #e1d9c9;
+}
+
 body {
     font-family: var(--j-sans);
     color: var(--j-ink);

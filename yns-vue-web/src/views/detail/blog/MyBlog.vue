@@ -151,7 +151,7 @@ watch(()=>userStore.userBean.code,()=>{
 </script>
 
 <style scoped>
-/* 最外层容器，只负责背景 */
+/* 最外层容器，只负责背景（用户可在个人主页设置背景图） */
 .blog-container {
   min-height: 100vh;
   box-sizing: border-box;
@@ -162,70 +162,67 @@ watch(()=>userStore.userBean.code,()=>{
   transition: background-image .3s ease;
 }
 
-/* 🎯 核心布局层：限制最大宽度并居中 */
 .layout-wrapper {
   width: 100%;
-  max-width: 1680px; /* 和个人主页保持一致的大气宽屏 */
+  max-width: 1360px;
   margin: 0 auto;
-  padding: 24px 16px;
+  padding: 32px 24px;
   display: flex;
   align-items: flex-start;
-  gap: 32px; /* 左边侧边栏和右侧正文的间距 */
+  gap: 28px;
   box-sizing: border-box;
 }
 
-/* 🎯 侧边栏约束容器 */
 .sidebar-wrapper {
-  width: 280px;    /* 死死锁住 280px 宽度 */
-  flex-shrink: 0;  /* 绝对不允许被挤压变窄 */
+  width: 280px;
+  flex-shrink: 0;
   position: sticky;
-  top: 24px;       /* 开启独立吸顶 */
+  top: 24px;
 }
 
-/* 右侧正文区域 */
+/* 右侧正文：纸张样式由 ContentAndComment 自己提供 */
 .content {
   flex: 1;
   min-width: 0;
-
-  /* 🌟 修复关键 1：加入盒模型限制，强制内边距向内挤压，绝不撑大宽度 */
   box-sizing: border-box;
-  /* 🌟 修复关键 2：切断子组件 el-row 负边距带来的任何溢出隐患 */
   overflow-x: hidden;
-
-  /* 统一卡片美化风格 */
-  background: rgba(255, 255, 255, 0.9);
-  border: 1px solid rgba(255, 255, 255, 0.5);
-  border-radius: 12px;
-  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.08);
-
-  padding: 24px;
+  padding: 10px 4px 24px;
   min-height: 82vh;
 }
 
-/* =============== 悬浮按钮和提示框保持不变 =============== */
+/* 发布文章：一张黄色便签 */
 .fab-button {
   position: fixed;
   bottom: 30px;
   right: 30px;
   z-index: 1000;
-  background-color: #409eff;
-  border-radius: 30px;
-  box-shadow: 0 0 20px rgba(64, 158, 255, 0.8);
+  height: auto;
   padding: 12px 20px;
-  font-weight: bold;
+  border: none;
+  border-radius: 2px;
+  background-color: var(--j-note);
+  color: var(--j-ink);
+  font-family: var(--j-hand);
+  font-size: 16px;
+  box-shadow: 0 1px 2px rgba(60, 50, 30, 0.12), 0 12px 20px -10px rgba(60, 50, 30, 0.5);
+  transform: rotate(-3deg);
+  transition: transform 0.2s ease, background-color 0.2s ease;
 }
 
-.fab-button:hover {
-  background-color: #66b1ff;
+.fab-button:hover,
+.fab-button:focus {
+  background-color: #f8e88f;
+  color: var(--j-ink);
+  transform: rotate(0deg) translateY(-2px);
 }
 
 .blinking {
-  animation: pulse 1.2s infinite;
+  animation: wiggle 1.6s ease-in-out infinite;
 }
 
-@keyframes pulse {
-  0%, 100% { box-shadow: 0 0 20px rgba(64, 158, 255, 0.8); transform: scale(1); }
-  50% { box-shadow: 0 0 40px rgba(64, 158, 255, 1); transform: scale(1.08); }
+@keyframes wiggle {
+  0%, 100% { transform: rotate(-3deg); }
+  50% { transform: rotate(2deg) translateY(-3px); }
 }
 
 .guide-tip {
@@ -240,14 +237,15 @@ watch(()=>userStore.userBean.code,()=>{
 }
 
 .guide-box {
-  background: #fff;
-  padding: 10px 16px;
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-  font-size: 14px;
-  color: #333;
   position: relative;
   max-width: 240px;
+  padding: 12px 16px;
+  background: var(--j-paper);
+  border: 1px solid var(--j-rule);
+  box-shadow: var(--j-shadow);
+  font-family: var(--j-hand);
+  font-size: 15px;
+  color: var(--j-ink);
   pointer-events: auto;
 }
 
@@ -259,28 +257,28 @@ watch(()=>userStore.userBean.code,()=>{
   height: 0;
   border-left: 8px solid transparent;
   border-right: 8px solid transparent;
-  border-top: 10px solid #fff;
+  border-top: 10px solid var(--j-paper);
   transform: translateX(50%);
 }
 
-/* 响应式：屏幕较小时变成上下结构 */
+/* 屏幕较小时变成上下结构 */
 @media screen and (max-width: 992px) {
   .layout-wrapper {
     flex-direction: column;
-    padding: 12px; /* 移动端外层边距稍微缩小点，留出更多空间 */
-    gap: 16px;
-    box-sizing: border-box;
-    overflow-x: hidden; /* 🌟 兜底：防止整个外层被内部元素撑破 */
+    padding: 16px 12px;
+    gap: 20px;
+    overflow-x: hidden;
   }
+
   .sidebar-wrapper {
     width: 100%;
     position: static;
   }
+
   .content {
     width: 100%;
     margin-top: 0;
-    padding: 16px; /* 🌟 移动端正文内边距缩小到 16px，不然手机上看着太挤 */
-    box-sizing: border-box;
+    padding: 4px 0 16px;
   }
 }
 </style>

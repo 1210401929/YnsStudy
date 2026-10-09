@@ -125,7 +125,8 @@ const dockCollapsed = ref(false)
 const bgPresets = {
   softSky: "radial-gradient(1000px 700px at 20% 15%, rgba(210,235,255,.90) 0%, rgba(210,235,255,0) 60%), radial-gradient(800px 600px at 80% 70%, rgba(180,205,230,.35) 0%, rgba(180,205,230,0) 60%), linear-gradient(180deg,#f8fbff 0%, #ffffff 68%)"
 }
-const bgImage = ref(bgPresets.softSky)
+// 默认不设背景图，直接露出页面的手账点阵底纹
+const bgImage = ref('')
 const bgImageInput = ref("")
 
 const bgStyle = computed(() => {
