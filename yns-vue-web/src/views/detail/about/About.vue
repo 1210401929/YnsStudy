@@ -20,6 +20,7 @@
 
         <!-- 站长想说 -->
         <section class="site-owner-message">
+          <span class="j-tape j-tape--pink letter-tape"></span>
           <div class="owner-title">站长想说</div>
 
           <p>
@@ -92,6 +93,7 @@
 
       <!-- 技术栈 -->
       <div class="tech-section">
+        <span class="j-tape j-tape--green tech-tape"></span>
         <h2>使用技术</h2>
 
         <ul>
@@ -163,217 +165,281 @@ setTopAlert()
 </script>
 
 <style scoped>
-
-/* 外层容器 */
 .about-wrapper {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  max-height: 100%;
-  overflow: hidden;
-  background: #f9f9f9;
+  min-height: 100vh;
+  padding: 40px 20px 72px;
+  color: var(--j-ink);
 }
 
-/* 主体内容区域 */
 .about-container {
-  flex: 1;
-  overflow-y: auto;
-  padding: 0 16px 16px 16px;
-  box-sizing: border-box;
-  width: 100%;
-  max-width: 1400px;
-  margin-left: auto;
-  margin-right: auto;
+  max-width: 920px;
+  margin: 0 auto;
 }
 
-/* =========================
-   顶部欢迎区
-   ========================= */
-
+/* ============ 顶部 ============ */
 .hero {
   text-align: center;
-  padding: 12px 8px;
 }
 
 .hero h1 {
-  font-size: 22px;
-  margin-bottom: 6px;
-  color: #409eff;
+  margin: 0;
+  font-family: var(--j-hand);
+  font-weight: normal;
+  font-size: 34px;
 }
 
 .hero-description {
-  margin: 0;
-  font-size: 14px;
-  color: #666;
+  margin: 12px 0 0;
+  font-size: 15px;
+  color: var(--j-ink-soft);
 }
 
-/* =========================
-   站长想说
-   ========================= */
-
+/* 站长想说：一封写在横线信纸上的信 */
 .site-owner-message {
-  max-width: 900px;
-  margin: 18px auto 0;
-  padding: 12px 16px;
-
+  position: relative;
+  margin: 40px auto 0;
+  padding: 34px 44px 34px 64px;
   text-align: left;
+  background-color: var(--j-paper);
+  background-image: repeating-linear-gradient(transparent 0 33px, #ece4d4 33px 34px);
+  background-position: 0 37px;
+  border: 1px solid var(--j-rule);
+  box-shadow: var(--j-shadow);
+  transform: rotate(-0.4deg);
+}
 
-  background: #f5f6f7;
-  border-left: 3px solid #dcdfe6;
-  border-radius: 4px;
+/* 信纸的页边红线 */
+.site-owner-message::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 42px;
+  width: 1px;
+  background: var(--j-margin-red);
+  opacity: 0.6;
+}
+
+.letter-tape {
+  top: -11px;
+  left: 50%;
+  margin-left: -42px;
+  transform: rotate(-2deg);
 }
 
 .owner-title {
-  margin-bottom: 8px;
-
-  font-size: 13px;
-  font-weight: 600;
-  color: #777;
+  margin: 0;
+  font-family: var(--j-hand);
+  font-size: 22px;
+  line-height: 34px;
 }
 
-.hero .site-owner-message p {
-  margin: 6px 0;
-
-  font-size: 13px;
-  line-height: 1.8;
-  color: #888;
+.site-owner-message p {
+  margin: 0;
+  font-family: var(--j-hand);
+  font-size: 17px;
+  line-height: 34px;
+  color: var(--j-ink);
+  text-indent: 2em;
 }
 
-/* =========================
-   数据统计区域
-   ========================= */
-
+/* ============ 数据统计 ============ */
 .stats-section {
-  background: #f3f3f3;
-  padding: 16px;
-  margin-top: 20px;
-  border-radius: 8px;
+  margin-top: 56px;
+  text-align: center;
 }
 
-.stats-section h2 {
-  font-size: 18px;
-  color: #48e3a7;
-  margin-bottom: 16px;
-  text-align: center;
+.stats-section h2,
+.tech-section h2 {
+  margin: 0 0 22px;
+  font-family: var(--j-hand);
+  font-weight: normal;
+  font-size: 24px;
 }
 
 .stats {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 16px;
-  margin-top: 12px;
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 22px;
 }
 
+/* 每个数字盖成一枚印章 */
 .stat-card {
-  background: #ffffff;
-  border-radius: 10px;
-
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-
-  padding: 16px;
-  text-align: center;
-
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 128px;
+  height: 128px;
+  border: 2px solid rgba(47, 93, 138, 0.7);
+  border-radius: 50%;
+  outline: 1px solid rgba(47, 93, 138, 0.35);
+  outline-offset: 4px;
+  color: var(--j-pen);
+  background: rgba(255, 253, 248, 0.6);
 }
 
-.stat-card:hover {
-  transform: translateY(-5px);
+.stat-card:nth-child(odd) {
+  border-color: rgba(194, 72, 62, 0.7);
+  outline-color: rgba(194, 72, 62, 0.35);
+  color: var(--j-stamp);
+  transform: rotate(-6deg);
+}
 
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+.stat-card:nth-child(even) {
+  transform: rotate(5deg);
 }
 
 .stat-card h3 {
-  font-size: 22px;
-  margin: 8px 0;
-  color: #409eff;
+  margin: 0;
+  font-family: var(--j-num);
+  font-weight: normal;
+  font-size: 30px;
+  line-height: 1.1;
 }
 
 .stat-card p {
+  margin: 6px 0 0;
+  padding: 0 8px;
+  font-family: var(--j-hand);
   font-size: 14px;
-  color: #888;
+  line-height: 1.3;
 }
 
-/* =========================
-   功能卡片区域
-   ========================= */
-
+/* ============ 功能：便签 ============ */
 .features {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 12px;
-  margin-top: 12px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 22px;
+  margin-top: 60px;
 }
 
 .feature-card {
-  background: white;
-  border-radius: 10px;
+  padding: 22px 18px 18px;
+  background: var(--j-note);
+  box-shadow: 0 1px 2px rgba(60, 50, 30, 0.1), 0 12px 20px -14px rgba(60, 50, 30, 0.45);
+  transition: transform 0.2s ease;
+}
 
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+.feature-card:nth-child(4n+1) { background: var(--j-note); transform: rotate(-1.5deg); }
+.feature-card:nth-child(4n+2) { background: #d4ead9; transform: rotate(1deg); }
+.feature-card:nth-child(4n+3) { background: #f6d9d6; transform: rotate(-0.6deg); }
+.feature-card:nth-child(4n) { background: #d6e4f0; transform: rotate(1.4deg); }
 
-  padding: 12px;
-  text-align: center;
+.feature-card:hover {
+  transform: rotate(0deg) translateY(-3px);
 }
 
 .feature-card .icon {
-  font-size: 24px;
-  margin-bottom: 6px;
+  font-size: 28px;
 }
 
 .feature-card h3 {
-  font-size: 16px;
-  margin: 4px 0;
+  margin: 10px 0 6px;
+  font-family: var(--j-hand);
+  font-weight: normal;
+  font-size: 19px;
 }
 
 .feature-card p {
+  margin: 0;
   font-size: 13px;
-  color: #555;
+  line-height: 1.7;
+  color: var(--j-ink-soft);
 }
 
-/* =========================
-   技术栈介绍
-   ========================= */
-
+/* ============ 使用技术：清单卡 ============ */
 .tech-section {
-  background: white;
-  padding: 12px;
-  margin-top: 12px;
-  border-radius: 8px;
+  position: relative;
+  max-width: 560px;
+  margin: 60px auto 0;
+  padding: 30px 32px 24px;
+  background: var(--j-paper);
+  border: 1px solid var(--j-rule);
+  box-shadow: var(--j-shadow);
 }
 
-.tech-section h2 {
-  font-size: 16px;
-  margin-bottom: 8px;
+.tech-tape {
+  top: -10px;
+  left: 26px;
+  transform: rotate(-5deg);
 }
 
 .tech-section ul {
-  padding-left: 18px;
-  font-size: 13px;
-  color: #444;
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
-/* =========================
-   底部区域
-   ========================= */
+.tech-section li {
+  position: relative;
+  padding: 10px 0 10px 30px;
+  border-bottom: 1px dashed var(--j-rule);
+  font-size: 15px;
+  color: var(--j-ink);
+}
 
-.footer {
+.tech-section li:last-child {
+  border-bottom: none;
+}
+
+/* 打勾的方框 */
+.tech-section li::before {
+  content: "✓";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 16px;
+  height: 16px;
+  margin-top: -9px;
+  border: 1px solid var(--j-ink-soft);
+  font-family: var(--j-hand);
+  font-size: 15px;
+  line-height: 14px;
   text-align: center;
-  font-size: 12px;
-  color: #888;
-
-  padding: 12px;
-
-  background: #fff;
-  border-top: 1px solid #eee;
+  color: var(--j-stamp);
 }
 
-.footer a {
-  color: #409eff;
-  text-decoration: none;
+@media (max-width: 860px) {
+  .features {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
-.footer a:hover {
-  text-decoration: underline;
-}
+@media (max-width: 560px) {
+  .about-wrapper {
+    padding: 28px 14px 56px;
+  }
 
+  .hero h1 {
+    font-size: 27px;
+  }
+
+  .site-owner-message {
+    padding: 34px 18px 34px 34px;
+    transform: none;
+  }
+
+  .site-owner-message::before {
+    left: 22px;
+  }
+
+  .stat-card {
+    width: 104px;
+    height: 104px;
+  }
+
+  .stat-card h3 {
+    font-size: 24px;
+  }
+
+  .features {
+    grid-template-columns: 1fr;
+  }
+
+  .feature-card {
+    transform: none !important;
+  }
+}
 </style>
-

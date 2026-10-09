@@ -10,7 +10,8 @@
 
   <div :class="['friend-link-container', { 'is-embed': isEmbed }]">
     <header v-if="!isEmbed" class="page-heading">
-      <div>
+      <div class="heading-label">
+        <span class="j-tape heading-tape"></span>
         <h1>友链</h1>
         <p class="page-intro">互联网很大，很高兴在这里遇见你们。</p>
         <p class="page-stats">{{ normalFriendLinks.length }} 位朋友 · {{ recommendLinks.length }} 个推荐站点</p>
@@ -112,7 +113,7 @@
       <div class="dialog-tip" v-if="!isEditMode && !isRecommendMode">
         欢迎互换友链！请确保您的站点能够正常访问，且包含本站链接。
       </div>
-      <div class="dialog-tip" style="color: #e6a23c; background-color: #fdf6ec;" v-if="isRecommendMode && !isEditMode">
+      <div class="dialog-tip dialog-tip--warm" v-if="isRecommendMode && !isEditMode">
         添加的内容将展示在“推荐好站”专区。
       </div>
       <el-form :model="applyForm" label-width="80px">
@@ -287,14 +288,10 @@ onMounted(() => {
 
 <style scoped>
 .friend-link-container {
-  --link-ink: var(--el-text-color-primary, #303133);
-  --link-muted: var(--el-text-color-secondary, #909399);
-  --link-border: var(--el-border-color-light, #e4e7ed);
-  --link-blue: var(--el-color-primary, #409eff);
   max-width: 1200px;
   margin: 0 auto;
-  padding: 28px 20px 48px;
-  color: var(--link-ink);
+  padding: 36px 20px 56px;
+  color: var(--j-ink);
 }
 
 .page-heading,
@@ -307,37 +304,56 @@ onMounted(() => {
 }
 
 .page-heading {
-  padding-bottom: 22px;
-  border-bottom: 1px solid var(--link-border);
+  align-items: flex-end;
+  padding-bottom: 8px;
+}
+
+/* 页头：一张贴胶带的标签 */
+.heading-label {
+  position: relative;
+  padding: 20px 30px 18px;
+  background: var(--j-paper);
+  border: 1px solid var(--j-rule);
+  box-shadow: var(--j-shadow);
+  transform: rotate(-0.6deg);
+}
+
+.heading-tape {
+  top: -10px;
+  left: -18px;
+  transform: rotate(-30deg);
 }
 
 .page-heading h1 {
   margin: 0;
-  font-size: 26px;
-  font-weight: 600;
-  line-height: 1.4;
+  font-family: var(--j-hand);
+  font-weight: normal;
+  font-size: 30px;
+  line-height: 1.3;
 }
 
 .page-intro {
   margin: 8px 0 0;
-  color: var(--el-text-color-regular, #606266);
   font-size: 15px;
   line-height: 1.6;
+  color: var(--j-ink-soft);
 }
 
 .page-stats {
   margin: 8px 0 0;
-  color: var(--link-muted);
-  font-size: 13px;
-  line-height: 1.5;
+  padding-top: 8px;
+  border-top: 1px dashed var(--j-rule);
+  font-family: var(--j-hand);
+  font-size: 14px;
+  color: var(--j-muted);
 }
 
 .link-section {
-  margin-top: 28px;
+  margin-top: 36px;
 }
 
 .section-heading {
-  margin-bottom: 14px;
+  margin-bottom: 18px;
 }
 
 .title-line {
@@ -349,52 +365,67 @@ onMounted(() => {
 
 .title-line h2 {
   margin: 0;
-  font-size: 20px;
-  font-weight: 600;
+  font-family: var(--j-hand);
+  font-weight: normal;
+  font-size: 23px;
   line-height: 1.5;
 }
 
 .section-count {
-  color: var(--link-muted);
   font-size: 13px;
+  color: var(--j-muted);
 }
 
 .section-heading p {
   margin: 4px 0 0;
-  color: var(--el-text-color-regular, #606266);
   font-size: 14px;
   line-height: 1.6;
+  color: var(--j-ink-soft);
 }
 
 .friend-grid,
 .recommend-grid {
   display: grid;
-  gap: 12px;
+  gap: 18px;
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
+/* 友情链接：名片 */
 .link-card {
   position: relative;
   min-width: 0;
-  border: 1px solid var(--link-border);
-  border-radius: 10px;
-  background: var(--el-bg-color, #fff);
-  transition: border-color 200ms ease, background-color 200ms ease, transform 200ms ease, box-shadow 200ms ease;
+  background: var(--j-paper);
+  border: 1px solid var(--j-rule);
+  box-shadow: 0 1px 2px rgba(60, 50, 30, 0.07);
+  transition: transform 200ms ease, box-shadow 200ms ease;
 }
 
-.recommend-grid .link-card::after {
-  content: '';
+.friend-grid .link-card:nth-child(4n+1) { transform: rotate(-0.8deg); }
+.friend-grid .link-card:nth-child(4n+2) { transform: rotate(0.6deg); }
+.friend-grid .link-card:nth-child(4n+3) { transform: rotate(-0.3deg); }
+.friend-grid .link-card:nth-child(4n) { transform: rotate(0.9deg); }
+
+/* 推荐好站：牛皮纸书签，左侧有一个穿孔 */
+.recommend-grid .link-card {
+  background: var(--j-kraft);
+  border-color: #d8c49d;
+}
+
+.recommend-grid .link-card::before {
+  content: "";
   position: absolute;
-  right: 16px;
-  bottom: 0;
-  left: 16px;
-  height: 2px;
-  border-radius: 2px;
-  background: var(--el-color-primary-light-5, #a0cfff);
-  pointer-events: none;
-  transform: scaleX(0);
-  transform-origin: left;
-  transition: transform 220ms ease;
+  top: 50%;
+  left: 10px;
+  width: 8px;
+  height: 8px;
+  margin-top: -4px;
+  border-radius: 50%;
+  background: var(--j-desk);
+  box-shadow: inset 0 1px 2px rgba(60, 50, 30, 0.35);
+}
+
+.recommend-grid .card-link {
+  padding-left: 28px;
 }
 
 .card-link {
@@ -405,18 +436,19 @@ onMounted(() => {
   height: 100%;
   min-height: 104px;
   padding: 16px;
-  border-radius: inherit;
   color: inherit;
   text-decoration: none;
 }
 
 .site-avatar {
   flex-shrink: 0;
-  border-radius: 10px;
-  background: var(--el-color-primary-light-9, #ecf5ff);
-  color: var(--link-blue);
+  border: 3px solid #fff;
+  border-radius: 2px;
+  box-shadow: 0 1px 2px rgba(60, 50, 30, 0.25);
+  background: #ece4d3;
+  color: var(--j-ink-soft);
+  font-family: var(--j-hand);
   font-size: 20px;
-  font-weight: 500;
 }
 
 .card-content {
@@ -427,25 +459,28 @@ onMounted(() => {
 .site-name {
   overflow: hidden;
   margin: 0 0 5px;
-  color: var(--link-ink);
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
   line-height: 1.5;
+  color: var(--j-ink);
   text-overflow: ellipsis;
   white-space: nowrap;
-  transition: color 200ms ease;
 }
 
 .site-desc {
   display: -webkit-box;
   overflow: hidden;
   margin: 0;
-  color: var(--el-text-color-regular, #606266);
-  font-size: 14px;
+  font-size: 13px;
   line-height: 1.6;
+  color: var(--j-ink-soft);
   overflow-wrap: anywhere;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
+}
+
+.recommend-grid .site-desc {
+  color: #6b5330;
 }
 
 .has-actions .site-name {
@@ -466,31 +501,31 @@ onMounted(() => {
   height: 26px;
   padding: 0;
   border: 0;
-  border-radius: 6px;
-  color: var(--link-muted);
+  border-radius: 3px;
   background: transparent;
+  color: var(--j-muted);
   cursor: pointer;
 }
 
 .action-btn:hover {
-  color: var(--link-blue);
-  background: var(--el-color-primary-light-9, #ecf5ff);
+  background: rgba(250, 216, 96, 0.35);
+  color: var(--j-ink);
 }
 
 .card-link:focus-visible,
 .action-btn:focus-visible {
-  outline: 2px solid var(--link-blue);
+  outline: 2px solid var(--j-pen);
   outline-offset: 2px;
 }
 
 .danger-item {
-  color: var(--el-color-danger, #f56c6c);
+  color: var(--j-stamp);
 }
 
 .friend-link-container.is-embed {
   max-width: 100%;
-  padding: 0;
   margin: 0;
+  padding: 0;
 }
 
 .is-embed .link-section {
@@ -504,31 +539,27 @@ onMounted(() => {
 .dialog-tip {
   margin-bottom: 20px;
   padding: 10px 12px;
-  border-radius: 8px;
-  color: var(--el-text-color-regular, #606266);
-  background: var(--el-fill-color-light, #f5f7fa);
+  background: var(--j-paper-warm);
+  border-left: 3px solid var(--j-rule-strong);
   font-size: 14px;
   line-height: 1.6;
+  color: var(--j-ink-soft);
+}
+
+.dialog-tip--warm {
+  background: #fdf3c4;
+  border-left-color: #e8c95b;
+  color: #7a5c12;
 }
 
 @media (hover: hover) {
-  .friend-grid .link-card:hover {
-    transform: translateY(-2px);
-    border-color: var(--el-color-primary-light-5, #a0cfff);
-    box-shadow: 0 4px 12px rgba(35, 55, 80, 0.06);
-  }
-
-  .recommend-grid .link-card:hover {
-    border-color: var(--el-color-primary-light-7, #c6e2ff);
-    background: var(--el-color-primary-light-9, #ecf5ff);
-  }
-
-  .recommend-grid .link-card:hover::after {
-    transform: scaleX(1);
+  .link-card:hover {
+    transform: rotate(0deg) translateY(-3px) !important;
+    box-shadow: 0 1px 2px rgba(60, 50, 30, 0.07), 0 12px 20px -12px rgba(60, 50, 30, 0.45);
   }
 
   .link-card:hover .site-name {
-    color: var(--link-blue);
+    color: var(--j-pen);
   }
 }
 
@@ -548,11 +579,11 @@ onMounted(() => {
 
 @media (max-width: 560px) {
   .friend-link-container {
-    padding: 20px 14px 32px;
+    padding: 24px 14px 36px;
   }
 
-  .page-heading {
-    align-items: flex-start;
+  .heading-label {
+    transform: none;
   }
 
   .friend-grid,
@@ -560,25 +591,19 @@ onMounted(() => {
     grid-template-columns: 1fr;
   }
 
-  .link-section {
-    margin-top: 24px;
+  .link-card {
+    transform: none !important;
   }
 
   .card-link {
-    min-height: 96px;
+    min-height: 92px;
     padding: 14px;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .link-card,
-  .site-name,
-  .recommend-grid .link-card::after {
+  .link-card {
     transition: none;
-  }
-
-  .friend-grid .link-card:hover {
-    transform: none;
   }
 }
 </style>

@@ -3,6 +3,8 @@ import App from './App.vue'
 import router from './router'
 import ElementPlus from 'element-plus'
 import 'element-plus/dist/index.css'
+// 手账风格公共样式，放在 Element Plus 之后以覆盖其主题变量
+import './css/journal.css'
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 import { createHead } from '@vueuse/head'

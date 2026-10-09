@@ -1,5 +1,6 @@
 <template>
   <el-aside width="100%" class="sidebar">
+    <span class="j-tape sidebar-tape"></span>
     <div class="sidebar-header">
       <span class="sidebar-title">{{ view_title }}</span>
       <el-button v-if="isSelf()" type="primary" link class="add-btn" :icon="Plus" @click="openCategoryDialog(null)">
@@ -463,73 +464,61 @@ onBeforeUnmount(() => window.removeEventListener('click', closeContextMenu))
 </script>
 
 <style scoped>
-/* ================= 核心容器美化 (纯透明，无模糊) ================= */
+/* ================= 目录卡片 ================= */
 .sidebar {
-  background-color: rgba(255, 255, 255, 0.9);
-  border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.5);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.04);
-
-  height: calc(100vh - 100px);
-  max-height: 800px;
   position: sticky;
   top: 20px;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
-  transition: all 0.3s ease;
+  height: calc(100vh - 100px);
+  max-height: 800px;
+  overflow: visible;
+  background: var(--j-paper);
+  border: 1px solid var(--j-rule);
+  box-shadow: var(--j-shadow);
 }
 
-/* ================= 头部美化 ================= */
+.sidebar-tape {
+  top: -10px;
+  right: 26px;
+  transform: rotate(5deg);
+}
+
 .sidebar-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 16px 20px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.04);
-  /* 头部背景也设置为透明 */
-  background: transparent;
-  z-index: 10;
+  padding: 18px 18px 12px;
+  border-bottom: 1px dashed var(--j-rule-strong);
 }
 
 .sidebar-title {
-  font-weight: 600;
-  font-size: 15px;
-  color: #2c3e50;
-  letter-spacing: 0.5px;
+  font-family: var(--j-hand);
+  font-size: 19px;
+  color: var(--j-ink);
 }
 
 .add-btn {
-  font-weight: 500;
+  font-size: 13px;
 }
 
-/* ================= 滚动区域美化 (定制极细滚动条) ================= */
 .menu-scroll-container {
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 8px 0 16px 0;
+  padding: 6px 0 16px;
 }
 
 .menu-scroll-container::-webkit-scrollbar {
   width: 4px;
 }
 
-.menu-scroll-container::-webkit-scrollbar-track {
-  background: transparent;
-}
-
 .menu-scroll-container::-webkit-scrollbar-thumb {
-  background: rgba(144, 147, 153, 0.2);
+  background: rgba(120, 104, 80, 0.2);
   border-radius: 4px;
 }
 
-.menu-scroll-container:hover::-webkit-scrollbar-thumb {
-  background: rgba(144, 147, 153, 0.4);
-}
-
-/* ================= Element-plus 菜单深度复写 ================= */
-/* 核心修复：强制所有层级的菜单及下拉面板背景纯透明 */
+/* ================= Element-plus 菜单复写 ================= */
 :deep(.el-menu),
 :deep(.el-menu--inline),
 .custom-el-menu {
@@ -537,40 +526,46 @@ onBeforeUnmount(() => window.removeEventListener('click', closeContextMenu))
   border-right: none !important;
 }
 
-/* 压缩菜单项高度，制作胶囊形状，并确保默认背景透明 */
 :deep(.el-sub-menu__title),
 :deep(.el-menu-item) {
+  height: 36px !important;
+  line-height: 36px !important;
+  margin: 2px 10px;
+  border-radius: 2px;
   background-color: transparent !important;
-  height: 38px !important;
-  line-height: 38px !important;
-  margin: 4px 12px;
-  border-radius: 8px;
-  color: #606266;
-  transition: all 0.25s ease;
+  color: var(--j-ink-soft);
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+:deep(.el-sub-menu__title) {
+  font-family: var(--j-hand);
+  font-size: 16px;
+  color: var(--j-ink);
+}
+
+:deep(.el-sub-menu__title .el-icon) {
+  color: #b39554;
 }
 
 :deep(.el-menu-item) {
-  padding-left: 44px !important;
+  padding-left: 40px !important;
 }
 
-/* Hover状态微透出主题色 */
 :deep(.el-sub-menu__title:hover),
 :deep(.el-menu-item:hover) {
-  background-color: rgba(64, 158, 255, 0.08) !important;
-  color: #409eff;
+  background-color: rgba(250, 216, 96, 0.2) !important;
+  color: var(--j-ink);
 }
 
-/* 选中状态 */
+/* 当前文章：荧光笔 */
 :deep(.el-menu-item.is-active) {
-  background-color: rgba(64, 158, 255, 0.1) !important;
-  color: #409eff;
+  background-color: rgba(250, 216, 96, 0.45) !important;
+  color: var(--j-ink);
   font-weight: 600;
 }
 
-/* 菜单文本和图标对齐 */
 .menu-text {
-  font-weight: 500;
-  font-size: 14px;
+  font-size: 16px;
 }
 
 .el-menu_ {
@@ -580,72 +575,81 @@ onBeforeUnmount(() => window.removeEventListener('click', closeContextMenu))
 }
 
 .blog-title-text {
+  flex: 1;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  flex: 1;
   font-size: 13px;
   color: inherit;
   text-decoration: none;
 }
 
+/* 公 / 私：小小的圆形印章 */
 .custom-tag {
-  transform: scale(0.85);
-  transform-origin: left center;
-  border-radius: 4px;
-  border: none;
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid currentColor;
+  background: transparent;
+  font-family: var(--j-hand);
+  font-size: 12px;
+  line-height: 18px;
+  text-align: center;
 }
 
-/* ================= 右键菜单纯透明美化 ================= */
+.custom-tag.el-tag--success {
+  color: #4f8a5b;
+}
+
+.custom-tag.el-tag--info {
+  color: var(--j-stamp);
+}
+
+/* ================= 右键菜单：一张小便签 ================= */
 .custom-context-menu {
   position: fixed;
   z-index: 2000;
-  background-color: rgba(255, 255, 255, 0.95); /* 稍微高一点透明度保证文字清晰，无模糊 */
-  border: 1px solid rgba(228, 231, 237, 0.8);
-  border-radius: 10px;
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.12);
-  padding: 6px;
   min-width: 140px;
+  padding: 6px;
+  background: var(--j-note);
+  box-shadow: 0 1px 2px rgba(60, 50, 30, 0.12), 0 10px 18px -10px rgba(60, 50, 30, 0.45);
 }
 
 .custom-context-menu .menu-item {
-  padding: 8px 12px;
-  margin: 2px 0;
-  font-size: 13px;
-  color: #606266;
-  cursor: pointer;
   display: flex;
   align-items: center;
   gap: 8px;
-  border-radius: 6px;
-  transition: background-color 0.2s, color 0.2s;
-  background-color: transparent;
+  margin: 2px 0;
+  padding: 8px 12px;
+  font-size: 13px;
+  color: var(--j-ink);
+  cursor: pointer;
+  transition: background-color 0.2s;
 }
 
 .custom-context-menu .menu-item:hover {
-  background-color: rgba(64, 158, 255, 0.1);
-  color: #409eff;
+  background-color: rgba(255, 255, 255, 0.55);
 }
 
-.custom-context-menu .menu-item.danger:hover {
-  background-color: rgba(245, 108, 108, 0.1);
-  color: #f56c6c;
+.custom-context-menu .menu-item.danger {
+  color: var(--j-stamp);
 }
 
 .custom-context-menu .divider {
-  height: 1px;
-  background-color: rgba(0, 0, 0, 0.06);
+  height: 0;
   margin: 4px 0;
+  border-top: 1px dashed rgba(160, 135, 60, 0.4);
 }
 
-/* 响应式 */
 @media screen and (max-width: 768px) {
   .sidebar {
-    width: 100%;
-    margin-top: 0;
     position: static;
+    width: 100%;
     height: auto;
     max-height: 500px;
+    margin-top: 0;
   }
 }
 </style>

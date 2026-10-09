@@ -200,15 +200,16 @@ onMounted(() => {
 }
 
 .user-card {
-  border-radius: 8px;
+  border: 1px solid var(--j-rule);
+  border-radius: 2px;
+  background: #fffefb;
   cursor: pointer;
-  transition: all 0.2s ease;
-  border: 1px solid #ebeef5;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .user-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 1px 2px rgba(60, 50, 30, 0.08), 0 10px 18px -12px rgba(60, 50, 30, 0.45) !important;
 }
 
 /* 新增：包裹名字和标签的容器 */
@@ -219,12 +220,10 @@ onMounted(() => {
   width: 100%;
 }
 .public-badge{
-
-  color: #000;
-  font-size: 9px;
-  font-weight: bold;
-  border-radius: 10px;
-  padding: 2px 5px; /* 稍微增加了点左右内边距，更好看 */
+  border: 1px solid currentColor;
+  font-size: 10px;
+  border-radius: 3px;
+  padding: 1px 5px;
   line-height: 1.2;
 
   /* --- 核心位置微调 --- */
@@ -235,14 +234,17 @@ onMounted(() => {
 }
 
 .superAdmin-badge {
-  background-color: #ffdf02;
+  color: var(--j-stamp);
 }
 
 .admin-badge {
-  background-color: #86ff93;
+  color: var(--j-pen);
 }
+
 .ban-badge {
-  background-color: #ff5a5a;
+  color: #fff;
+  background-color: var(--j-stamp);
+  border-color: var(--j-stamp);
 }
 /* 覆盖 el-card 默认的内边距，使其更紧凑 */
 :deep(.user-card .el-card__body) {
@@ -258,8 +260,8 @@ onMounted(() => {
 .author-avatar {
   flex-shrink: 0;
   margin-right: 12px;
-  background-color: #409eff; /* 给没有头像的文字头像加个默认底色 */
-  color: #fff;
+  background-color: #ece4d3; /* 没有头像时的文字头像底色 */
+  color: var(--j-ink-soft);
 }
 
 .user-info-text {
@@ -272,7 +274,7 @@ onMounted(() => {
 .user-name {
   font-size: 15px;
   font-weight: 600;
-  color: #303133;
+  color: var(--j-ink);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -281,7 +283,7 @@ onMounted(() => {
 
 .user-remark {
   font-size: 12px;
-  color: #909399;
+  color: var(--j-muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -294,7 +296,7 @@ onMounted(() => {
 
 /* 红色警告文字 */
 .text-danger {
-  color: #f56c6c;
+  color: var(--j-stamp);
 }
 
 .list-footer {
@@ -310,7 +312,8 @@ onMounted(() => {
 }
 
 .end-text-v2 {
-  color: #c0c4cc;
-  font-size: 13px;
+  font-family: var(--j-hand);
+  font-size: 14px;
+  color: var(--j-muted);
 }
 </style>

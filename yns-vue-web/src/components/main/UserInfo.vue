@@ -3,7 +3,8 @@
     <div class="sticky-left">
       <div class="align-spacer"></div>
 
-      <el-card class="profile-card">
+      <el-card class="profile-card" shadow="never">
+        <span class="j-tape j-tape--top"></span>
         <div class="profile-header-vertical">
           <el-avatar
               :src="user.avatar"
@@ -260,37 +261,55 @@ const handleBlogClick = (blog) => {
   flex-shrink: 0;
 }
 
+/* 资料卡：一张贴着胶带的卡片 */
 .profile-card {
-  background-color: rgba(255, 255, 255, 0.5) !important;
-  border: 1px solid rgba(255, 255, 255, 0.5);
-  border-radius: 12px;
-  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.08);
-  padding: 24px 20px;
+  position: relative;
+  overflow: visible;
+  border: 1px solid var(--j-rule);
+  border-radius: 2px;
+  background: var(--j-paper);
+  box-shadow: var(--j-shadow) !important;
+}
+
+.profile-card :deep(.el-card__body) {
+  padding: 30px 22px 20px;
 }
 
 .profile-header-vertical {
   display: flex;
   flex-direction: column;
   align-items: center;
+  gap: 14px;
   text-align: center;
 }
 
+/* 头像像一张拍立得 */
 .author-avatar {
-  width: 90px !important;
-  height: 90px !important;
-  font-size: 24px;
-  background-color: #f2f2f2;
-  border: 3px solid rgba(255,255,255,0.8);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-  margin-bottom: 12px;
+  width: 92px !important;
+  height: 92px !important;
+  border: 5px solid #fff;
+  border-bottom-width: 14px;
+  border-radius: 0 !important;
+  box-shadow: 0 1px 3px rgba(60, 50, 30, 0.25);
+  background: #ece4d3;
+  color: var(--j-ink-soft);
+  font-family: var(--j-hand);
+  font-size: 34px;
+  transform: rotate(-3deg);
   cursor: pointer;
+  transition: transform 0.2s ease;
+}
+
+.author-avatar:hover {
+  transform: rotate(0deg);
 }
 
 .profile-details-vertical {
-  width: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
+  gap: 6px;
+  width: 100%;
 }
 
 .username-vertical {
@@ -298,13 +317,14 @@ const handleBlogClick = (blog) => {
   flex-direction: column;
   align-items: center;
   gap: 8px;
-  margin: 0 0 12px 0;
+  margin: 0;
 }
 
 .username-vertical .name {
-  font-size: 22px;
-  font-weight: bold;
-  color: #2c3e50;
+  font-family: var(--j-hand);
+  font-weight: normal;
+  font-size: 26px;
+  color: var(--j-ink);
 }
 
 .badges-container {
@@ -314,111 +334,147 @@ const handleBlogClick = (blog) => {
   gap: 6px;
 }
 
-.user-info-text, .userip-text {
-  font-size: 13px;
-  color: #666;
-  margin: 4px 0;
+.user-info-text,
+.userip-text {
+  margin: 0;
+  font-size: 12px;
+  color: var(--j-muted);
 }
 
 .user-remark-vertical {
-  font-size: 13px;
-  color: #555;
-  margin: 12px 0;
-  background-color: rgba(248, 248, 248, 0.6);
-  padding: 8px 12px;
-  border-radius: 6px;
-  font-style: italic;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
   width: 100%;
+  margin: 4px 0;
+  padding: 8px 12px;
   box-sizing: border-box;
-  word-break: break-all;
+  background: #fdf3c4;
+  font-family: var(--j-hand);
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--j-ink-soft);
+  transform: rotate(-0.5deg);
 }
 
 .stats-vertical {
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 18px;
   width: 100%;
-  gap: 20px;
-  margin: 16px 0;
   padding: 12px 0;
-  border-top: 1px dashed rgba(0,0,0,0.06);
-  border-bottom: 1px dashed rgba(0,0,0,0.06);
+  border-top: 1px dashed var(--j-rule-strong);
+  border-bottom: 1px dashed var(--j-rule-strong);
 }
 
 .stat-item {
-  font-size: 14px;
-  color: #606266;
-  cursor: pointer;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
-  transition: color 0.2s;
+  gap: 2px;
+  font-family: var(--j-hand);
+  font-size: 14px;
+  color: var(--j-ink-soft);
+  cursor: pointer;
 }
 
-.stat-item:hover { color: #409eff; }
-.stat-item strong { font-size: 18px; color: #303133; }
-.stat-divider { width: 1px; height: 24px; background-color: rgba(0,0,0,0.08); }
+.stat-item:hover {
+  color: var(--j-pen);
+}
+
+.stat-item strong {
+  font-family: var(--j-num);
+  font-weight: normal;
+  font-size: 22px;
+  color: var(--j-ink);
+}
+
+.stat-divider {
+  width: 1px;
+  height: 28px;
+  background-color: var(--j-rule-strong);
+}
 
 .author-actions-vertical {
   display: flex;
+  justify-content: center;
+  gap: 10px;
   width: 100%;
-  gap: 12px;
-  margin-bottom: 16px;
 }
 
 .action-btn {
   flex: 1;
-  font-weight: 600;
-  box-shadow: 0 2px 8px rgba(64, 158, 255, 0.2);
+  margin: 0 !important;
 }
 
 .interaction-buttons-vertical {
   display: flex;
-  width: 100%;
   justify-content: space-around;
-  background: rgba(0,0,0,0.02);
-  border-radius: 8px;
-  padding: 8px 0;
+  width: 100%;
+  padding: 8px 0 0;
 }
 
+.icon-btn {
+  font-size: 13px;
+}
+
+/* 身份：小印章 */
 .public-badge {
-  color: #000;
-  font-size: 12px;
-  font-weight: bold;
-  border-radius: 10px;
-  padding: 2px 8px;
-  line-height: 1.2;
+  padding: 1px 8px;
+  border: 1.5px solid currentColor;
+  border-radius: 3px;
+  font-family: var(--j-hand);
+  font-size: 13px;
+  line-height: 18px;
+  background: transparent;
 }
 
-.superAdmin-badge { background-color: #ffdf02; }
-.admin-badge { background-color: #86ff93; }
-.ban-badge { background-color: #ff5a5a; }
+.superAdmin-badge {
+  color: var(--j-stamp);
+  transform: rotate(-4deg);
+}
 
-/* 响应式调整 */
+.admin-badge {
+  color: var(--j-pen);
+  transform: rotate(3deg);
+}
+
+.ban-badge {
+  color: #fff;
+  background: var(--j-stamp);
+  border-color: var(--j-stamp);
+}
+
 @media (max-width: 1024px) {
   .left-sidebar {
     width: 100%;
     position: static;
   }
+
   .align-spacer {
     display: none;
   }
+
   .profile-header-vertical {
     flex-direction: row;
     flex-wrap: wrap;
     justify-content: space-between;
     text-align: left;
   }
+
   .profile-details-vertical {
     align-items: flex-start;
     width: auto;
     flex: 1;
     margin-left: 20px;
   }
+
   .username-vertical {
     flex-direction: row;
   }
+
   .author-actions-vertical,
   .interaction-buttons-vertical {
     width: auto;
@@ -431,10 +487,12 @@ const handleBlogClick = (blog) => {
     align-items: center;
     text-align: center;
   }
+
   .profile-details-vertical {
     margin-left: 0;
     align-items: center;
   }
+
   .username-vertical {
     flex-direction: column;
   }

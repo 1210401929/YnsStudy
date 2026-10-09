@@ -8,12 +8,12 @@
         <div class="cover-label">
           <span class="tape tape-left"></span>
           <span class="tape tape-right"></span>
-          <h1 class="cover-title">YnsStudy 学习手账</h1>
-          <p class="cover-desc">记录编程学习、技术实践与生活思考。</p>
+          <h1 class="cover-title">YnsStudy</h1>
+          <p class="cover-desc">探索技术无限可能</p>
           <p v-if="siteStats" class="cover-stats">
-            写了 <b>{{ formatCount(siteStats.ARTICLENUM) }}</b> 篇，
-            被翻阅 <b>{{ formatCount(siteStats.VIEW_PAGE) }}</b> 次，
-            <b>{{ formatCount(siteStats.USERNUM) }}</b> 位朋友来过
+            <span>文章 <b>{{ formatCount(siteStats.ARTICLENUM) }}</b></span>
+            <span>阅读 <b>{{ formatCount(siteStats.VIEW_PAGE) }}</b></span>
+            <span>用户 <b>{{ formatCount(siteStats.USERNUM) }}</b></span>
           </p>
         </div>
         <div class="date-stamp" aria-hidden="true">
@@ -27,24 +27,23 @@
         <main class="notebook">
           <!-- 本子顶部的索引标签 -->
           <nav class="index-tabs" aria-label="快捷入口">
-            <a href="#" class="index-tab tab-yellow" @click.prevent="goToPublishBlog">写文章</a>
+            <a href="#" class="index-tab tab-blue" @click.prevent="goToAdmin">站长主页</a>
+            <a href="#" class="index-tab tab-yellow" @click.prevent="goToPublishBlog">发布内容</a>
             <a href="#" class="index-tab tab-green" @click.prevent="goToUpload">上传资源</a>
             <a href="#" class="index-tab tab-pink" @click.prevent="goMe">我的主页</a>
-            <a href="#" class="index-tab tab-blue" @click.prevent="goToAdmin">关于站长</a>
           </nav>
 
           <div class="page">
             <div class="page-head">
-              <h2 class="hand page-title">
-                {{ activeKeyword ? `找到的「${activeKeyword}」` : '最近写下的' }}
-                <small v-if="activeKeyword && !loading">共 {{ total }} 篇</small>
-              </h2>
               <label class="search">
-                <span class="hand search-label">找一找</span>
+                <svg class="search-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <circle cx="11" cy="11" r="6.5"/>
+                  <path d="M16 16l4.5 4.5"/>
+                </svg>
                 <input
                     v-model="searchKeyword"
                     type="search"
-                    placeholder="标题或正文里的字"
+                    placeholder="搜索感兴趣的文章标题或内容..."
                     aria-label="搜索文章"
                     @input="debouncedSearch"
                     @keydown.enter="searchNow"
@@ -75,8 +74,6 @@
                       {{ article.USERNAME?.charAt(0) }}
                     </el-avatar>
                     <span>{{ article.USERNAME }}</span>
-                    <span class="meta-dot">·</span>
-                    <span>{{ formatCount(article.VIEW_PAGE) }} 次阅读</span>
                   </div>
                 </div>
 
@@ -84,7 +81,7 @@
                   <span class="tape tape-photo"></span>
                   <img
                       :src="article.ILLUSTRATION"
-                      :alt="`${article.BLOG_TITLE} 的配图`"
+                      :alt="`${article.BLOG_TITLE} 的文章配图`"
                       loading="lazy"
                       decoding="async"
                       @error="article.ILLUSTRATION = ''"
@@ -105,19 +102,18 @@
             </div>
 
             <div v-if="!loading && !articles.length" class="page-empty hand">
-              <p>{{ activeKeyword ? '翻遍了也没找到，换个词试试？' : '这一页还是空白的。' }}</p>
-              <button v-if="activeKeyword" type="button" class="paper-button" @click="clearSearch">不找了</button>
+              <p>暂时没有发现内容哦</p>
             </div>
 
             <div ref="sentinelRef" class="page-foot">
-              <span v-if="loading && articles.length" class="hand foot-text">正在翻页…</span>
+              <span v-if="loading && articles.length" class="hand foot-text">正在努力加载...</span>
               <button
                   v-else-if="!noMore && articles.length"
                   type="button"
                   class="paper-button"
                   @click="fetchArticles"
-              >翻下一页</button>
-              <span v-else-if="noMore && articles.length" class="hand foot-text">— 写到这里就没有了 —</span>
+              >浏览更多内容</button>
+              <span v-else-if="noMore && articles.length" class="hand foot-text">我是有底线的</span>
             </div>
           </div>
         </main>
@@ -125,7 +121,7 @@
         <aside class="sidebar">
           <section v-if="hotBlogs.length" class="sticky-note">
             <span class="tape tape-note"></span>
-            <h2 class="hand note-title">最近大家在看</h2>
+            <h2 class="hand note-title">热门榜单</h2>
             <ol class="hot-list">
               <li v-for="(blog, index) in hotBlogs" :key="blog.GUID" class="hot-item" @click="openBlog(blog)">
                 <span class="hot-no hand">{{ index + 1 }}.</span>
@@ -133,39 +129,51 @@
                   <a class="hot-title" :href="blogHref(blog.GUID)" :title="blog.BLOG_TITLE" target="_blank" rel="noopener" @click.stop>
                     {{ blog.BLOG_TITLE }}
                   </a>
-                  <span class="hot-meta">{{ blog.USERNAME }} · {{ formatCount(blog.VIEW_PAGE) }} 阅读 · {{ formatCount(blog.COMMENT_COUNT) }} 评论</span>
+                  <span class="hot-meta">
+                    <span class="hot-author">{{ blog.USERNAME }}</span>
+                    <span><el-icon><View/></el-icon>{{ formatCount(blog.VIEW_PAGE) }}</span>
+                    <span><el-icon><ChatDotSquare/></el-icon>{{ formatCount(blog.COMMENT_COUNT) }}</span>
+                    <span><el-icon><Star/></el-icon>{{ formatCount(blog.COLLECT_COUNT) }}</span>
+                  </span>
                 </div>
               </li>
             </ol>
           </section>
 
           <section v-if="authors.length" class="card">
-            <h2 class="hand card-title">常来写字的人</h2>
+            <h2 class="hand card-title">优质作者</h2>
             <ul class="author-list">
               <li v-for="author in authors" :key="author.USERCODE" class="author" @click="openUser(author.USERCODE)">
                 <el-avatar :src="author.AVATAR" :size="38" class="author-avatar">
                   {{ author.USERNAME?.charAt(0) }}
                 </el-avatar>
                 <div class="author-body">
-                  <span class="author-name">{{ author.USERNAME || '未命名' }}</span>
-                  <span class="author-remark">{{ author.REMARK || '还没有写签名' }}</span>
+                  <span class="author-name">{{ author.USERNAME }}</span>
+                  <span class="author-remark">{{ author.REMARK || '无签名' }}</span>
                 </div>
-                <span class="author-count hand">{{ formatCount(author.ARTICLE_COUNT) }} 篇</span>
+                <span class="author-count">
+                  <span>粉丝 {{ formatCount(author.FOLLOWER_COUNT) }}</span>
+                  <span>文章 {{ formatCount(author.ARTICLE_COUNT) }}</span>
+                </span>
               </li>
             </ul>
           </section>
 
           <section v-if="hotFiles.length" class="card envelope">
-            <h2 class="hand card-title">资料袋</h2>
+            <h2 class="hand card-title">热门资源</h2>
             <ul class="file-list">
               <li v-for="file in hotFiles" :key="file.GUID" class="file" @click="openFile(file)">
                 <span class="file-ext">{{ fileExt(file.ORIGINALFILENAME) }}</span>
                 <span class="file-name" :title="file.ORIGINALFILENAME">{{ file.ORIGINALFILENAME }}</span>
-                <span class="file-count">{{ formatCount(file.DOWNNUM) }} 次</span>
+                <span class="file-count">↓ {{ formatCount(file.DOWNNUM) }}</span>
               </li>
             </ul>
-            <a href="#" class="hand envelope-more" @click.prevent="goToUpload">去资源页看看 →</a>
           </section>
+
+          <div class="side-footer hand">
+            <span>记录生活 · 分享点滴</span>
+            <small>© 2026 YnsStudy</small>
+          </div>
         </aside>
       </div>
     </div>
@@ -175,6 +183,7 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
+import { ChatDotSquare, Star, View } from "@element-plus/icons-vue";
 import { ElMessage } from "element-plus";
 import debounce from "lodash/debounce.js";
 import { useHomeStore } from "@/stores/detail/home.js";
@@ -265,7 +274,6 @@ const fetchArticles = async () => {
   } catch (e) {
     if (currentRequest === requestId) {
       console.error('获取文章失败', e);
-      ElMessage.error('文章加载失败，请稍后重试');
     }
   } finally {
     if (currentRequest === requestId) {
@@ -302,7 +310,7 @@ const clearSearch = () => {
   searchNow();
 };
 
-// 滚动到列表底部时自动加载下一页；“翻下一页”按钮作为兜底。
+// 滚动到列表底部时自动加载下一页；“浏览更多内容”按钮作为兜底。
 const sentinelRef = ref(null);
 let observer = null;
 
@@ -488,6 +496,8 @@ function goMe() {
 }
 
 .cover-stats {
+  display: flex;
+  gap: 22px;
   margin: 14px 0 0;
   padding-top: 12px;
   border-top: 1px dashed var(--rule);
@@ -614,47 +624,39 @@ function goMe() {
 }
 
 .page-head {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 16px;
-  padding-bottom: 14px;
-  border-bottom: 1px solid var(--rule);
-}
-
-.page-title {
-  margin: 0;
-  font-size: 24px;
-}
-
-.page-title small {
-  margin-left: 8px;
-  font-size: 14px;
-  color: var(--muted);
+  padding-bottom: 6px;
 }
 
 .search {
   display: flex;
-  align-items: baseline;
-  gap: 8px;
-  width: 250px;
-  border-bottom: 1px solid var(--ink-soft);
+  align-items: center;
+  gap: 10px;
+  border-bottom: 1px solid var(--rule-strong, #d6ccb8);
+  transition: border-color 0.15s;
 }
 
-.search-label {
+.search:focus-within {
+  border-bottom-color: var(--ink);
+}
+
+.search-icon {
+  width: 17px;
+  height: 17px;
   flex-shrink: 0;
-  font-size: 15px;
-  color: var(--ink-soft);
+  fill: none;
+  stroke: var(--muted);
+  stroke-width: 1.8;
+  stroke-linecap: round;
 }
 
 .search input {
   flex: 1;
   min-width: 0;
-  padding: 4px 0;
+  padding: 10px 0;
   border: none;
   outline: none;
   background: transparent;
-  font-size: 14px;
+  font-size: 15px;
   color: var(--pen);
 }
 
@@ -975,9 +977,23 @@ function goMe() {
 }
 
 .hot-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   font-size: 12px;
   color: #8b7d55;
   white-space: nowrap;
+  overflow: hidden;
+}
+
+.hot-meta > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.hot-author {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -1038,8 +1054,28 @@ function goMe() {
 
 .author-count {
   flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.side-footer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 0 12px;
   font-size: 15px;
-  color: var(--pen);
+  color: var(--muted);
+}
+
+.side-footer small {
+  font-family: var(--j-sans);
+  font-size: 12px;
+  color: #b5aea2;
 }
 
 /* 牛皮纸资料袋 */
@@ -1101,19 +1137,6 @@ function goMe() {
   color: var(--muted);
 }
 
-.envelope-more {
-  display: inline-block;
-  margin-top: 4px;
-  font-size: 15px;
-  color: #6e5528;
-  text-decoration: none;
-}
-
-.envelope-more:hover {
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-
 /* ============ 响应式 ============ */
 @media (max-width: 960px) {
   .layout {
@@ -1170,15 +1193,6 @@ function goMe() {
 
   .page::after {
     left: 30px;
-  }
-
-  .page-head {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .search {
-    width: 100%;
   }
 
   .entry {

@@ -63,6 +63,8 @@
       loop
       preload="metadata"
       playsinline
+      @play="isAudioPlaying = true"
+      @pause="isAudioPlaying = false"
   ></audio>
 
   <div class="music-mini" v-if="!isSelf && bgAudio">
@@ -103,7 +105,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, nextTick, onMounted } from 'vue'
+import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { ElMessage } from 'element-plus'
 import { sendAxiosRequest } from '@/utils/common.js'
 import { useUserStore } from '@/stores/main/user.js'
@@ -112,7 +114,9 @@ const props = defineProps({
   isSelf: { type: Boolean, default: false },
   userName: { type: String, default: '' },
   initBgImage: { type: String, default: '' },
-  initBgAudio: { type: String, default: '' }
+  initBgAudio: { type: String, default: '' },
+  // 进入页面后自动播放背景音乐（浏览器拦截时，在用户第一次点击页面时开始播放）
+  autoPlay: { type: Boolean, default: false }
 })
 
 const emit = defineEmits(['updateBgStyle'])
@@ -125,7 +129,8 @@ const dockCollapsed = ref(false)
 const bgPresets = {
   softSky: "radial-gradient(1000px 700px at 20% 15%, rgba(210,235,255,.90) 0%, rgba(210,235,255,0) 60%), radial-gradient(800px 600px at 80% 70%, rgba(180,205,230,.35) 0%, rgba(180,205,230,0) 60%), linear-gradient(180deg,#f8fbff 0%, #ffffff 68%)"
 }
-const bgImage = ref(bgPresets.softSky)
+// 默认不设背景图，直接露出页面的手账点阵底纹
+const bgImage = ref('')
 const bgImageInput = ref("")
 
 const bgStyle = computed(() => {
@@ -218,6 +223,9 @@ const applyBgAudioUrl = () => {
 function setAudioSrc(src) {
   bgAudio.value = src
   nextTickPlayIfWanted()
+  if (props.autoPlay) {
+    nextTick(tryAutoPlay)
+  }
 }
 
 const toggleAudio = async () => {
@@ -226,7 +234,10 @@ const toggleAudio = async () => {
   if (isAudioPlaying.value) {
     el.pause()
     isAudioPlaying.value = false
+    rememberPaused(true)
+    stopWaitingForInteraction()
   } else {
+    rememberPaused(false)
     try {
       await el.play()
       isAudioPlaying.value = true
@@ -234,6 +245,67 @@ const toggleAudio = async () => {
       console.error("播放音乐失败,音乐链接或已失效")
     }
   }
+}
+
+// ==== 自动播放 ====
+// 浏览器不允许页面在用户操作前出声：先直接尝试播放，被拦截后等用户第一次点击/轻触/按键时再播放。
+// 用户手动暂停过就记在本地，之后不再自动播放，直到他再次手动点播放。
+const PAUSED_STORAGE_KEY = 'ynsBgMusicPaused'
+const INTERACTION_EVENTS = ['pointerdown', 'pointerup', 'touchend', 'keydown']
+
+function isRememberedPaused() {
+  try {
+    return localStorage.getItem(PAUSED_STORAGE_KEY) === '1'
+  } catch (e) {
+    return false
+  }
+}
+
+function rememberPaused(paused) {
+  try {
+    if (paused) localStorage.setItem(PAUSED_STORAGE_KEY, '1')
+    else localStorage.removeItem(PAUSED_STORAGE_KEY)
+  } catch (e) {
+    // 隐私模式等情况下无法写入本地存储，忽略即可
+  }
+}
+
+function canAutoPlay() {
+  return props.autoPlay && bgAudio.value && bgAudioRef.value && !isAudioPlaying.value && !isRememberedPaused()
+}
+
+function tryAutoPlay() {
+  if (!canAutoPlay()) return
+  applyVolume()
+  applyMute()
+  bgAudioRef.value.play().then(() => {
+    stopWaitingForInteraction()
+  }).catch((e) => {
+    if (e && e.name === 'NotAllowedError') {
+      waitForInteraction()
+    } else {
+      console.error("播放音乐失败,音乐链接或已失效")
+    }
+  })
+}
+
+let waitingForInteraction = false
+
+// 在捕获阶段监听，不影响用户这次点击原本要做的事
+function onFirstInteraction() {
+  tryAutoPlay()
+}
+
+function waitForInteraction() {
+  if (waitingForInteraction) return
+  waitingForInteraction = true
+  INTERACTION_EVENTS.forEach(type => document.addEventListener(type, onFirstInteraction, true))
+}
+
+function stopWaitingForInteraction() {
+  if (!waitingForInteraction) return
+  waitingForInteraction = false
+  INTERACTION_EVENTS.forEach(type => document.removeEventListener(type, onFirstInteraction, true))
 }
 
 const applyVolume = () => {
@@ -272,6 +344,8 @@ onMounted(() => {
   applyVolume()
   applyMute()
 })
+
+onBeforeUnmount(stopWaitingForInteraction)
 </script>
 
 <style scoped>
@@ -288,25 +362,30 @@ onMounted(() => {
   transform: translateX(-280px);
 }
 
+/* 设置面板：一张便签 */
 .dock-card {
-  background: rgba(255, 255, 255, 0.88);
-  backdrop-filter: saturate(180%) blur(6px);
-  border-radius: 12px;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
   padding-bottom: 12px;
+  border: none;
+  border-radius: 2px;
+  background: var(--j-note);
+  box-shadow: 0 1px 2px rgba(60, 50, 30, 0.1), 0 12px 20px -12px rgba(60, 50, 30, 0.45) !important;
+}
+
+.dock-card :deep(.el-divider) {
+  border-top: 1px dashed rgba(160, 135, 60, 0.4);
 }
 
 .dock-title {
-  font-weight: 700;
-  color: #333;
   margin-bottom: 8px;
+  font-family: var(--j-hand);
+  font-size: 17px;
+  color: var(--j-ink);
 }
 
 .dock-subtitle {
-  font-weight: 600;
-  font-size: 13px;
-  color: #666;
   margin-bottom: 6px;
+  font-size: 13px;
+  color: var(--j-ink-soft);
 }
 
 .dock-block {
@@ -328,9 +407,9 @@ onMounted(() => {
 }
 
 .vol-label {
-  font-size: 12px;
-  color: #666;
   width: 36px;
+  font-size: 12px;
+  color: var(--j-ink-soft);
 }
 
 .dock-toggle {
@@ -339,12 +418,12 @@ onMounted(() => {
   top: 10px;
   width: 22px;
   height: 28px;
-  border-radius: 0 6px 6px 0;
-  border: 1px solid #dcdfe6;
-  background: #fff;
-  color: #666;
+  border-radius: 0 4px 4px 0;
+  border: none;
+  background: #f6e3a1;
+  color: var(--j-ink-soft);
   cursor: pointer;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: 1px 1px 3px rgba(60, 50, 30, 0.2);
 }
 
 .music-mini {
@@ -354,17 +433,17 @@ onMounted(() => {
   width: 220px;
   z-index: 19;
   padding: 8px 10px;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.94);
-  backdrop-filter: saturate(180%) blur(6px);
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+  border: 1px solid var(--j-rule);
+  border-radius: 2px;
+  background: var(--j-paper);
+  box-shadow: var(--j-shadow);
   transition: transform .18s ease, box-shadow .18s ease, background .18s ease;
 }
 
 .music-mini__title {
-  font-size: 12px;
-  font-weight: 600;
-  color: #333;
+  font-family: var(--j-hand);
+  font-size: 14px;
+  color: var(--j-ink);
   margin-bottom: 6px;
   white-space: nowrap;
   overflow: hidden;

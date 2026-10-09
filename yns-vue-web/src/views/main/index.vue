@@ -1,76 +1,49 @@
 <template>
-  <div class="app-container">
-    <!-- 顶部区域 -->
-    <header class="header-container">
-      <!-- 左侧 Logo -->
-      <div class="logo">YnsStudy</div>
+  <div class="app-container j-desk">
+    <header class="topbar">
+      <div class="topbar-inner">
+        <a href="/" class="brand" @click.prevent="router.push('/')">
+          <span class="brand-name">YnsStudy</span>
+        </a>
 
-      <!-- 中间菜单栏（桌面端） -->
-      <nav class="menu-wrapper desktop-only">
-        <el-menu
-            class="menu"
-            mode="horizontal"
-            :default-active="activeMenu"
-            @select="navigateTo"
-            background-color="transparent"
-            text-color="#333"
-            active-text-color="#409EFF"
-            :ellipsis="false"
-        >
-          <el-menu-item
+        <nav class="nav desktop-only" aria-label="主导航">
+          <a
               v-for="item in menuItems"
               :key="item.router"
-              :index="item.router"
-          >
-            {{ item.name }}
-          </el-menu-item>
-        </el-menu>
-      </nav>
+              :href="item.path"
+              class="nav-link"
+              :class="{ active: activeMenu === item.router }"
+              @click.prevent="navigateTo(item.router)"
+          >{{ item.name }}</a>
+        </nav>
 
-      <!-- 移动端菜单按钮 -->
-      <div class="mobile-menu-btn mobile-only" @click="drawerVisible = true">
-        <el-icon>
-          <Menu/>
-        </el-icon>
-      </div>
+        <div class="login-wrapper desktop-only">
+          <LoginDialog/>
+        </div>
 
-      <!-- 登录组件（桌面端显示） -->
-      <div class="login-wrapper desktop-only">
-        <LoginDialog/>
+        <button type="button" class="menu-button mobile-only" aria-label="打开菜单" @click="drawerVisible = true">
+          <el-icon><Menu/></el-icon>
+        </button>
       </div>
     </header>
 
-    <!-- 抽屉菜单（移动端） -->
-    <el-drawer
-        v-model="drawerVisible"
-        direction="ltr"
-        size="70%"
-        class="mobile-only"
-    >
-      <div class="drawer-header">
-        <div class="drawer-logo">YnsStudy</div>
-      </div>
-      <el-menu
-          :default-active="activeMenu"
-          @select="(name) => { navigateTo(name); drawerVisible = false }"
-          mode="vertical"
-      >
-        <el-menu-item
+    <el-drawer v-model="drawerVisible" direction="ltr" size="72%" :with-header="false" class="nav-drawer">
+      <div class="drawer-brand">YnsStudy</div>
+      <nav class="drawer-nav">
+        <a
             v-for="item in menuItems"
             :key="item.router"
-            :index="item.router"
-        >
-          {{ item.name }}
-        </el-menu-item>
-      </el-menu>
-
-      <!-- 登录组件（移动端） -->
-      <div class="login-mobile">
+            :href="item.path"
+            class="drawer-link"
+            :class="{ active: activeMenu === item.router }"
+            @click.prevent="navigateTo(item.router); drawerVisible = false"
+        >{{ item.name }}</a>
+      </nav>
+      <div class="drawer-login">
         <LoginDialog/>
       </div>
     </el-drawer>
 
-    <!-- 主内容区域 -->
     <main class="content-container">
       <router-view/>
     </main>
@@ -137,87 +110,164 @@ watch(() => route.name, (newValue) => {
   display: flex;
   flex-direction: column;
   min-height: 100%;
-  background-color: #f4f6f8;
 }
 
-.header-container {
-  height: 64px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 16px;
-  background: #ffffff;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
-  flex-shrink: 0;
+.topbar {
   position: relative;
   z-index: 10;
+  flex-shrink: 0;
+  background: var(--j-paper);
+  border-bottom: 1px solid var(--j-rule);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.6), 0 6px 14px -12px rgba(60, 50, 30, 0.35);
 }
 
-.logo {
-  font-size: 22px;
-  font-weight: 700;
-  color: #0077b6;
-  font-style: oblique;
+/* 顶栏下沿一条细细的虚线，像本子上撕下来的纸边 */
+.topbar::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 3px;
+  border-bottom: 1px dashed var(--j-rule);
 }
 
-/* 桌面菜单 */
-.menu-wrapper {
+.topbar-inner {
+  max-width: 1168px;
+  height: 60px;
+  margin: 0 auto;
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
+  gap: 32px;
+}
+
+.brand {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-shrink: 0;
+  color: var(--j-ink);
+  text-decoration: none;
+}
+
+.brand-name {
+  font-family: var(--j-hand);
+  font-size: 24px;
+}
+
+.brand-sub {
+  font-family: var(--j-hand);
+  font-size: 13px;
+  color: var(--j-muted);
+}
+
+.nav {
   flex: 1;
   display: flex;
   justify-content: center;
-  overflow: hidden;
+  gap: 6px;
 }
 
-.menu {
-  border-bottom: none;
-  background-color: transparent;
-  display: inline-block;
+.nav-link {
+  position: relative;
+  padding: 6px 12px;
+  font-size: 15px;
+  color: var(--j-ink-soft);
+  text-decoration: none;
+  transition: color 0.15s;
 }
 
-.el-menu-item {
-  padding: 0 18px;
-  font-size: 16px;
-  font-weight: 500;
-  transition: background-color 0.3s ease;
-  border-radius: 6px;
+/* 当前栏目：荧光笔划一道 */
+.nav-link::before {
+  content: "";
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 6px;
+  height: 9px;
+  background: var(--j-highlight);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.25s ease;
+  z-index: -1;
 }
 
-.el-menu-item:hover {
-  background-color: #e6f7ff !important;
+.nav-link:hover {
+  color: var(--j-ink);
 }
 
-.el-menu-item.is-active {
-  background-color: #d0ecff !important;
+.nav-link.active {
+  color: var(--j-ink);
+}
+
+.nav-link.active::before {
+  transform: scaleX(1);
 }
 
 .login-wrapper {
   display: flex;
   align-items: center;
+  flex-shrink: 0;
 }
 
-/* 主内容 */
+.menu-button {
+  margin-left: auto;
+  border: 1px solid var(--j-rule);
+  background: var(--j-paper-warm);
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  color: var(--j-ink);
+  cursor: pointer;
+}
+
 .content-container {
   flex-grow: 1;
-  overflow-y: auto;
 }
 
-/* 手机端抽屉菜单样式 */
-.drawer-header {
-  padding: 16px;
-  border-bottom: 1px solid #f0f0f0;
+.drawer-brand {
+  padding: 4px 0 16px;
+  border-bottom: 1px dashed var(--j-rule);
+  font-family: var(--j-hand);
+  font-size: 24px;
 }
 
-.drawer-logo {
-  font-size: 20px;
-  font-weight: bold;
-  color: #0077b6;
+.drawer-brand small {
+  font-size: 13px;
+  color: var(--j-muted);
 }
 
-.login-mobile {
-  padding: 16px;
+.drawer-nav {
+  display: flex;
+  flex-direction: column;
+  padding: 12px 0;
 }
 
-/* 响应式样式 */
+.drawer-link {
+  padding: 12px 4px;
+  border-bottom: 1px solid var(--j-rule);
+  font-size: 16px;
+  color: var(--j-ink-soft);
+  text-decoration: none;
+}
+
+.drawer-link.active {
+  color: var(--j-ink);
+}
+
+.drawer-link.active::before {
+  content: "✓ ";
+  font-family: var(--j-hand);
+  color: var(--j-stamp);
+}
+
+.drawer-login {
+  padding-top: 16px;
+}
+
 .desktop-only {
   display: flex;
 }
@@ -226,39 +276,17 @@ watch(() => route.name, (newValue) => {
   display: none !important;
 }
 
-.mobile-menu-btn {
-  display: flex;
-  align-items: center;
-  cursor: pointer;
-  padding: 0 8px;
-  font-size: 22px;
-}
-
-/* 屏幕宽度小于 768px 时的样式 */
 @media (max-width: 768px) {
+  .topbar-inner {
+    padding: 0 16px;
+  }
+
   .desktop-only {
     display: none !important;
   }
 
   .mobile-only {
-    display: block !important;
+    display: flex !important;
   }
-
-  .login-wrapper {
-    display: none;
-  }
-}
-
-html, body {
-  margin: 0;
-  padding: 0;
-  height: 100vh;
-  width: 100vw;
-  overflow: hidden;
-  background-color: #f4f6f8;
-}
-
-* {
-  box-sizing: border-box;
 }
 </style>

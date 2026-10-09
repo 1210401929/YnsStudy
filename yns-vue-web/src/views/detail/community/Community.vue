@@ -12,6 +12,7 @@
           class="feed-card"
           shadow="never"
       >
+        <span class="j-tape feed-tape" :class="['j-tape--green', 'j-tape--pink', '', 'j-tape--blue'][index % 4]"></span>
         <div v-if="item.ISTOP === '1'" class="ribbon-wrapper">
           <div class="ribbon">已置顶</div>
         </div>
@@ -160,7 +161,8 @@
     </div>
 
     <!-- 快速发帖 -->
-    <el-card class="post-box" shadow="always">
+    <el-card class="post-box" shadow="never">
+      <span class="j-tape j-tape--white j-tape--top"></span>
       <h3>💬 快速发帖</h3>
       <el-input
           v-if="!showPreview"
@@ -487,355 +489,460 @@ const badges = ref(["原始股"]);
 </script>
 
 <style scoped>
-/* ==========================================
-   ✦ 设计令牌 (Design Tokens) - 核心变量
-   ========================================== */
 .community-page {
-  /* 色彩系统 */
-  --brand-primary: #4f46e5;      /* 现代靛蓝，比普通蓝更高级 */
-  --brand-primary-hover: #4338ca;
-  --bg-page: #f8fafc;            /* 极浅蓝灰背景 */
-  --bg-card: #ffffff;
-  --bg-comment: #f1f5f9;
-  --text-main: #0f172a;          /* 深蓝灰，代替死板的纯黑 */
-  --text-regular: #334155;
-  --text-muted: #64748b;
-  --border-light: #e2e8f0;
-
-  /* 阴影系统 - 多层弥散阴影打造空间感 */
-  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
-  --shadow-hover: 0 20px 25px -5px rgba(0, 0, 0, 0.05), 0 10px 10px -5px rgba(0, 0, 0, 0.02);
-  --shadow-float: 0 10px 30px -5px rgba(79, 70, 229, 0.3);
-
-  /* 形状与动画 */
-  --radius-xl: 16px;
-  --radius-lg: 12px;
-  --radius-md: 8px;
-  --transition-spring: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-  --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-
-  /* 页面基础设置 */
   max-width: 860px;
   margin: 0 auto;
-  padding: 30px 20px 80px; /* 底部留白防止遮挡悬浮按钮 */
-  background-color: var(--bg-page);
+  padding: 36px 20px 96px;
   min-height: 100vh;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  color: var(--text-main);
+  color: var(--j-ink);
 }
 
-/* ==========================================
-   ✦ 标题与基础区块
-   ========================================== */
-.section { margin-top: 40px; }
+.section {
+  margin-top: 36px;
+}
+
+.section:first-child {
+  margin-top: 0;
+}
 
 h3 {
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: var(--text-main);
-  margin-bottom: 20px;
   display: flex;
   align-items: center;
   gap: 10px;
-  letter-spacing: -0.02em;
+  margin: 0 0 22px;
+  font-family: var(--j-hand);
+  font-weight: normal;
+  font-size: 24px;
+  color: var(--j-ink);
 }
 
 /* ==========================================
-   ✦ 现代卡片设计 (发帖/帖子列表)
+   帖子：一张张贴着胶带的纸
    ========================================== */
-.post-box, .feed-card, .badge-card {
-  background: var(--bg-card) !important;
-  border-radius: var(--radius-xl) !important;
-  border: 1px solid rgba(255,255,255,0.8) !important; /* 配合阴影实现微刻线效果 */
-  box-shadow: var(--shadow-md) !important;
-  transition: var(--transition-smooth) !important;
-  padding: 24px !important;
+.feed-card,
+.badge-card {
   position: relative;
-  overflow: visible; /* 为了让头像和角标能突破边界一点点 */
+  overflow: visible;
+  border: 1px solid var(--j-rule) !important;
+  border-radius: 2px !important;
+  background: var(--j-paper) !important;
+  box-shadow: var(--j-shadow) !important;
 }
 
-.feed-card { margin-bottom: 24px; }
+.feed-card {
+  margin-bottom: 30px;
+  transition: transform 0.2s ease;
+}
+
+.feed-card:nth-of-type(odd) {
+  transform: rotate(-0.3deg);
+}
+
+.feed-card:nth-of-type(even) {
+  transform: rotate(0.3deg);
+}
 
 .feed-card:hover {
-  transform: translateY(-4px);
-  box-shadow: var(--shadow-hover) !important;
+  transform: rotate(0deg);
 }
 
-/* ==========================================
-   ✦ 发帖者头部信息
-   ========================================== */
+.feed-card :deep(.el-card__body) {
+  padding: 26px 26px 18px;
+}
+
+.feed-tape {
+  top: -10px;
+  left: 28px;
+  transform: rotate(-4deg);
+}
+
 .feed-header {
   display: flex;
   align-items: center;
-  gap: 14px;
-  margin-bottom: 16px;
+  gap: 12px;
+  margin-bottom: 14px;
 }
 
 .author-avatar {
+  flex-shrink: 0;
   border: 2px solid #fff;
-  box-shadow: var(--shadow-sm);
-  transition: var(--transition-spring);
+  box-shadow: 0 0 0 1px var(--j-rule);
+  background: #ece4d3;
+  color: var(--j-ink-soft);
+  cursor: pointer;
 }
-.author-avatar:hover { transform: scale(1.1); }
 
-.author-info { display: flex; flex-direction: column; gap: 2px; }
+.author-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
 
 .author-name {
-  font-weight: 700;
-  font-size: 1.05rem;
-  color: var(--text-main);
-  letter-spacing: -0.01em;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--j-ink);
 }
 
-.author-meta { font-size: 0.85rem; color: var(--text-muted); }
+.author-meta {
+  font-family: var(--j-hand);
+  font-size: 14px;
+  color: var(--j-muted);
+}
 
-/* ==========================================
-   ✦ 帖子正文与展开逻辑
-   ========================================== */
 .feed-body {
-  font-size: 0.95rem;
-  line-height: 1.8;
-  color: var(--text-regular);
-  margin: 16px 0;
+  margin: 12px 0;
+  font-size: 15px;
+  line-height: 1.85;
+  color: var(--j-ink);
   word-break: break-word;
 }
 
+.feed-body :deep(a) {
+  color: var(--j-pen);
+}
+
+.feed-body :deep(img) {
+  max-width: 100%;
+  padding: 5px;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(60, 50, 30, 0.2);
+  box-sizing: border-box;
+}
+
 .expand-btn-wrapper {
+  position: relative;
   display: flex;
   justify-content: center;
   margin-top: -10px;
-  padding-top: 15px;
-  position: relative;
+  padding-top: 14px;
 }
 
 .expand-btn-wrapper::before {
   content: '';
   position: absolute;
-  top: -30px; left: 0; right: 0; height: 30px;
-  background: linear-gradient(to bottom, rgba(255,255,255,0), var(--bg-card));
+  top: -30px;
+  left: 0;
+  right: 0;
+  height: 30px;
+  background: linear-gradient(to bottom, rgba(255, 253, 248, 0), var(--j-paper));
   pointer-events: none;
 }
 
 .expand-btn {
-  background: var(--bg-comment) !important;
-  border: none !important;
-  color: var(--brand-primary) !important;
-  border-radius: 20px !important;
-  padding: 8px 24px !important;
-  font-weight: 600 !important;
-  font-size: 0.85rem !important;
-  transition: var(--transition-smooth) !important;
-}
-.expand-btn:hover {
-  background: var(--brand-primary) !important;
-  color: #fff !important;
-  transform: translateY(-1px);
+  padding: 6px 22px !important;
+  border: 1px dashed var(--j-rule-strong) !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  font-family: var(--j-hand);
+  font-size: 15px !important;
+  color: var(--j-ink-soft) !important;
 }
 
-/* ==========================================
-   ✦ 交互操作区 (点赞/评论/删除按钮)
-   ========================================== */
+.expand-btn:hover {
+  border-color: var(--j-pen) !important;
+  color: var(--j-pen) !important;
+}
+
 .feed-actions {
   display: flex;
-  gap: 8px;
-  margin-top: 20px;
-  padding-top: 16px;
-  border-top: 1px solid var(--border-light);
+  gap: 4px;
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--j-rule);
 }
 
 .feed-actions .el-button {
-  color: var(--text-muted) !important;
-  font-weight: 600;
-  border-radius: var(--radius-md) !important;
-  padding: 8px 12px !important;
   height: auto !important;
-  transition: var(--transition-smooth);
+  padding: 6px 10px !important;
+  color: var(--j-ink-soft) !important;
 }
+
 .feed-actions .el-button:hover {
-  background-color: var(--bg-comment) !important;
-  color: var(--brand-primary) !important;
+  background-color: rgba(250, 216, 96, 0.25) !important;
+  color: var(--j-ink) !important;
 }
+
 .feed-actions .el-button:last-child:hover {
-  background-color: #fee2e2 !important; /* 删除按钮特型：浅红底 */
-  color: #ef4444 !important; /* 删除按钮特型：红字 */
+  background-color: rgba(194, 72, 62, 0.1) !important;
+  color: var(--j-stamp) !important;
 }
 
 /* ==========================================
-   ✦ 评论区 (极致的嵌套层级视觉)
+   评论
    ========================================== */
 .comment-section {
-  margin-top: 20px;
-  background-color: #fff;
-  border-radius: var(--radius-lg);
-  padding: 0; /* 移除外框背景，融入卡片 */
+  margin-top: 16px;
 }
 
 .comment-item {
   display: flex;
   align-items: flex-start;
   gap: 12px;
-  padding: 16px 0;
-  border-bottom: 1px solid var(--border-light);
+  padding: 12px 0;
+  border-bottom: 1px dashed var(--j-rule);
 }
-.comment-item:last-child { border-bottom: none; }
+
+.comment-item:last-child {
+  border-bottom: none;
+}
 
 .author-avatar-comment {
-  width: 36px !important;
-  height: 36px !important;
-  box-shadow: var(--shadow-sm);
+  flex-shrink: 0;
+  width: 34px !important;
+  height: 34px !important;
+  background: #ece4d3;
+  color: var(--j-ink-soft);
+  cursor: pointer;
 }
 
 .comment-content {
   flex: 1;
-  background: var(--bg-comment);
-  padding: 14px 16px;
-  border-radius: 0 var(--radius-lg) var(--radius-lg) var(--radius-lg);
+  min-width: 0;
+  padding: 10px 14px;
+  background: var(--j-paper-warm);
+  border: 1px solid var(--j-rule);
 }
 
 .comment-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 6px;
+  margin-bottom: 4px;
 }
 
 .comment-author {
-  font-size: 0.9rem;
-  font-weight: 700;
-  color: var(--text-main);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--j-pen);
 }
 
 .comment-text {
-  font-size: 0.9rem;
-  color: var(--text-regular);
-  line-height: 1.6;
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--j-ink);
 }
 
-/* 回复引导线 (Thread Line) */
 .children {
-  margin-top: 12px;
-  padding-left: 16px;
-  border-left: 2px solid var(--border-light);
-  position: relative;
+  margin-top: 10px;
+  padding-left: 12px;
+  border-left: 2px solid #ead9a0;
 }
 
 .reply-item {
-  margin-bottom: 10px;
-  font-size: 0.85rem;
-  line-height: 1.5;
-  background: rgba(255,255,255,0.5);
-  padding: 8px 12px;
-  border-radius: var(--radius-md);
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin-bottom: 8px;
+  font-size: 13px;
+  line-height: 1.6;
 }
-.reply-item:last-child { margin-bottom: 0; }
-.reply-author { font-weight: 700; color: var(--brand-primary); }
 
-.comment-input, .reply-box { margin-top: 16px; }
+.reply-item:last-child {
+  margin-bottom: 0;
+}
+
+.reply-item .author-avatar-comment {
+  width: 24px !important;
+  height: 24px !important;
+  font-size: 11px;
+}
+
+.reply-author {
+  flex-shrink: 0;
+  font-weight: 600;
+  color: var(--j-pen);
+}
+
+.comment-input,
+.reply-box {
+  margin-top: 14px;
+}
+
+.show-more-comments {
+  text-align: center;
+}
 
 /* ==========================================
-   ✦ 输入框与发帖区增强
+   快速发帖：黄色便签
    ========================================== */
-:deep(.el-textarea__inner), :deep(.el-input__inner) {
-  border-radius: var(--radius-md);
-  background-color: var(--bg-comment);
-  border: 1px solid transparent;
-  transition: var(--transition-smooth);
-  box-shadow: none !important;
+.post-box {
+  position: relative;
+  overflow: visible;
+  margin-top: 40px;
+  border: none !important;
+  border-radius: 2px !important;
+  background: var(--j-note) !important;
+  box-shadow: 0 1px 2px rgba(60, 50, 30, 0.1), 0 14px 22px -14px rgba(60, 50, 30, 0.45) !important;
+  transform: rotate(-0.6deg);
 }
-:deep(.el-textarea__inner:focus), :deep(.el-input__inner:focus) {
-  background-color: #fff;
-  border-color: var(--brand-primary);
-  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1) !important; /* 现代Focus环 */
+
+.post-box :deep(.el-card__body) {
+  padding: 26px 24px 20px;
+}
+
+.post-box h3 {
+  margin-bottom: 14px;
+}
+
+.post-box :deep(.el-textarea__inner) {
+  border: none;
+  box-shadow: none;
+  background-color: transparent;
+  background-image: repeating-linear-gradient(transparent 0 27px, rgba(160, 135, 60, 0.28) 27px 28px);
+  line-height: 28px;
+  padding: 0 4px;
+  font-size: 15px;
+  color: var(--j-ink);
+}
+
+.post-box :deep(.el-textarea__inner::placeholder) {
+  font-family: var(--j-hand);
+  color: #a08a52;
+}
+
+.post-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.preview-box {
+  padding: 14px 4px;
+  line-height: 1.8;
+  color: var(--j-ink);
 }
 
 /* ==========================================
-   ✦ 悬浮操作按钮 (毛玻璃特效)
+   勋章：小圆章
    ========================================== */
-.search-float-btn, .chat-float-btn, .ai-float-btn {
+.badge-card :deep(.el-card__body) {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.badge {
+  height: auto;
+  padding: 6px 14px;
+  border: 1.5px solid var(--j-stamp) !important;
+  border-radius: 20px;
+  background: transparent !important;
+  font-family: var(--j-hand);
+  font-size: 14px;
+  color: var(--j-stamp) !important;
+  transform: rotate(-3deg);
+}
+
+.badge:nth-child(even) {
+  border-color: var(--j-pen) !important;
+  color: var(--j-pen) !important;
+  transform: rotate(2deg);
+}
+
+/* ==========================================
+   悬浮按钮：两块便签
+   ========================================== */
+.search-float-btn,
+.chat-float-btn,
+.ai-float-btn {
   position: fixed;
   right: 32px;
-  width: 56px;
-  height: 56px;
+  z-index: 1000;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 24px;
-  color: white;
-  border-radius: 50%;
-  backdrop-filter: blur(8px); /* 毛玻璃 */
-  -webkit-backdrop-filter: blur(8px);
+  width: 54px;
+  height: 54px;
+  border-radius: 2px;
+  font-size: 22px;
   cursor: pointer;
-  z-index: 1000;
-  transition: var(--transition-spring);
-  border: 1px solid rgba(255,255,255,0.2);
+  box-shadow: 0 1px 2px rgba(60, 50, 30, 0.12), 0 10px 16px -10px rgba(60, 50, 30, 0.5);
+  transition: transform 0.2s ease;
 }
 
-.search-float-btn:hover, .chat-float-btn:hover, .ai-float-btn:hover {
-  transform: translateY(-5px) scale(1.05);
+.chat-float-btn {
+  bottom: 40px;
+  background: #f3cccc;
+  transform: rotate(3deg);
 }
 
-.chat-float-btn { background: rgba(79, 70, 229, 0.9); box-shadow: var(--shadow-float); bottom: 40px; }
-.search-float-btn { background: rgba(16, 185, 129, 0.9); box-shadow: 0 10px 30px -5px rgba(16, 185, 129, 0.3); bottom: 112px; }
-.ai-float-btn { background: rgba(15, 23, 42, 0.9); box-shadow: 0 10px 30px -5px rgba(15, 23, 42, 0.3); bottom: 184px; }
+.search-float-btn {
+  bottom: 110px;
+  background: #c7e2cf;
+  transform: rotate(-3deg);
+}
+
+.ai-float-btn {
+  bottom: 180px;
+  background: var(--j-note);
+}
+
+.search-float-btn:hover,
+.chat-float-btn:hover,
+.ai-float-btn:hover {
+  transform: rotate(0deg) translateY(-3px);
+}
 
 /* ==========================================
-   ✦ 精致的置顶角标 (无缝贴合圆角)
+   置顶：红色印章
    ========================================== */
 .ribbon-wrapper {
-  width: 85px; height: 85px;
-  overflow: hidden;
   position: absolute;
-  top: 0; right: 0;
-  border-radius: 0 var(--radius-xl) 0 0;
+  top: 18px;
+  right: 22px;
   z-index: 10;
   pointer-events: none;
 }
 
 .ribbon {
-  font: bold 11px 'Inter', sans-serif;
-  color: #78350f;
+  padding: 4px 10px;
+  border: 2px solid rgba(194, 72, 62, 0.8);
+  border-radius: 4px;
+  font-family: var(--j-hand);
+  font-size: 15px;
+  letter-spacing: 0.15em;
+  color: rgba(194, 72, 62, 0.85);
+  transform: rotate(8deg);
+}
+
+.loading-text,
+.end-text {
+  margin: 36px 0;
   text-align: center;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  transform: rotate(45deg);
-  position: absolute;
-  top: 18px; right: -24px;
-  width: 110px;
-  background: linear-gradient(135deg, #fde68a, #fbbf24);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  padding: 6px 0;
+  font-family: var(--j-hand);
+  font-size: 15px;
+  color: var(--j-muted);
 }
 
-/* ==========================================
-   ✦ 其他组件补全
-   ========================================== */
-.badge-card { display: flex; flex-wrap: wrap; gap: 8px; }
-.badge {
-  border-radius: 20px;
-  padding: 4px 12px;
-  font-weight: 600;
-  border: none;
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.3s ease, transform 0.3s ease;
 }
 
-.preview-box {
-  margin-top: 16px;
-  padding: 20px;
-  background-color: var(--bg-comment);
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border-light);
-  line-height: 1.7;
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+  transform: translateY(-10px);
 }
 
-.loading-text, .end-text {
-  text-align: center;
-  margin: 40px 0;
-  color: var(--text-muted);
-  font-size: 0.9rem;
-  letter-spacing: 0.05em;
-}
+@media (max-width: 640px) {
+  .community-page {
+    padding: 24px 14px 96px;
+  }
 
-/* 淡入淡出动画过渡 */
-.fade-enter-active, .fade-leave-active { transition: opacity 0.3s ease, transform 0.3s ease; }
-.fade-enter-from, .fade-leave-to { opacity: 0; transform: translateY(-10px); }
+  .feed-card,
+  .post-box {
+    transform: none !important;
+  }
+
+  .feed-card :deep(.el-card__body) {
+    padding: 22px 16px 14px;
+  }
+
+  .search-float-btn,
+  .chat-float-btn {
+    right: 16px;
+  }
+}
 </style>

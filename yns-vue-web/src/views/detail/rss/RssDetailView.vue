@@ -1,7 +1,8 @@
 <template>
-  <div class="rss-page-wrapper">
+  <div class="rss-page-wrapper j-desk">
     <div class="rss-banner">
       <div class="banner-content">
+        <span class="j-tape banner-tape"></span>
         <h1><el-icon><Compass /></el-icon> RSS Feed 订阅预览</h1>
         <p>ynsstudy.cn 的最新动态，支持通过 RSS 阅读器订阅</p>
       </div>
@@ -139,67 +140,90 @@ onMounted(fetchRss);
 </script>
 
 <style scoped>
-/* 页面整体背景 */
 .rss-page-wrapper {
   min-height: 100vh;
-  background-color: #f5f7fa;
-  padding-bottom: 50px;
+  padding: 40px 0 56px;
+  color: var(--j-ink);
 }
 
-/* 顶部 Banner */
+/* 顶部：贴胶带的标签 */
 .rss-banner {
-  background: linear-gradient(135deg, #409eff 0%, #3a8ee6 100%);
-  height: 200px;
   display: flex;
-  align-items: center;
   justify-content: center;
-  color: white;
-  text-align: center;
-}
-.banner-content h1 {
-  font-size: 2.2rem;
-  margin-bottom: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-}
-.banner-content p {
-  opacity: 0.9;
-  font-size: 1.1rem;
+  padding: 0 20px;
 }
 
-/* 容器布局 */
+.banner-content {
+  position: relative;
+  padding: 22px 34px 18px;
+  text-align: center;
+  background: var(--j-paper);
+  border: 1px solid var(--j-rule);
+  box-shadow: var(--j-shadow);
+  transform: rotate(-0.6deg);
+}
+
+.banner-tape {
+  top: -11px;
+  left: 50%;
+  margin-left: -42px;
+  transform: rotate(-3deg);
+}
+
+.banner-content h1 {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin: 0;
+  font-family: var(--j-hand);
+  font-weight: normal;
+  font-size: 28px;
+}
+
+.banner-content h1 .el-icon {
+  color: #e38b2d;
+}
+
+.banner-content p {
+  margin: 8px 0 0;
+  font-size: 14px;
+  color: var(--j-ink-soft);
+}
+
 .rss-container {
   max-width: 900px;
-  margin: -40px auto 0;
+  margin: 36px auto 0;
   padding: 0 20px;
 }
 
 .main-card {
-  border-radius: 12px;
-  border: none;
+  border: 1px solid var(--j-rule);
+  border-radius: 2px;
+  background: var(--j-paper);
 }
 
-/* 头部对齐优化 */
+.main-card :deep(.el-card__header) {
+  border-bottom: 1px dashed var(--j-rule-strong);
+}
+
 .card-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 5px 0;
+  padding: 2px 0;
 }
 
 .custom-btn-group {
   display: inline-flex;
-  align-items: stretch; /* 核心：让子元素高度拉平 */
+  align-items: stretch;
 }
 
-/* 强制按钮内部布局一致 */
 .custom-btn-group :deep(.el-button) {
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 32px; /* 固定高度确保一致 */
+  height: 32px;
   padding: 8px 15px;
 }
 
@@ -207,85 +231,112 @@ onMounted(fetchRss);
   margin-right: 4px;
 }
 
+/* RSS 2.0：橙色小印章 */
 .feed-badge {
-  background: #f0f9eb;
-  color: #67c23a;
-  padding: 4px 10px;
-  border-radius: 4px;
+  display: inline-block;
+  margin-right: 12px;
+  padding: 2px 8px;
+  border: 1.5px solid #e38b2d;
+  border-radius: 3px;
   font-size: 12px;
   font-weight: bold;
-  margin-right: 12px;
+  color: #c9711a;
+  transform: rotate(-4deg);
 }
 
 .article-count {
-  color: #909399;
-  font-size: 14px;
+  font-family: var(--j-hand);
+  font-size: 15px;
+  color: var(--j-muted);
 }
 
-/* 时间线样式 */
+/* 时间线 */
 .custom-timeline {
-  padding: 20px 10px;
+  padding: 20px 10px 4px;
+}
+
+.custom-timeline :deep(.el-timeline-item__tail) {
+  border-left: 2px dashed var(--j-rule-strong);
+}
+
+.custom-timeline :deep(.el-timeline-item__node) {
+  background: var(--j-paper);
+  border-color: var(--j-margin-red);
+}
+
+.custom-timeline :deep(.el-timeline-item__timestamp) {
+  font-family: var(--j-hand);
+  font-size: 15px;
+  color: var(--j-ink-soft);
 }
 
 .item-card {
-  border: 1px solid #ebeef5;
-  border-radius: 8px;
-  transition: all 0.3s;
   margin-bottom: 5px;
+  border: 1px solid var(--j-rule);
+  border-radius: 2px;
+  background: #fffefb;
+  transition: transform 0.2s ease;
 }
 
 .item-card:hover {
-  transform: translateY(-3px);
-  border-color: #409eff;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  transform: translateX(4px);
 }
 
 .blog-title {
-  margin: 0 0 10px 0;
-  font-size: 1.25rem;
+  margin: 0 0 10px;
+  font-size: 18px;
 }
 
 .blog-title a {
-  color: #2c3e50;
+  color: var(--j-ink);
   text-decoration: none;
+  background-image: linear-gradient(transparent 58%, var(--j-highlight) 58%, var(--j-highlight) 92%, transparent 92%);
+  background-size: 0 100%;
+  background-repeat: no-repeat;
+  transition: background-size 0.3s ease;
 }
 
-.blog-title a:hover {
-  color: #409eff;
+.item-card:hover .blog-title a {
+  background-size: 100% 100%;
 }
 
 .blog-desc {
-  color: #5e6d82;
-  font-size: 14px;
-  line-height: 1.8;
-  background: #f8f9fb;
-  padding: 12px;
-  border-radius: 6px;
-  margin-bottom: 15px;
-  /* 限制高度并显示省略号（可选） */
   display: -webkit-box;
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
+  margin: 0 0 14px;
+  font-size: 14px;
+  line-height: 1.8;
+  color: var(--j-ink-soft);
 }
 
 .item-footer {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  padding-top: 10px;
+  border-top: 1px dashed var(--j-rule);
+}
+
+.time-tag {
+  border: none;
+  background: #f3eee3;
+  color: var(--j-ink-soft);
 }
 
 .rss-footer-tips {
+  margin-top: 28px;
   text-align: center;
-  margin-top: 30px;
-  color: #909399;
-  font-size: 13px;
+  font-family: var(--j-hand);
+  font-size: 15px;
+  color: var(--j-muted);
 }
 
-/* 移动端适配 */
 @media (max-width: 768px) {
-  .banner-content h1 { font-size: 1.6rem; }
-  .rss-container { margin-top: -20px; }
+  .rss-page-wrapper { padding-top: 28px; }
+  .banner-content { transform: none; padding: 20px 18px 16px; }
+  .banner-content h1 { font-size: 22px; }
   .card-header { flex-direction: column; gap: 15px; align-items: flex-start; }
   .header-right { width: 100%; }
   .custom-btn-group { width: 100%; display: flex; }

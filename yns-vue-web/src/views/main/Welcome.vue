@@ -1,50 +1,47 @@
 <template>
-  <div class="welcome-wrapper" :class="currentTheme">
-
-    <header class="glass-nav animate-nav">
-      <div class="nav-content">
-        <div class="brand-logo">
-          <span class="logo-text">YnsStudy</span>
-          <span class="logo-dot">.</span>
-        </div>
-        <nav class="nav-links">
-          <a v-for="item in menuItems" :key="item.router" @click="menuClick(item)" class="nav-item">
-            {{ item.name }}
-          </a>
-        </nav>
-        <div class="nav-action">
-          <LoginDialog />
-        </div>
+  <div class="welcome j-desk" :class="currentTheme">
+    <header class="welcome-nav">
+      <span class="welcome-brand">YnsStudy</span>
+      <nav class="welcome-links">
+        <a v-for="item in menuItems" :key="item.router" :href="item.path" @click.prevent="menuClick(item)">
+          {{ item.name }}
+        </a>
+      </nav>
+      <div class="welcome-login">
+        <LoginDialog/>
       </div>
     </header>
 
-    <main class="hero-section">
-      <div class="content-box">
-        <h1 class="main-title animate-item delay-1">
-          探索知识的边界
-        </h1>
-
-        <div class="description-group animate-item delay-2">
-          <h2 class="slogan">少一点迷茫，多一点引导</h2>
-          <p class="sub-slogan">学习之路不再孤单，永远相信美好的事情即将发生</p>
+    <main class="welcome-main">
+      <!-- 合着的手账本 -->
+      <div class="cover">
+        <span class="cover-spine"></span>
+        <span class="cover-band"></span>
+        <div class="cover-label">
+          <span class="j-tape j-tape--top"></span>
+          <p class="cover-kicker">YnsStudy</p>
+          <h1 class="cover-title">探索知识的边界</h1>
+          <h2 class="cover-slogan">少一点迷茫，多一点引导</h2>
         </div>
+      </div>
 
-        <div class="action-buttons animate-item delay-3">
-          <el-button type="success" @click="buttonClick('ai')" size="large" class="flat-btn accent-btn" round>
-            ✨ 智能助手
-          </el-button>
-          <el-button type="primary" @click="buttonClick('article')" size="large" class="flat-btn primary-btn" round>
-            📝 内容社区
-          </el-button>
-          <el-button @click="buttonClick('aboutWe')" size="large" class="flat-btn info-btn" round>
-            关于我们
-          </el-button>
-        </div>
+      <!-- 贴在旁边的便签，就是入口 -->
+      <div class="notes">
+        <p class="notes-intro"><span>学习之路不再孤单，</span><span>永远相信美好的事情即将发生</span></p>
+        <a href="/YnsStudyAi" class="note note-green" @click.prevent="buttonClick('ai')">
+          <span class="note-title">智能助手</span>
+        </a>
+        <a href="/ynsStudy/Home" class="note note-yellow" @click.prevent="buttonClick('article')">
+          <span class="note-title">内容社区</span>
+        </a>
+        <a href="/ynsStudy/About" class="note note-pink" @click.prevent="buttonClick('aboutWe')">
+          <span class="note-title">关于我们</span>
+        </a>
       </div>
     </main>
 
     <!-- 底部互动提示 -->
-    <footer class="interaction-hint animate-item delay-4">
+    <footer class="interaction-hint">
       <span>按 <kbd>B</kbd> 键切换主题强调色</span>
     </footer>
   </div>
@@ -58,11 +55,7 @@ import LoginDialog from "@/components/main/LoginDialog.vue"
 import * as menuUtil from "@/utils/menu.js"
 
 const router = useRouter()
-
-// 主题切换改为切换“强调色”，保持整体白色扁平基调不变
-const themes = ['theme-blue', 'theme-green', 'theme-purple']
-const currentTheme = ref(themes[0])
-const menuItems = ref(menuUtil.getMenuItems())
+const menuItems = menuUtil.getMenuItems()
 
 // SEO 配置
 useHead({
@@ -73,18 +66,10 @@ useHead({
   ]
 })
 
-const menuClick = (menu) => router.push({ name: menu.router })
+// 按 B 键切换封面的颜色
+const themes = ['theme-green', 'theme-blue', 'theme-red']
+const currentTheme = ref(themes[0])
 
-const buttonClick = (type) => {
-  const routes = {
-    ai: () => window.open(router.resolve({ name: 'YnsStudyAi' }).href, "YnsStudyAi"),
-    article: () => router.push({ name: "Home" }),
-    aboutWe: () => router.push({ name: "About" })
-  }
-  routes[type]?.()
-}
-
-// 切换强调色
 const switchTheme = () => {
   const index = themes.indexOf(currentTheme.value)
   currentTheme.value = themes[(index + 1) % themes.length]
@@ -98,293 +83,279 @@ const handleKey = (e) => {
 
 onMounted(() => window.addEventListener('keydown', handleKey))
 onBeforeUnmount(() => window.removeEventListener('keydown', handleKey))
+
+const menuClick = (menu) => router.push({ name: menu.router })
+
+const buttonClick = (type) => {
+  const routes = {
+    ai: () => window.open(router.resolve({ name: 'YnsStudyAi' }).href, "YnsStudyAi"),
+    article: () => router.push({ name: "Home" }),
+    aboutWe: () => router.push({ name: "About" })
+  }
+  routes[type]?.()
+}
 </script>
 
 <style scoped>
-/* 核心容器：纯白/浅灰扁平基调 */
-.welcome-wrapper {
-  position: relative;
+.theme-green { --cover-color: #3f5a57; --band-color: #b5473d; }
+.theme-blue { --cover-color: #34496b; --band-color: #d9a441; }
+.theme-red { --cover-color: #7a3b36; --band-color: #3f5a57; }
+
+.welcome {
   min-height: 100vh;
-  width: 100%;
   display: flex;
   flex-direction: column;
-  background-color: #fafbfc;
-  color: #333333;
-  overflow-x: hidden;
-  scrollbar-gutter: stable;
-  transition: background-color 0.6s ease, color 0.6s ease;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  color: var(--j-ink);
 }
 
-/* 顶部环境光晕 */
-.welcome-wrapper::before {
-  content: '';
-  position: absolute;
-  top: -20vh;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 70vw;
-  height: 50vh;
-  background: radial-gradient(circle, var(--accent-color) 0%, rgba(255,255,255,0) 70%);
-  opacity: 0.06;
-  z-index: 0;
-  pointer-events: none;
-  transition: background 0.8s ease;
-}
-
-/* 主题强调色变量 */
-.theme-blue { --accent-color: #409eff; --accent-hover: #66b1ff; }
-.theme-green { --accent-color: #67c23a; --accent-hover: #85ce61; }
-.theme-purple { --accent-color: #8e2de2; --accent-hover: #a04ef6; }
-
-/* 导航栏：修改为相对定位，跟随页面一起滚动 */
-.glass-nav {
-  position: relative; /* 从 fixed 改为 relative */
+.welcome-nav {
   width: 100%;
-  z-index: 100;
-  /* 依然保留一点半透明玻璃质感，能让背后的环境光晕透出来，显得高级 */
-  background: rgba(255, 255, 255, 0.4);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border-bottom: 1px solid rgba(0, 0, 0, 0.03);
-}
-
-.nav-content {
-  max-width: 1200px;
+  max-width: 1120px;
   margin: 0 auto;
+  padding: 20px 24px;
+  box-sizing: border-box;
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  padding: 1rem 2rem;
+  gap: 32px;
 }
 
-.brand-logo {
-  font-size: 1.5rem;
-  font-weight: 800;
-  color: #111827;
-  letter-spacing: -0.5px;
-  cursor: pointer;
+.welcome-brand {
+  font-family: var(--j-hand);
+  font-size: 24px;
 }
 
-.logo-dot {
-  color: var(--accent-color);
-  transition: color 0.5s ease;
-}
-
-.nav-links {
+.welcome-links {
+  flex: 1;
   display: flex;
-  gap: 2.5rem;
+  justify-content: center;
+  gap: 24px;
 }
 
-/* 导航链接动效优化 */
-.nav-item {
-  position: relative;
-  font-size: 0.95rem;
-  font-weight: 500;
-  color: #4b5563;
-  cursor: pointer;
-  transition: color 0.3s ease;
-  padding: 0.5rem 0;
+.welcome-links a {
+  font-size: 15px;
+  color: var(--j-ink-soft);
+  text-decoration: none;
 }
 
-.nav-item::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 50%;
-  width: 0;
-  height: 2px;
-  background-color: var(--accent-color);
-  transition: width 0.3s ease;
-  transform: translateX(-50%);
-  border-radius: 2px;
+.welcome-links a:hover {
+  color: var(--j-ink);
+  text-decoration: underline;
+  text-decoration-color: var(--j-pen);
+  text-underline-offset: 5px;
 }
 
-.nav-item:hover {
-  color: #111827;
-}
-
-.nav-item:hover::after {
-  width: 100%;
-}
-
-/* 主视觉区 */
-.hero-section {
+.welcome-main {
   flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  /* 调整：因为导航栏不再悬浮脱离文档流，所以顶部 padding 减小到正常值 */
-  padding: 60px 20px 80px;
-  z-index: 10;
+  gap: 72px;
+  padding: 32px 24px 80px;
 }
 
-.content-box {
+/* ============ 封面 ============ */
+.cover {
+  position: relative;
+  flex-shrink: 0;
+  width: 380px;
+  height: 500px;
+  border-radius: 4px 14px 14px 4px;
+  background-color: var(--cover-color);
+  transition: background-color 0.5s ease;
+  /* 布纹 */
+  background-image: repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.035) 0 1px, transparent 1px 3px),
+  repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.04) 0 1px, transparent 1px 3px);
+  box-shadow: inset -6px 0 10px -6px rgba(0, 0, 0, 0.35),
+  6px 6px 0 -1px #f3eee2,
+  7px 7px 0 -1px var(--j-rule-strong),
+  12px 12px 0 -2px #f3eee2,
+  13px 13px 0 -2px var(--j-rule-strong),
+  0 30px 50px -24px rgba(40, 32, 20, 0.6);
+  transform: rotate(-2deg);
+}
+
+/* 书脊 */
+.cover-spine {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 26px;
+  border-radius: 4px 0 0 4px;
+  background: linear-gradient(90deg, rgba(0, 0, 0, 0.28), rgba(0, 0, 0, 0.08) 70%, rgba(255, 255, 255, 0.06));
+}
+
+/* 绑带 */
+.cover-band {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  right: 44px;
+  width: 12px;
+  background: var(--band-color);
+  transition: background-color 0.5s ease;
+  box-shadow: 1px 0 2px rgba(0, 0, 0, 0.3), inset -2px 0 2px rgba(0, 0, 0, 0.15);
+}
+
+.cover-label {
+  position: absolute;
+  top: 120px;
+  left: 44px;
+  right: 66px;
+  padding: 28px 22px 22px;
+  background: var(--j-paper);
+  border: 1px solid #e8e0cf;
   text-align: center;
-  max-width: 800px;
-  width: 100%;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
 }
 
-/* 主标题：深色与主题色的高级渐变 */
-.main-title {
-  font-size: 4rem;
-  font-weight: 800;
-  margin-bottom: 1.5rem;
-  letter-spacing: -1.5px;
-  background: linear-gradient(135deg, #111827 30%, var(--accent-color) 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+.cover-kicker {
+  margin: 0;
+  font-family: var(--j-hand);
+  font-size: 14px;
+  color: var(--j-muted);
+  letter-spacing: 0.1em;
 }
 
-.description-group {
-  margin-bottom: 3.5rem;
+.cover-title {
+  margin: 10px 0 0;
+  font-family: var(--j-hand);
+  font-weight: normal;
+  font-size: 30px;
+  line-height: 1.25;
+  white-space: nowrap;
 }
 
-.slogan {
-  font-size: 1.5rem;
-  color: #374151;
-  font-weight: 600;
-  margin-bottom: 1rem;
-  letter-spacing: 0.5px;
+.cover-slogan {
+  margin: 16px 0 0;
+  font-weight: normal;
+  padding-top: 14px;
+  border-top: 1px dashed var(--j-rule-strong);
+  font-family: var(--j-hand);
+  font-size: 18px;
+  color: var(--j-ink-soft);
 }
 
-.sub-slogan {
-  font-size: 1.15rem;
-  color: #6b7280;
-  font-weight: 400;
-}
-
-/* 按钮操作区 */
-.action-buttons {
+/* ============ 便签入口 ============ */
+.notes {
   display: flex;
-  justify-content: center;
-  gap: 1.2rem;
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: 22px;
+  width: 320px;
 }
 
-/* 统一扁平化按钮基础样式 */
-.flat-btn {
-  padding: 14px 36px !important;
-  font-size: 1rem !important;
-  font-weight: 600 !important;
-  border: none !important;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.02) !important;
-  transition: transform 0.3s ease, box-shadow 0.3s ease, background-color 0.3s ease, color 0.3s ease !important;
+.notes-intro span {
+  display: inline-block;
 }
 
-.flat-btn:hover {
-  transform: translateY(-3px) !important;
-  box-shadow: 0 8px 15px rgba(0, 0, 0, 0.05) !important;
+.notes-intro {
+  margin: 0 0 8px;
+  font-family: var(--j-hand);
+  font-size: 19px;
+  line-height: 1.7;
+  color: var(--j-ink-soft);
 }
 
-.flat-btn:active {
-  transform: translateY(-1px) !important;
+.note {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 16px 20px 14px;
+  color: var(--j-ink);
+  text-decoration: none;
+  box-shadow: 0 1px 2px rgba(60, 50, 30, 0.12), 0 10px 18px -12px rgba(60, 50, 30, 0.45);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
-/* 自定义辅助色按钮 */
-.info-btn {
-  background-color: #f3f4f6 !important;
-  color: #374151 !important;
+.note::after {
+  content: "→";
+  position: absolute;
+  right: 18px;
+  top: 50%;
+  margin-top: -12px;
+  font-size: 18px;
+  color: rgba(43, 42, 39, 0.45);
+  transition: transform 0.2s ease;
 }
 
-.info-btn:hover {
-  background-color: #e5e7eb !important;
-  color: #111827 !important;
+.note:hover {
+  transform: rotate(0deg) translateY(-3px);
+  box-shadow: 0 1px 2px rgba(60, 50, 30, 0.12), 0 16px 22px -12px rgba(60, 50, 30, 0.5);
 }
 
-/* 底部提示 */
+.note:hover::after {
+  transform: translateX(4px);
+}
+
+.note-green { background: #d4ead9; transform: rotate(-1.5deg); }
+.note-yellow { background: var(--j-note); transform: rotate(1deg); margin-left: 18px; }
+.note-pink { background: #f6d9d6; transform: rotate(-0.8deg); }
+
+.note-title {
+  font-family: var(--j-hand);
+  font-size: 20px;
+}
+
 .interaction-hint {
-  padding: 2rem;
+  padding: 0 24px 28px;
   text-align: center;
-  font-size: 0.85rem;
-  color: #9ca3af;
-  z-index: 10;
+  font-size: 13px;
+  color: var(--j-muted);
 }
 
 kbd {
-  background: #ffffff;
-  border: 1px solid #e5e7eb;
-  box-shadow: 0 2px 0 #e5e7eb;
-  padding: 2px 8px;
-  border-radius: 6px;
-  color: var(--accent-color);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-weight: 600;
-  transition: color 0.3s ease;
+  padding: 1px 7px;
+  border: 1px solid var(--j-rule-strong);
+  border-radius: 3px;
+  background: var(--j-paper);
+  box-shadow: 0 2px 0 var(--j-rule-strong);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color: var(--cover-color);
 }
 
-/* --- 入场动画定义 --- */
-.animate-item {
-  opacity: 0;
-  will-change: transform, opacity;
-  -webkit-backface-visibility: hidden;
-  backface-visibility: hidden;
-  transform: translateZ(0);
-  animation: fadeInUp 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
-}
-
-.animate-nav {
-  animation: fadeInDown 0.8s ease-out forwards;
-}
-
-@keyframes fadeInUp {
-  0% {
-    opacity: 0;
-    transform: translate3d(0, 25px, 0);
-  }
-  100% {
-    opacity: 1;
-    transform: translate3d(0, 0, 0);
-  }
-}
-
-@keyframes fadeInDown {
-  0% {
-    opacity: 0;
-    transform: translate3d(0, -20px, 0);
-  }
-  100% {
-    opacity: 1;
-    transform: translate3d(0, 0, 0);
-  }
-}
-
-.delay-1 { animation-delay: 0.1s; }
-.delay-2 { animation-delay: 0.2s; }
-.delay-3 { animation-delay: 0.3s; }
-.delay-4 { animation-delay: 0.5s; }
-
-/* 响应式调整 */
-@media (max-width: 768px) {
-  .main-title {
-    font-size: 2.5rem;
-  }
-
-  .slogan {
-    font-size: 1.25rem;
-  }
-
-  .nav-links {
+@media (max-width: 860px) {
+  .welcome-links {
     display: none;
   }
 
-  .action-buttons {
+  .welcome-nav {
+    justify-content: space-between;
+  }
+
+  .welcome-main {
     flex-direction: column;
-    padding: 0 20px;
-    gap: 1rem;
+    gap: 48px;
+    padding-top: 16px;
   }
 
-  .flat-btn {
+  .cover {
+    width: 300px;
+    height: 390px;
+  }
+
+  .cover-label {
+    top: 90px;
+    left: 40px;
+    right: 62px;
+  }
+
+  .cover-title {
+    font-size: 24px;
+  }
+
+  .cover-slogan {
+    font-size: 14px;
+    white-space: nowrap;
+  }
+
+  .notes {
     width: 100%;
-    margin-left: 0 !important;
+    max-width: 340px;
   }
 
-  .welcome-wrapper::before {
-    width: 100vw;
-    height: 40vh;
+  .note-yellow {
+    margin-left: 0;
   }
 }
 </style>
