@@ -1,5 +1,5 @@
 <template>
-  <div class="sso-page">
+  <div class="sso-page j-desk">
     <div class="sso-container" v-if="getCurrentUserAdminObject().adminLevel==='superAdmin'">
       <el-card class="sync-card">
         <template #header>
@@ -187,37 +187,41 @@ const deleteAnnouncement = async (row) => {
 <style scoped>
 .sso-page {
   min-height: 100vh;
-  background-color: #f5f7fa;
   padding: 40px 20px;
   box-sizing: border-box;
 }
 
 .sso-container {
   display: flex;
-  flex-direction: column; /* 纵向排列 */
-  align-items: center; /* 横向居中 */
-  gap: 20px; /* 两个卡片之间的间距 */
+  flex-direction: column;
+  align-items: center;
+  gap: 28px;
 }
 
 .sync-card {
   width: 80%;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-  border-radius: 8px;
-  background-color: #ffffff;
+  border: 1px solid var(--j-rule);
+  border-radius: 2px;
+  background-color: var(--j-paper);
+  box-shadow: var(--j-shadow) !important;
+}
+
+.sync-card :deep(.el-card__header) {
+  border-bottom: 1px dashed var(--j-rule-strong);
 }
 
 .card-header {
-  font-weight: 600;
-  font-size: 18px;
   padding: 4px 0;
-  color: #333;
+  font-family: var(--j-hand);
+  font-size: 21px;
+  color: var(--j-ink);
 }
 
 .button-row {
   display: flex;
   justify-content: flex-start;
-  gap: 16px;
   flex-wrap: wrap;
+  gap: 16px;
   padding-top: 8px;
 }
 
@@ -234,4 +238,16 @@ const deleteAnnouncement = async (row) => {
   align-items: center;
 }
 
+.sync-card :deep(.el-table) {
+  --el-table-header-bg-color: var(--j-paper-warm);
+  --el-table-row-hover-bg-color: rgba(250, 216, 96, 0.18);
+  --el-table-tr-bg-color: #fffefb;
+  --el-table-bg-color: #fffefb;
+}
+
+@media (max-width: 768px) {
+  .sync-card {
+    width: 100%;
+  }
+}
 </style>

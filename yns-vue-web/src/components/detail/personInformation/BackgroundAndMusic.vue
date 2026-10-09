@@ -289,25 +289,30 @@ onMounted(() => {
   transform: translateX(-280px);
 }
 
+/* 设置面板：一张便签 */
 .dock-card {
-  background: rgba(255, 255, 255, 0.88);
-  backdrop-filter: saturate(180%) blur(6px);
-  border-radius: 12px;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
   padding-bottom: 12px;
+  border: none;
+  border-radius: 2px;
+  background: var(--j-note);
+  box-shadow: 0 1px 2px rgba(60, 50, 30, 0.1), 0 12px 20px -12px rgba(60, 50, 30, 0.45) !important;
+}
+
+.dock-card :deep(.el-divider) {
+  border-top: 1px dashed rgba(160, 135, 60, 0.4);
 }
 
 .dock-title {
-  font-weight: 700;
-  color: #333;
   margin-bottom: 8px;
+  font-family: var(--j-hand);
+  font-size: 17px;
+  color: var(--j-ink);
 }
 
 .dock-subtitle {
-  font-weight: 600;
-  font-size: 13px;
-  color: #666;
   margin-bottom: 6px;
+  font-size: 13px;
+  color: var(--j-ink-soft);
 }
 
 .dock-block {
@@ -329,9 +334,9 @@ onMounted(() => {
 }
 
 .vol-label {
-  font-size: 12px;
-  color: #666;
   width: 36px;
+  font-size: 12px;
+  color: var(--j-ink-soft);
 }
 
 .dock-toggle {
@@ -340,12 +345,12 @@ onMounted(() => {
   top: 10px;
   width: 22px;
   height: 28px;
-  border-radius: 0 6px 6px 0;
-  border: 1px solid #dcdfe6;
-  background: #fff;
-  color: #666;
+  border-radius: 0 4px 4px 0;
+  border: none;
+  background: #f6e3a1;
+  color: var(--j-ink-soft);
   cursor: pointer;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: 1px 1px 3px rgba(60, 50, 30, 0.2);
 }
 
 .music-mini {
@@ -355,17 +360,17 @@ onMounted(() => {
   width: 220px;
   z-index: 19;
   padding: 8px 10px;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.94);
-  backdrop-filter: saturate(180%) blur(6px);
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+  border: 1px solid var(--j-rule);
+  border-radius: 2px;
+  background: var(--j-paper);
+  box-shadow: var(--j-shadow);
   transition: transform .18s ease, box-shadow .18s ease, background .18s ease;
 }
 
 .music-mini__title {
-  font-size: 12px;
-  font-weight: 600;
-  color: #333;
+  font-family: var(--j-hand);
+  font-size: 14px;
+  color: var(--j-ink);
   margin-bottom: 6px;
   white-space: nowrap;
   overflow: hidden;

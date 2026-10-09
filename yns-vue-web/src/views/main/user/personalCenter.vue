@@ -1,4 +1,5 @@
 <template>
+  <div class="personal-page j-desk">
   <div class="personal-center">
     <div class="header">
       <div class="left-header">
@@ -10,7 +11,8 @@
       </el-button>
     </div>
 
-    <el-card shadow="always" class="card">
+    <el-card shadow="never" class="card">
+      <span class="j-tape j-tape--top"></span>
       <div class="avatar-section">
         <div class="avatar-container">
           <img :src="userStore.userBean.avatar" class="avatar"/>
@@ -76,6 +78,7 @@
         style="display: none"
         @change="handleFileChange"
     />
+  </div>
   </div>
 </template>
 
@@ -197,102 +200,178 @@ const personalCareer = ()=>{
 </script>
 
 <style scoped>
+.personal-page {
+  min-height: 100vh;
+  padding: 40px 20px 64px;
+  box-sizing: border-box;
+}
+
 .personal-center {
-  max-width: 800px;
-  margin: 40px auto;
-  padding: 20px;
-  background: #f9f9f9;
-  border-radius: 16px;
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.05);
+  max-width: 760px;
+  margin: 0 auto;
+  color: var(--j-ink);
 }
 
 .header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
+  align-items: flex-end;
+  margin-bottom: 28px;
 }
 
 .left-header h2 {
-  font-size: 26px;
-  color: #333;
   margin: 0;
+  font-family: var(--j-hand);
+  font-weight: normal;
+  font-size: 32px;
+  color: var(--j-ink);
 }
 
 .city {
+  margin-top: 6px;
   font-size: 14px;
-  color: #888;
-  margin-top: 5px;
+  color: var(--j-muted);
 }
 
+/* 个人生涯：一张绿色便签 */
 .career-btn {
-  background-color: #67C23A;
-  color: white;
-  font-weight: bold;
-  border-radius: 20px;
+  height: auto;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 2px;
+  background-color: #d4ead9;
+  color: var(--j-ink);
+  font-family: var(--j-hand);
+  font-size: 15px;
+  box-shadow: 0 1px 2px rgba(60, 50, 30, 0.1), 0 10px 16px -10px rgba(60, 50, 30, 0.45);
+  transform: rotate(2deg);
 }
 
+.career-btn:hover,
+.career-btn:focus {
+  background-color: #c4e2cc;
+  color: var(--j-ink);
+  transform: rotate(0deg);
+}
+
+/* 信息页：一张纸 */
 .card {
-  padding: 30px;
-  border-radius: 20px;
-  background-color: #fff;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.05);
+  position: relative;
+  overflow: visible;
+  border: 1px solid var(--j-rule);
+  border-radius: 2px;
+  background: var(--j-paper);
+  box-shadow: var(--j-shadow) !important;
+}
+
+.card :deep(.el-card__body) {
+  padding: 40px 48px 28px;
 }
 
 .avatar-section {
+  position: relative;
   display: flex;
   justify-content: center;
-  margin-bottom: 30px;
-  position: relative; /* 用于按钮定位 */
+  margin-bottom: 34px;
 }
 
+/* 头像：贴上去的照片 */
 .avatar-container {
   position: relative;
-  width: 120px;
-  height: 120px;
-  border-radius: 50%;
-  overflow: visible; /* 改这里，不再裁剪按钮 */
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  width: 116px;
+  height: 116px;
+  padding: 6px 6px 18px;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(60, 50, 30, 0.25);
+  transform: rotate(-2deg);
 }
 
 .avatar {
+  display: block;
   width: 100%;
   height: 100%;
   object-fit: cover;
-  border-radius: 50%;
-  transition: transform 0.3s;
-}
-
-.avatar:hover {
-  transform: scale(1.05);
+  background: #ece4d3;
 }
 
 .avatar-edit-button {
   position: absolute;
-  bottom: -10px;  /* 放在容器外部，避免被圆形裁切 */
-  right: -10px;
+  bottom: -10px;
+  right: -14px;
   z-index: 10;
-  background-color: white;
-  border: 1px solid #dcdfe6;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
-  width: 28px;
-  height: 28px;
   display: flex;
   justify-content: center;
   align-items: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--j-rule-strong);
+  background-color: var(--j-note);
+  box-shadow: 0 1px 3px rgba(60, 50, 30, 0.2);
 }
-
 
 .info-form {
   margin-top: 10px;
 }
 
 .el-form-item {
-  margin-bottom: 22px;
+  margin-bottom: 20px;
+}
+
+.info-form :deep(.el-form-item__label) {
+  font-family: var(--j-hand);
+  font-size: 16px;
+  color: var(--j-ink-soft);
+}
+
+/* 输入框：一条下划线 */
+.info-form :deep(.el-input__wrapper) {
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  border-bottom: 1px solid var(--j-rule-strong);
+  padding-left: 2px;
+}
+
+.info-form :deep(.el-input__wrapper.is-focus) {
+  border-bottom-color: var(--j-ink);
+}
+
+.info-form :deep(.el-input.is-disabled .el-input__wrapper) {
+  background: transparent;
+  box-shadow: none;
+  border-bottom-style: dashed;
+}
+
+.info-form :deep(.el-textarea__inner) {
+  border-radius: 0;
+  box-shadow: none;
+  border: 1px solid var(--j-rule);
+  background: #fffefb;
 }
 
 .el-input {
   width: 100%;
 }
 
+@media (max-width: 640px) {
+  .personal-page {
+    padding: 24px 12px 48px;
+  }
+
+  .card :deep(.el-card__body) {
+    padding: 32px 18px 20px;
+  }
+
+  .info-form :deep(.el-form-item) {
+    display: block;
+  }
+
+  .info-form :deep(.el-form-item__label) {
+    justify-content: flex-start;
+  }
+
+  .info-form :deep(.el-form-item__content) {
+    margin-left: 0 !important;
+  }
+}
 </style>

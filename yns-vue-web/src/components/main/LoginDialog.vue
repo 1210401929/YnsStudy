@@ -16,7 +16,7 @@
           position: absolute;
           top: -8px;
           right: -13px;
-          background-color: red;
+          background-color: #c2483e;
           color: white;
           font-size: 12px;
           border-radius: 10px;
@@ -73,7 +73,7 @@
           center
       >
         <template #header>
-          <span style="font-size: 20px;">用户登录</span>
+          <span class="dialog-heading">用户登录</span>
         </template>
 
         <el-form :model="form" ref="formRef" :rules="rules" label-position="top">
@@ -94,11 +94,11 @@
           </el-form-item>
 
           <el-form-item>
-            <el-button type="danger" @click="visible = false" style="width: 100%;">取消</el-button>
+            <el-button @click="visible = false" style="width: 100%;">取消</el-button>
           </el-form-item>
 
           <div style="margin-top: 14px; text-align: center;">
-            <a @click="callPhoneLogin" style="cursor: pointer; color: #4caf50;">
+            <a @click="callPhoneLogin" class="text-link">
               📱 手机号登录
             </a>
           </div>
@@ -133,7 +133,7 @@
           center
       >
         <template #header>
-          <span style="font-size: 20px;">手机号登录</span>
+          <span class="dialog-heading">手机号登录</span>
         </template>
 
         <el-form :model="phoneForm" ref="phoneFormRef" :rules="phoneRules" label-position="top">
@@ -160,11 +160,11 @@
           </el-form-item>
 
           <el-form-item>
-            <el-button type="danger" style="width: 100%;" @click="phoneLoginVisible = false">取消</el-button>
+            <el-button style="width: 100%;" @click="phoneLoginVisible = false">取消</el-button>
           </el-form-item>
 
           <div style="margin-top: 10px; text-align: center;">
-            <a @click="returnToLogin" style="cursor: pointer; color: #409EFF;">← 返回</a>
+            <a @click="returnToLogin" class="text-link">← 返回</a>
           </div>
         </el-form>
       </el-dialog>
@@ -180,7 +180,7 @@
           center
       >
         <template #header>
-          <span style="font-size: 20px;">用户注册</span>
+          <span class="dialog-heading">用户注册</span>
         </template>
 
         <el-form :model="registerForm" ref="registerFormRef" :rules="registerRules" label-position="top">
@@ -205,7 +205,7 @@
           </el-form-item>
 
           <el-form-item>
-            <el-button type="danger" style="width: 100%;" @click="registerVisible = false">取消</el-button>
+            <el-button style="width: 100%;" @click="registerVisible = false">取消</el-button>
           </el-form-item>
         </el-form>
       </el-dialog>
@@ -236,7 +236,7 @@
                   :key="index"
                   :timestamp="pubFormatDate(item.CREATE_TIME) || '未知时间'"
                   placement="top"
-                  style="background-color: #f0f9ff;cursor: pointer !important;"
+                  style="cursor: pointer !important;"
               >
                 <div style="display: flex; justify-content: space-between; align-items: center;">
                   <span class="remark-text" :title="item.REMARK" @click="unreadClick(item)">{{ item.REMARK || '无内容' }}</span>
@@ -564,11 +564,16 @@ const submitRegister = async () => {
 
 <style scoped>
 .login-button {
-  cursor: pointer;
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 16px;
+  font-size: 15px;
+  color: var(--j-ink);
+  cursor: pointer;
+}
+
+.login-button:hover {
+  color: var(--j-pen);
 }
 
 .custom-dialog .el-dialog {
@@ -576,40 +581,59 @@ const submitRegister = async () => {
   transform: translateY(-50%);
 }
 
+.dialog-heading {
+  font-family: var(--j-hand);
+  font-size: 22px;
+  color: var(--j-ink);
+}
+
+.text-link {
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--j-pen);
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-underline-offset: 3px;
+  transition: text-decoration-color 0.15s;
+}
+
+.text-link:hover {
+  text-decoration-color: currentColor;
+}
+
 .third-party-divider {
   display: flex;
   align-items: center;
   gap: 12px;
   margin: 18px 0 14px;
-  color: #98a2ad;
-  font-size: 13px;
+  font-family: var(--j-hand);
+  font-size: 14px;
+  color: var(--j-muted);
 }
 
 .third-party-divider::before,
 .third-party-divider::after {
   content: '';
   flex: 1;
-  height: 1px;
-  background: #ebeef2;
+  border-top: 1px dashed var(--j-rule-strong);
 }
 
 .qq-login-button {
   width: 100%;
   height: 42px;
-  border-color: rgba(18, 183, 245, 0.38);
-  background: linear-gradient(135deg, #f3fbff, #eaf8ff);
-  color: #087cad;
+  border: 1px solid var(--j-rule-strong);
+  border-radius: 2px;
+  background: var(--j-paper-warm);
+  color: #1f7fb0;
   font-weight: 600;
-  letter-spacing: 0.2px;
-  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  transition: transform 0.2s ease, background-color 0.2s ease;
 }
 
 .qq-login-button:hover,
 .qq-login-button:focus {
-  color: #087cad;
-  border-color: #12b7f5;
-  background: linear-gradient(135deg, #edfaff, #ddf5ff);
-  box-shadow: 0 8px 20px rgba(18, 183, 245, 0.18);
+  border-color: #8fc6e3;
+  background: #eef6fa;
+  color: #1f7fb0;
   transform: translateY(-1px);
 }
 
@@ -631,8 +655,8 @@ const submitRegister = async () => {
 .qq-login-tip {
   margin: 9px 0 0;
   text-align: center;
-  color: #a1a9b3;
   font-size: 12px;
+  color: var(--j-muted);
 }
 
 .dropdown-avatar {
@@ -640,14 +664,15 @@ const submitRegister = async () => {
   height: 30px;
   border-radius: 50%;
   object-fit: cover;
+  background: #ece4d3;
+  color: var(--j-ink-soft);
 }
 
 .remark-text {
-  max-width: 300px; /* 根据实际布局调整 */
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
   display: inline-block;
+  max-width: 300px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
-
 </style>

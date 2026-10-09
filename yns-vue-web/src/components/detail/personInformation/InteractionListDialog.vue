@@ -98,14 +98,14 @@ const formatDate = (dateStr) => pubFormatDate(dateStr)
   width: 6px;
 }
 .card-list-scroll::-webkit-scrollbar-thumb {
-  background-color: #dcdfe6;
+  background-color: var(--j-rule-strong);
   border-radius: 4px;
 }
 .card-list-scroll::-webkit-scrollbar-track {
   background: transparent;
 }
 .card-list-scroll:hover::-webkit-scrollbar-thumb {
-  background-color: #c0c4cc;
+  background-color: #c9bda5;
 }
 
 .card-list {
@@ -117,9 +117,9 @@ const formatDate = (dateStr) => pubFormatDate(dateStr)
 /* ========== 通用现代卡片样式 ========== */
 .modern-card {
   position: relative;
-  background: #ffffff;
-  border: 1px solid #ebeef5;
-  border-radius: 12px;
+  background: #fffefb;
+  border: 1px solid var(--j-rule);
+  border-radius: 2px;
   padding: 16px 20px;
   display: flex;
   align-items: center;
@@ -130,17 +130,17 @@ const formatDate = (dateStr) => pubFormatDate(dateStr)
 }
 
 .modern-card:hover {
-  transform: translateY(-2px);
-  border-color: #c6e2ff;
-  box-shadow: 0 8px 20px rgba(64, 158, 255, 0.08);
+  transform: translateX(4px);
+  border-color: var(--j-rule-strong);
+  box-shadow: 0 1px 2px rgba(60, 50, 30, 0.08);
 }
 
 /* 卡片右侧的箭头指示器 (纯CSS实现，无需引入Icon库) */
 .card-action-arrow {
   width: 8px;
   height: 8px;
-  border-top: 2px solid #c0c4cc;
-  border-right: 2px solid #c0c4cc;
+  border-top: 2px solid var(--j-rule-strong);
+  border-right: 2px solid var(--j-rule-strong);
   transform: rotate(45deg);
   transition: border-color 0.3s;
   flex-shrink: 0;
@@ -148,7 +148,7 @@ const formatDate = (dateStr) => pubFormatDate(dateStr)
 }
 
 .modern-card:hover .card-action-arrow {
-  border-color: #409eff;
+  border-color: var(--j-pen);
 }
 
 /* ========== 博客文章卡片定制 ========== */
@@ -164,7 +164,7 @@ const formatDate = (dateStr) => pubFormatDate(dateStr)
   top: 0;
   bottom: 0;
   width: 4px;
-  background: #409eff;
+  background: #e8c95b;
   opacity: 0;
   transition: opacity 0.3s ease;
 }
@@ -184,7 +184,7 @@ const formatDate = (dateStr) => pubFormatDate(dateStr)
   margin: 0;
   font-size: 16px;
   font-weight: 600;
-  color: #303133;
+  color: var(--j-ink);
   line-height: 1.4;
   /* 标题最多显示两行，超出省略 */
   display: -webkit-box;
@@ -198,7 +198,7 @@ const formatDate = (dateStr) => pubFormatDate(dateStr)
   align-items: center;
   gap: 16px;
   font-size: 13px;
-  color: #909399;
+  color: var(--j-muted);
 }
 
 .meta-item {
@@ -211,11 +211,11 @@ const formatDate = (dateStr) => pubFormatDate(dateStr)
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background-color: #409eff;
+  background-color: var(--j-pen);
 }
 
 .author {
-  color: #409eff;
+  color: var(--j-pen);
   font-weight: 500;
 }
 
@@ -225,12 +225,13 @@ const formatDate = (dateStr) => pubFormatDate(dateStr)
 }
 
 .user-avatar {
-  background-color: #409eff;
-  color: #fff;
+  background-color: #ece4d3;
+  color: var(--j-ink-soft);
   font-size: 20px;
   font-weight: bold;
   flex-shrink: 0;
-  border: 2px solid #ecf5ff;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 1px var(--j-rule);
 }
 
 .user-info {
@@ -246,12 +247,12 @@ const formatDate = (dateStr) => pubFormatDate(dateStr)
 .user-name {
   font-size: 16px;
   font-weight: 600;
-  color: #303133;
+  color: var(--j-ink);
 }
 
 .user-remark {
   font-size: 13px;
-  color: #909399;
+  color: var(--j-muted);
   /* 单行文字溢出省略号 */
   white-space: nowrap;
   overflow: hidden;
@@ -278,7 +279,7 @@ const formatDate = (dateStr) => pubFormatDate(dateStr)
 /* 如果你需要修改全局弹窗样式，可以将这部分放入不带 scoped 的 style 标签或全局 CSS 中 */
 <style>
 .modern-dialog-wrapper .el-dialog__header {
-  border-bottom: 1px solid #ebeef5;
+  border-bottom: 1px dashed var(--j-rule-strong);
   margin-right: 0;
   padding-bottom: 16px;
 }

@@ -3,6 +3,7 @@
   <transition name="fade">
     <div v-if="visible && !isSelf" class="welcome-overlay">
       <div class="welcome-content">
+        <span class="j-tape j-tape--top"></span>
         <el-avatar
             :src="user.avatar"
             size="large"
@@ -68,53 +69,75 @@ const handleEnter = () => {
   position: fixed;
   top: 0;
   left: 0;
-  width: 100vw;
-  height: 100vh;
-  background: rgba(0, 0, 0, 0.4);
-  backdrop-filter: blur(12px);
   z-index: 9999;
   display: flex;
   justify-content: center;
   align-items: center;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(60, 50, 30, 0.35);
+  backdrop-filter: blur(6px);
 }
 
+/* 欢迎卡：一张贴着胶带的明信片 */
 .welcome-content {
+  position: relative;
+  width: min(420px, calc(100vw - 40px));
+  padding: 40px 32px 30px;
+  box-sizing: border-box;
   text-align: center;
-  color: #ffffff;
-  animation: slideUp 0.6s ease cubic-bezier(0.2, 0.8, 0.2, 1);
+  background: var(--j-paper);
+  border: 1px solid var(--j-rule);
+  box-shadow: 0 30px 60px -24px rgba(40, 32, 20, 0.6);
+  color: var(--j-ink);
+  transform: rotate(-1deg);
+  animation: slideUp 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 .welcome-avatar {
-  width: 100px !important;
-  height: 100px !important;
+  width: 96px !important;
+  height: 96px !important;
+  margin-bottom: 18px;
+  border: 5px solid #fff;
+  border-bottom-width: 14px;
+  border-radius: 0 !important;
+  box-shadow: 0 1px 3px rgba(60, 50, 30, 0.3);
+  background: #ece4d3;
+  color: var(--j-ink-soft);
+  font-family: var(--j-hand);
   font-size: 32px;
-  border: 4px solid rgba(255, 255, 255, 0.3);
-  margin-bottom: 20px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  transform: rotate(3deg);
 }
 
 .welcome-title {
-  font-size: 28px;
-  font-weight: bold;
-  margin: 0 0 12px 0;
-  letter-spacing: 1px;
+  margin: 0 0 12px;
+  font-family: var(--j-hand);
+  font-weight: normal;
+  font-size: 26px;
+  line-height: 1.5;
+}
+
+.random-name {
+  padding: 0 4px;
+  background-image: linear-gradient(transparent 58%, var(--j-highlight) 58%, var(--j-highlight) 92%, transparent 92%);
 }
 
 .welcome-desc {
-  font-size: 16px;
-  color: rgba(255, 255, 255, 0.85);
-  margin-bottom: 30px;
+  margin: 0 0 26px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--j-rule-strong);
+  font-size: 14px;
+  color: var(--j-ink-soft);
 }
 
 .enter-btn {
-  font-size: 16px;
   padding: 12px 36px;
-  box-shadow: 0 4px 15px rgba(64, 158, 255, 0.4);
+  font-size: 16px;
   transition: transform 0.2s;
 }
 
 .enter-btn:hover {
-  transform: scale(1.05);
+  transform: translateY(-2px);
 }
 
 .fade-enter-active,
@@ -128,7 +151,7 @@ const handleEnter = () => {
 }
 
 @keyframes slideUp {
-  from { opacity: 0; transform: translateY(30px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; transform: rotate(-1deg) translateY(30px); }
+  to { opacity: 1; transform: rotate(-1deg) translateY(0); }
 }
 </style>

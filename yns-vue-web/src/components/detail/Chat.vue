@@ -71,41 +71,51 @@ const sendChat = () => {
   position: fixed;
   right: 20px;
   bottom: 90px;
-  width: 340px;
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 4px 25px rgba(0, 0, 0, 0.2);
+  z-index: 1000;
   display: flex;
   flex-direction: column;
+  width: 340px;
   overflow: hidden;
-  z-index: 1000;
+  border: 1px solid var(--j-rule);
+  border-radius: 2px;
+  background: var(--j-paper);
+  box-shadow: 0 24px 40px -20px rgba(40, 32, 20, 0.55);
 }
 
 .chat-header {
-  background: #409EFF;
-  color: white;
-  padding: 12px 16px;
-  font-size: 16px;
-  font-weight: bold;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px dashed var(--j-rule-strong);
+  background: var(--j-paper-warm);
+  font-family: var(--j-hand);
+  font-size: 18px;
+  color: var(--j-ink);
 }
 
 .close-btn {
+  font-size: 20px;
+  color: var(--j-muted);
   cursor: pointer;
-  font-size: 18px;
+}
+
+.close-btn:hover {
+  color: var(--j-stamp);
 }
 
 .chat-messages {
-  padding: 10px;
-  max-height: 240px;
-  overflow-y: auto;
-  font-size: 14px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  background: #f8f8f8;
+  gap: 10px;
+  max-height: 240px;
+  min-height: 120px;
+  padding: 14px 12px;
+  overflow-y: auto;
+  font-size: 14px;
+  background-color: var(--j-desk);
+  background-image: radial-gradient(rgba(120, 104, 80, 0.16) 1px, transparent 1px);
+  background-size: 18px 18px;
 }
 
 .chat-message {
@@ -120,33 +130,39 @@ const sendChat = () => {
   justify-content: flex-start;
 }
 
+/* 每条消息是一张小纸条 */
 .message-bubble {
-  max-width: 70%;
+  max-width: 72%;
   padding: 8px 12px;
-  border-radius: 14px;
-  background-color: #f0f0f0;
-  word-break: break-word;
+  border-radius: 2px;
   font-size: 14px;
+  line-height: 1.6;
+  word-break: break-word;
+  box-shadow: 0 1px 2px rgba(60, 50, 30, 0.15);
 }
 
 .chat-message.self .message-bubble {
-  background-color: #409eff;
-  color: white;
-  border-bottom-right-radius: 0;
+  background-color: var(--j-note);
+  color: var(--j-ink);
+  transform: rotate(0.8deg);
 }
 
 .chat-message.other .message-bubble {
-  background-color: #e4e6eb;
-  color: #333;
-  border-bottom-left-radius: 0;
+  background-color: #fff;
+  color: var(--j-ink);
+  transform: rotate(-0.8deg);
+}
+
+.sender {
+  color: var(--j-pen);
 }
 
 .chat-input-row {
   display: flex;
-  padding: 10px;
-  border-top: 1px solid #eee;
-  background-color: #fff;
   gap: 6px;
+  padding: 10px;
+  border-top: 1px dashed var(--j-rule-strong);
+  background-color: var(--j-paper);
 }
 
 .chat-input {
