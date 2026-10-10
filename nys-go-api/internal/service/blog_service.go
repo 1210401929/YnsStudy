@@ -392,6 +392,8 @@ func (s *Service) notifyBlogComment(ctx context.Context, comment map[string]any,
 
 	// receiverCode 收站内消息；receiverEmail 收邮件（匿名访客只有邮箱）
 	receiverCode, receiverEmail, remark := "", "", ""
+	// 回复时被回复的那条原评论，邮件里一并引用
+	originalName, originalText := "", ""
 	if parentID := strings.TrimSpace(model.StringValue(comment, "SUPERGUID")); parentID == "" {
 		receiverCode = authorCode
 		remark = senderName + "评论了你的文章《" + title + "》"
@@ -400,6 +402,11 @@ func (s *Service) notifyBlogComment(ctx context.Context, comment map[string]any,
 		if target == nil {
 			return
 		}
+		originalName = strings.TrimSpace(model.StringValue(target, "USERNAME"))
+		if originalName == "" {
+			originalName = "访客"
+		}
+		originalText = mailExcerpt(strings.TrimSpace(model.StringValue(target, "TEXT")), 300)
 		receiverCode = strings.TrimSpace(model.StringValue(target, "USERCODE"))
 		if receiverCode == "" {
 			receiverEmail = normalizeMailAddress(model.StringValue(target, "USEREMAIL"))
@@ -426,7 +433,7 @@ func (s *Service) notifyBlogComment(ctx context.Context, comment map[string]any,
 	quote := mailExcerpt(text, 300)
 	if !isSelf && receiverEmail != "" && receiverEmail != adminEmail {
 		s.queueMail(ctx, receiverEmail, remark,
-			renderNoticeMail(remark, nil, quote, "查看文章", link))
+			renderReplyMail(remark, nil, "你的评论：", originalText, quote, "查看文章", link))
 	}
 	// 站长接收全站评论，用于审核内容；站长自己发的评论不再通知自己
 	if adminEmail != "" && !senderIsAdmin {
@@ -445,7 +452,7 @@ func (s *Service) notifyBlogComment(ctx context.Context, comment map[string]any,
 			lines = append(lines, "网址："+website)
 		}
 		s.queueMail(ctx, adminEmail, "【新"+kind+"】"+senderName+"："+mailExcerpt(text, 30),
-			renderNoticeMail("《"+title+"》有新"+kind, lines, quote, "查看文章", link))
+			renderReplyMail("《"+title+"》有新"+kind, lines, originalName+" 的原评论：", originalText, quote, "查看文章", link))
 	}
 }
 
@@ -453,7 +460,7 @@ func (s *Service) notifyBlogComment(ctx context.Context, comment map[string]any,
 // 优先用前端传来的被回复评论编号；旧版前端没有传时，退回按 RECEIVE_USERCODE 查找。
 func (s *Service) findReplyTarget(ctx context.Context, blogID, parentID, replyTo, receiverCode string) map[string]any {
 	if replyTo != "" {
-		rows, err := s.Repo.Query(ctx, "SELECT USERCODE, USEREMAIL FROM BLOGCOMMENT WHERE BLOGID = ? AND GUID = ? AND (GUID = ? OR SUPERGUID = ?) LIMIT 1", blogID, replyTo, parentID, parentID)
+		rows, err := s.Repo.Query(ctx, "SELECT USERCODE, USERNAME, USEREMAIL, TEXT FROM BLOGCOMMENT WHERE BLOGID = ? AND GUID = ? AND (GUID = ? OR SUPERGUID = ?) LIMIT 1", blogID, replyTo, parentID, parentID)
 		if err == nil && len(rows) > 0 {
 			return rows[0]
 		}
@@ -462,7 +469,7 @@ func (s *Service) findReplyTarget(ctx context.Context, blogID, parentID, replyTo
 	if receiverCode == "" {
 		return nil
 	}
-	rows, err := s.Repo.Query(ctx, "SELECT USERCODE, USEREMAIL FROM BLOGCOMMENT WHERE BLOGID = ? AND (GUID = ? OR SUPERGUID = ?) AND USERCODE = ? LIMIT 1", blogID, parentID, parentID, receiverCode)
+	rows, err := s.Repo.Query(ctx, "SELECT USERCODE, USERNAME, USEREMAIL, TEXT FROM BLOGCOMMENT WHERE BLOGID = ? AND (GUID = ? OR SUPERGUID = ?) AND USERCODE = ? LIMIT 1", blogID, parentID, parentID, receiverCode)
 	if err != nil || len(rows) == 0 {
 		return nil
 	}

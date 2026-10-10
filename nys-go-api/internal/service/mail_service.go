@@ -238,14 +238,30 @@ func (s *Service) mailSiteURL(path string) string {
 
 // renderNoticeMail 生成通知邮件正文，所有内容都做 HTML 转义
 func renderNoticeMail(heading string, lines []string, quote, linkText, link string) string {
+	return renderReplyMail(heading, lines, "", "", quote, linkText, link)
+}
+
+// renderReplyMail 和 renderNoticeMail 相同，另外在新内容前面引用被回复的原评论
+func renderReplyMail(heading string, lines []string, originalLabel, original, quote, linkText, link string) string {
 	var builder strings.Builder
 	builder.WriteString(`<div style="max-width:560px;margin:0 auto;padding:24px;font-family:-apple-system,'PingFang SC','Microsoft YaHei',sans-serif;color:#2b2a27;background:#fffdf8;border:1px solid #e6dfd1">`)
 	builder.WriteString(`<h2 style="margin:0 0 16px;font-size:18px;font-weight:normal">` + html.EscapeString(heading) + `</h2>`)
 	for _, line := range lines {
 		builder.WriteString(`<p style="margin:6px 0;color:#4d4943;font-size:14px">` + html.EscapeString(line) + `</p>`)
 	}
+	if original != "" {
+		builder.WriteString(`<p style="margin:16px 0 4px;color:#7d776c;font-size:13px">` + html.EscapeString(originalLabel) + `</p>`)
+		builder.WriteString(`<blockquote style="margin:0;padding:10px 14px;border-left:4px solid #d6ccb8;background:#f7f3ea;color:#7d776c;font-size:14px;white-space:pre-wrap">` + html.EscapeString(original) + `</blockquote>`)
+		if quote != "" {
+			builder.WriteString(`<p style="margin:14px 0 4px;color:#7d776c;font-size:13px">回复内容：</p>`)
+		}
+	}
 	if quote != "" {
-		builder.WriteString(`<blockquote style="margin:16px 0;padding:10px 14px;border-left:4px solid #e8c95b;background:#fdf6d8;color:#4d4943;font-size:14px;white-space:pre-wrap">` + html.EscapeString(quote) + `</blockquote>`)
+		quoteMargin := "16px 0"
+		if original != "" {
+			quoteMargin = "0 0 16px"
+		}
+		builder.WriteString(`<blockquote style="margin:` + quoteMargin + `;padding:10px 14px;border-left:4px solid #e8c95b;background:#fdf6d8;color:#4d4943;font-size:14px;white-space:pre-wrap">` + html.EscapeString(quote) + `</blockquote>`)
 	}
 	if link != "" {
 		builder.WriteString(`<p style="margin:18px 0 0"><a style="color:#2f5d8a" href="` + html.EscapeString(link) + `">` + html.EscapeString(linkText) + `</a></p>`)

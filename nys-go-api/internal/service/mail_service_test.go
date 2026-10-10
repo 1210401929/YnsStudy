@@ -130,3 +130,15 @@ func TestUnsubscribeRejectsBadToken(t *testing.T) {
 		t.Fatal("退订令牌应与邮箱大小写无关")
 	}
 }
+
+func TestRenderReplyMailQuotesOriginal(t *testing.T) {
+	body := renderReplyMail("小宋回复了你", nil, "你的评论：", "原来的<评论>", "新的回复", "查看文章", "https://ynsstudy.cn/oneBlog/1")
+	original := strings.Index(body, "原来的&lt;评论&gt;")
+	reply := strings.Index(body, "新的回复")
+	if original < 0 || reply < 0 || original > reply {
+		t.Fatalf("应先引用原评论再显示回复，且内容需转义: %s", body)
+	}
+	if strings.Contains(renderNoticeMail("新评论", nil, "内容", "", ""), "回复内容") {
+		t.Fatal("普通评论邮件不应出现原评论区块")
+	}
+}
