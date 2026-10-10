@@ -62,3 +62,16 @@ func TestLikePattern(t *testing.T) {
 		t.Fatalf("关键词转义不对: %s", got)
 	}
 }
+
+func TestKeywordSummaryStartsNearMatch(t *testing.T) {
+	content := "<p>" + strings.Repeat("开头的内容", 60) + "</p><p>这里讲 Channel 的关闭</p>"
+	rows := replaceTextWithKeywordSummary([]map[string]any{{"MAINTEXT": content}}, "MAINTEXT", "channel")
+	excerpt := rows[0]["EXCERPT"].(string)
+	if !strings.HasPrefix(excerpt, "…") || !strings.Contains(excerpt, "Channel 的关闭") {
+		t.Fatalf("摘要应从关键词附近开始: %q", excerpt)
+	}
+	rows = replaceTextWithKeywordSummary([]map[string]any{{"MAINTEXT": "<p>正文没有关键词</p>"}}, "MAINTEXT", "标题里的词")
+	if rows[0]["EXCERPT"] != "正文没有关键词" {
+		t.Fatalf("正文不含关键词时取开头: %v", rows[0]["EXCERPT"])
+	}
+}

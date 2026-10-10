@@ -46,7 +46,7 @@
   </el-button>
 
   <el-dialog v-model="editorVisible" title="文章编辑" width="900px" top="2vh" :close-on-click-modal="false">
-    <ArticleEditor @submit="handleEditorSubmit" :is-public="true" :save-type="'add'" @cancel="editorVisible = false"/>
+    <ArticleEditor ref="articleEditorRef" @submit="handleEditorSubmit" :is-public="true" :save-type="'add'" :draft-key="'add'" @cancel="editorVisible = false"/>
   </el-dialog>
 </template>
 
@@ -67,6 +67,7 @@ import BlogSidebar from "@/components/detail/myblog/BlogSidebar.vue";
 
 // 编辑器体积较大，点击“发布文章”打开弹窗时才下载
 const ArticleEditor = defineAsyncComponent(() => import('@/components/detail/ArticleEditor.vue'))
+const articleEditorRef = ref(null)
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -101,6 +102,12 @@ async function handleEditorSubmit({blog_type, title, content}) {
   };
 
   let result = await sendAxiosRequest("/blog-api/blog/addBlog", {blogContent});
+  if (!result || result.isError || !result.result?.[0]) {
+    // 保存失败时编辑器内容和草稿都保留，可以直接重试
+    ElMessage.error(result?.errMsg || "发布失败");
+    return;
+  }
+  articleEditorRef.value?.onSaved();
   blogContent = result.result[0];
   blogContentStore.blogContents.unshift(blogContent);
 

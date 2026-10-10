@@ -27,7 +27,10 @@
                 @click.stop
             >{{ blogContent.USERNAME || '匿名用户' }}</a>
             <div v-else class="author-name">{{ blogContent.USERNAME || '匿名用户' }}</div>
-            <div class="author-tagline">发布时间: {{ pubFormatDate(blogContent.CREATE_TIME) }}</div>
+            <div class="author-tagline">
+              发布时间: {{ pubFormatDate(blogContent.CREATE_TIME) }}
+              <span v-if="readingStats" class="reading-stats">· 约 {{ readingStats.words }} 字 · 阅读约 {{ readingStats.minutes }} 分钟</span>
+            </div>
           </div>
         </div>
 
@@ -265,6 +268,8 @@
       destroy-on-close
   >
     <ArticleEditor
+        ref="articleEditorRef"
+        :draft-key="'edit-' + contentGuid"
         :title="blogContent.BLOG_TITLE"
         :content="blogContent.MAINTEXT"
         :save-type="'edit'"
@@ -293,7 +298,7 @@ import {
   sendAxiosRequest,
   sendAxiosRequestChecked,
   pubFormatDate,
-  sendNotifications, getCurrentUserAdminObject
+  sendNotifications, getCurrentUserAdminObject, extractPlainTextFromHTML
 } from "@/utils/common.js";
 
 import { adminUserCode, articleRenderMode } from "@/config/vue-config.js";
@@ -301,6 +306,7 @@ import { pubOpenOneBlog, pubOpenUser } from "@/utils/blogUtil.js";
 
 // 编辑器体积较大，只在打开编辑弹窗（或切回编辑器展示方式）时才下载
 const ArticleEditor = defineAsyncComponent(() => import("@/components/detail/ArticleEditor.vue"));
+const articleEditorRef = ref(null);
 
 const route = useRoute();
 const router = useRouter();
@@ -366,6 +372,7 @@ const handleEditorSubmit = async ({blog_type, title, content}) => {
     guid: contentGuid.value, title, blog_type, content,
   }, "修改失败");
   if (result) {
+    articleEditorRef.value?.onSaved();
     blogContent.value.BLOG_TITLE = title;
     blogContent.value.MAINTEXT = content;
     blogContent.value.BLOG_TYPE = blog_type;
@@ -419,6 +426,16 @@ const loadContentAndComments = async (guid) => {
   replyInputs.value = {};
   isChildrenVisible.value = {};
 };
+
+// 文章字数和预计阅读时长：中文按字、英文按单词计数，阅读速度按每分钟 400 字 / 200 词估算
+const readingStats = computed(() => {
+  const text = extractPlainTextFromHTML(blogContent.value.MAINTEXT || '');
+  const cjk = (text.match(/[\u3400-\u9fff\uf900-\ufaff]/g) || []).length;
+  const words = (text.replace(/[\u3400-\u9fff\uf900-\ufaff]/g, ' ').match(/[A-Za-z0-9_]+(?:['’.-][A-Za-z0-9_]+)*/g) || []).length;
+  const total = cjk + words;
+  if (!total) return null;
+  return {words: total, minutes: Math.max(1, Math.round(cjk / 400 + words / 200))};
+});
 
 const canEditOrDelete = computed(() => {
   if (!blogContent.value.USERCODE || !userStore.userBean?.code) return false;
@@ -929,6 +946,10 @@ const getAvatarStyle = (name) => {
   font-family: var(--j-hand);
   font-size: 14px;
   color: var(--j-muted);
+}
+
+.reading-stats {
+  margin-left: 4px;
 }
 
 .article-header {

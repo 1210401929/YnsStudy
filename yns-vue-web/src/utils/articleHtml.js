@@ -63,6 +63,26 @@ export function prepareArticleHtml(html) {
         wrapper.appendChild(table)
     })
 
+    // 代码块顶部加一条栏：左边显示语言，右边是复制按钮（点击由 ArticleViewer 统一处理）
+    fragment.querySelectorAll('pre').forEach((pre) => {
+        if (pre.parentElement?.classList.contains('code-block')) return
+        const code = pre.querySelector('code')
+        const wrapper = document.createElement('div')
+        wrapper.className = 'code-block'
+        const bar = document.createElement('div')
+        bar.className = 'code-bar'
+        const lang = document.createElement('span')
+        lang.className = 'code-lang'
+        lang.textContent = code ? languageLabel(code) : ''
+        const copy = document.createElement('button')
+        copy.type = 'button'
+        copy.className = 'code-copy'
+        copy.textContent = '复制'
+        bar.append(lang, copy)
+        pre.replaceWith(wrapper)
+        wrapper.append(bar, pre)
+    })
+
     // 待办只用于展示，勾选框一律禁用
     fragment.querySelectorAll('input').forEach((input) => {
         if (input.getAttribute('type') !== 'checkbox') input.remove()
@@ -136,6 +156,50 @@ function getLanguage(codeEl) {
     if (!match) return ''
     const lang = match[1].toLowerCase()
     return LANGUAGE_ALIAS[lang] || lang
+}
+
+// 代码块栏上显示的语言名称，与编辑器“选择语言”里的写法一致
+const LANGUAGE_LABELS = {
+    css: 'CSS', html: 'HTML', markup: 'HTML', xml: 'XML', javascript: 'JavaScript', typescript: 'TypeScript',
+    jsx: 'JSX', tsx: 'TSX', go: 'Go', php: 'PHP', c: 'C', python: 'Python', java: 'Java', cpp: 'C++',
+    csharp: 'C#', 'visual-basic': 'Visual Basic', sql: 'SQL', ruby: 'Ruby', swift: 'Swift', bash: 'Bash',
+    lua: 'Lua', groovy: 'Groovy', markdown: 'Markdown', json: 'JSON', yaml: 'YAML'
+}
+
+function languageLabel(codeEl) {
+    const match = /\blang(?:uage)?-([\w-]+)/i.exec(codeEl.className || '')
+    if (!match) return ''
+    const raw = match[1].toLowerCase()
+    return LANGUAGE_LABELS[raw] || LANGUAGE_LABELS[LANGUAGE_ALIAS[raw]] || match[1]
+}
+
+/**
+ * 复制代码块内容，http 页面或旧浏览器没有 Clipboard API 时退回 execCommand
+ */
+export async function copyText(text) {
+    try {
+        if (navigator.clipboard && window.isSecureContext) {
+            await navigator.clipboard.writeText(text)
+            return true
+        }
+    } catch {
+        // 继续尝试下面的方式
+    }
+    const textarea = document.createElement('textarea')
+    textarea.value = text
+    textarea.setAttribute('readonly', '')
+    textarea.style.position = 'fixed'
+    textarea.style.opacity = '0'
+    document.body.appendChild(textarea)
+    textarea.select()
+    let ok = false
+    try {
+        ok = document.execCommand('copy')
+    } catch {
+        ok = false
+    }
+    textarea.remove()
+    return ok
 }
 
 /**

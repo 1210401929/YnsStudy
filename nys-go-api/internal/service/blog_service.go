@@ -187,7 +187,7 @@ func (s *Service) GetAllBlogs(ctx context.Context, page, pageSize int, keyword s
 	if err != nil {
 		return dbFailure("统计文章", err)
 	}
-	return model.Success(map[string]any{"total": firstCount(counts), "data": stripSearchText(replaceTextWithSummary(rows, "MAINTEXT"))})
+	return model.Success(map[string]any{"total": firstCount(counts), "data": stripSearchText(replaceTextWithKeywordSummary(rows, "MAINTEXT", keyword))})
 }
 
 func (s *Service) UpdateBlog(c *gin.Context, guid, title, content, blogType string) model.Result {

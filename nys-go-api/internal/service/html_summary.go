@@ -118,3 +118,58 @@ func replaceTextWithSummary(rows []map[string]any, field string) []map[string]an
 	}
 	return rows
 }
+
+// replaceTextWithKeywordSummary 和 replaceTextWithSummary 相同，但搜索时摘要从关键词附近开始截取，
+// 关键词在正文后半部分时也能在列表里看到；正文里没有关键词（只匹配了标题）时仍取开头。
+func replaceTextWithKeywordSummary(rows []map[string]any, field, keyword string) []map[string]any {
+	keywordRunes := []rune(strings.ToLower(strings.TrimSpace(keyword)))
+	if len(keywordRunes) == 0 {
+		return replaceTextWithSummary(rows, field)
+	}
+	for _, row := range rows {
+		if _, ok := row[field]; !ok {
+			continue
+		}
+		content := model.StringValue(row, field)
+		excerpt, image := summarizeHTML(content, listExcerptRunes)
+		full := []rune(htmlToSearchText(content))
+		if index := runeIndexFold(full, keywordRunes); index > 0 {
+			start := index - 40
+			prefix := "…"
+			if start <= 0 {
+				start, prefix = 0, ""
+			}
+			end := start + listExcerptRunes
+			if end > len(full) {
+				end = len(full)
+			}
+			excerpt = prefix + string(full[start:end])
+		}
+		row["EXCERPT"] = excerpt
+		row["FIRST_IMAGE"] = image
+		delete(row, field)
+	}
+	return rows
+}
+
+// runeIndexFold 不区分大小写查找子串，返回按字符计算的位置，找不到返回 -1
+func runeIndexFold(text, keyword []rune) int {
+	lower := []rune(strings.ToLower(string(text)))
+	if len(lower) != len(text) {
+		// 个别字符转小写后长度变化时，退回逐字比较原文
+		lower = text
+	}
+	for i := 0; i+len(keyword) <= len(lower); i++ {
+		match := true
+		for j, r := range keyword {
+			if lower[i+j] != r {
+				match = false
+				break
+			}
+		}
+		if match {
+			return i
+		}
+	}
+	return -1
+}

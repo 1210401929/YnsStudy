@@ -74,12 +74,14 @@ import {
   watch,
   onMounted,
   onUnmounted,
-  onBeforeUnmount
+  onBeforeUnmount,
+  nextTick
 } from 'vue'
 import {Editor, Toolbar} from '@wangeditor/editor-for-vue'
 import {sendAxiosRequest, encrypt, pubLoading, getSendAxiosUrl} from '@/utils/common.js'
-import {ElMessage} from 'element-plus'
+import {ElMessage, ElMessageBox} from 'element-plus'
 import {built_in_preface, normalizeAiHtml} from "@/utils/formatHtml.js";
+import {useUserStore} from '@/stores/main/user.js'
 
 /* ---------- props / emits ---------- */
 const props = defineProps({
@@ -87,7 +89,9 @@ const props = defineProps({
   content: String,
   isPublic: Boolean,
   isReadOnly: Boolean,
-  saveType: String
+  saveType: String,
+  // 草稿的标识：发布新文章传 'add'，编辑文章传 'edit-文章ID'；不传则不自动保存
+  draftKey: String
 })
 const emits = defineEmits(['submit', 'cancel'])
 
@@ -188,14 +192,114 @@ const onDblClick = (e) => {
   if (e.target.tagName === 'IMG') showImagePreview(e.target.src)
 }
 
+/* ---------- 自动保存草稿 ---------- */
+// 写作中每隔一秒把标题和正文存到浏览器本地，误关页面、登录过期后可以恢复；保存成功后由父组件清除
+const userStore = useUserStore()
+const draftStorageKey = computed(() => {
+  if (props.isReadOnly || !props.draftKey) return ''
+  return `ynsDraft:${userStore.userBean?.code || 'guest'}:${props.draftKey}`
+})
+// 打开编辑器时的内容（编辑器会把 HTML 规范化，所以在编辑器创建后记录），未改动时不保存草稿
+const baseline = {title: '', content: '', ready: false}
+let draftTimer = null
+
+const isBlankContent = (html) => !/<img/i.test(html || '') &&
+    !String(html || '').replace(/<[^>]*>/g, '').replace(/&nbsp;/g, '').trim()
+
+function readDraft() {
+  if (!draftStorageKey.value) return null
+  try {
+    return JSON.parse(localStorage.getItem(draftStorageKey.value) || 'null')
+  } catch {
+    return null
+  }
+}
+
+function saveDraft() {
+  if (!draftStorageKey.value || !baseline.ready) return
+  const title = localTitle.value || ''
+  const content = localContent.value || ''
+  if (!title.trim() && isBlankContent(content)) return
+  if (title === baseline.title && content === baseline.content) return
+  try {
+    localStorage.setItem(draftStorageKey.value, JSON.stringify({
+      title, content, isPublic: isPublic.value, savedAt: Date.now()
+    }))
+  } catch {
+    // 本地存储满了或被禁用时不影响写作
+  }
+}
+
+function clearDraft() {
+  clearTimeout(draftTimer)
+  if (!draftStorageKey.value) return
+  try {
+    localStorage.removeItem(draftStorageKey.value)
+  } catch {
+    // 忽略
+  }
+}
+
+watch([localTitle, localContent, isPublic], () => {
+  clearTimeout(draftTimer)
+  draftTimer = setTimeout(saveDraft, 1000)
+})
+
+const formatDraftTime = (time) => {
+  const date = new Date(time)
+  if (Number.isNaN(date.getTime())) return '之前'
+  const pad = (n) => String(n).padStart(2, '0')
+  return `${date.getMonth() + 1}月${date.getDate()}日 ${pad(date.getHours())}:${pad(date.getMinutes())}`
+}
+
+// 编辑器创建后检查是否有和当前内容不同的草稿，有则询问是否恢复
+function checkDraft(editor) {
+  baseline.title = localTitle.value || ''
+  baseline.content = editor.getHtml()
+  baseline.ready = true
+  const draft = readDraft()
+  if (!draft || (draft.title === baseline.title && draft.content === baseline.content)) return
+  ElMessageBox.confirm(
+      `发现 ${formatDraftTime(draft.savedAt)} 自动保存的草稿《${draft.title || '无标题'}》，是否恢复？`,
+      '恢复草稿',
+      {confirmButtonText: '恢复', cancelButtonText: '丢弃', distinguishCancelAndClose: true}
+  ).then(() => {
+    localTitle.value = draft.title || ''
+    localContent.value = draft.content || ''
+    if (typeof draft.isPublic === 'boolean') isPublic.value = draft.isPublic
+  }).catch((action) => {
+    // 点“丢弃”删除草稿；直接关闭弹窗则保留，下次打开还会提示
+    if (action === 'cancel') clearDraft()
+  })
+}
+
+// 保存成功后由父组件调用：清除草稿；发布新文章时同时清空编辑器
+function onSaved() {
+  clearDraft()
+  if (props.saveType === 'add') {
+    localTitle.value = ''
+    localContent.value = ''
+    baseline.title = ''
+    baseline.content = ''
+  }
+}
+
+defineExpose({onSaved})
+
 /* ---------- 生命周期 ---------- */
-const handleCreated = (editor) => (editorRef.value = editor)
+const handleCreated = (editor) => {
+  editorRef.value = editor
+  if (draftStorageKey.value) nextTick(() => checkDraft(editor))
+}
 
 onMounted(() => editorWrapper.value?.addEventListener('dblclick', onDblClick))
 onUnmounted(() =>
     editorWrapper.value?.removeEventListener('dblclick', onDblClick)
 )
 onBeforeUnmount(() => {
+  // 关闭弹窗前把最后的改动存下来
+  if (draftTimer) saveDraft()
+  clearTimeout(draftTimer)
   editorRef.value?.destroy()
   editorRef.value = null
 })
@@ -334,15 +438,13 @@ async function submit() {
     ElMessage.error(err.message || '图片上传失败')
     return
   }
+  // 先存一次草稿，保存失败时内容不会丢；保存成功后父组件调用 onSaved 清除
+  saveDraft()
   emits('submit', {
     blog_type: isPublic.value ? 'public' : 'privacy',
     title: localTitle.value.trim(),
     content: contentClean.trim()
   })
-  if (props.saveType === 'add') {
-    localTitle.value = ''
-    localContent.value = ''
-  }
 }
 
 /* ---------- 样式计算 ---------- */

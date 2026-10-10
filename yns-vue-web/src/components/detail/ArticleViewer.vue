@@ -1,7 +1,7 @@
 <!--文章正文展示组件：直接渲染保存的 HTML，不加载编辑器-->
 <template>
   <div class="editor-container is-reading article-viewer">
-    <div ref="bodyRef" class="article-body" @dblclick="onDblClick" v-html="safeHtml"></div>
+    <div ref="bodyRef" class="article-body" @click="onClick" @dblclick="onDblClick" v-html="safeHtml"></div>
 
     <!-- 图片查看器 -->
     <el-image-viewer
@@ -14,7 +14,7 @@
 
 <script setup>
 import {computed, nextTick, onMounted, ref, watch} from 'vue'
-import {highlightCodeBlocks, prepareArticleHtml} from '@/utils/articleHtml.js'
+import {copyText, highlightCodeBlocks, prepareArticleHtml} from '@/utils/articleHtml.js'
 
 const props = defineProps({
   content: String
@@ -27,6 +27,22 @@ const safeHtml = computed(() => prepareArticleHtml(props.content))
 const highlight = () => nextTick(() => highlightCodeBlocks(bodyRef.value))
 onMounted(highlight)
 watch(safeHtml, highlight)
+
+/* ---------- 复制代码 ---------- */
+const onClick = async (e) => {
+  const button = e.target.closest?.('.code-copy')
+  if (!button) return
+  const code = button.closest('.code-block')?.querySelector('pre')
+  if (!code) return
+  const ok = await copyText(code.innerText.replace(/\n$/, ''))
+  button.textContent = ok ? '已复制' : '复制失败'
+  button.classList.toggle('is-done', ok)
+  clearTimeout(button._resetTimer)
+  button._resetTimer = setTimeout(() => {
+    button.textContent = '复制'
+    button.classList.remove('is-done')
+  }, 1500)
+}
 
 /* ---------- 双击查看图片 ---------- */
 const showViewer = ref(false)
@@ -201,6 +217,59 @@ const onDblClick = (e) => {
   word-wrap: normal;
   tab-size: 4;
   hyphens: none;
+}
+
+/* 代码块：顶部一条栏显示语言和复制按钮，下面是代码 */
+.article-body :deep(.code-block) {
+  margin: 0.5em 0;
+  border: 1px solid var(--j-rule);
+  border-radius: 3px;
+  background: #f7f3ea;
+  overflow: hidden;
+}
+
+.article-body :deep(.code-bar) {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 28px;
+  padding: 0 8px 0 14px;
+  border-bottom: 1px dashed var(--j-rule-strong);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--j-muted);
+  white-space: normal;
+}
+
+.article-body :deep(.code-lang) {
+  font-family: Consolas, Monaco, "Andale Mono", "Ubuntu Mono", monospace;
+}
+
+.article-body :deep(.code-copy) {
+  padding: 2px 10px;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  background: transparent;
+  font-size: 12px;
+  color: var(--j-ink-soft);
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.article-body :deep(.code-copy:hover) {
+  border-color: var(--j-rule-strong);
+  color: var(--j-pen);
+}
+
+.article-body :deep(.code-copy.is-done) {
+  color: #4f8a5b;
+}
+
+.article-body :deep(.code-block pre > code) {
+  margin: 0;
+  border: none;
+  border-radius: 0;
 }
 
 /* Prism 配色，与编辑器相同 */

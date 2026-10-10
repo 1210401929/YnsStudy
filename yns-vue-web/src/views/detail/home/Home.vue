@@ -66,9 +66,9 @@
 
                 <div class="entry-body">
                   <h3 class="entry-title">
-                    <a :href="blogHref(article.GUID)" target="_blank" rel="noopener" @click.stop>{{ article.BLOG_TITLE }}</a>
+                    <a :href="blogHref(article.GUID)" target="_blank" rel="noopener" @click.stop><HighlightText :text="article.BLOG_TITLE" :keyword="activeKeyword"/></a>
                   </h3>
-                  <p v-if="article.EXCERPT" class="entry-excerpt">{{ article.EXCERPT }}</p>
+                  <p v-if="article.EXCERPT" class="entry-excerpt"><HighlightText :text="article.EXCERPT" :keyword="activeKeyword"/></p>
                   <div class="entry-meta">
                     <el-avatar :src="article.AVATAR" :size="20" class="meta-avatar">
                       {{ article.USERNAME?.charAt(0) }}
@@ -201,6 +201,7 @@ import { listCover, listExcerpt, sendAxiosRequest } from "@/utils/common.js";
 import { adminUserCode } from "@/config/vue-config.js";
 import { getAnnouncementByRouterName, pubOpenOneBlog, pubOpenUser } from "@/utils/blogUtil.js";
 import Announcement from "@/components/detail/Announcement.vue";
+import HighlightText from "@/components/detail/HighlightText.vue";
 
 const router = useRouter();
 const userStore = useUserStore();
