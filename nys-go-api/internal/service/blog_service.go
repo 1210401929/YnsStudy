@@ -32,6 +32,9 @@ func (s *Service) AddBlog(c *gin.Context, blog map[string]any) model.Result {
 	if mainText := model.Lookup(blog, "MAINTEXT"); mainText != nil {
 		blog["MAINTEXT"] = sanitizeRichText(fmt.Sprint(mainText))
 	}
+	if s.hasSearchText(ctx, "blogInfo") {
+		blog[searchTextColumn] = htmlToSearchText(model.StringValue(blog, "MAINTEXT"))
+	}
 	if fmt.Sprint(blog["GUID"]) == "" || blog["GUID"] == nil {
 		tx, err := s.Repo.DB().BeginTx(ctx, nil)
 		if err != nil {
@@ -54,7 +57,7 @@ func (s *Service) AddBlog(c *gin.Context, blog map[string]any) model.Result {
 			return dbFailure("提交文章编号", err)
 		}
 	}
-	result := s.SaveAll(ctx, "add", "BLOGINFO", []map[string]any{blog}, "GUID")
+	result := stripSearchTextResult(s.SaveAll(ctx, "add", "BLOGINFO", []map[string]any{blog}, "GUID"))
 	if !result.IsError && isPublicBlogType(model.StringValue(blog, "BLOG_TYPE")) {
 		s.NotifyBlogChanged(model.StringValue(blog, "GUID"))
 	}
@@ -140,7 +143,7 @@ WHERE b.GUID = ? AND (b.USERCODE = ? OR b.BLOG_TYPE = 'public')`
 	if len(rows) > 0 {
 		_, _ = s.Repo.Exec(contextOf(c), "UPDATE blogInfo SET VIEW_PAGE = COALESCE(VIEW_PAGE, 0) + 1 WHERE GUID = ?", blogID)
 	}
-	return model.Success(rows)
+	return model.Success(stripSearchText(rows))
 }
 
 // GetPublicBlogForSEO 只读取公开文章，不增加阅读量。
@@ -166,8 +169,8 @@ func (s *Service) GetAllBlogs(ctx context.Context, page, pageSize int, keyword s
 	listArgs := make([]any, 0, 4)
 	countArgs := make([]any, 0, 2)
 	if strings.TrimSpace(keyword) != "" {
-		where += " AND (b.BLOG_TITLE LIKE ? OR b.MAINTEXT LIKE ?)"
-		like := "%" + strings.TrimSpace(keyword) + "%"
+		where += " AND (b.BLOG_TITLE LIKE ? OR " + s.searchField(ctx, "blogInfo", "b") + " LIKE ?)"
+		like := likePattern(keyword)
 		listArgs = append(listArgs, like, like)
 		countArgs = append(countArgs, like, like)
 	}
@@ -180,7 +183,7 @@ func (s *Service) GetAllBlogs(ctx context.Context, page, pageSize int, keyword s
 	if err != nil {
 		return dbFailure("统计文章", err)
 	}
-	return model.Success(map[string]any{"total": firstCount(counts), "data": replaceTextWithSummary(rows, "MAINTEXT")})
+	return model.Success(map[string]any{"total": firstCount(counts), "data": stripSearchText(replaceTextWithSummary(rows, "MAINTEXT"))})
 }
 
 func (s *Service) UpdateBlog(c *gin.Context, guid, title, content, blogType string) model.Result {
@@ -194,12 +197,17 @@ func (s *Service) UpdateBlog(c *gin.Context, guid, title, content, blogType stri
 	wasPublic := isPublicBlogType(model.StringValue(rows[0], "BLOG_TYPE"))
 	oldURLs := extractImageURLs(model.StringValue(rows[0], "MAINTEXT"))
 	newURLs := extractImageURLs(content)
-	query := "UPDATE blogInfo SET BLOG_TITLE = ?, MAINTEXT = ?, BLOG_TYPE = ? WHERE GUID = ?"
+	sets := "BLOG_TITLE = ?, MAINTEXT = ?, BLOG_TYPE = ?"
+	args := []any{title, content, blogType}
+	if s.hasSearchText(ctx, "blogInfo") {
+		sets += ", " + searchTextColumn + " = ?"
+		args = append(args, htmlToSearchText(content))
+	}
 	if s.blogInfoHasUpdateTime(ctx) {
 		// UPDATE_TIME 只在文章内容真正编辑时变化，阅读量增加不会污染 sitemap 的 lastmod。
-		query = "UPDATE blogInfo SET BLOG_TITLE = ?, MAINTEXT = ?, BLOG_TYPE = ?, UPDATE_TIME = NOW() WHERE GUID = ?"
+		sets += ", UPDATE_TIME = NOW()"
 	}
-	if _, err := s.Repo.Exec(ctx, query, title, content, blogType, guid); err != nil {
+	if _, err := s.Repo.Exec(ctx, "UPDATE blogInfo SET "+sets+" WHERE GUID = ?", append(args, guid)...); err != nil {
 		return dbFailure("修改文章", err)
 	}
 	// 文章保存成功后再删除不再使用的图片，保存失败时图片不会丢

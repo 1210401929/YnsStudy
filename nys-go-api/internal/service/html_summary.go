@@ -2,6 +2,7 @@ package service
 
 import (
 	"strings"
+	"unicode"
 
 	"golang.org/x/net/html"
 	"golang.org/x/net/html/atom"
@@ -59,9 +60,17 @@ func summarizeHTML(content string, maxRunes int) (excerpt, firstImage string) {
 			if skipDepth > 0 || runes >= maxRunes {
 				continue
 			}
-			text := strings.Join(strings.Fields(string(tokenizer.Text())), " ")
+			raw := string(tokenizer.Text())
+			text := strings.Join(strings.Fields(raw), " ")
 			if text == "" {
+				// 只有空白的文字（如 </span> <span> 之间）也算一个分隔
+				if raw != "" {
+					needSpace = true
+				}
 				continue
+			}
+			if strings.TrimLeftFunc(raw, unicode.IsSpace) != raw {
+				needSpace = true
 			}
 			if needSpace && builder.Len() > 0 {
 				builder.WriteByte(' ')
@@ -74,6 +83,9 @@ func summarizeHTML(content string, maxRunes int) (excerpt, firstImage string) {
 				}
 				builder.WriteRune(r)
 				runes++
+			}
+			if strings.TrimRightFunc(raw, unicode.IsSpace) != raw {
+				needSpace = true
 			}
 		}
 		// 摘要和封面都拿到后不必再解析剩余正文

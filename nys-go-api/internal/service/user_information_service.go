@@ -77,7 +77,7 @@ WHERE f.FOLLOWUSERCODE = ? ORDER BY f.CREATE_TIME`, userCode)
 
 func (s *Service) GetBlogResourceCommunityByUser(ctx context.Context, userCode string) model.Result {
 	blogs := s.GetBlogsByUser(ctx, userCode, true)
-	communities := s.SelectList(ctx, "SELECT * FROM communityInfo WHERE USERCODE = ? ORDER BY CREATE_TIME DESC", []any{userCode})
+	communities := stripSearchTextResult(s.SelectList(ctx, "SELECT * FROM communityInfo WHERE USERCODE = ? ORDER BY CREATE_TIME DESC", []any{userCode}))
 	resources := s.GetFilesByUser(ctx, userCode)
 	return model.Success(map[string]any{
 		"blog":      blogs.Result,
@@ -88,12 +88,14 @@ func (s *Service) GetBlogResourceCommunityByUser(ctx context.Context, userCode s
 
 func (s *Service) GetBlogAndCommunityByUser(ctx context.Context, userCode string, page, pageSize int, keyword string) model.Result {
 	page, pageSize = normalizePage(page, pageSize)
-	like := "%" + strings.TrimSpace(keyword) + "%"
+	like := likePattern(keyword)
+	blogText := s.searchField(ctx, "blogInfo", "")
+	communityText := s.searchField(ctx, "communityInfo", "")
 	query := `SELECT GUID, BLOG_TITLE, MAINTEXT, USERCODE, USERNAME, CREATE_TIME, 'blog' AS TYPE
-FROM blogInfo WHERE USERCODE = ? AND BLOG_TYPE = 'public' AND (BLOG_TITLE LIKE ? OR MAINTEXT LIKE ?)
+FROM blogInfo WHERE USERCODE = ? AND BLOG_TYPE = 'public' AND (BLOG_TITLE LIKE ? OR ` + blogText + ` LIKE ?)
 UNION ALL
 SELECT GUID, TITLE AS BLOG_TITLE, TEXT AS MAINTEXT, USERCODE, USERNAME, CREATE_TIME, 'community' AS TYPE
-FROM communityInfo WHERE USERCODE = ? AND (TITLE LIKE ? OR TEXT LIKE ?)
+FROM communityInfo WHERE USERCODE = ? AND (TITLE LIKE ? OR ` + communityText + ` LIKE ?)
 ORDER BY CREATE_TIME DESC LIMIT ? OFFSET ?`
 	args := []any{userCode, like, like, userCode, like, like, pageSize, (page - 1) * pageSize}
 	rows, err := s.Repo.Query(ctx, query, args...)
@@ -101,9 +103,9 @@ ORDER BY CREATE_TIME DESC LIMIT ? OFFSET ?`
 		return dbFailure("查询用户内容", err)
 	}
 	countQuery := `SELECT COUNT(*) AS total FROM (
-SELECT 1 FROM blogInfo WHERE USERCODE = ? AND BLOG_TYPE = 'public' AND (BLOG_TITLE LIKE ? OR MAINTEXT LIKE ?)
+SELECT 1 FROM blogInfo WHERE USERCODE = ? AND BLOG_TYPE = 'public' AND (BLOG_TITLE LIKE ? OR ` + blogText + ` LIKE ?)
 UNION ALL
-SELECT 1 FROM communityInfo WHERE USERCODE = ? AND (TITLE LIKE ? OR TEXT LIKE ?)
+SELECT 1 FROM communityInfo WHERE USERCODE = ? AND (TITLE LIKE ? OR ` + communityText + ` LIKE ?)
 ) combined`
 	counts, err := s.Repo.Query(ctx, countQuery, userCode, like, like, userCode, like, like)
 	if err != nil {

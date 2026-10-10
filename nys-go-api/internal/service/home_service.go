@@ -118,7 +118,7 @@ ORDER BY HOT_SCORE DESC LIMIT 10`
 	result := s.SelectList(ctx, query, nil)
 	// 热门列表只显示标题和数据，不需要正文
 	if rows, ok := result.Result.([]map[string]any); ok {
-		result.Result = replaceTextWithSummary(rows, "MAINTEXT")
+		result.Result = stripSearchText(replaceTextWithSummary(rows, "MAINTEXT"))
 	}
 	return result
 }

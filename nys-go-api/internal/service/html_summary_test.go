@@ -46,3 +46,19 @@ func TestSanitizeRichTextDropsDataURIImages(t *testing.T) {
 		t.Fatalf("周围文字不应丢失: %s", output)
 	}
 }
+
+func TestHTMLToSearchText(t *testing.T) {
+	text := htmlToSearchText(`<p style="color: red;"><span>Go</span> 并发</p><p>第二段` + strings.Repeat("长", 500) + `</p>`)
+	if strings.Contains(text, "span") || strings.Contains(text, "style") || strings.Contains(text, "color") {
+		t.Fatalf("搜索文本不应包含标签和属性: %q", text)
+	}
+	if !strings.HasPrefix(text, "Go 并发 第二段") || len([]rune(text)) != 509 {
+		t.Fatalf("搜索文本应保留全部文字: %q", text[:40])
+	}
+}
+
+func TestLikePattern(t *testing.T) {
+	if got := likePattern(" 100%_a\\ "); got != `%100\%\_a\\%` {
+		t.Fatalf("关键词转义不对: %s", got)
+	}
+}

@@ -22,7 +22,11 @@ func (s *Service) AddCommunity(c *gin.Context, community map[string]any) model.R
 	}
 	community["USERCODE"] = actor.Code()
 	community["USERNAME"] = actor.User.Name
-	return s.SaveAll(contextOf(c), "add", "communityInfo", []map[string]any{community}, "GUID")
+	ctx := contextOf(c)
+	if s.hasSearchText(ctx, "communityInfo") {
+		community[searchTextColumn] = htmlToSearchText(model.StringValue(community, "TEXT"))
+	}
+	return stripSearchTextResult(s.SaveAll(ctx, "add", "communityInfo", []map[string]any{community}, "GUID"))
 }
 
 // DeleteCommunity 的规则与前端一致：超级管理员可删除任何帖子；置顶帖只有超级管理员能删；
@@ -73,8 +77,8 @@ func (s *Service) GetAllCommunities(ctx context.Context, page, pageSize int, key
 	args := make([]any, 0, 4)
 	countArgs := make([]any, 0, 2)
 	if strings.TrimSpace(keyword) != "" {
-		where = " WHERE (b.TITLE LIKE ? OR b.TEXT LIKE ?)"
-		like := "%" + strings.TrimSpace(keyword) + "%"
+		where = " WHERE (b.TITLE LIKE ? OR " + s.searchField(ctx, "communityInfo", "b") + " LIKE ?)"
+		like := likePattern(keyword)
 		args = append(args, like, like)
 		countArgs = append(countArgs, like, like)
 	}
@@ -88,7 +92,7 @@ func (s *Service) GetAllCommunities(ctx context.Context, page, pageSize int, key
 	if err != nil {
 		return dbFailure("统计社区内容", err)
 	}
-	return model.Success(map[string]any{"total": firstCount(counts), "data": rows})
+	return model.Success(map[string]any{"total": firstCount(counts), "data": stripSearchText(rows)})
 }
 
 func (s *Service) AddCommunityComment(c *gin.Context, comment map[string]any) model.Result {
