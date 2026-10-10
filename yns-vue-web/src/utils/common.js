@@ -1,12 +1,14 @@
 import axios from 'axios'
 import {ElMessage, ElMessageBox, ElLoading} from 'element-plus'
 import CryptoJS from 'crypto-js'
+import DOMPurify from 'dompurify'
 //获取配置的生产环境ip端口
 import {produceDevIpPort, crypCfg, isSendCrypto, adminUserCode} from "@/config/vue-config.js";
 import {useUserStore} from "@/stores/main/user.js";
 
 /**
  *  sendAxiosRequest                发送后台请求统一入口
+ *  sendAxiosRequestChecked         发送请求并检查结果，失败时提示原因
  *  uploadFileWithProgress          上传文件调用后台接口
  *  getUserInfoByCode               根据用户编码获取用户信息
  *  getGuid                         获取随机32位码
@@ -19,6 +21,7 @@ import {useUserStore} from "@/stores/main/user.js";
  *  pubLoading                      loading动画
  *  loadScript                      动态加载外部脚本
  *  isProbablyCipher                判断字符串是否“看起来像” Base64 密文
+ *  sanitizeHtml                    过滤html中的脚本、事件属性，用于 v-html
  *  stripImages                     删除html里的图片等内容
  *  extractFirstImage               提取html中的第一个图片
  *  extractPlainTextFromHTML        提取html中的纯文本
@@ -144,6 +147,22 @@ export const sendAxiosRequest = async function (
     }
     // 走到这里说明不需要解密 / 不是密文 / 解密失败
     return respData
+}
+
+//发送请求并检查结果：成功返回结果，失败时提示后台返回的原因（如无权限）并返回 null
+//用于删除、修改等需要以后台结果为准的操作，避免前端先显示成功、实际却没有生效
+export async function sendAxiosRequestChecked(url, data = {}, failMsg = '操作失败') {
+    try {
+        const result = await sendAxiosRequest(url, data);
+        if (result && !result.isError) {
+            return result;
+        }
+        ElMessage.error(result?.errMsg || failMsg);
+    } catch (e) {
+        console.error(failMsg, e);
+        ElMessage.error(failMsg);
+    }
+    return null;
 }
 
 //上传文件调用后台接口  sendAxiosRequest方法的扩展,轻易不要用这个方法,使用场景,需要获取上传文件的进度
@@ -467,35 +486,35 @@ export function isProbablyCipher(str) {
         && str.length >= 24
 }
 
+// 用户提交的 HTML（文章正文、社区帖子）不能直接 innerHTML 到页面元素里：
+// 即使元素没挂到页面上，<img onerror> 之类的事件也会执行。
+// 这里统一用 DOMParser 惰性解析（不加载图片、不执行脚本），需要渲染时再用 DOMPurify 过滤。
+function parseHtmlInert(htmlContent) {
+    return new DOMParser().parseFromString(String(htmlContent || ''), 'text/html');
+}
+
+//过滤html中的脚本、事件属性等危险内容，用于 v-html 渲染
+export function sanitizeHtml(htmlContent) {
+    return DOMPurify.sanitize(String(htmlContent || ''));
+}
+
 //删除html里的图片等内容
 export function stripImages(htmlContent) {
-    const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = htmlContent;
-    const images = tempDiv.querySelectorAll('img');
-    images.forEach(img => img.remove());
-    const ads = tempDiv.querySelectorAll('iframe, .advertisement');
-    ads.forEach(ad => ad.remove());
-    const result = tempDiv.innerHTML;
-    tempDiv.remove();
-    return result;
+    const doc = parseHtmlInert(htmlContent);
+    doc.querySelectorAll('img, iframe, .advertisement').forEach(el => el.remove());
+    return sanitizeHtml(doc.body.innerHTML);
 };
 
 //提取html中的第一个图片
 export function extractFirstImage(htmlContent) {
-    const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = htmlContent;
-
     // 查找第一张图片
-    const img = tempDiv.querySelector('img');
-    return img ? img.src : '';
+    const img = parseHtmlInert(htmlContent).querySelector('img');
+    return img ? (img.getAttribute('src') || '') : '';
 }
 
 //提取html中的纯文本
 export function extractPlainTextFromHTML(html) {
-    const div = document.createElement('div')
-    div.innerHTML = html
-    const text = div.textContent || div.innerText || ''
-    return text;
+    return parseHtmlInert(html).body.textContent || '';
 }
 
 

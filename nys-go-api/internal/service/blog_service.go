@@ -28,6 +28,10 @@ func (s *Service) AddBlog(c *gin.Context, blog map[string]any) model.Result {
 	// 作者以登录用户为准，不信任请求体中的 USERCODE/USERNAME
 	blog["USERCODE"] = actor.Code()
 	blog["USERNAME"] = actor.User.Name
+	// 正文是编辑器生成的 HTML，保存前过滤脚本和事件属性
+	if mainText := model.Lookup(blog, "MAINTEXT"); mainText != nil {
+		blog["MAINTEXT"] = sanitizeRichText(fmt.Sprint(mainText))
+	}
 	if fmt.Sprint(blog["GUID"]) == "" || blog["GUID"] == nil {
 		tx, err := s.Repo.DB().BeginTx(ctx, nil)
 		if err != nil {
@@ -185,6 +189,7 @@ func (s *Service) UpdateBlog(c *gin.Context, guid, title, content, blogType stri
 		return *failure
 	}
 	ctx := contextOf(c)
+	content = sanitizeRichText(content)
 	rows := []map[string]any{row}
 	wasPublic := isPublicBlogType(model.StringValue(rows[0], "BLOG_TYPE"))
 	oldURLs := extractImageURLs(model.StringValue(rows[0], "MAINTEXT"))
@@ -315,6 +320,9 @@ func (s *Service) AddBlogComment(c *gin.Context, comment map[string]any) model.R
 		return model.Failure("评论过于频繁，请稍后再试！")
 	}
 
+	// 只保留评论表单会提交的字段，其余（如 CREATE_TIME）由数据库生成
+	comment = pickFields(comment, "GUID", "BLOGID", "SUPERGUID", "TEXT", "USERCODE", "USERNAME",
+		"USEREMAIL", "USERWEBSITE", "RECEIVE_USERCODE", "RECEIVE_USERNAME")
 	// 登录用户以当前账号身份评论；匿名评论不能冒用任何已注册账号
 	if actor, ok := s.CurrentActor(c); ok {
 		comment["USERCODE"] = actor.Code()

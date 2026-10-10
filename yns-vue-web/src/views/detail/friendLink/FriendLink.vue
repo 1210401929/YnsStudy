@@ -154,7 +154,7 @@ import {ref, reactive, onMounted, defineProps, computed} from "vue";
 import {useUserStore} from "@/stores/main/user.js";
 import {ElMessage} from "element-plus";
 import {Plus, MoreFilled, Edit, Delete} from '@element-plus/icons-vue';
-import {ele_confirm, getCurrentUserAdminObject, getGuid, sendAxiosRequest} from "@/utils/common.js";
+import {ele_confirm, getCurrentUserAdminObject, getGuid, sendAxiosRequest, sendAxiosRequestChecked} from "@/utils/common.js";
 import Announcement from "@/components/detail/Announcement.vue";
 import {getAnnouncementByRouterName} from "@/utils/blogUtil.js";
 
@@ -221,7 +221,8 @@ const handleCommand = (command, item) => {
     dialogVisible.value = true;
   } else if (command === 'delete') {
     ele_confirm(`是否确认删除该记录?`, async () => {
-      await sendAxiosRequest("/blog-api/friendLink/deleteFriendLink", {friendLinkId: item.GUID});
+      const result = await sendAxiosRequestChecked("/blog-api/friendLink/deleteFriendLink", {friendLinkId: item.GUID}, "删除失败");
+      if (!result) return;
       const index = friendLinks.value.findIndex(link => link.GUID === item.GUID);
       if (index !== -1) friendLinks.value.splice(index, 1);
       ElMessage.success("删除成功!");

@@ -35,10 +35,10 @@
         </div>
 
         <!-- 内容展示部分 -->
-        <div class="feed-body" v-if="item.isExpanded" v-html="item.TEXT"></div>
+        <div class="feed-body" v-if="item.isExpanded" v-html="sanitizeHtml(item.TEXT)"></div>
         <div class="feed-body" v-else>
           <!--不展开时,只显示两行内容-->
-          <div v-html="item.TEXT.split('\n').slice(0, 2).join('\n')"></div>
+          <div v-html="sanitizeHtml(item.TEXT.split('\n').slice(0, 2).join('\n'))"></div>
         </div>
         <!-- 展开/收起帖子内容按钮 -->
         <div class="expand-btn-wrapper" v-if="item.TEXT.split('\n').length > 2">
@@ -174,7 +174,7 @@
           :autosize="true"
       />
       <!-- Markdown 预览 -->
-      <div v-if="showPreview" class="preview-box" v-html="renderedHtml"></div>
+      <div v-if="showPreview" class="preview-box" v-html="sanitizeHtml(renderedHtml)"></div>
       <div class="post-actions">
         <el-button type="primary" @click="submitPost">发布</el-button>
         <el-button @click="togglePreview">{{ showPreview ? '编辑' : '预览' }}</el-button>
@@ -229,7 +229,7 @@ import {
   getGuid,
   buildChildrenData,
   ele_confirm,
-  loadScript, sendNotifications, getCurrentUserAdminObject, getUserAdminObjectByUserCode
+  loadScript, sendNotifications, getCurrentUserAdminObject, getUserAdminObjectByUserCode, sanitizeHtml, sendAxiosRequestChecked
 } from "@/utils/common.js";
 import {useUserStore} from "@/stores/main/user.js";
 import {adminUserCode} from "@/config/vue-config.js";
@@ -271,7 +271,7 @@ function submitPost() {
     USERNAME: userStore.userBean.name,
     AVATAR: userStore.userBean.avatar || "",
     CREATE_TIME: '刚刚',
-    TEXT: marked(newPost.value),
+    TEXT: sanitizeHtml(marked(newPost.value)),
     comments: [],
     newComment: '',
     showComments: false,
@@ -312,23 +312,26 @@ const fetchArticles = async () => {
   }
 }
 
-function setTopCommunity(community) {
+async function setTopCommunity(community) {
   let isTop = "1";
   let tip = "已置顶,刷新页面显示最新效果";
   if (community.ISTOP == "1") {
     isTop = "0";
     tip = "已取消置顶,刷新页面显示最新效果";
   }
+  const result = await sendAxiosRequestChecked("/blog-api/community/setTopCommunity", {communityGuid: community.GUID, isTop}, "置顶操作失败");
+  if (!result) return;
   community.ISTOP = isTop;
-  sendAxiosRequest("/blog-api/community/setTopCommunity", {communityGuid: community.GUID, isTop});
   ElMessage.success(tip);
 }
 
 // 删除帖子
 function deleteCommunity(community) {
-  ele_confirm("是否确认删除该内容!", () => {
-    sendAxiosRequest("/blog-api/community/deleteCommunity", {communityGuid: community.GUID});
+  ele_confirm("是否确认删除该内容!", async () => {
+    const result = await sendAxiosRequestChecked("/blog-api/community/deleteCommunity", {communityGuid: community.GUID}, "删除失败");
+    if (!result) return;
     allPosts.value = allPosts.value.filter(item => item.GUID != community.GUID);
+    ElMessage.success("删除成功");
   });
 }
 

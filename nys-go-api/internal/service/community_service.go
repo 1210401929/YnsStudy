@@ -14,10 +14,14 @@ func (s *Service) AddCommunity(c *gin.Context, community map[string]any) model.R
 	if failure != nil {
 		return *failure
 	}
+	// 只接受帖子编号和内容；作者以登录账号为准，置顶只能由超级管理员通过 setTopCommunity 设置
+	community = pickFields(community, "GUID", "TEXT")
+	if model.Lookup(community, "TEXT") != nil {
+		// 帖子是 Markdown 转出的 HTML，保存前过滤脚本和事件属性
+		community["TEXT"] = sanitizeRichText(model.StringValue(community, "TEXT"))
+	}
 	community["USERCODE"] = actor.Code()
 	community["USERNAME"] = actor.User.Name
-	// 置顶只能由超级管理员通过 setTopCommunity 设置
-	delete(community, "ISTOP")
 	return s.SaveAll(contextOf(c), "add", "communityInfo", []map[string]any{community}, "GUID")
 }
 
@@ -92,6 +96,7 @@ func (s *Service) AddCommunityComment(c *gin.Context, comment map[string]any) mo
 	if failure != nil {
 		return *failure
 	}
+	comment = pickFields(comment, "GUID", "COMMUNITYID", "SUPERGUID", "TEXT")
 	comment["USERCODE"] = actor.Code()
 	comment["USERNAME"] = actor.User.Name
 	return s.SaveAll(contextOf(c), "add", "communityComment", []map[string]any{comment}, "GUID")

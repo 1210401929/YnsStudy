@@ -243,6 +243,7 @@ import {
   ele_confirm,
   getGuid,
   sendAxiosRequest,
+  sendAxiosRequestChecked,
   pubFormatDate,
   uploadFileWithProgress, getCurrentUserAdminObject
 } from "@/utils/common.js";
@@ -538,13 +539,14 @@ const downloadFile = (file) => {
 }
 
 const deleteFile = (file) => {
-  ele_confirm(`确定要删除文件《${file.ORIGINALFILENAME}》吗？删除后不可恢复！`, () => {
+  ele_confirm(`确定要删除文件《${file.ORIGINALFILENAME}》吗？删除后不可恢复！`, async () => {
+    const result = await sendAxiosRequestChecked("/blog-api/resource/delFileInfo", {guid: file.GUID, url: file.FILEVIEWURL}, "删除失败");
+    if (!result) return;
     //排除右侧我的文件
     myFiles.value = myFiles.value.filter(item => item.GUID !== file.GUID);
     //排除左侧所有文件
     articles.value = articles.value.filter(item => item.GUID !== file.GUID);
     ElMessage.success("删除成功！");
-    sendAxiosRequest("/blog-api/resource/delFileInfo", {guid: file.GUID, url: file.FILEVIEWURL});
   });
 }
 

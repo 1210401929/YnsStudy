@@ -77,7 +77,7 @@
 <script setup>
 import {ArrowDown, MoreFilled} from "@element-plus/icons-vue";
 import {onMounted, ref} from "vue";
-import {ele_confirm, getCurrentUserAdminObject, sendAxiosRequest} from "@/utils/common.js";
+import {ele_confirm, getCurrentUserAdminObject, sendAxiosRequest, sendAxiosRequestChecked} from "@/utils/common.js";
 import {ElMessage} from "element-plus";
 import {pubOpenUser} from "@/utils/blogUtil.js";
 import {useRouter} from "vue-router";
@@ -151,36 +151,39 @@ const userInfoCLick = (userInfo) => {
 }
 
 //操作用户 例如:设置管理员,取消管理员,禁用或删除用户
-const handleUserAction = (command, userInfo) => {
-  let type = command;
-  switch (command) {
-    case 'setAdmin':
-      // 这里替换为你的实际 API 请求
-      ele_confirm(`确定要将【${userInfo.NAME}】设为管理员吗？`, () => {
-        userInfo.ROLE = "admin";
-        ElMessage.success(`已将 ${userInfo.NAME} 设为管理员`);
-      });
-      break;
-    case 'removeAdmin':
-      ele_confirm(`确定要取消【${userInfo.NAME}】的管理员权限吗？`, () => {
-        userInfo.ROLE = "1";
-        ElMessage.success(`已取消 ${userInfo.NAME} 的管理员权限`);
-      });
-      break;
-    case 'ban':
-      ele_confirm(`确定要封禁【${userInfo.NAME}】吗？`, () => {
-        userInfo.ISBAN = "1";
-        ElMessage.success(`已封禁用户 ${userInfo.NAME}`);
-      });
-      break;
-    case 'removeBan':
-      ele_confirm(`确定要取消【${userInfo.NAME}】的封禁吗？`, () => {
-        userInfo.ISBAN = "";
-        ElMessage.success(`已取消用户 ${userInfo.NAME}封禁`);
-      });
-      break;
+//先确认，确认后再请求后台，以后台结果为准更新页面
+const userActions = {
+  setAdmin: {
+    confirm: (name) => `确定要将【${name}】设为管理员吗？`,
+    apply: (userInfo) => { userInfo.ROLE = "admin"; },
+    success: (name) => `已将 ${name} 设为管理员`
+  },
+  removeAdmin: {
+    confirm: (name) => `确定要取消【${name}】的管理员权限吗？`,
+    apply: (userInfo) => { userInfo.ROLE = "1"; },
+    success: (name) => `已取消 ${name} 的管理员权限`
+  },
+  ban: {
+    confirm: (name) => `确定要封禁【${name}】吗？`,
+    apply: (userInfo) => { userInfo.ISBAN = "1"; },
+    success: (name) => `已封禁用户 ${name}`
+  },
+  removeBan: {
+    confirm: (name) => `确定要取消【${name}】的封禁吗？`,
+    apply: (userInfo) => { userInfo.ISBAN = ""; },
+    success: (name) => `已取消用户 ${name}封禁`
   }
-  const result = sendAxiosRequest("/pub-api/login/operationUser", {userId: userInfo.GUID, type});
+};
+
+const handleUserAction = (command, userInfo) => {
+  const action = userActions[command];
+  if (!action) return;
+  ele_confirm(action.confirm(userInfo.NAME), async () => {
+    const result = await sendAxiosRequestChecked("/pub-api/login/operationUser", {userId: userInfo.GUID, type: command}, "操作失败");
+    if (!result) return;
+    action.apply(userInfo);
+    ElMessage.success(action.success(userInfo.NAME));
+  });
 }
 
 onMounted(() => {

@@ -290,6 +290,7 @@ import {
   ele_confirm,
   getGuid,
   sendAxiosRequest,
+  sendAxiosRequestChecked,
   pubFormatDate,
   sendNotifications, getCurrentUserAdminObject
 } from "@/utils/common.js";
@@ -356,11 +357,11 @@ function toggleAction(id) {
   activeCommentId.value = activeCommentId.value === id ? "" : id;
 }
 
-const handleEditorSubmit = ({blog_type, title, content}) => {
-  let result = sendAxiosRequest("/blog-api/blog/updateBlog", {
+const handleEditorSubmit = async ({blog_type, title, content}) => {
+  const result = await sendAxiosRequestChecked("/blog-api/blog/updateBlog", {
     guid: contentGuid.value, title, blog_type, content,
-  });
-  if (result && !result.isError) {
+  }, "修改失败");
+  if (result) {
     blogContent.value.BLOG_TITLE = title;
     blogContent.value.MAINTEXT = content;
     blogContent.value.BLOG_TYPE = blog_type;
@@ -372,8 +373,6 @@ const handleEditorSubmit = ({blog_type, title, content}) => {
     });
     ElMessage.success("已修改");
     editorVisible.value = false;
-  } else {
-    ElMessage.error("修改失败");
   }
 };
 
@@ -802,14 +801,15 @@ async function submitReply(parentGuid) {
 }
 
 function deleteComment(commentId, parentId = null) {
-  ele_confirm("确定要删除这条评论吗?", () => {
+  ele_confirm("确定要删除这条评论吗?", async () => {
+    const result = await sendAxiosRequestChecked("/blog-api/blog/deleteComment", {blogGuid: commentId}, "删除评论失败");
+    if (!result) return;
     if (parentId) {
       let parent = blogComment.value.find(c => c.GUID === parentId);
       if (parent) parent.children = parent.children.filter(item => item["GUID"] !== commentId);
     } else {
       blogComment.value = blogComment.value.filter(item => item["GUID"] !== commentId);
     }
-    sendAxiosRequest("/blog-api/blog/deleteComment", {blogGuid: commentId});
     ElMessage.success("评论已删除");
   })
 }
@@ -821,9 +821,10 @@ function toggleChildren(commentId) {
 function openOneBlog() { pubOpenOneBlog(router, blogContent.value.GUID) }
 
 function deleteArticle() {
-  ele_confirm("确定要删除这篇文章吗？此操作不可撤销。", () => {
+  ele_confirm("确定要删除这篇文章吗？此操作不可撤销。", async () => {
+    const result = await sendAxiosRequestChecked("/blog-api/blog/deleteBlog", {guid: contentGuid.value}, "删除文章失败");
+    if (!result) return;
     blogContentStore.blogContents = blogContentStore.blogContents.filter(item => item["GUID"] !== contentGuid.value);
-    sendAxiosRequest("/blog-api/blog/deleteBlog", {guid: contentGuid.value});
     blogComment.value = [];
     ElMessage.success("文章已删除");
     if(route.name==="BlogContent"){

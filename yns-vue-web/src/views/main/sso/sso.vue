@@ -81,7 +81,7 @@ import {useUserStore} from "@/stores/main/user.js";
 import {ele_confirm, getCurrentUserAdminObject, getGuid, pubFormatDate, sendAxiosRequest} from "@/utils/common.js";
 import {getMenuItems} from "@/utils/menu.js";
 import {ref} from "vue";
-import UserList from "@/components/detail/Userlist.vue";
+import UserList from "@/components/detail/UserList.vue";
 import { useHead } from '@vueuse/head'; // 1. 引入 useHead
 // 2. 定义响应式的 SEO 数据源，给定默认值
 const seoTitle = ref('后台管理 - ynsStudy');
