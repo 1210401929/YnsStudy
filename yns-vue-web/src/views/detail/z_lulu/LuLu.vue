@@ -584,7 +584,7 @@ const accessoryIndex = ref(0);
 const sceneIndex = ref((() => {
   if (typeof window === 'undefined') return 0;
   const stored = Number(window.localStorage.getItem('luluSceneIndex'));
-  return Number.isInteger(stored) && stored >= 0 && stored < 6 ? stored : 0;
+  return Number.isInteger(stored) && stored >= 0 && stored < 7 ? stored : 0;
 })());
 const wishText = ref('抽一句');
 
@@ -720,7 +720,8 @@ const sceneModes = [
   { name: '阳光花园', image: '/picture/lulu/scenes/scene-sunny-garden.webp' },
   { name: '森林空地', image: '/picture/lulu/scenes/scene-forest-clearing.webp' },
   { name: '海边露台', image: '/picture/lulu/scenes/scene-seaside-terrace.webp' },
-  { name: '星空营地', image: '/picture/lulu/scenes/scene-starry-camp.webp' }
+  { name: '星空营地', image: '/picture/lulu/scenes/scene-starry-camp.webp' },
+  { name: '噜妹的小家', image: '/picture/lulu/scenes/scene-lumei-home.webp' }
 ];
 
 const missionPool = [
