@@ -58,6 +58,8 @@ func main() {
 	services := service.New(cfg, repo, store, sessionManager, jwt)
 	// 旧文章、旧帖子补齐搜索用的纯文本，在后台慢慢执行，不影响启动
 	go services.BackfillSearchText(context.Background())
+	// 以前手机号自动注册的账号默认密码是 123456，启动时换成随机密码
+	go services.ResetDefaultPhonePasswords(context.Background())
 	router := controller.NewRouter(cfg, services, aesCipher)
 
 	server := &http.Server{

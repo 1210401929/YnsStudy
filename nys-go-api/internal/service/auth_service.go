@@ -3,9 +3,11 @@ package service
 import (
 	"context"
 	"crypto/rand"
+	"crypto/subtle"
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -21,9 +23,22 @@ import (
 
 var phonePattern = regexp.MustCompile(`^1\d{10}$`)
 
-func (s *Service) SendPhoneCode(ctx context.Context, phone string) model.Result {
+// 短信验证码的发送和校验限制
+const (
+	phoneCodeCooldown    = 60 * time.Second // 同一手机号两次发送的最短间隔
+	phoneCodeDailyLimit  = 10               // 同一手机号每天最多发送次数
+	phoneCodeIPLimit     = 20               // 同一 IP 每小时最多发送次数
+	phoneCodeMaxAttempts = 5                // 同一验证码最多输错次数，超过后作废
+	phoneAccountPrefix   = "$userPhone"
+)
+
+func (s *Service) SendPhoneCode(c *gin.Context, phone string) model.Result {
 	if !phonePattern.MatchString(phone) {
 		return model.Failure("手机号格式不正确!")
+	}
+	ctx := contextOf(c)
+	if failure := s.checkPhoneCodeLimits(ctx, phone, ClientIP(c)); failure != nil {
+		return *failure
 	}
 	code, err := numericCode(6)
 	if err != nil {
@@ -51,30 +66,142 @@ func (s *Service) SendPhoneCode(ctx context.Context, phone string) model.Result 
 	if err := s.Cache.Set(ctx, "login:code:"+phone, code, time.Duration(s.Config.External.SMSCodeExpirationSeconds)*time.Second); err != nil {
 		return model.Failure("保存验证码失败:" + err.Error())
 	}
+	// 新验证码重新计算输错次数
+	_ = s.Cache.Delete(ctx, "login:code:fail:"+phone)
 	return model.Success("发送成功")
 }
 
-func (s *Service) LoginByPhoneCode(c *gin.Context, phone, code string) model.Result {
-	stored, err := s.Cache.Get(contextOf(c), "login:code:"+phone)
-	if err != nil || !strings.EqualFold(stored, code) {
-		return model.Failure("验证码错误或已过期!")
+// checkPhoneCodeLimits 限制发送频率，防止短信接口被刷（费用和对他人的骚扰）。
+// 计数在发送前累加，发送失败也算一次，避免反复失败重试绕过限制。
+func (s *Service) checkPhoneCodeLimits(ctx context.Context, phone, ip string) *model.Result {
+	limits := []struct {
+		key     string
+		ttl     time.Duration
+		max     int64
+		message string
+	}{
+		{"login:code:cooldown:" + phone, phoneCodeCooldown, 1, "验证码发送太频繁，请 60 秒后再试!"},
+		{"login:code:daily:" + phone, 24 * time.Hour, phoneCodeDailyLimit, "该手机号今天获取验证码次数过多，请明天再试!"},
+		{"login:code:ip:" + ip, time.Hour, phoneCodeIPLimit, "获取验证码次数过多，请稍后再试!"},
 	}
-	userCode := "$userPhone" + phone
-	rows, err := s.Repo.Query(contextOf(c), "SELECT * FROM userInfo WHERE CODE = ?", userCode)
-	if err != nil {
-		return dbFailure("查询用户", err)
-	}
-	if len(rows) == 0 {
-		registered := s.Register(contextOf(c), phone, userCode, "123456", "123456")
-		if registered.IsError {
-			return registered
+	for _, limit := range limits {
+		count, err := s.Cache.Increment(ctx, limit.key, limit.ttl)
+		if err != nil {
+			failure := model.Failure("验证码服务异常，请稍后再试!")
+			return &failure
+		}
+		if count > limit.max {
+			failure := model.Failure(limit.message)
+			return &failure
 		}
 	}
-	result := s.Login(c, userCode, "123456")
-	if !result.IsError {
-		_ = s.Cache.Delete(contextOf(c), "login:code:"+phone)
+	return nil
+}
+
+func (s *Service) LoginByPhoneCode(c *gin.Context, phone, code string) model.Result {
+	ctx := contextOf(c)
+	if !phonePattern.MatchString(phone) || strings.TrimSpace(code) == "" {
+		return model.Failure("验证码错误或已过期!")
 	}
-	return result
+	codeKey := "login:code:" + phone
+	failKey := "login:code:fail:" + phone
+	stored, err := s.Cache.Get(ctx, codeKey)
+	if err != nil {
+		return model.Failure("验证码错误或已过期!")
+	}
+	if subtle.ConstantTimeCompare([]byte(stored), []byte(strings.TrimSpace(code))) != 1 {
+		// 输错次数过多时作废验证码，防止 6 位数字被逐个尝试
+		fails, _ := s.Cache.Increment(ctx, failKey, time.Duration(s.Config.External.SMSCodeExpirationSeconds)*time.Second)
+		if fails >= phoneCodeMaxAttempts {
+			_ = s.Cache.Delete(ctx, codeKey)
+			_ = s.Cache.Delete(ctx, failKey)
+			return model.Failure("验证码错误次数过多，请重新获取!")
+		}
+		return model.Failure("验证码错误或已过期!")
+	}
+	// 验证码只能使用一次
+	_ = s.Cache.Delete(ctx, codeKey)
+	_ = s.Cache.Delete(ctx, failKey)
+
+	user, err := s.getOrCreatePhoneUser(ctx, phone)
+	if err != nil {
+		return dbFailure("登录", err)
+	}
+	// 验证码已经证明了身份，直接登录，不再借用固定密码走密码登录
+	return s.completeLogin(c, user)
+}
+
+// getOrCreatePhoneUser 查找手机号对应的账号，没有则创建。
+// 新账号使用随机密码：手机号账号的账号名是固定格式，密码一旦可猜，任何人都能直接登录。
+func (s *Service) getOrCreatePhoneUser(ctx context.Context, phone string) (model.User, error) {
+	userCode := phoneAccountPrefix + phone
+	rows, err := s.Repo.Query(ctx, "SELECT * FROM userInfo WHERE CODE = ? LIMIT 1", userCode)
+	if err != nil {
+		return model.User{}, err
+	}
+	if len(rows) == 0 {
+		randomPassword, err := randomURLSafeValue(32)
+		if err != nil {
+			return model.User{}, err
+		}
+		// 昵称不直接使用完整手机号，避免在文章、评论里公开
+		if result := s.insertUser(ctx, "手机用户"+phone[len(phone)-4:], userCode, randomPassword); result.IsError {
+			// 同一手机号并发登录时，另一个请求可能已经创建了账号
+			rows, err = s.Repo.Query(ctx, "SELECT * FROM userInfo WHERE CODE = ? LIMIT 1", userCode)
+			if err != nil || len(rows) == 0 {
+				return model.User{}, fmt.Errorf("%s", result.ErrMsg)
+			}
+			return model.UserFromRow(rows[0]), nil
+		}
+		rows, err = s.Repo.Query(ctx, "SELECT * FROM userInfo WHERE CODE = ? LIMIT 1", userCode)
+		if err != nil {
+			return model.User{}, err
+		}
+		if len(rows) == 0 {
+			return model.User{}, fmt.Errorf("创建账号后未找到账号")
+		}
+	}
+	return model.UserFromRow(rows[0]), nil
+}
+
+// ResetDefaultPhonePasswords 把以前手机号登录自动注册时设置的默认密码 123456 换成随机密码。
+// 这些账号的账号名是 $userPhone+手机号，默认密码不改的话任何人都能用密码登录。
+// 服务启动时在后台执行一次；用户自己改过的密码不受影响，手机验证码登录照常可用。
+func (s *Service) ResetDefaultPhonePasswords(ctx context.Context) {
+	rows, err := s.Repo.Query(ctx, "SELECT CODE, PASSWORD, PASSWORDSALT FROM userInfo WHERE CODE LIKE ?", phoneAccountPrefix+"%")
+	if err != nil {
+		log.Printf("检查手机号账号默认密码失败: %v", err)
+		return
+	}
+	reset := 0
+	for _, row := range rows {
+		if !security.VerifyPassword("123456", model.StringValue(row, "PASSWORD"), model.StringValue(row, "PASSWORDSALT")) {
+			continue
+		}
+		randomPassword, err := randomURLSafeValue(32)
+		if err != nil {
+			log.Printf("生成随机密码失败: %v", err)
+			return
+		}
+		salt, err := security.NewSalt()
+		if err != nil {
+			log.Printf("生成随机密码失败: %v", err)
+			return
+		}
+		hashed, err := security.HashPassword(randomPassword, salt)
+		if err != nil {
+			log.Printf("生成随机密码失败: %v", err)
+			return
+		}
+		if _, err := s.Repo.Exec(ctx, "UPDATE userInfo SET PASSWORD = ?, PASSWORDSALT = ? WHERE CODE = ?", hashed, salt, model.StringValue(row, "CODE")); err != nil {
+			log.Printf("重置手机号账号默认密码失败: %v", err)
+			return
+		}
+		reset++
+	}
+	if reset > 0 {
+		log.Printf("已为 %d 个手机号账号把默认密码换成随机密码", reset)
+	}
 }
 
 func (s *Service) Login(c *gin.Context, userCode, password string) model.Result {
@@ -171,9 +298,18 @@ func (s *Service) Register(ctx context.Context, userName, userCode, password, co
 	if password != confirmation {
 		return model.Failure("两次密码不一致!")
 	}
+	// $ 开头的账号名留给手机号、QQ 登录自动创建的账号，防止被抢先注册后冒用
+	if strings.HasPrefix(strings.TrimSpace(userCode), "$") {
+		return model.Failure("账号不能以 $ 开头!")
+	}
 	if strings.TrimSpace(userName) == "" {
 		userName = "未知用户"
 	}
+	return s.insertUser(ctx, userName, userCode, password)
+}
+
+// insertUser 创建普通用户，账号已存在时返回失败
+func (s *Service) insertUser(ctx context.Context, userName, userCode, password string) model.Result {
 	rows, err := s.Repo.Query(ctx, "SELECT GUID FROM userInfo WHERE CODE = ? LIMIT 1", userCode)
 	if err != nil {
 		return dbFailure("检查账号", err)

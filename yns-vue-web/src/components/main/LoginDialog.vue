@@ -442,6 +442,11 @@ const sendCode = async () => {
 
   try {
     let result = await sendAxiosRequest('/pub-api/login/sendPhoneCode', {phone});
+    // 后台会限制发送频率，失败时提示具体原因
+    if (!result || result.isError) {
+      ElMessage.error(result?.errMsg || '验证码发送失败');
+      return;
+    }
     ElMessage.success('验证码已发送');
     countdown.value = 60;
     timer = setInterval(() => {

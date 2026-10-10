@@ -80,8 +80,11 @@ func (s *Service) userIDFromToken(c *gin.Context) any {
 	return userID
 }
 
+// ClientIP 优先使用 nginx 设置的 X-Real-IP（$remote_addr，客户端无法伪造）。
+// X-Forwarded-For 经 $proxy_add_x_forwarded_for 转发时会保留客户端自带的值，第一个地址可以伪造，
+// 只在没有 X-Real-IP 时使用。
 func ClientIP(c *gin.Context) string {
-	for _, name := range []string{"X-Forwarded-For", "X-Real-IP", "Proxy-Client-IP", "WL-Proxy-Client-IP"} {
+	for _, name := range []string{"X-Real-IP", "X-Forwarded-For", "Proxy-Client-IP", "WL-Proxy-Client-IP"} {
 		value := strings.TrimSpace(c.GetHeader(name))
 		if value != "" && !strings.EqualFold(value, "unknown") {
 			return strings.TrimSpace(strings.Split(value, ",")[0])

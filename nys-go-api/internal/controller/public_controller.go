@@ -46,7 +46,7 @@ func (h *Controller) sendPhoneCode(c *gin.Context) {
 	if !ok {
 		return
 	}
-	writeResult(c, h.service.SendPhoneCode(c.Request.Context(), stringParam(body, "phone")))
+	writeResult(c, h.service.SendPhoneCode(c, stringParam(body, "phone")))
 }
 
 func (h *Controller) loginByPhoneCode(c *gin.Context) {
