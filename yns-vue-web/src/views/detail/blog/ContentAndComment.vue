@@ -381,25 +381,30 @@ const handleEditorSubmit = async ({blog_type, title, content}) => {
 };
 
 const loadContentAndComments = async (guid) => {
-  let result = await sendAxiosRequest("/blog-api/blog/getBlog", {blogId: guid});
-  if (result && !result.isError && result?.result?.[0]) {
-    blogContent.value = result.result[0];
+  // 正文、评论、点赞收藏只依赖文章 ID，三个请求同时发出，不再一个接一个地等
+  const [blogResult, commentResult, reactionResult] = await Promise.all([
+    sendAxiosRequest("/blog-api/blog/getBlog", {blogId: guid}),
+    sendAxiosRequest("/blog-api/blog/getComment", {blogId: guid}),
+    sendAxiosRequest("/blog-api/blog/getLikeAndCollectByBlogId", {blogId: guid}),
+  ]);
+  if (blogResult && !blogResult.isError && blogResult?.result?.[0]) {
+    blogContent.value = blogResult.result[0];
   } else {
     ElMessage.error("该文章为私密或已删除");
     emit('not-found');
     return false;
   }
+  // 作者信息等由父组件加载，拿到正文就通知，和下面的评论处理互不等待
+  emit('loaded', {blogContent: blogContent.value});
 
-  result = await sendAxiosRequest("/blog-api/blog/getComment", {blogId: guid});
-  if (result && !result.isError) {
-    blogComment.value = buildChildrenData(result.result);
+  if (commentResult && !commentResult.isError) {
+    blogComment.value = buildChildrenData(commentResult.result);
   }
 
-  result = await sendAxiosRequest("/blog-api/blog/getLikeAndCollectByBlogId", {blogId: guid});
-  if (result && !result.isError) {
+  if (reactionResult && !reactionResult.isError) {
     let userBean = userStore.userBean;
     let likeNum = 0, collectNum = 0;
-    result.result.forEach(item => {
+    reactionResult.result.forEach(item => {
       if (item["TYPE"] === "like") likeNum++;
       else if (item["TYPE"] === "collect") collectNum++;
       if (userBean && item["USERCODE"] === userBean.code) {
@@ -410,7 +415,6 @@ const loadContentAndComments = async (guid) => {
     blogLikeNum.value = likeNum;
     blogCollectNum.value = collectNum;
   }
-  emit('loaded', {blogContent: blogContent.value});
   replyInputVisible.value = {};
   replyInputs.value = {};
   isChildrenVisible.value = {};
