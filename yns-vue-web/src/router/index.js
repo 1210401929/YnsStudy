@@ -72,6 +72,16 @@ const routes = [
     {path: '/:pathMatch(.*)*', name: 'NotFound', component: NotFound, meta: {noindex: true}}
 ]
 
+// 开发环境专用：对比文章两种展示方式，打包后不包含
+if (import.meta.env.DEV) {
+    routes.splice(routes.length - 1, 0, {
+        path: '/dev/article-compare',
+        name: 'devArticleCompare',
+        component: () => import('@/views/dev/ArticleCompare.vue'),
+        meta: {noindex: true}
+    })
+}
+
 const router = createRouter({
     history: createWebHistory(import.meta.env.BASE_URL),
     routes

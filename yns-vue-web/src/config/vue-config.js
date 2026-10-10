@@ -13,3 +13,8 @@ export const crypCfg = {
 //网站管理员
 export const adminUserCode = "yulei";
 
+
+//文章正文的展示方式:
+//  'html'   直接渲染保存的 HTML(默认,文章页不加载编辑器,打开更快)
+//  'editor' 用 wangEditor 只读模式展示(旧方式,如发现显示问题可临时切回)
+export const articleRenderMode = 'html';

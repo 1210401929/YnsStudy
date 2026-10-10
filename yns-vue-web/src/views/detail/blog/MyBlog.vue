@@ -51,13 +51,12 @@
 </template>
 
 <script setup>
-import {ref, onMounted, watch} from 'vue'
+import {ref, onMounted, watch, defineAsyncComponent} from 'vue'
 import { useRouter } from 'vue-router'
 import { useBlogContentStore } from '@/stores/detail/blog.js'
 import { useUserStore } from "@/stores/main/user.js"
 import { Edit } from '@element-plus/icons-vue'
 import { sendAxiosRequest } from '@/utils/common.js'
-import ArticleEditor from '@/components/detail/ArticleEditor.vue'
 import { ElMessage } from 'element-plus'
 import Announcement from "@/components/detail/Announcement.vue"
 import { getAnnouncementByRouterName } from "@/utils/blogUtil.js"
@@ -65,6 +64,9 @@ import BackgroundAndMusic from "@/components/detail/personInformation/Background
 
 // 分类归档目录组件
 import BlogSidebar from "@/components/detail/myblog/BlogSidebar.vue";
+
+// 编辑器体积较大，点击“发布文章”打开弹窗时才下载
+const ArticleEditor = defineAsyncComponent(() => import('@/components/detail/ArticleEditor.vue'))
 
 const router = useRouter()
 const userStore = useUserStore()

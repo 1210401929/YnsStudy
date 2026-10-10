@@ -41,7 +41,8 @@
           </div>
         </div>
 
-        <ArticleEditor :isReadOnly="true" :content="blogContent.MAINTEXT"/>
+        <ArticleViewer v-if="articleRenderMode === 'html'" :content="blogContent.MAINTEXT"/>
+        <ArticleEditor v-else :isReadOnly="true" :content="blogContent.MAINTEXT"/>
 
         <div class="article-bottom-actions">
           <p class="end-mark">文章完</p>
@@ -275,11 +276,11 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, watch, nextTick } from "vue";
+import { ref, computed, onMounted, onUnmounted, watch, nextTick, defineAsyncComponent } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useUserStore } from "@/stores/main/user.js";
 import { useBlogContentStore } from "@/stores/detail/blog.js";
-import ArticleEditor from "@/components/detail/ArticleEditor.vue";
+import ArticleViewer from "@/components/detail/ArticleViewer.vue";
 import ArticleLinks from "@/components/detail/myblog/ArticleLinks.vue";
 import { Star, Comment, Right, User, Message, Link, Edit } from '@element-plus/icons-vue'
 import { ElMessage } from "element-plus";
@@ -295,8 +296,11 @@ import {
   sendNotifications, getCurrentUserAdminObject
 } from "@/utils/common.js";
 
-import { adminUserCode } from "@/config/vue-config.js";
+import { adminUserCode, articleRenderMode } from "@/config/vue-config.js";
 import { pubOpenOneBlog, pubOpenUser } from "@/utils/blogUtil.js";
+
+// 编辑器体积较大，只在打开编辑弹窗（或切回编辑器展示方式）时才下载
+const ArticleEditor = defineAsyncComponent(() => import("@/components/detail/ArticleEditor.vue"));
 
 const route = useRoute();
 const router = useRouter();
