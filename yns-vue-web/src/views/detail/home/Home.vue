@@ -197,7 +197,7 @@ import { ElMessage } from "element-plus";
 import debounce from "lodash/debounce.js";
 import { useHomeStore } from "@/stores/detail/home.js";
 import { useUserStore } from "@/stores/main/user.js";
-import { extractFirstImage, extractPlainTextFromHTML, sendAxiosRequest } from "@/utils/common.js";
+import { listCover, listExcerpt, sendAxiosRequest } from "@/utils/common.js";
 import { adminUserCode } from "@/config/vue-config.js";
 import { getAnnouncementByRouterName, pubOpenOneBlog, pubOpenUser } from "@/utils/blogUtil.js";
 import Announcement from "@/components/detail/Announcement.vue";
@@ -236,8 +236,6 @@ const parseArticleDate = (value) => {
   return { year, month: Number(month), day: Number(day), weekday, iso: `${year}-${month}-${day}` };
 };
 
-const buildExcerpt = (html) => extractPlainTextFromHTML(html || '').replace(/\s+/g, ' ').trim().slice(0, 160);
-
 const fileExt = (name) => {
   const ext = String(name || '').split('.').pop();
   return ext && ext !== name && ext.length <= 4 ? ext.toUpperCase() : 'FILE';
@@ -274,8 +272,8 @@ const fetchArticles = async () => {
     articles.value.push(...rows.map(article => ({
       ...article,
       DATE: parseArticleDate(article.CREATE_TIME),
-      EXCERPT: buildExcerpt(article.MAINTEXT),
-      ILLUSTRATION: extractFirstImage(article.MAINTEXT),
+      EXCERPT: listExcerpt(article).slice(0, 160),
+      ILLUSTRATION: listCover(article),
       MAINTEXT: undefined
     })));
     page.value++;

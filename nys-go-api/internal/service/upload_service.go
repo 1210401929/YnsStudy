@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"log"
 	"mime/multipart"
 	"net/url"
 	"os"
@@ -112,14 +113,19 @@ func (s *Service) DeleteUploadedFile(urlPath string) model.Result {
 	return model.Success("删除成功!")
 }
 
-func (s *Service) DeleteUploadedFiles(urls []string) model.Result {
+// DeleteUploadedFiles 清理文章里不再使用的图片，尽力而为：
+// 外链图片、base64 图片不是本站上传的文件，直接跳过；文件已不存在也不算失败；
+// 其他错误只记日志，不影响文章的保存和删除。
+func (s *Service) DeleteUploadedFiles(urls []string) {
+	prefix := s.Config.Upload.PublicPrefix
 	for _, fileURL := range urls {
-		result := s.DeleteUploadedFile(fileURL)
-		if result.IsError {
-			return result
+		if prefix == "" || !strings.Contains(fileURL, prefix) || strings.HasPrefix(strings.ToLower(strings.TrimSpace(fileURL)), "data:") {
+			continue
+		}
+		if result := s.DeleteUploadedFile(fileURL); result.IsError && result.ErrMsg != "文件或路径不存在!" {
+			log.Printf("清理文章图片失败 %s: %s", fileURL, result.ErrMsg)
 		}
 	}
-	return model.Success("删除成功!")
 }
 
 func cleanRelativePath(value string) (string, error) {

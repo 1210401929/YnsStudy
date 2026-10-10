@@ -99,7 +99,7 @@
                         <h4 class="blog-title">{{ blog.BLOG_TITLE }}</h4>
                       </a>
                       <h4 v-else class="blog-title">{{ blog.BLOG_TITLE }}</h4>
-                      <p class="blog-summary" v-html="stripImages(blog.MAINTEXT)"></p>
+                      <p class="blog-summary">{{ listExcerpt(blog) }}</p>
                       <div class="blog-card-footer">
                         <span class="read-more">阅读全文 →</span>
                       </div>
@@ -224,7 +224,7 @@ import {useSeo} from '@/utils/seo.js';
 import {
   pubFormatDate,
   sendAxiosRequest,
-  stripImages,
+  listExcerpt,
   downloadFileByUrl
 } from '@/utils/common.js'
 

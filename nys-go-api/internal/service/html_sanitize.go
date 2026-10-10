@@ -16,8 +16,7 @@ func newRichTextPolicy() *bluemonday.Policy {
 
 	// wangEditor 的待办、分割线、图片链接等依赖 data-* 属性
 	policy.AllowDataAttributes()
-	// 粘贴截图时编辑器可能直接插入 base64 图片
-	policy.AllowDataURIImages()
+	// 不放行 base64 图片：前端提交前会把它们上传成文件，避免整张图片写进数据库
 
 	// 编辑器通过行内样式设置颜色、对齐、行高、字号和图片尺寸
 	policy.AllowStyles(
@@ -45,7 +44,18 @@ func newRichTextPolicy() *bluemonday.Policy {
 	return policy
 }
 
+// imageTagPattern 匹配过滤后的 <img> 标签；bluemonday 输出的属性值已转义，不会包含 ">"
+var imageTagPattern = regexp.MustCompile(`(?i)<img\b[^>]*>`)
+var imageSrcAttrPattern = regexp.MustCompile(`(?i)\ssrc="`)
+
 // sanitizeRichText 过滤用户提交的富文本 HTML。
 func sanitizeRichText(html string) string {
-	return richTextPolicy.Sanitize(html)
+	cleaned := richTextPolicy.Sanitize(html)
+	// src 被过滤掉（如 base64 图片）后剩下的空 <img> 会显示成坏图，一并去掉
+	return imageTagPattern.ReplaceAllStringFunc(cleaned, func(tag string) string {
+		if imageSrcAttrPattern.MatchString(tag) {
+			return tag
+		}
+		return ""
+	})
 }

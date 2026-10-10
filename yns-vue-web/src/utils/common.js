@@ -23,6 +23,7 @@ import {useUserStore} from "@/stores/main/user.js";
  *  isProbablyCipher                判断字符串是否“看起来像” Base64 密文
  *  sanitizeHtml                    过滤html中的脚本、事件属性，用于 v-html
  *  stripImages                     删除html里的图片等内容
+ *  listExcerpt / listCover         列表数据的纯文本摘要和封面图
  *  extractFirstImage               提取html中的第一个图片
  *  extractPlainTextFromHTML        提取html中的纯文本
  *  sendNotifications               系统通用发送消息
@@ -515,6 +516,18 @@ export function extractFirstImage(htmlContent) {
 //提取html中的纯文本
 export function extractPlainTextFromHTML(html) {
     return parseHtmlInert(html).body.textContent || '';
+}
+
+//列表接口返回的摘要（后台已从正文提取）；兼容旧接口仍返回 MAINTEXT 的情况
+export function listExcerpt(item) {
+    if (typeof item?.EXCERPT === 'string') return item.EXCERPT;
+    return extractPlainTextFromHTML(item?.MAINTEXT || '').replace(/\s+/g, ' ').trim().slice(0, 200);
+}
+
+//列表接口返回的封面图，规则同上
+export function listCover(item) {
+    if (typeof item?.FIRST_IMAGE === 'string') return item.FIRST_IMAGE;
+    return extractFirstImage(item?.MAINTEXT || '');
 }
 
 

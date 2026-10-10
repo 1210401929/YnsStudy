@@ -180,7 +180,7 @@ func (s *Service) GetAllBlogs(ctx context.Context, page, pageSize int, keyword s
 	if err != nil {
 		return dbFailure("统计文章", err)
 	}
-	return model.Success(map[string]any{"total": firstCount(counts), "data": rows})
+	return model.Success(map[string]any{"total": firstCount(counts), "data": replaceTextWithSummary(rows, "MAINTEXT")})
 }
 
 func (s *Service) UpdateBlog(c *gin.Context, guid, title, content, blogType string) model.Result {
@@ -194,10 +194,6 @@ func (s *Service) UpdateBlog(c *gin.Context, guid, title, content, blogType stri
 	wasPublic := isPublicBlogType(model.StringValue(rows[0], "BLOG_TYPE"))
 	oldURLs := extractImageURLs(model.StringValue(rows[0], "MAINTEXT"))
 	newURLs := extractImageURLs(content)
-	removed := difference(oldURLs, newURLs)
-	if result := s.DeleteUploadedFiles(removed); result.IsError {
-		return result
-	}
 	query := "UPDATE blogInfo SET BLOG_TITLE = ?, MAINTEXT = ?, BLOG_TYPE = ? WHERE GUID = ?"
 	if s.blogInfoHasUpdateTime(ctx) {
 		// UPDATE_TIME 只在文章内容真正编辑时变化，阅读量增加不会污染 sitemap 的 lastmod。
@@ -206,6 +202,8 @@ func (s *Service) UpdateBlog(c *gin.Context, guid, title, content, blogType stri
 	if _, err := s.Repo.Exec(ctx, query, title, content, blogType, guid); err != nil {
 		return dbFailure("修改文章", err)
 	}
+	// 文章保存成功后再删除不再使用的图片，保存失败时图片不会丢
+	s.DeleteUploadedFiles(difference(oldURLs, newURLs))
 	// 公开文章被修改或改为私密时都要通知，后者让搜索引擎发现页面已不可访问。
 	if wasPublic || isPublicBlogType(blogType) {
 		s.NotifyBlogChanged(guid)
@@ -235,9 +233,6 @@ func (s *Service) DeleteBlog(c *gin.Context, guid string) model.Result {
 	ctx := contextOf(c)
 	rows := []map[string]any{row}
 	wasPublic := isPublicBlogType(model.StringValue(rows[0], "BLOG_TYPE"))
-	if result := s.DeleteUploadedFiles(extractImageURLs(model.StringValue(rows[0], "MAINTEXT"))); result.IsError {
-		return result
-	}
 	_, _, err := s.Repo.ExecuteBatch(ctx,
 		[]string{"DELETE FROM blogInfo WHERE GUID = ?", "DELETE FROM blogComment WHERE BLOGID = ?", "DELETE FROM blogGiveLike WHERE BLOGID = ?"},
 		[][]any{{guid}, {guid}, {guid}}, false,
@@ -245,6 +240,7 @@ func (s *Service) DeleteBlog(c *gin.Context, guid string) model.Result {
 	if err != nil {
 		return dbFailure("删除文章", err)
 	}
+	s.DeleteUploadedFiles(extractImageURLs(model.StringValue(rows[0], "MAINTEXT")))
 	if wasPublic {
 		s.NotifyBlogChanged(guid)
 	}

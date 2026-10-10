@@ -284,17 +284,56 @@ function aiHelp(preface = "") {
   };
 }
 
+/* ---------- base64 图片转上传 ---------- */
+// 从网页、Word 粘贴的内容里常带有 base64 图片，直接保存会把整张图写进数据库。
+// 提交前把它们上传成文件、换成图片地址；不支持的格式（如 svg）后台会过滤掉。
+const DATA_IMAGE_PATTERN = /src="(data:image\/(png|jpe?g|gif|webp|bmp);base64,[^"]+)"/gi
+
+function dataUrlToFile(dataUrl, index) {
+  const [meta, base64] = dataUrl.split(',')
+  const type = meta.slice(5, meta.indexOf(';'))
+  const binary = atob(base64)
+  const bytes = new Uint8Array(binary.length)
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
+  const ext = type.split('/')[1].replace('jpeg', 'jpg')
+  return new File([bytes], `paste-${Date.now()}-${index}.${ext}`, {type})
+}
+
+async function uploadDataImages(html) {
+  const dataUrls = [...new Set([...html.matchAll(DATA_IMAGE_PATTERN)].map(match => match[1]))]
+  if (!dataUrls.length) return html
+  pubLoading('start', {text: `正在上传文章中的 ${dataUrls.length} 张图片`})
+  try {
+    let result = html
+    for (const [index, dataUrl] of dataUrls.entries()) {
+      const url = await uploadImage(dataUrlToFile(dataUrl, index))
+      result = result.split(`src="${dataUrl}"`).join(`src="${url}"`)
+    }
+    // 编辑器里也换成上传后的地址，提交失败重试时不用再传一次
+    localContent.value = result
+    return result
+  } finally {
+    pubLoading('close')
+  }
+}
+
 /* ---------- 提交 ---------- */
-function submit() {
+async function submit() {
   if (!localTitle.value.trim()) {
     ElMessage.error('请输入标题')
     return
   }
   //清除本地图片路径内容,例如 file:///C:/Users/EDY/Desktop/pic.png
-  const contentClean = localContent.value.replace(
+  let contentClean = localContent.value.replace(
       /<img[^>]+src=["']file:[^"']+["'][^>]*>/gi,
       ''
   )
+  try {
+    contentClean = await uploadDataImages(contentClean)
+  } catch (err) {
+    ElMessage.error(err.message || '图片上传失败')
+    return
+  }
   emits('submit', {
     blog_type: isPublic.value ? 'public' : 'privacy',
     title: localTitle.value.trim(),

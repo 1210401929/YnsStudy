@@ -124,7 +124,7 @@
                           class="seo-article-link"
                       ><h3 class="article-title">{{ blog.BLOG_TITLE }}</h3></a>
                       <h3 v-else class="article-title">{{ blog.BLOG_TITLE }}</h3>
-                      <p class="article-desc" v-html="stripImages(blog.MAINTEXT)"></p>
+                      <p class="article-desc">{{ listExcerpt(blog) }}</p>
                     </div>
                   </div>
                 </div>
@@ -198,7 +198,7 @@ import {ref, onMounted, computed, defineAsyncComponent, watch} from 'vue'
 import {ElMessage} from 'element-plus'
 import {useRoute, useRouter} from 'vue-router'
 import {useSeo} from '@/utils/seo.js';
-import { pubFormatDate, sendAxiosRequest, stripImages, downloadFileByUrl } from '@/utils/common.js'
+import { pubFormatDate, sendAxiosRequest, listExcerpt, downloadFileByUrl } from '@/utils/common.js'
 
 import BackgroundAndMusic from "@/components/detail/personInformation/BackgroundAndMusic.vue";
 import WelcomeOverlay from "@/components/detail/personInformation/WelcomeOverlay.vue";

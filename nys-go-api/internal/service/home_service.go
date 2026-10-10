@@ -115,7 +115,12 @@ LEFT JOIN (
 ) gl ON b.GUID = gl.BLOGID
 WHERE b.BLOG_TYPE = 'public'
 ORDER BY HOT_SCORE DESC LIMIT 10`
-	return s.SelectList(ctx, query, nil)
+	result := s.SelectList(ctx, query, nil)
+	// 热门列表只显示标题和数据，不需要正文
+	if rows, ok := result.Result.([]map[string]any); ok {
+		result.Result = replaceTextWithSummary(rows, "MAINTEXT")
+	}
+	return result
 }
 
 func parseLimit(value string, fallback int) int {

@@ -109,7 +109,7 @@ SELECT 1 FROM communityInfo WHERE USERCODE = ? AND (TITLE LIKE ? OR TEXT LIKE ?)
 	if err != nil {
 		return dbFailure("统计用户内容", err)
 	}
-	return model.Success(map[string]any{"total": firstCount(counts), "data": rows})
+	return model.Success(map[string]any{"total": firstCount(counts), "data": replaceTextWithSummary(rows, "MAINTEXT")})
 }
 
 // personInfoFields 是个人主页允许设置的字段（背景图、背景音乐）。
