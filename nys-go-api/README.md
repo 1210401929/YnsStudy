@@ -25,6 +25,23 @@ https://ynsstudy.cn/api/pub-api/login/qq/callback
 
 `frontend_origin` 只填写来源（协议、域名和可选端口），不能包含页面路径。QQ 首次登录会自动创建一个本地用户，QQ OpenID 不会直接作为公开账号保存，而是转换成稳定的摘要账号。
 
+### 邮件通知配置
+
+评论、回复会发邮件给文章作者和被回复的人（匿名访客按评论时留的邮箱），站长还会收到全站的评论、新发表的公开文章、私密改公开的文章、社区帖子和社区评论，方便审核内容。使用 QQ 邮箱时，在 QQ 邮箱“设置 - 账号”里开启 SMTP 服务并生成授权码，然后在 `config/config.yaml` 增加：
+
+```yaml
+mail:
+  enabled: true
+  smtp_host: smtp.qq.com
+  smtp_port: 465
+  username: 你的QQ号@qq.com   # 发件邮箱
+  password: 授权码            # 不是 QQ 密码
+  from_name: YnsStudy
+  admin_email: 你的QQ号@qq.com # 站长收通知的邮箱，可以和发件邮箱相同
+```
+
+执行 `deploy/migrations/005_add_mail_unsubscribe.sql` 创建退订名单表。邮件在后台排队发送，失败只写日志；非站长邮箱每天最多收 10 封（`daily_limit_per_address` 可调整），每封都带退订链接。退订链接默认指向 `external.domain_name` + `/api/pub-api/mail/getUnsubscribe`，接口地址不同时设置 `mail.api_base_url`。
+
 ## SEO 部署
 
 文章会持续新增，单纯 Vue CSR 或构建时 Prerender 无法保证新文章的首次 HTML 包含正文。因此将首页 `/`、`/oneBlog/:id`、`/archive`、`/sitemap.xml` 和 `/rss.xml` 交给 Go 动态输出：首页包含站点介绍和最新文章链接，文章页包含真实正文、上一篇/下一篇和同作者文章链接，`/archive`（及 `/archive/page/N`）是按发布时间分页的全部文章归档，其他页面继续由原 Vue + Nginx 提供。
@@ -39,7 +56,7 @@ https://ynsstudy.cn/api/pub-api/login/qq/callback
 
 1. 将 `seo.frontend_index_file` 改成服务器上 Vue `dist/index.html` 的真实绝对路径。
 2. 把 `deploy/nginx-seo.conf.example` 中的 location 合并到网站现有 Nginx `server`，然后执行 `nginx -t` 并重载。
-3. 部署或升级时依次执行尚未执行过的 `deploy/migrations/001_add_blog_update_time.sql`、`deploy/migrations/002_add_lulu_paging_indexes.sql` 和 `deploy/migrations/003_add_lulu_npc_world.sql`。它们分别增加文章更新时间字段、噜噜分页统计索引，以及噜妹 NPC 事件表与按 IP 长期记忆索引。
+3. 部署或升级时依次执行尚未执行过的 `deploy/migrations/001_add_blog_update_time.sql`、`deploy/migrations/002_add_lulu_paging_indexes.sql`、`deploy/migrations/003_add_lulu_npc_world.sql`、`deploy/migrations/004_add_search_text.sql` 和 `deploy/migrations/005_add_mail_unsubscribe.sql`。它们分别增加文章更新时间字段、噜噜分页统计索引、噜妹 NPC 事件表与按 IP 长期记忆索引、搜索用的纯文本字段，以及邮件退订名单表。
 
 部署后使用 `curl https://ynsstudy.cn/oneBlog/真实文章ID` 检查源代码，应能直接找到文章标题、正文、canonical 和 `application/ld+json`，无需等待 JavaScript。
 

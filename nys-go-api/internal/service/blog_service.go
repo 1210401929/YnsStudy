@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
@@ -59,7 +60,10 @@ func (s *Service) AddBlog(c *gin.Context, blog map[string]any) model.Result {
 	}
 	result := stripSearchTextResult(s.SaveAll(ctx, "add", "BLOGINFO", []map[string]any{blog}, "GUID"))
 	if !result.IsError && isPublicBlogType(model.StringValue(blog, "BLOG_TYPE")) {
-		s.NotifyBlogChanged(model.StringValue(blog, "GUID"))
+		guid := model.StringValue(blog, "GUID")
+		s.NotifyBlogChanged(guid)
+		s.notifyAdminContent(ctx, actor.Code(), actor.User.Name, "新文章", model.StringValue(blog, "BLOG_TITLE"),
+			model.StringValue(blog, "MAINTEXT"), s.mailSiteURL("/oneBlog/"+guid))
 	}
 	return result
 }
@@ -216,6 +220,11 @@ func (s *Service) UpdateBlog(c *gin.Context, guid, title, content, blogType stri
 	if wasPublic || isPublicBlogType(blogType) {
 		s.NotifyBlogChanged(guid)
 	}
+	// 私密文章改为公开，等同于新发表，同样通知站长审核
+	if !wasPublic && isPublicBlogType(blogType) {
+		s.notifyAdminContent(ctx, model.StringValue(row, "USERCODE"), model.StringValue(row, "USERNAME"), "文章改为公开", title,
+			content, s.mailSiteURL("/oneBlog/"+guid))
+	}
 	return model.Success("执行成功，影响行数：1")
 }
 
@@ -324,9 +333,14 @@ func (s *Service) AddBlogComment(c *gin.Context, comment map[string]any) model.R
 		return model.Failure("评论过于频繁，请稍后再试！")
 	}
 
+	// 被回复的那条评论（不入库，只用于确定通知谁）
+	replyTo := strings.TrimSpace(model.StringValue(comment, "REPLY_TO"))
 	// 只保留评论表单会提交的字段，其余（如 CREATE_TIME）由数据库生成
 	comment = pickFields(comment, "GUID", "BLOGID", "SUPERGUID", "TEXT", "USERCODE", "USERNAME",
 		"USEREMAIL", "USERWEBSITE", "RECEIVE_USERCODE", "RECEIVE_USERNAME")
+	// 邮箱用于回复通知，格式不对就不保存；网址只接受 http/https，防止 javascript: 链接
+	comment["USEREMAIL"] = normalizeMailAddress(model.StringValue(comment, "USEREMAIL"))
+	comment["USERWEBSITE"] = normalizeWebsite(model.StringValue(comment, "USERWEBSITE"))
 	// 登录用户以当前账号身份评论；匿名评论不能冒用任何已注册账号
 	if actor, ok := s.CurrentActor(c); ok {
 		comment["USERCODE"] = actor.Code()
@@ -352,54 +366,127 @@ func (s *Service) AddBlogComment(c *gin.Context, comment map[string]any) model.R
 		// 评论已经保存，避免向客户端返回失败而导致用户重复提交。
 		log.Printf("评论已保存，但更新限流计数失败: %v", err)
 	}
-	s.notifyBlogComment(ctx, comment)
+	s.notifyBlogComment(ctx, comment, replyTo)
 	return result
 }
 
-// notifyBlogComment 在后台给文章作者或被回复的人发消息。
-// 匿名访客没有登录，无法调用发消息接口，所以评论的消息统一由这里发送；
+// notifyBlogComment 给文章作者或被回复的人发站内消息和邮件，并给站长发邮件。
+// 匿名访客没有登录，无法调用发消息接口，所以评论的通知统一由这里发送；
 // 接收人从数据库确认，不信任请求里的 RECEIVE_USERCODE。发送失败只记日志，不影响评论。
-func (s *Service) notifyBlogComment(ctx context.Context, comment map[string]any) {
+func (s *Service) notifyBlogComment(ctx context.Context, comment map[string]any, replyTo string) {
 	blogID := model.StringValue(comment, "BLOGID")
 	blogs, err := s.Repo.Query(ctx, "SELECT USERCODE, BLOG_TITLE FROM blogInfo WHERE GUID = ? LIMIT 1", blogID)
 	if err != nil || len(blogs) == 0 {
 		return
 	}
 	title := model.StringValue(blogs[0], "BLOG_TITLE")
+	authorCode := model.StringValue(blogs[0], "USERCODE")
 	sender := strings.TrimSpace(model.StringValue(comment, "USERCODE"))
+	senderEmail := model.StringValue(comment, "USEREMAIL")
 	senderName := strings.TrimSpace(model.StringValue(comment, "USERNAME"))
 	if senderName == "" {
 		senderName = "访客"
 	}
+	text := strings.TrimSpace(model.StringValue(comment, "TEXT"))
+	link := s.mailSiteURL("/oneBlog/" + blogID)
 
-	receiver, remark := "", ""
+	// receiverCode 收站内消息；receiverEmail 收邮件（匿名访客只有邮箱）
+	receiverCode, receiverEmail, remark := "", "", ""
 	if parentID := strings.TrimSpace(model.StringValue(comment, "SUPERGUID")); parentID == "" {
-		receiver = model.StringValue(blogs[0], "USERCODE")
+		receiverCode = authorCode
 		remark = senderName + "评论了你的文章《" + title + "》"
 	} else {
-		// 被回复的人必须是这条评论所在楼层里真实发过评论的登录用户
-		target := strings.TrimSpace(model.StringValue(comment, "RECEIVE_USERCODE"))
-		if target == "" {
+		target := s.findReplyTarget(ctx, blogID, parentID, replyTo, model.StringValue(comment, "RECEIVE_USERCODE"))
+		if target == nil {
 			return
 		}
-		rows, err := s.Repo.Query(ctx, "SELECT 1 FROM BLOGCOMMENT WHERE BLOGID = ? AND (GUID = ? OR SUPERGUID = ?) AND USERCODE = ? LIMIT 1", blogID, parentID, parentID, target)
-		if err != nil || len(rows) == 0 {
-			return
+		receiverCode = strings.TrimSpace(model.StringValue(target, "USERCODE"))
+		if receiverCode == "" {
+			receiverEmail = normalizeMailAddress(model.StringValue(target, "USEREMAIL"))
 		}
-		receiver = target
 		remark = senderName + "回复了你在文章《" + title + "》下的评论"
 	}
-	// 自己评论自己的文章、回复自己不发消息
-	if receiver == "" || receiver == sender {
-		return
+	// 自己评论自己的文章、回复自己不通知
+	isSelf := (receiverCode != "" && receiverCode == sender) ||
+		(receiverCode == "" && receiverEmail != "" && receiverEmail == senderEmail)
+	if !isSelf && receiverCode != "" {
+		noticeSender := sender
+		if noticeSender == "" {
+			noticeSender = "guest"
+		}
+		if _, err := s.Repo.Exec(ctx, "INSERT INTO noticeInfo (SENDUSERCODE, RECEIVERUSERCODE, TYPE, EXECUTE, REMARK) VALUES (?, ?, 'comment', ?, ?)",
+			noticeSender, receiverCode, "/oneBlog/"+blogID, remark); err != nil {
+			log.Printf("评论已保存，但发送消息失败: %v", err)
+		}
+		receiverEmail = s.userMailAddress(ctx, receiverCode)
 	}
-	if sender == "" {
-		sender = "guest"
+
+	adminEmail := normalizeMailAddress(s.adminMailAddress())
+	senderIsAdmin := sender != "" && sender == s.superAdminCode()
+	quote := mailExcerpt(text, 300)
+	if !isSelf && receiverEmail != "" && receiverEmail != adminEmail {
+		s.queueMail(ctx, receiverEmail, remark,
+			renderNoticeMail(remark, nil, quote, "查看文章", link))
 	}
-	if _, err := s.Repo.Exec(ctx, "INSERT INTO noticeInfo (SENDUSERCODE, RECEIVERUSERCODE, TYPE, EXECUTE, REMARK) VALUES (?, ?, 'comment', ?, ?)",
-		sender, receiver, "/oneBlog/"+blogID, remark); err != nil {
-		log.Printf("评论已保存，但发送消息失败: %v", err)
+	// 站长接收全站评论，用于审核内容；站长自己发的评论不再通知自己
+	if adminEmail != "" && !senderIsAdmin {
+		kind := "评论"
+		if model.StringValue(comment, "SUPERGUID") != "" {
+			kind = "回复"
+		}
+		lines := []string{"文章：《" + title + "》", "评论人：" + senderName}
+		if sender == "" {
+			lines = append(lines, "身份：匿名访客")
+			if senderEmail != "" {
+				lines = append(lines, "邮箱："+senderEmail)
+			}
+		}
+		if website := model.StringValue(comment, "USERWEBSITE"); website != "" {
+			lines = append(lines, "网址："+website)
+		}
+		s.queueMail(ctx, adminEmail, "【新"+kind+"】"+senderName+"："+mailExcerpt(text, 30),
+			renderNoticeMail("《"+title+"》有新"+kind, lines, quote, "查看文章", link))
 	}
+}
+
+// findReplyTarget 找到被回复的那条评论，必须在同一篇文章的同一楼层里。
+// 优先用前端传来的被回复评论编号；旧版前端没有传时，退回按 RECEIVE_USERCODE 查找。
+func (s *Service) findReplyTarget(ctx context.Context, blogID, parentID, replyTo, receiverCode string) map[string]any {
+	if replyTo != "" {
+		rows, err := s.Repo.Query(ctx, "SELECT USERCODE, USEREMAIL FROM BLOGCOMMENT WHERE BLOGID = ? AND GUID = ? AND (GUID = ? OR SUPERGUID = ?) LIMIT 1", blogID, replyTo, parentID, parentID)
+		if err == nil && len(rows) > 0 {
+			return rows[0]
+		}
+	}
+	receiverCode = strings.TrimSpace(receiverCode)
+	if receiverCode == "" {
+		return nil
+	}
+	rows, err := s.Repo.Query(ctx, "SELECT USERCODE, USEREMAIL FROM BLOGCOMMENT WHERE BLOGID = ? AND (GUID = ? OR SUPERGUID = ?) AND USERCODE = ? LIMIT 1", blogID, parentID, parentID, receiverCode)
+	if err != nil || len(rows) == 0 {
+		return nil
+	}
+	return rows[0]
+}
+
+// normalizeWebsite 规范化评论者填写的网址：只接受 http/https，没写协议时补上 https://
+func normalizeWebsite(website string) string {
+	website = strings.TrimSpace(website)
+	if website == "" || len(website) > 255 {
+		return ""
+	}
+	if !strings.Contains(website, "://") {
+		website = "https://" + website
+	}
+	parsed, err := url.Parse(website)
+	if err != nil || parsed.Host == "" {
+		return ""
+	}
+	scheme := strings.ToLower(parsed.Scheme)
+	if scheme != "http" && scheme != "https" {
+		return ""
+	}
+	return website
 }
 
 func (s *Service) GetBlogComments(ctx context.Context, blogID string) model.Result {
@@ -411,7 +498,14 @@ WHERE bc.BLOGID = ?
 ORDER BY COALESCE(p.CREATE_TIME, bc.CREATE_TIME) DESC,
 CASE WHEN bc.SUPERGUID IS NULL OR bc.SUPERGUID = '' THEN 0 ELSE 1 END ASC,
 bc.CREATE_TIME ASC`
-	return s.SelectList(ctx, query, []any{blogID})
+	result := s.SelectList(ctx, query, []any{blogID})
+	// 评论者留的邮箱只用于回复通知，不对外返回
+	if rows, ok := result.Result.([]map[string]any); ok {
+		for _, row := range rows {
+			delete(row, "USEREMAIL")
+		}
+	}
+	return result
 }
 
 func (s *Service) DeleteBlogComment(c *gin.Context, guid string) model.Result {

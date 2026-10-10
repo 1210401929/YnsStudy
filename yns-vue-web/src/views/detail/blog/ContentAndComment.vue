@@ -671,9 +671,11 @@ function avatarClick(blogContent) {
 }
 
 function commentAvatarClick(comment) {
-  if(comment.USERWEBSITE) {
-    window.open(comment.USERWEBSITE)
-  } else {
+  // 访客填写的网址只打开 http/https 链接，防止 javascript: 之类的链接执行脚本
+  const website = String(comment.USERWEBSITE || '').trim();
+  if (/^https?:\/\//i.test(website)) {
+    window.open(website, '_blank', 'noopener');
+  } else if (comment.USERCODE) {
     pubOpenUser(router, comment.USERCODE);
   }
 }
@@ -770,6 +772,8 @@ async function submitReply(parentGuid) {
 
     let comment = {...oneComment};
     delete comment.CREATE_TIME; delete comment.AVATAR;
+    // 告诉后台回复的是哪条评论，用于给对方发站内消息或邮件（匿名访客靠留下的邮箱）
+    comment.REPLY_TO = targetUser.GUID;
     let result = await sendAxiosRequest("/blog-api/blog/addComment", {blogComment: comment})
     if(result && !result.isError){
       parentComment.children.push(oneComment);

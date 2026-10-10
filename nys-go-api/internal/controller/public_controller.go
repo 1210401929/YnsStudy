@@ -1,6 +1,9 @@
 package controller
 
 import (
+	"html"
+	"net/http"
+
 	"github.com/gin-gonic/gin"
 
 	"nys-go-api/internal/model"
@@ -10,6 +13,9 @@ func (h *Controller) registerPublicRoutes(router *gin.Engine) {
 	api := router.Group("/pub-api/api")
 	api.Any("/getCurrentCity", func(c *gin.Context) { writeResult(c, h.service.CurrentCity(c)) })
 	api.Any("/getClientIpAddress", func(c *gin.Context) { writeResult(c, h.service.ClientIPAddress(c)) })
+
+	// 通知邮件底部的退订链接（get 开头的接口不需要登录）
+	router.GET("/pub-api/mail/getUnsubscribe", h.unsubscribeMail)
 
 	login := router.Group("/pub-api/login")
 	login.Any("/sendPhoneCode", h.sendPhoneCode)
@@ -173,4 +179,15 @@ func (h *Controller) uploadFile(c *gin.Context) {
 		return
 	}
 	writeResult(c, h.service.SaveUploadedFile(file, c.PostForm("spliceUrl")))
+}
+
+func (h *Controller) unsubscribeMail(c *gin.Context) {
+	message, _ := h.service.Unsubscribe(c.Request.Context(), c.Query("email"), c.Query("token"))
+	c.Header("Cache-Control", "no-store")
+	c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(`<!doctype html><html lang="zh-CN"><head><meta charset="utf-8">`+
+		`<meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>邮件退订 - YnsStudy</title></head>`+
+		`<body style="margin:0;background:#efe8da;font-family:-apple-system,'PingFang SC','Microsoft YaHei',sans-serif;color:#2b2a27">`+
+		`<div style="max-width:480px;margin:18vh auto;padding:32px 24px;background:#fffdf8;border:1px solid #e6dfd1;text-align:center">`+
+		`<p style="font-size:16px;line-height:1.8">`+html.EscapeString(message)+`</p>`+
+		`<a style="color:#2f5d8a" href="/">返回首页</a></div></body></html>`))
 }

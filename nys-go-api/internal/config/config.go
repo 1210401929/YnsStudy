@@ -25,6 +25,22 @@ type Config struct {
 	External ExternalConfig `yaml:"external"`
 	AI       AIConfig       `yaml:"ai"`
 	Content  ContentConfig  `yaml:"content"`
+	Mail     MailConfig     `yaml:"mail"`
+}
+
+// MailConfig 是评论、新文章等邮件通知使用的 SMTP 配置（如 QQ 邮箱：smtp.qq.com:465，密码填授权码）。
+type MailConfig struct {
+	Enabled    bool   `yaml:"enabled"`
+	SMTPHost   string `yaml:"smtp_host"`
+	SMTPPort   int    `yaml:"smtp_port"`
+	Username   string `yaml:"username"`    // 发件邮箱
+	Password   string `yaml:"password"`    // SMTP 授权码，不是邮箱登录密码
+	FromName   string `yaml:"from_name"`   // 发件人显示名称
+	AdminEmail string `yaml:"admin_email"` // 站长邮箱：接收全站评论、新文章、社区帖子，不填则用发件邮箱
+	// APIBaseURL 是邮件里退订链接的接口地址前缀，不填时为 external.domain_name + "/api"
+	APIBaseURL string `yaml:"api_base_url"`
+	// DailyLimitPerAddress 是同一邮箱每天最多收到的通知数（站长不受限制），不填为 10
+	DailyLimitPerAddress int `yaml:"daily_limit_per_address"`
 }
 
 type ServerConfig struct {
@@ -252,6 +268,11 @@ func (c *Config) validate() error {
 	}
 	if c.Upload.PublicPrefix == "" || c.Upload.Directory == "" {
 		return fmt.Errorf("upload.public_prefix/directory 不能为空")
+	}
+	if c.Mail.Enabled {
+		if strings.TrimSpace(c.Mail.SMTPHost) == "" || c.Mail.SMTPPort <= 0 || strings.TrimSpace(c.Mail.Username) == "" || c.Mail.Password == "" {
+			return fmt.Errorf("启用邮件通知后 mail.smtp_host/smtp_port/username/password 不能为空")
+		}
 	}
 	if c.External.HTTPTimeoutSeconds <= 0 || c.AI.TimeoutSec <= 0 {
 		return fmt.Errorf("外部 HTTP 超时参数必须大于 0")

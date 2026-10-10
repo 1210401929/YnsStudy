@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -26,6 +27,12 @@ type Service struct {
 	Sessions *session.Manager
 	JWT      *security.JWT
 	HTTP     *http.Client
+
+	// 邮件通知队列：后台单个协程按顺序发送，避免同时连接 SMTP 被限流
+	mailOnce  sync.Once
+	mailQueue chan mailJob
+	// sendMailFunc 为空时通过 SMTP 发送，测试中可替换
+	sendMailFunc func(mailJob) error
 }
 
 func New(cfg *config.Config, repo *repository.SQLRepository, store cache.Store, sessions *session.Manager, jwt *security.JWT) *Service {

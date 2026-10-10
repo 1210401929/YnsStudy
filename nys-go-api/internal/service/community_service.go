@@ -26,7 +26,11 @@ func (s *Service) AddCommunity(c *gin.Context, community map[string]any) model.R
 	if s.hasSearchText(ctx, "communityInfo") {
 		community[searchTextColumn] = htmlToSearchText(model.StringValue(community, "TEXT"))
 	}
-	return stripSearchTextResult(s.SaveAll(ctx, "add", "communityInfo", []map[string]any{community}, "GUID"))
+	result := stripSearchTextResult(s.SaveAll(ctx, "add", "communityInfo", []map[string]any{community}, "GUID"))
+	if !result.IsError {
+		s.notifyAdminContent(ctx, actor.Code(), actor.User.Name, "社区新帖", "", model.StringValue(community, "TEXT"), s.mailSiteURL("/ynsStudy/Community"))
+	}
+	return result
 }
 
 // DeleteCommunity 的规则与前端一致：超级管理员可删除任何帖子；置顶帖只有超级管理员能删；
@@ -103,7 +107,12 @@ func (s *Service) AddCommunityComment(c *gin.Context, comment map[string]any) mo
 	comment = pickFields(comment, "GUID", "COMMUNITYID", "SUPERGUID", "TEXT")
 	comment["USERCODE"] = actor.Code()
 	comment["USERNAME"] = actor.User.Name
-	return s.SaveAll(contextOf(c), "add", "communityComment", []map[string]any{comment}, "GUID")
+	ctx := contextOf(c)
+	result := s.SaveAll(ctx, "add", "communityComment", []map[string]any{comment}, "GUID")
+	if !result.IsError {
+		s.notifyAdminContent(ctx, actor.Code(), actor.User.Name, "社区新评论", "", model.StringValue(comment, "TEXT"), s.mailSiteURL("/ynsStudy/Community"))
+	}
+	return result
 }
 
 func (s *Service) GetCommunityComments(ctx context.Context, communityID string) model.Result {
