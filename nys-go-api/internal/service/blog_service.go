@@ -398,18 +398,19 @@ func (s *Service) notifyBlogComment(ctx context.Context, comment map[string]any,
 		receiverCode = authorCode
 		remark = senderName + "评论了你的文章《" + title + "》"
 	} else {
-		target := s.findReplyTarget(ctx, blogID, parentID, replyTo, model.StringValue(comment, "RECEIVE_USERCODE"))
-		if target == nil {
-			return
-		}
-		originalName = strings.TrimSpace(model.StringValue(target, "USERNAME"))
-		if originalName == "" {
-			originalName = "访客"
-		}
-		originalText = mailExcerpt(strings.TrimSpace(model.StringValue(target, "TEXT")), 300)
-		receiverCode = strings.TrimSpace(model.StringValue(target, "USERCODE"))
-		if receiverCode == "" {
-			receiverEmail = normalizeMailAddress(model.StringValue(target, "USEREMAIL"))
+		// 找不到被回复的评论时只是不通知被回复人，站长邮件照常发送
+		if target := s.findReplyTarget(ctx, blogID, parentID, replyTo, model.StringValue(comment, "RECEIVE_USERCODE")); target != nil {
+			originalName = strings.TrimSpace(model.StringValue(target, "USERNAME"))
+			if originalName == "" {
+				originalName = "访客"
+			}
+			originalText = mailExcerpt(strings.TrimSpace(model.StringValue(target, "TEXT")), 300)
+			receiverCode = strings.TrimSpace(model.StringValue(target, "USERCODE"))
+			if receiverCode == "" {
+				receiverEmail = normalizeMailAddress(model.StringValue(target, "USEREMAIL"))
+			}
+		} else {
+			log.Printf("回复评论时未找到被回复的评论: blog=%s parent=%s replyTo=%s", blogID, parentID, replyTo)
 		}
 		remark = senderName + "回复了你在文章《" + title + "》下的评论"
 	}
