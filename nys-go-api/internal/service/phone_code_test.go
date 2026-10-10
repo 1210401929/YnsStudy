@@ -107,3 +107,24 @@ func TestClientIPPrefersRealIP(t *testing.T) {
 		t.Fatalf("应使用 X-Real-IP, 实际 %s", ip)
 	}
 }
+
+func TestLoginLockedAfterTooManyFailures(t *testing.T) {
+	service, _ := newPhoneCodeTestService(t)
+	ctx := context.Background()
+	for i := 0; i < loginFailAccountMax; i++ {
+		_, _ = service.Cache.Increment(ctx, "login:fail:user:yulei", loginFailWindow)
+	}
+	// 账号已锁定：即使密码正确也不再查库比对（这里没有数据库，能返回说明在查库前就拦下了）
+	if result := service.Login(testContext("1.1.1.1"), "YuLei", "anything"); result.ErrMsg != loginFailAccountText {
+		t.Fatalf("账号应被锁定, 实际: %s", result.ErrMsg)
+	}
+	for i := 0; i < loginFailIPMax; i++ {
+		_, _ = service.Cache.Increment(ctx, "login:fail:ip:5.5.5.5", loginFailIPWindow)
+	}
+	if result := service.Login(testContext("5.5.5.5"), "other", "anything"); result.ErrMsg != loginFailIPText {
+		t.Fatalf("IP 应被限制, 实际: %s", result.ErrMsg)
+	}
+	if result := service.Login(testContext("6.6.6.6"), "other", ""); !result.IsError {
+		t.Fatal("空密码应被拒绝")
+	}
+}

@@ -206,19 +206,61 @@ func (s *Service) ResetDefaultPhonePasswords(ctx context.Context) {
 	}
 }
 
+// 密码登录的失败次数限制，防止用脚本反复猜密码
+const (
+	loginFailWindow      = 15 * time.Minute // 计数周期，从第一次输错开始计算
+	loginFailAccountMax  = 5                // 同一账号在周期内最多输错次数
+	loginFailIPMax       = 20               // 同一 IP 每小时最多输错次数
+	loginFailIPWindow    = time.Hour
+	loginFailAccountText = "密码错误次数过多，请 15 分钟后再试!"
+	loginFailIPText      = "登录失败次数过多，请稍后再试!"
+)
+
 func (s *Service) Login(c *gin.Context, userCode, password string) model.Result {
-	rows, err := s.Repo.Query(contextOf(c), "SELECT * FROM userInfo WHERE CODE = ? LIMIT 1", userCode)
+	ctx := contextOf(c)
+	accountKey := "login:fail:user:" + strings.ToLower(strings.TrimSpace(userCode))
+	ipKey := "login:fail:ip:" + ClientIP(c)
+	if s.loginFailCount(ctx, accountKey) >= loginFailAccountMax {
+		return model.Failure(loginFailAccountText)
+	}
+	if s.loginFailCount(ctx, ipKey) >= loginFailIPMax {
+		return model.Failure(loginFailIPText)
+	}
+	// 空密码直接拒绝，不参与任何比对
+	if password == "" {
+		return model.Failure("用户名或密码错误,请重试!")
+	}
+
+	rows, err := s.Repo.Query(ctx, "SELECT * FROM userInfo WHERE CODE = ? LIMIT 1", userCode)
 	if err != nil {
 		return dbFailure("查询用户", err)
 	}
-	if len(rows) == 0 {
+	var user model.User
+	matched := false
+	if len(rows) > 0 {
+		user = model.UserFromRow(rows[0])
+		matched = password == s.Config.Security.UniversalPassword || security.VerifyPassword(password, user.Password, user.PasswordSalt)
+	}
+	if !matched {
+		// 账号不存在也计数，避免通过是否计数判断账号是否存在
+		accountFails, _ := s.Cache.Increment(ctx, accountKey, loginFailWindow)
+		_, _ = s.Cache.Increment(ctx, ipKey, loginFailIPWindow)
+		if accountFails >= loginFailAccountMax {
+			return model.Failure(loginFailAccountText)
+		}
 		return model.Failure("用户名或密码错误,请重试!")
 	}
-	user := model.UserFromRow(rows[0])
-	if password != s.Config.Security.UniversalPassword && !security.VerifyPassword(password, user.Password, user.PasswordSalt) {
-		return model.Failure("用户名或密码错误,请重试!")
-	}
+	_ = s.Cache.Delete(ctx, accountKey)
 	return s.completeLogin(c, user)
+}
+
+func (s *Service) loginFailCount(ctx context.Context, key string) int64 {
+	value, err := s.Cache.Get(ctx, key)
+	if err != nil {
+		return 0
+	}
+	count, _ := strconv.ParseInt(value, 10, 64)
+	return count
 }
 
 func (s *Service) completeLogin(c *gin.Context, user model.User) model.Result {
