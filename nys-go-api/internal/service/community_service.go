@@ -10,13 +10,33 @@ import (
 )
 
 func (s *Service) AddCommunity(c *gin.Context, community map[string]any) model.Result {
-	if _, err := s.CurrentUser(c); err != nil {
-		return model.Failure("用户未登录!")
+	actor, failure := s.requireLogin(c)
+	if failure != nil {
+		return *failure
 	}
+	community["USERCODE"] = actor.Code()
+	community["USERNAME"] = actor.User.Name
+	// 置顶只能由超级管理员通过 setTopCommunity 设置
+	delete(community, "ISTOP")
 	return s.SaveAll(contextOf(c), "add", "communityInfo", []map[string]any{community}, "GUID")
 }
 
-func (s *Service) DeleteCommunity(ctx context.Context, guid string) model.Result {
+// DeleteCommunity 的规则与前端一致：超级管理员可删除任何帖子；置顶帖只有超级管理员能删；
+// 非置顶帖作者本人可删，管理员可删除非超级管理员发布的帖子。
+func (s *Service) DeleteCommunity(c *gin.Context, guid string) model.Result {
+	actor, failure := s.requireLogin(c)
+	if failure != nil {
+		return *failure
+	}
+	row, failure := s.loadRow(c, "communityInfo", guid)
+	if failure != nil {
+		return *failure
+	}
+	isTop := model.StringValue(row, "ISTOP") == "1"
+	if !actor.IsSuper && (isTop || !actor.CanManage(model.StringValue(row, "USERCODE"))) {
+		return model.Failure(msgForbidden)
+	}
+	ctx := contextOf(c)
 	_, _, err := s.Repo.ExecuteBatch(ctx,
 		[]string{"DELETE FROM communityInfo WHERE GUID = ?", "DELETE FROM communityComment WHERE COMMUNITYID = ?"},
 		[][]any{{guid}, {guid}}, false,
@@ -27,7 +47,11 @@ func (s *Service) DeleteCommunity(ctx context.Context, guid string) model.Result
 	return model.Success("删除成功")
 }
 
-func (s *Service) SetTopCommunity(ctx context.Context, guid, isTop string) model.Result {
+func (s *Service) SetTopCommunity(c *gin.Context, guid, isTop string) model.Result {
+	if _, failure := s.requireSuperAdmin(c); failure != nil {
+		return *failure
+	}
+	ctx := contextOf(c)
 	var value any
 	if isTop == "1" {
 		value = "1"
@@ -64,9 +88,12 @@ func (s *Service) GetAllCommunities(ctx context.Context, page, pageSize int, key
 }
 
 func (s *Service) AddCommunityComment(c *gin.Context, comment map[string]any) model.Result {
-	if _, err := s.CurrentUser(c); err != nil {
-		return model.Failure("用户未登录!")
+	actor, failure := s.requireLogin(c)
+	if failure != nil {
+		return *failure
 	}
+	comment["USERCODE"] = actor.Code()
+	comment["USERNAME"] = actor.User.Name
 	return s.SaveAll(contextOf(c), "add", "communityComment", []map[string]any{comment}, "GUID")
 }
 

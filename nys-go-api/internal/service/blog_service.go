@@ -18,8 +18,16 @@ import (
 
 var imageSourcePattern = regexp.MustCompile(`(?i)<img\b[^>]*?\bsrc\s*=\s*["']([^"']+)["']`)
 
-func (s *Service) AddBlog(ctx context.Context, blog map[string]any) model.Result {
+func (s *Service) AddBlog(c *gin.Context, blog map[string]any) model.Result {
+	actor, failure := s.requireLogin(c)
+	if failure != nil {
+		return *failure
+	}
+	ctx := contextOf(c)
 	blog = normalizeNewBlog(blog)
+	// 作者以登录用户为准，不信任请求体中的 USERCODE/USERNAME
+	blog["USERCODE"] = actor.Code()
+	blog["USERNAME"] = actor.User.Name
 	if fmt.Sprint(blog["GUID"]) == "" || blog["GUID"] == nil {
 		tx, err := s.Repo.DB().BeginTx(ctx, nil)
 		if err != nil {
@@ -42,7 +50,15 @@ func (s *Service) AddBlog(ctx context.Context, blog map[string]any) model.Result
 			return dbFailure("提交文章编号", err)
 		}
 	}
-	return s.SaveAll(ctx, "add", "BLOGINFO", []map[string]any{blog}, "GUID")
+	result := s.SaveAll(ctx, "add", "BLOGINFO", []map[string]any{blog}, "GUID")
+	if !result.IsError && isPublicBlogType(model.StringValue(blog, "BLOG_TYPE")) {
+		s.NotifyBlogChanged(model.StringValue(blog, "GUID"))
+	}
+	return result
+}
+
+func isPublicBlogType(blogType string) bool {
+	return strings.EqualFold(strings.TrimSpace(blogType), "public")
 }
 
 // normalizeNewBlog reproduces the field filtering previously provided by the
@@ -82,7 +98,22 @@ func (s *Service) GetBlogsByUser(ctx context.Context, userCode string, publicOnl
 	return s.SelectList(ctx, query, []any{userCode})
 }
 
-func (s *Service) UpdateBlogCategory(ctx context.Context, blogID, categoryID string) model.Result {
+func (s *Service) UpdateBlogCategory(c *gin.Context, blogID, categoryID string) model.Result {
+	blog, failure := s.requireOwnerOrAdmin(c, "blogInfo", blogID)
+	if failure != nil {
+		return *failure
+	}
+	// 只能归入文章作者自己的分类
+	if categoryID != "" {
+		category, failure := s.loadRow(c, "blogCatInfo", categoryID)
+		if failure != nil {
+			return *failure
+		}
+		if model.StringValue(category, "USERCODE") != model.StringValue(blog, "USERCODE") {
+			return model.Failure(msgForbidden)
+		}
+	}
+	ctx := contextOf(c)
 	var value any = categoryID
 	if categoryID == "" {
 		value = nil
@@ -95,7 +126,7 @@ func (s *Service) GetBlog(c *gin.Context, blogID string) model.Result {
 	if user, err := s.CurrentUser(c); err == nil {
 		userCode = user.Code
 	}
-	query := `SELECT b.*, u.AVATAR FROM blogInfo b
+	query := `SELECT b.*, u.AVATAR, u.USERNUM FROM blogInfo b
 LEFT JOIN userInfo u ON b.USERCODE = u.CODE
 WHERE b.GUID = ? AND (b.USERCODE = ? OR b.BLOG_TYPE = 'public')`
 	rows, err := s.Repo.Query(contextOf(c), query, blogID, userCode)
@@ -111,7 +142,7 @@ WHERE b.GUID = ? AND (b.USERCODE = ? OR b.BLOG_TYPE = 'public')`
 // GetPublicBlogForSEO 只读取公开文章，不增加阅读量。
 // 搜索引擎抓取会比较频繁，如果复用普通详情接口会把爬虫访问错误地计入 VIEW_PAGE。
 func (s *Service) GetPublicBlogForSEO(ctx context.Context, blogID string) (map[string]any, bool, error) {
-	rows, err := s.Repo.Query(ctx, `SELECT b.*, u.AVATAR
+	rows, err := s.Repo.Query(ctx, `SELECT b.*, u.AVATAR, u.USERNUM
 FROM blogInfo b
 LEFT JOIN userInfo u ON b.USERCODE = u.CODE
 WHERE b.GUID = ? AND b.BLOG_TYPE = 'public'
@@ -137,7 +168,7 @@ func (s *Service) GetAllBlogs(ctx context.Context, page, pageSize int, keyword s
 		countArgs = append(countArgs, like, like)
 	}
 	listArgs = append(listArgs, pageSize, (page-1)*pageSize)
-	rows, err := s.Repo.Query(ctx, "SELECT b.*, u.AVATAR FROM blogInfo b LEFT JOIN userInfo u ON b.USERCODE = u.CODE"+where+" ORDER BY b.CREATE_TIME DESC LIMIT ? OFFSET ?", listArgs...)
+	rows, err := s.Repo.Query(ctx, "SELECT b.*, u.AVATAR, u.USERNUM FROM blogInfo b LEFT JOIN userInfo u ON b.USERCODE = u.CODE"+where+" ORDER BY b.CREATE_TIME DESC LIMIT ? OFFSET ?", listArgs...)
 	if err != nil {
 		return dbFailure("查询文章", err)
 	}
@@ -148,11 +179,14 @@ func (s *Service) GetAllBlogs(ctx context.Context, page, pageSize int, keyword s
 	return model.Success(map[string]any{"total": firstCount(counts), "data": rows})
 }
 
-func (s *Service) UpdateBlog(ctx context.Context, guid, title, content, blogType string) model.Result {
-	rows, err := s.Repo.Query(ctx, "SELECT MAINTEXT FROM blogInfo WHERE GUID = ?", guid)
-	if err != nil || len(rows) == 0 {
-		return model.Failure("修改异常!")
+func (s *Service) UpdateBlog(c *gin.Context, guid, title, content, blogType string) model.Result {
+	row, failure := s.requireOwnerOrAdmin(c, "blogInfo", guid)
+	if failure != nil {
+		return *failure
 	}
+	ctx := contextOf(c)
+	rows := []map[string]any{row}
+	wasPublic := isPublicBlogType(model.StringValue(rows[0], "BLOG_TYPE"))
 	oldURLs := extractImageURLs(model.StringValue(rows[0], "MAINTEXT"))
 	newURLs := extractImageURLs(content)
 	removed := difference(oldURLs, newURLs)
@@ -166,6 +200,10 @@ func (s *Service) UpdateBlog(ctx context.Context, guid, title, content, blogType
 	}
 	if _, err := s.Repo.Exec(ctx, query, title, content, blogType, guid); err != nil {
 		return dbFailure("修改文章", err)
+	}
+	// 公开文章被修改或改为私密时都要通知，后者让搜索引擎发现页面已不可访问。
+	if wasPublic || isPublicBlogType(blogType) {
+		s.NotifyBlogChanged(guid)
 	}
 	return model.Success("执行成功，影响行数：1")
 }
@@ -181,36 +219,68 @@ WHERE TABLE_SCHEMA = DATABASE()
 	return err == nil && firstCount(rows) > 0
 }
 
-func (s *Service) DeleteBlog(ctx context.Context, guid string) model.Result {
+func (s *Service) DeleteBlog(c *gin.Context, guid string) model.Result {
 	if strings.TrimSpace(guid) == "" {
 		return model.Failure("未传入删除主键!")
 	}
-	rows, err := s.Repo.Query(ctx, "SELECT MAINTEXT FROM blogInfo WHERE GUID = ?", guid)
-	if err != nil || len(rows) == 0 {
-		return model.Failure("删除异常!")
+	row, failure := s.requireOwnerOrAdmin(c, "blogInfo", guid)
+	if failure != nil {
+		return *failure
 	}
+	ctx := contextOf(c)
+	rows := []map[string]any{row}
+	wasPublic := isPublicBlogType(model.StringValue(rows[0], "BLOG_TYPE"))
 	if result := s.DeleteUploadedFiles(extractImageURLs(model.StringValue(rows[0], "MAINTEXT"))); result.IsError {
 		return result
 	}
-	_, _, err = s.Repo.ExecuteBatch(ctx,
+	_, _, err := s.Repo.ExecuteBatch(ctx,
 		[]string{"DELETE FROM blogInfo WHERE GUID = ?", "DELETE FROM blogComment WHERE BLOGID = ?", "DELETE FROM blogGiveLike WHERE BLOGID = ?"},
 		[][]any{{guid}, {guid}, {guid}}, false,
 	)
 	if err != nil {
 		return dbFailure("删除文章", err)
 	}
+	if wasPublic {
+		s.NotifyBlogChanged(guid)
+	}
 	return model.Success("删除成功")
 }
 
-func (s *Service) AddBlogCategory(ctx context.Context, category map[string]any) model.Result {
-	return s.SaveAll(ctx, "add", "BLOGCATINFO", []map[string]any{category}, "GUID")
+func (s *Service) AddBlogCategory(c *gin.Context, category map[string]any) model.Result {
+	actor, failure := s.requireLogin(c)
+	if failure != nil {
+		return *failure
+	}
+	data := pickFields(category, "GUID", "CATNAME", "SUPERGUID", "REMARK", "ORDERNO")
+	data["USERCODE"] = actor.Code()
+	// 父分类必须属于自己
+	if parent := strings.TrimSpace(model.StringValue(data, "SUPERGUID")); parent != "" {
+		parentRow, failure := s.loadRow(c, "blogCatInfo", parent)
+		if failure != nil {
+			return *failure
+		}
+		if model.StringValue(parentRow, "USERCODE") != actor.Code() {
+			return model.Failure(msgForbidden)
+		}
+	}
+	return s.SaveAll(contextOf(c), "add", "BLOGCATINFO", []map[string]any{data}, "GUID")
 }
 
-func (s *Service) UpdateBlogCategoryInfo(ctx context.Context, category map[string]any) model.Result {
-	return s.SaveAll(ctx, "edit", "BLOGCATINFO", []map[string]any{category}, "GUID")
+func (s *Service) UpdateBlogCategoryInfo(c *gin.Context, category map[string]any) model.Result {
+	guid := model.StringValue(category, "GUID")
+	if _, failure := s.requireOwnerOrAdmin(c, "blogCatInfo", guid); failure != nil {
+		return *failure
+	}
+	data := pickFields(category, "CATNAME", "REMARK", "ORDERNO")
+	data["GUID"] = guid
+	return s.SaveAll(contextOf(c), "edit", "BLOGCATINFO", []map[string]any{data}, "GUID")
 }
 
-func (s *Service) DeleteBlogCategory(ctx context.Context, guid string) model.Result {
+func (s *Service) DeleteBlogCategory(c *gin.Context, guid string) model.Result {
+	if _, failure := s.requireOwnerOrAdmin(c, "blogCatInfo", guid); failure != nil {
+		return *failure
+	}
+	ctx := contextOf(c)
 	_, _, err := s.Repo.ExecuteBatch(ctx,
 		[]string{
 			"UPDATE blogInfo SET CAT_ID = NULL WHERE CAT_ID IN (SELECT GUID FROM BLOGCATINFO WHERE GUID = ? OR SUPERGUID = ?)",
@@ -245,6 +315,15 @@ func (s *Service) AddBlogComment(c *gin.Context, comment map[string]any) model.R
 		return model.Failure("评论过于频繁，请稍后再试！")
 	}
 
+	// 登录用户以当前账号身份评论；匿名评论不能冒用任何已注册账号
+	if actor, ok := s.CurrentActor(c); ok {
+		comment["USERCODE"] = actor.Code()
+		comment["USERNAME"] = actor.User.Name
+	} else {
+		delete(comment, "USERCODE")
+		delete(comment, "usercode")
+	}
+
 	for _, field := range []string{"TEXT", "USERWEBSITE", "USERNAME"} {
 		if s.containsBannedWord(fmt.Sprint(comment[field])) {
 			return model.Failure("提交的内容包含违禁词，禁止发布！")
@@ -276,8 +355,11 @@ bc.CREATE_TIME ASC`
 	return s.SelectList(ctx, query, []any{blogID})
 }
 
-func (s *Service) DeleteBlogComment(ctx context.Context, guid string) model.Result {
-	return s.ExecuteSQL(ctx, "DELETE FROM BLOGCOMMENT WHERE GUID = ? OR SUPERGUID = ?", []any{guid, guid})
+func (s *Service) DeleteBlogComment(c *gin.Context, guid string) model.Result {
+	if _, failure := s.requireOwnerOrAdmin(c, "blogComment", guid); failure != nil {
+		return *failure
+	}
+	return s.ExecuteSQL(contextOf(c), "DELETE FROM BLOGCOMMENT WHERE GUID = ? OR SUPERGUID = ?", []any{guid, guid})
 }
 
 func (s *Service) AddBlogReaction(c *gin.Context, blogID, reactionType string) model.Result {

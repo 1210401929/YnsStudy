@@ -4,15 +4,32 @@ import (
 	"context"
 	"strings"
 
+	"github.com/gin-gonic/gin"
+
 	"nys-go-api/internal/model"
 )
 
-func (s *Service) AddFileInfo(ctx context.Context, info map[string]any) model.Result {
-	return s.SaveAll(ctx, "add", "FILEINFO", []map[string]any{info}, "GUID")
+func (s *Service) AddFileInfo(c *gin.Context, info map[string]any) model.Result {
+	actor, failure := s.requireLogin(c)
+	if failure != nil {
+		return *failure
+	}
+	info["USERCODE"] = actor.Code()
+	info["USERNAME"] = actor.User.Name
+	delete(info, "DOWNNUM")
+	return s.SaveAll(contextOf(c), "add", "FILEINFO", []map[string]any{info}, "GUID")
 }
 
-func (s *Service) DeleteFileInfo(ctx context.Context, guid, fileURL string) model.Result {
-	if strings.TrimSpace(fileURL) == "" {
+// DeleteFileInfo 删除资源记录和对应文件。文件地址从数据库读取，不使用请求传入的地址，
+// 否则可以借此删除服务器上任意上传文件。
+func (s *Service) DeleteFileInfo(c *gin.Context, guid string) model.Result {
+	row, failure := s.requireOwnerOrAdmin(c, "fileInfo", guid)
+	if failure != nil {
+		return *failure
+	}
+	ctx := contextOf(c)
+	fileURL := strings.TrimSpace(model.StringValue(row, "FILEVIEWURL"))
+	if fileURL == "" {
 		return model.Failure("路径不存在或不正确!")
 	}
 	result := s.ExecuteSQL(ctx, "DELETE FROM fileInfo WHERE GUID = ?", []any{guid})
@@ -53,8 +70,11 @@ func (s *Service) GetFileByID(ctx context.Context, guid string) model.Result {
 	return s.SelectList(ctx, "SELECT * FROM fileInfo WHERE GUID = ?", []any{guid})
 }
 
-func (s *Service) UpdateFileInfo(ctx context.Context, guid, originalName, remark string) model.Result {
-	return s.ExecuteSQL(ctx, "UPDATE fileInfo SET ORIGINALFILENAME = ?, REMARK = ? WHERE GUID = ?", []any{originalName, remark, guid})
+func (s *Service) UpdateFileInfo(c *gin.Context, guid, originalName, remark string) model.Result {
+	if _, failure := s.requireOwnerOrAdmin(c, "fileInfo", guid); failure != nil {
+		return *failure
+	}
+	return s.ExecuteSQL(contextOf(c), "UPDATE fileInfo SET ORIGINALFILENAME = ?, REMARK = ? WHERE GUID = ?", []any{originalName, remark, guid})
 }
 
 func (s *Service) IncrementFileDownloads(ctx context.Context, guid string) model.Result {

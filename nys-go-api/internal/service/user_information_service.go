@@ -112,10 +112,24 @@ SELECT 1 FROM communityInfo WHERE USERCODE = ? AND (TITLE LIKE ? OR TEXT LIKE ?)
 	return model.Success(map[string]any{"total": firstCount(counts), "data": rows})
 }
 
-func (s *Service) SetPersonInfo(ctx context.Context, userCode, fieldName, fieldValue string) model.Result {
-	if strings.TrimSpace(fieldName) == "" {
-		return model.Failure("fieldName 不能为空")
+// personInfoFields 是个人主页允许设置的字段（背景图、背景音乐）。
+var personInfoFields = map[string]bool{"BGIMAGEURL": true, "BGMUSICURL": true}
+
+// SetPersonInfo 只能修改当前登录用户自己的主页设置。
+func (s *Service) SetPersonInfo(c *gin.Context, userCode, fieldName, fieldValue string) model.Result {
+	actor, failure := s.requireLogin(c)
+	if failure != nil {
+		return *failure
 	}
+	if userCode != "" && userCode != actor.Code() {
+		return model.Failure(msgForbidden)
+	}
+	userCode = actor.Code()
+	fieldName = strings.ToUpper(strings.TrimSpace(fieldName))
+	if !personInfoFields[fieldName] {
+		return model.Failure("不支持修改该字段")
+	}
+	ctx := contextOf(c)
 	rows, err := s.Repo.Query(ctx, "SELECT GUID FROM personInfo WHERE USERCODE = ? LIMIT 1", userCode)
 	if err != nil {
 		return dbFailure("查询个人主页配置", err)

@@ -27,7 +27,13 @@ https://ynsstudy.cn/api/pub-api/login/qq/callback
 
 ## SEO 部署
 
-文章会持续新增，单纯 Vue CSR 或构建时 Prerender 无法保证新文章的首次 HTML 包含正文。因此将首页 `/`、`/oneBlog/:id`、`/sitemap.xml` 和 `/rss.xml` 交给 Go 动态输出：首页包含站点介绍和最新文章链接，文章页包含真实正文，其他页面继续由原 Vue + Nginx 提供。
+文章会持续新增，单纯 Vue CSR 或构建时 Prerender 无法保证新文章的首次 HTML 包含正文。因此将首页 `/`、`/oneBlog/:id`、`/archive`、`/sitemap.xml` 和 `/rss.xml` 交给 Go 动态输出：首页包含站点介绍和最新文章链接，文章页包含真实正文、上一篇/下一篇和同作者文章链接，`/archive`（及 `/archive/page/N`）是按发布时间分页的全部文章归档，其他页面继续由原 Vue + Nginx 提供。
+
+`security.whitelist` 需要包含 `/archive`、`/archive/**` 和 `/indexnow.txt`，否则这些公开页面会被鉴权拦截。
+
+### IndexNow（Bing 等搜索引擎）
+
+在 `seo.indexnow_key` 填写 8-128 位字母、数字或连字符组成的密钥后，Go 会在 `/indexnow.txt` 公开该密钥，并在公开文章发布、修改、改为私密或删除时，后台推送文章地址和 `/archive` 到 `https://api.indexnow.org/indexnow`。推送失败只写日志，不影响发文。本地开发请保持为空，避免把测试数据推送给搜索引擎。Google 不支持 IndexNow，依靠 sitemap 发现新文章。
 
 部署时需要完成以下三项：
 
@@ -66,4 +72,5 @@ internal/session/       Redis 会话
 - 普通业务响应继续使用 `{isError, errMsg, result}`。
 - 原网关的白名单、JWT、内部调用密钥和 AES 请求/响应加密已迁移为 Gin 中间件。
 - Redis 继续负责会话、短信验证码和评论限流；将 `redis.enabled` 设为 `false` 时会使用进程内缓存，适合本地临时调试。
-- `/pub-api/sql/**` 为旧系统兼容接口，能直接执行 SQL，默认仍受鉴权保护。新增业务应优先在 service/repository 中使用参数化 SQL。
+- 旧系统的 `/pub-api/sql/**`（直接执行 SQL）和 `/pub-api/upload/deleteFileByUrl(s)`（按地址删除文件）已移除：前端没有使用，而任何登录用户都能借此读写整个数据库或删除他人文件。新增业务在 service/repository 中使用参数化 SQL。
+- 写操作的权限在后端校验（`internal/service/permission.go`），规则与前端一致：作者本人可以管理自己的内容；管理员（`userInfo.ROLE = 'admin'`）可以管理除超级管理员以外的内容；超级管理员（`security.super_admin_code`，默认 `yulei`，需与前端 `vue-config.js` 的 `adminUserCode` 一致）可以管理全部内容，并独占后台管理（用户管理、公告、文件一致性检查、社区置顶）。作者、发送者等身份字段一律取自当前登录用户，不信任请求体。

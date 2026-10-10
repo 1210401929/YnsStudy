@@ -40,6 +40,19 @@
       </div>
     </main>
 
+    <!-- 最新文章：首页对用户和搜索引擎都直接给出文章入口 -->
+    <section v-if="latestArticles.length" class="latest j-paper" aria-labelledby="latest-title">
+      <span class="j-tape j-tape--top"></span>
+      <h2 id="latest-title" class="latest-title">最新文章</h2>
+      <ul class="latest-list">
+        <li v-for="article in latestArticles" :key="article.GUID">
+          <a :href="`/oneBlog/${encodeURIComponent(article.GUID)}`">{{ article.BLOG_TITLE || '未命名文章' }}</a>
+          <span class="latest-meta">{{ [article.USERNAME, formatDay(article.CREATE_TIME)].filter(Boolean).join(' · ') }}</span>
+        </li>
+      </ul>
+      <a class="latest-more" href="/archive">查看全部文章 →</a>
+    </section>
+
     <!-- 底部互动提示 -->
     <footer class="interaction-hint">
       <span>按 <kbd>B</kbd> 键切换主题强调色</span>
@@ -50,20 +63,28 @@
 <script setup>
 import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from "vue-router"
-import { useHead } from '@vueuse/head'
+import { useSeo, absoluteUrl, SITE_NAME, DEFAULT_TITLE } from '@/utils/seo.js'
+import { sendAxiosRequest } from '@/utils/common.js'
 import LoginDialog from "@/components/main/LoginDialog.vue"
 import * as menuUtil from "@/utils/menu.js"
 
 const router = useRouter()
 const menuItems = menuUtil.getMenuItems()
 
-// SEO 配置
-useHead({
-  title: 'YnsStudy - 少一点迷茫，多一点引导',
-  meta: [
-    { name: 'description', content: 'YnsStudy：少一点迷茫，多一点引导，学习之路不再孤单。永远相信美好的事情即将发生。' },
-    { name: 'keywords', content: 'YnsStudy, 学习引导, 内容社区, 技术博客, AI辅助学习, 开发者社区, 编程学习' }
-  ]
+// SEO 配置：/ 和 /welcome 是同一页面，canonical 统一指向根路径
+const welcomeDescription = 'YnsStudy：少一点迷茫，多一点引导，学习之路不再孤单。永远相信美好的事情即将发生。'
+useSeo({
+  // 与 Go 输出的首页标题保持一致，避免搜索引擎看到两个不同的首页标题
+  title: DEFAULT_TITLE,
+  description: welcomeDescription,
+  path: '/',
+  jsonLd: {
+    '@context': 'https://schema.org',
+    '@type': 'WebSite',
+    name: SITE_NAME,
+    url: absoluteUrl('/'),
+    description: welcomeDescription
+  }
 })
 
 // 按 B 键切换封面的颜色
@@ -81,7 +102,24 @@ const handleKey = (e) => {
   }
 }
 
-onMounted(() => window.addEventListener('keydown', handleKey))
+// 最新文章
+const latestArticles = ref([])
+const formatDay = (value) => (value ? String(value).slice(0, 10) : '')
+const loadLatestArticles = async () => {
+  try {
+    const res = await sendAxiosRequest('/blog-api/home/getLatestArticles', { num: 6 })
+    if (res && !res.isError && Array.isArray(res.result)) {
+      latestArticles.value = res.result
+    }
+  } catch (e) {
+    console.error('加载最新文章失败', e)
+  }
+}
+
+onMounted(() => {
+  window.addEventListener('keydown', handleKey)
+  loadLatestArticles()
+})
 onBeforeUnmount(() => window.removeEventListener('keydown', handleKey))
 
 const menuClick = (menu) => router.push({ name: menu.router })
@@ -297,6 +335,63 @@ const buttonClick = (type) => {
   font-size: 20px;
 }
 
+.latest {
+  width: calc(100% - 48px);
+  max-width: 760px;
+  margin: 0 auto 40px;
+  padding: 30px 32px 24px;
+  box-sizing: border-box;
+}
+
+.latest-title {
+  margin: 0 0 10px;
+  font-family: var(--j-hand);
+  font-weight: normal;
+  font-size: 22px;
+}
+
+.latest-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.latest-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 16px;
+  padding: 11px 0;
+  border-top: 1px dashed var(--j-rule);
+}
+
+.latest-list a {
+  min-width: 0;
+  color: var(--j-ink);
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+
+.latest-list a:hover {
+  color: var(--j-pen);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.latest-meta {
+  flex: none;
+  font-size: 12px;
+  color: var(--j-muted);
+}
+
+.latest-more {
+  display: inline-block;
+  margin-top: 14px;
+  font-size: 14px;
+  color: var(--j-pen);
+  text-decoration: none;
+}
+
 .interaction-hint {
   padding: 0 24px 28px;
   text-align: center;
@@ -356,6 +451,20 @@ kbd {
 
   .note-yellow {
     margin-left: 0;
+  }
+
+  .latest {
+    width: calc(100% - 32px);
+    padding: 26px 18px 20px;
+  }
+
+  .latest-list li {
+    display: block;
+  }
+
+  .latest-meta {
+    display: block;
+    margin-top: 4px;
   }
 }
 </style>

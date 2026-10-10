@@ -40,7 +40,12 @@ func New(cfg *config.Config, repo *repository.SQLRepository, store cache.Store, 
 }
 
 func (s *Service) CurrentUser(c *gin.Context) (*model.User, error) {
-	if userID, ok := c.Get(middleware.UserIDContextKey); ok && fmt.Sprint(userID) != "" {
+	userID, ok := c.Get(middleware.UserIDContextKey)
+	if !ok || fmt.Sprint(userID) == "" {
+		// 白名单和 get 开头的接口不经过 JWT 中间件校验，这里补充解析，保证携带 Token 时也能识别当前用户
+		userID = s.userIDFromToken(c)
+	}
+	if fmt.Sprint(userID) != "" && userID != nil {
 		rows, err := s.Repo.Query(c.Request.Context(), "SELECT * FROM userInfo WHERE GUID = ? LIMIT 1", fmt.Sprint(userID))
 		if err != nil {
 			return nil, err
@@ -55,6 +60,24 @@ func (s *Service) CurrentUser(c *gin.Context) (*model.User, error) {
 		return user, nil
 	}
 	return nil, fmt.Errorf("用户未登录!")
+}
+
+func (s *Service) userIDFromToken(c *gin.Context) any {
+	if s.JWT == nil {
+		return nil
+	}
+	token := strings.TrimSpace(c.GetHeader("Authorization"))
+	if strings.HasPrefix(strings.ToLower(token), "bearer ") {
+		token = strings.TrimSpace(token[7:])
+	}
+	if token == "" {
+		return nil
+	}
+	userID, err := s.JWT.Verify(token)
+	if err != nil {
+		return nil
+	}
+	return userID
 }
 
 func ClientIP(c *gin.Context) string {

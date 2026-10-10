@@ -13,7 +13,7 @@
       <main class="article-not-found">
         <h1>文章不存在</h1>
         <p>这篇文章可能已删除、设为私密或地址有误。</p>
-        <router-link to="/ynsStudy/MyBlog">返回博客列表</router-link>
+        <router-link to="/ynsStudy/Home">查看最新文章</router-link>
       </main>
     </template>
 
@@ -29,6 +29,7 @@
             :user="authorInfo"
             :target-user-code="targetUserCode"
             @open-chat=""
+            @blog-click="openLikedOrCollectedBlog"
         />
 
         <article class="content-side">
@@ -47,8 +48,10 @@
 
 <script setup>
 import {computed, nextTick, ref} from "vue";
-import { useRoute } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
+import { pubOpenOneBlog } from "@/utils/blogUtil.js";
 import { useHead } from '@vueuse/head';
+import { usePageNoindex } from '@/utils/seo.js';
 import {
   sendAxiosRequest,
   extractPlainTextFromHTML,
@@ -65,12 +68,20 @@ const userStore = useUserStore();
 userStore.initFromLocal();
 
 const route = useRoute();
+const router = useRouter();
+
+// 左侧作者信息里“点赞数/收藏数”弹窗中的文章：与站内其他列表一致，在新标签页打开
+const openLikedOrCollectedBlog = (blog) => {
+  if (blog?.GUID) pubOpenOneBlog(router, blog.GUID);
+};
 const blogId = route.params.g;
 
 const targetUserCode = ref('');
 const authorInfo = ref({});
 const articleTitle = ref("");
 const articleNotFound = ref(false);
+// 文章不存在时通知全站默认 SEO 不再输出 canonical
+usePageNoindex(articleNotFound);
 
 // ==== 背景与音乐 ====
 const bgMusicComponentRef = ref(null);
@@ -85,7 +96,7 @@ const handleBgStyleUpdate = (style) => {
 const canonicalUrl = computed(() => `${window.location.origin}/oneBlog/${encodeURIComponent(blogId)}`);
 const seoTitle = ref('博客详情 - YnsStudy');
 const seoDescription = ref('YnsStudy 博客文章详情');
-const seoImage = ref(`${window.location.origin}/finder.png`);
+const seoImage = ref(`${window.location.origin}/og-image.png`);
 const seoAuthor = ref('YnsStudy');
 const seoPublished = ref('');
 const seoModified = ref('');
@@ -121,14 +132,16 @@ useHead(() => {
     publisher: {
       '@type': 'Organization',
       name: 'YnsStudy',
-      url: window.location.origin
+      url: window.location.origin,
+      logo: `${window.location.origin}/icon-512.png`
     },
     image: seoImage.value ? [seoImage.value] : undefined
   };
   return {
     title: seoTitle.value,
     link: [
-      {rel: 'canonical', href: canonicalUrl.value},
+      // 文章不存在时只输出 noindex，不再声明 canonical，避免两个信号互相矛盾
+      ...(articleNotFound.value ? [] : [{rel: 'canonical', href: canonicalUrl.value}]),
       {rel: 'alternate', type: 'application/rss+xml', title: 'YnsStudy RSS', href: `${window.location.origin}/rss.xml`}
     ],
     meta: [
@@ -147,7 +160,23 @@ useHead(() => {
       {name: 'twitter:description', content: seoDescription.value},
       {name: 'twitter:image', content: seoImage.value}
     ],
-    script: [{type: 'application/ld+json', children: JSON.stringify(structuredData)}]
+    script: [
+      {key: 'ld-article', type: 'application/ld+json', children: JSON.stringify(structuredData)},
+      // 与 Go 输出的首屏保持一致：首页 → 文章归档 → 当前文章；文章不存在时不输出
+      ...(articleNotFound.value ? [] : [{
+        key: 'ld-breadcrumb',
+        type: 'application/ld+json',
+        children: JSON.stringify({
+          '@context': 'https://schema.org',
+          '@type': 'BreadcrumbList',
+          itemListElement: [
+            {'@type': 'ListItem', position: 1, name: 'YnsStudy', item: `${window.location.origin}/`},
+            {'@type': 'ListItem', position: 2, name: '文章归档', item: `${window.location.origin}/archive`},
+            {'@type': 'ListItem', position: 3, name: articleTitle.value || '博客详情'}
+          ]
+        })
+      }])
+    ]
   };
 });
 
@@ -185,7 +214,7 @@ const contentAndCommentIsLoad = ({blogContent}) => {
     seoPublished.value = toISODate(blogContent.CREATE_TIME);
     seoModified.value = toISODate(blogContent.UPDATE_TIME) || seoPublished.value;
     const firstImage = extractFirstImage(blogContent.MAINTEXT);
-    seoImage.value = firstImage ? new URL(firstImage, window.location.origin).href : `${window.location.origin}/finder.png`;
+    seoImage.value = firstImage ? new URL(firstImage, window.location.origin).href : `${window.location.origin}/og-image.png`;
 
     nextTick(() => {
       window.prerenderReady = true;

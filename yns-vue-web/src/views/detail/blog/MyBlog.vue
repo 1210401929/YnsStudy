@@ -164,7 +164,8 @@ watch(()=>userStore.userBean.code,()=>{
 
 .layout-wrapper {
   width: 100%;
-  max-width: 1360px;
+  /* 与单篇文章页 OneBlog 的主体宽度一致，左侧目录同为 280px，正文栏宽度相同 */
+  max-width: 1600px;
   margin: 0 auto;
   padding: 32px 24px;
   display: flex;

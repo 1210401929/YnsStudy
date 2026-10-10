@@ -17,6 +17,7 @@ import (
 
 	"nys-go-api/internal/config"
 	"nys-go-api/internal/model"
+	"nys-go-api/internal/service"
 )
 
 var (
@@ -34,6 +35,19 @@ func (h *Controller) registerSEORoutes(router *gin.Engine) {
 	router.GET("/sitemap.xml", h.sitemap)
 	router.GET("/robots.txt", h.robots)
 	router.GET("/rss.xml", h.rss)
+	router.GET("/archive", h.seoArchive)
+	router.GET("/archive/page/:page", h.seoArchive)
+	router.GET(service.IndexNowKeyPath, h.indexNowKey)
+}
+
+// indexNowKey 返回 IndexNow 密钥文件，搜索引擎用它确认推送请求来自站点所有者。
+func (h *Controller) indexNowKey(c *gin.Context) {
+	if !h.service.IndexNowEnabled() {
+		c.Status(http.StatusNotFound)
+		return
+	}
+	c.Header("Cache-Control", "public, max-age=86400")
+	c.Data(http.StatusOK, "text/plain; charset=utf-8", []byte(strings.TrimSpace(h.service.Config.SEO.IndexNowKey)))
 }
 
 // seoHome 为根路径输出站点介绍和最新公开文章链接。
@@ -67,7 +81,8 @@ func (h *Controller) seoArticle(c *gin.Context) {
 		return
 	}
 
-	page := renderSEOArticleHTML(h.readFrontendShell(), article, h.service.Config)
+	links := h.service.GetArticleLinksForSEO(c.Request.Context(), article)
+	page := renderSEOArticleHTML(h.readFrontendShell(), article, links, h.service.Config)
 	cacheSeconds := h.service.Config.SEO.ResponseCacheSeconds
 	c.Header("Cache-Control", fmt.Sprintf("public, max-age=0, s-maxage=%d, stale-while-revalidate=60", cacheSeconds))
 	c.Header("X-Robots-Tag", "index, follow, max-image-preview:large, max-snippet:-1")
@@ -94,12 +109,23 @@ func (h *Controller) sitemap(c *gin.Context) {
 	domain := strings.TrimRight(h.service.Config.External.DomainName, "/")
 	urls := []sitemapURL{
 		{Location: domain + "/", Frequency: "daily", Priority: "1.0"},
+		{Location: domain + "/archive", Frequency: "daily", Priority: "0.9"},
 		{Location: domain + "/ynsStudy/Home", Frequency: "daily", Priority: "0.8"},
-		{Location: domain + "/ynsStudy/MyBlog", Frequency: "daily", Priority: "0.9"},
 		{Location: domain + "/ynsStudy/Resources", Frequency: "weekly", Priority: "0.6"},
 		{Location: domain + "/ynsStudy/Community", Frequency: "daily", Priority: "0.6"},
 		{Location: domain + "/ynsStudy/FriendLink", Frequency: "monthly", Priority: "0.4"},
 		{Location: domain + "/ynsStudy/About", Frequency: "monthly", Priority: "0.5"},
+	}
+	// 只提交有公开文章的作者主页；查询失败时跳过，不影响文章地址。
+	if authors, err := h.service.GetPublicAuthorNumbers(c.Request.Context()); err == nil {
+		for _, author := range authors {
+			urls = append(urls, sitemapURL{
+				Location:   domain + "/user/" + url.PathEscape(model.StringValue(author, "USERNUM")),
+				LastModify: formatDate(model.Lookup(author, "LAST_MODIFIED")),
+				Frequency:  "weekly",
+				Priority:   "0.5",
+			})
+		}
 	}
 	for _, row := range rows {
 		urls = append(urls, sitemapURL{
@@ -133,8 +159,8 @@ func (h *Controller) renderSEOStatusPage(c *gin.Context, status int, title, mess
 	c.Header("X-Robots-Tag", "noindex, follow")
 	page := fmt.Sprintf(`<!doctype html>
 <html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="robots" content="noindex,follow"><title>%s - %s</title>
-<style>body{margin:0;background:#f5f7fa;color:#26384a;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif}.box{max-width:680px;margin:12vh auto;padding:40px 28px;background:#fff;border-radius:16px;box-shadow:0 16px 45px rgba(31,45,61,.1);text-align:center}h1{font-size:28px}p{color:#68788a;line-height:1.8}a{display:inline-block;margin-top:14px;color:#087cad;text-decoration:none}</style></head>
+<meta name="robots" content="noindex,follow"><title>%s - %s</title>`+siteIconLinks+`
+<style>body{margin:0;background-color:#efe8da;background-image:radial-gradient(rgba(120,104,80,.18) 1px,transparent 1px);background-size:22px 22px;color:#2b2a27;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif}.box{max-width:680px;margin:12vh auto;padding:40px 28px;background:#fffdf8;border:1px solid #e6dfd1;box-shadow:0 1px 2px rgba(60,50,30,.06),0 10px 24px -16px rgba(60,50,30,.35);text-align:center}h1{font-family:"LXGW WenKai Screen","Kaiti SC","STKaiti","KaiTi","楷体",serif;font-weight:normal;font-size:30px}p{color:#7d776c;line-height:1.8}a{display:inline-block;margin-top:14px;color:#2f5d8a;text-decoration:none}</style></head>
 <body><main class="box"><h1>%s</h1><p>%s</p><a href="%s/">返回 YnsStudy 首页</a></main></body></html>`,
 		htmlstd.EscapeString(title), htmlstd.EscapeString(h.service.Config.SEO.SiteName),
 		htmlstd.EscapeString(title), htmlstd.EscapeString(message), htmlstd.EscapeString(domain))
@@ -163,12 +189,14 @@ type structuredMainEntity struct {
 type structuredPerson struct {
 	Type string `json:"@type"`
 	Name string `json:"name"`
+	URL  string `json:"url,omitempty"`
 }
 
 type structuredOrganization struct {
 	Type string `json:"@type"`
 	Name string `json:"name"`
 	URL  string `json:"url"`
+	Logo string `json:"logo,omitempty"`
 }
 
 func renderSEOHomeHTML(shell string, articles []map[string]any, cfg *config.Config) string {
@@ -210,7 +238,7 @@ func renderSEOHomeHTML(shell string, articles []map[string]any, cfg *config.Conf
 <meta name="twitter:description" content="%s">
 <meta name="twitter:image" content="%s">
 <script type="application/ld+json">%s</script>
-<style id="yns-seo-home-first-paint">.seo-home-fallback{max-width:1040px;margin:36px auto;padding:0 20px;color:#26384a;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif}.seo-home-intro,.seo-home-latest{background:#fff;border-radius:14px;padding:28px 30px;box-shadow:0 10px 32px rgba(31,45,61,.08)}.seo-home-intro h1{margin:0 0 12px;font-size:34px}.seo-home-intro p{margin:0;color:#607286;line-height:1.8}.seo-home-nav{display:flex;flex-wrap:wrap;gap:16px;margin-top:18px}.seo-home-nav a,.seo-home-latest a{color:#087cad;text-decoration:none}.seo-home-latest{margin-top:22px}.seo-home-latest h2{margin:0 0 16px;font-size:24px}.seo-home-latest ul{list-style:none;margin:0;padding:0}.seo-home-latest li{display:flex;justify-content:space-between;gap:20px;padding:12px 0;border-bottom:1px solid #edf0f3}.seo-home-latest li:last-child{border-bottom:0}.seo-home-meta{flex:none;color:#8592a2;font-size:13px}@media(max-width:640px){.seo-home-fallback{margin:14px auto;padding:0 10px}.seo-home-intro,.seo-home-latest{padding:22px 18px}.seo-home-latest li{display:block}.seo-home-meta{display:block;margin-top:6px}}</style>
+<style id="yns-seo-home-first-paint">.seo-home-fallback{min-height:100vh;padding:36px 16px;background-color:#efe8da;background-image:radial-gradient(rgba(120,104,80,.18) 1px,transparent 1px);background-size:22px 22px;color:#2b2a27;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif}.seo-home-intro,.seo-home-latest{max-width:1000px;margin:0 auto;background:#fffdf8;border:1px solid #e6dfd1;box-shadow:0 1px 2px rgba(60,50,30,.06),0 10px 24px -16px rgba(60,50,30,.35);padding:28px 32px}.seo-home-intro h1{margin:0 0 12px;font-family:"LXGW WenKai Screen","Kaiti SC","STKaiti","KaiTi","楷体",serif;font-weight:normal;font-size:36px}.seo-home-intro p{margin:0;color:#4d4943;line-height:1.8}.seo-home-nav{display:flex;flex-wrap:wrap;gap:18px;margin-top:18px}.seo-home-nav a,.seo-home-latest a{color:#2f5d8a;text-decoration:none}.seo-home-latest{margin-top:22px}.seo-home-latest h2{margin:0 0 12px;font-family:"LXGW WenKai Screen","Kaiti SC","STKaiti","KaiTi","楷体",serif;font-weight:normal;font-size:24px}.seo-home-latest ul{list-style:none;margin:0;padding:0}.seo-home-latest li{display:flex;justify-content:space-between;gap:20px;padding:12px 0;border-top:1px dashed #e6dfd1}.seo-home-meta{flex:none;color:#7d776c;font-size:13px}.seo-home-more{margin:16px 0 0;text-align:right}@media(max-width:640px){.seo-home-fallback{padding:14px 10px}.seo-home-intro,.seo-home-latest{padding:22px 16px}.seo-home-latest li{display:block}.seo-home-meta{display:block;margin-top:6px}}</style>
 `, escapedDescription, escapedCanonical, htmlstd.EscapeString(cfg.SEO.SiteName), escapedTitle,
 		escapedDescription, escapedCanonical, escapedImage, escapedTitle, escapedDescription, escapedImage, websiteJSON)
 
@@ -239,12 +267,12 @@ func renderSEOHomeHTML(shell string, articles []map[string]any, cfg *config.Conf
 <section class="seo-home-intro" aria-labelledby="seo-home-title">
 <h1 id="seo-home-title">%s</h1>
 <p>%s</p>
-<nav class="seo-home-nav" aria-label="主要栏目"><a href="%s/ynsStudy/Home">首页</a><a href="%s/ynsStudy/MyBlog">博客</a><a href="%s/ynsStudy/Resources">资源</a><a href="%s/ynsStudy/Community">社区</a><a href="%s/ynsStudy/About">关于</a></nav>
+<nav class="seo-home-nav" aria-label="主要栏目"><a href="%s/ynsStudy/Home">最新文章</a><a href="%s/ynsStudy/Resources">资源</a><a href="%s/ynsStudy/Community">社区</a><a href="%s/ynsStudy/FriendLink">友链</a><a href="%s/ynsStudy/About">关于</a></nav>
 </section>
-<section class="seo-home-latest" aria-labelledby="seo-latest-title"><h2 id="seo-latest-title">最新文章</h2><ul>%s</ul></section>
+<section class="seo-home-latest" aria-labelledby="seo-latest-title"><h2 id="seo-latest-title">最新文章</h2><ul>%s</ul><p class="seo-home-more"><a href="%s/archive">查看全部文章 →</a></p></section>
 </main>`, htmlstd.EscapeString(cfg.SEO.SiteName), escapedDescription,
 		htmlstd.EscapeString(domain), htmlstd.EscapeString(domain), htmlstd.EscapeString(domain),
-		htmlstd.EscapeString(domain), htmlstd.EscapeString(domain), latest.String())
+		htmlstd.EscapeString(domain), htmlstd.EscapeString(domain), latest.String(), htmlstd.EscapeString(domain))
 
 	if titleElementPattern.MatchString(shell) {
 		shell = titleElementPattern.ReplaceAllStringFunc(shell, func(string) string {
@@ -266,7 +294,7 @@ func renderSEOHomeHTML(shell string, articles []map[string]any, cfg *config.Conf
 	return strings.Replace(shell, "window.prerenderReady = false", "window.prerenderReady = true", 1)
 }
 
-func renderSEOArticleHTML(shell string, article map[string]any, cfg *config.Config) string {
+func renderSEOArticleHTML(shell string, article map[string]any, links service.ArticleLinks, cfg *config.Config) string {
 	// index.html 的站点级默认 meta 适用于普通页面；文章页必须移除它们，避免出现两份 description/OG。
 	shell = defaultSEOElement.ReplaceAllString(shell, "\n")
 	shell = javascriptNotice.ReplaceAllString(shell, "\n")
@@ -280,6 +308,16 @@ func renderSEOArticleHTML(shell string, article map[string]any, cfg *config.Conf
 	author := strings.TrimSpace(model.StringValue(article, "USERNAME"))
 	if author == "" {
 		author = cfg.SEO.SiteName
+	}
+
+	// 作者主页地址；旧数据缺少用户编号时只显示名字。
+	authorURL := ""
+	if userNumber := strings.TrimSpace(model.StringValue(article, "USERNUM")); userNumber != "" {
+		authorURL = domain + "/user/" + url.PathEscape(userNumber)
+	}
+	authorHTML := `<span itemprop="author">` + htmlstd.EscapeString(author) + `</span>`
+	if authorURL != "" {
+		authorHTML = `<a href="` + htmlstd.EscapeString(authorURL) + `" itemprop="author">` + htmlstd.EscapeString(author) + `</a>`
 	}
 
 	safeContent, firstImage := sanitizeArticleHTML(model.StringValue(article, "MAINTEXT"), title, domain)
@@ -308,8 +346,8 @@ func renderSEOArticleHTML(shell string, article map[string]any, cfg *config.Conf
 			Type: "WebPage",
 			ID:   canonical,
 		},
-		Author:    structuredPerson{Type: "Person", Name: author},
-		Publisher: structuredOrganization{Type: "Organization", Name: cfg.SEO.SiteName, URL: domain},
+		Author:    structuredPerson{Type: "Person", Name: author, URL: authorURL},
+		Publisher: structuredOrganization{Type: "Organization", Name: cfg.SEO.SiteName, URL: domain, Logo: domain + "/icon-512.png"},
 	}
 	if firstImage != "" {
 		structured.Image = []string{firstImage}
@@ -321,7 +359,6 @@ func renderSEOArticleHTML(shell string, article map[string]any, cfg *config.Conf
 	escapedDescription := htmlstd.EscapeString(description)
 	escapedCanonical := htmlstd.EscapeString(canonical)
 	escapedImage := htmlstd.EscapeString(firstImage)
-	escapedAuthor := htmlstd.EscapeString(author)
 	escapedPublished := htmlstd.EscapeString(published)
 
 	head := fmt.Sprintf(`
@@ -341,18 +378,22 @@ func renderSEOArticleHTML(shell string, article map[string]any, cfg *config.Conf
 <meta name="twitter:description" content="%s">
 <meta name="twitter:image" content="%s">
 <script type="application/ld+json">%s</script>
-<style id="yns-seo-first-paint">.seo-article-fallback{max-width:960px;margin:32px auto;padding:0 20px;color:#26384a;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif}.seo-article-fallback article{background:#fff;border-radius:14px;padding:32px;box-shadow:0 10px 32px rgba(31,45,61,.08)}.seo-breadcrumb{margin-bottom:22px;font-size:14px}.seo-breadcrumb a{color:#087cad;text-decoration:none}.seo-article-fallback h1{font-size:32px;line-height:1.35;margin:0 0 12px}.seo-article-meta{color:#778596;font-size:14px;margin-bottom:28px}.seo-article-content{font-size:16px;line-height:1.85;overflow-wrap:anywhere}.seo-article-content img{display:block;max-width:100%%;height:auto;margin:20px auto}.seo-article-content pre{overflow:auto;padding:16px;background:#f6f8fa;border-radius:8px}.seo-article-content table{display:block;max-width:100%%;overflow:auto;border-collapse:collapse}.seo-article-content td,.seo-article-content th{padding:8px;border:1px solid #dfe4ea}@media(max-width:640px){.seo-article-fallback{margin:12px auto;padding:0 10px}.seo-article-fallback article{padding:22px 16px}.seo-article-fallback h1{font-size:25px}}</style>
+<script type="application/ld+json">%s</script>
+<style id="yns-seo-first-paint">.seo-article-fallback{min-height:100vh;padding:32px 16px;background-color:#efe8da;background-image:radial-gradient(rgba(120,104,80,.18) 1px,transparent 1px);background-size:22px 22px;color:#2b2a27;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif}.seo-article-fallback article{max-width:1000px;margin:0 auto;background:#fffdf8;border:1px solid #e6dfd1;box-shadow:0 1px 2px rgba(60,50,30,.06),0 10px 24px -16px rgba(60,50,30,.35);padding:36px 40px}.seo-breadcrumb{margin-bottom:22px;font-size:13px;color:#7d776c}.seo-breadcrumb a,.seo-article-meta a,.seo-article-links a{color:#2f5d8a;text-decoration:none}.seo-article-fallback h1{font-family:"LXGW WenKai Screen","Kaiti SC","STKaiti","KaiTi","楷体",serif;font-weight:normal;font-size:32px;line-height:1.35;margin:0 0 12px}.seo-article-meta{color:#7d776c;font-size:14px;margin-bottom:28px}.seo-article-content{font-size:16px;line-height:1.85;overflow-wrap:anywhere}.seo-article-content img{display:block;max-width:100%%;height:auto;margin:20px auto}.seo-article-content pre{overflow:auto;padding:16px;background:#f6f1e4;border-radius:4px}.seo-article-content table{display:block;max-width:100%%;overflow:auto;border-collapse:collapse}.seo-article-content td,.seo-article-content th{padding:8px;border:1px solid #e6dfd1}.seo-article-links{margin-top:32px;padding-top:20px;border-top:1px dashed #d6ccb8;font-size:15px;line-height:1.8}.seo-article-pager{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px}.seo-article-links h2{font-family:"LXGW WenKai Screen","Kaiti SC","STKaiti","KaiTi","楷体",serif;font-weight:normal;font-size:20px;margin:20px 0 8px}.seo-article-links ul{margin:0;padding-left:20px}@media(max-width:640px){.seo-article-fallback{padding:12px 10px}.seo-article-fallback article{padding:22px 16px}.seo-article-fallback h1{font-size:25px}}</style>
 `, escapedDescription, escapedCanonical, htmlstd.EscapeString(cfg.SEO.SiteName), escapedTitle,
 		escapedDescription, escapedCanonical, escapedImage, escapedPublished, htmlstd.EscapeString(modified),
-		escapedTitle, escapedDescription, escapedImage, structuredJSON)
+		escapedTitle, escapedDescription, escapedImage, structuredJSON,
+		breadcrumbJSON([]breadcrumbItem{{Name: cfg.SEO.SiteName, URL: domain + "/"}, {Name: "文章归档", URL: domain + "/archive"}, {Name: title}}))
 
 	body := fmt.Sprintf(`<main class="seo-article-fallback">
 <article itemscope itemtype="https://schema.org/BlogPosting">
-<nav class="seo-breadcrumb" aria-label="面包屑"><a href="%s/">YnsStudy</a> / <a href="%s/ynsStudy/MyBlog">博客</a></nav>
-<header><h1 itemprop="headline">%s</h1><p class="seo-article-meta"><span itemprop="author">%s</span> · <time itemprop="datePublished" datetime="%s">%s</time></p></header>
+<nav class="seo-breadcrumb" aria-label="面包屑"><a href="%s/">YnsStudy</a> / <a href="%s/archive">文章归档</a></nav>
+<header><h1 itemprop="headline">%s</h1><p class="seo-article-meta">%s · <time itemprop="datePublished" datetime="%s">%s</time></p></header>
 <div class="seo-article-content" itemprop="articleBody">%s</div>
-</article></main>`, htmlstd.EscapeString(domain), htmlstd.EscapeString(domain), escapedTitle, escapedAuthor,
-		escapedPublished, htmlstd.EscapeString(formatDate(model.Lookup(article, "CREATE_TIME"))), safeContent)
+%s
+</article></main>`, htmlstd.EscapeString(domain), htmlstd.EscapeString(domain), escapedTitle, authorHTML,
+		escapedPublished, htmlstd.EscapeString(formatDate(model.Lookup(article, "CREATE_TIME"))), safeContent,
+		renderArticleLinks(links, author, domain))
 
 	if titleElementPattern.MatchString(shell) {
 		shell = titleElementPattern.ReplaceAllStringFunc(shell, func(string) string {
@@ -375,9 +416,61 @@ func renderSEOArticleHTML(shell string, article map[string]any, cfg *config.Conf
 	return strings.Replace(shell, "window.prerenderReady = false", "window.prerenderReady = true", 1)
 }
 
+// renderArticleLinks 输出文章底部的上一篇/下一篇、同作者文章和归档入口，
+// 让抓取器从任意文章都能继续发现站内其他文章。
+func renderArticleLinks(links service.ArticleLinks, author, domain string) string {
+	articleURL := func(row map[string]any) string {
+		return domain + "/oneBlog/" + url.PathEscape(strings.TrimSpace(model.StringValue(row, "GUID")))
+	}
+	articleTitle := func(row map[string]any) string {
+		if title := strings.TrimSpace(model.StringValue(row, "BLOG_TITLE")); title != "" {
+			return title
+		}
+		return "未命名文章"
+	}
+
+	var output strings.Builder
+	output.WriteString(`<footer class="seo-article-links">`)
+	shown := make(map[string]bool)
+	if links.Previous != nil || links.Next != nil {
+		output.WriteString(`<nav class="seo-article-pager" aria-label="上一篇和下一篇">`)
+		if links.Previous != nil {
+			shown[model.StringValue(links.Previous, "GUID")] = true
+			fmt.Fprintf(&output, `<a href="%s">← 上一篇：%s</a>`, htmlstd.EscapeString(articleURL(links.Previous)), htmlstd.EscapeString(articleTitle(links.Previous)))
+		} else {
+			output.WriteString(`<span></span>`)
+		}
+		if links.Next != nil {
+			shown[model.StringValue(links.Next, "GUID")] = true
+			fmt.Fprintf(&output, `<a href="%s">下一篇：%s →</a>`, htmlstd.EscapeString(articleURL(links.Next)), htmlstd.EscapeString(articleTitle(links.Next)))
+		}
+		output.WriteString(`</nav>`)
+	}
+
+	var related strings.Builder
+	for _, row := range links.Related {
+		guid := model.StringValue(row, "GUID")
+		if guid == "" || shown[guid] {
+			continue
+		}
+		fmt.Fprintf(&related, `<li><a href="%s">%s</a></li>`, htmlstd.EscapeString(articleURL(row)), htmlstd.EscapeString(articleTitle(row)))
+	}
+	if related.Len() > 0 {
+		fmt.Fprintf(&output, `<h2>%s 的其他文章</h2><ul>%s</ul>`, htmlstd.EscapeString(author), related.String())
+	}
+	fmt.Fprintf(&output, `<p><a href="%s/archive">浏览全部文章 →</a></p></footer>`, htmlstd.EscapeString(domain))
+	return output.String()
+}
+
+// siteIconLinks 与 Vue index.html 中的图标声明保持一致，供不经过 Vue 外壳的页面使用。
+const siteIconLinks = `<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="icon" type="image/png" sizes="96x96" href="/icon-96.png">
+<link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">`
+
 func defaultFrontendShell(siteName string) string {
 	return `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>` +
-		htmlstd.EscapeString(siteName) + `</title></head><body><div id="app"></div></body></html>`
+		htmlstd.EscapeString(siteName) + `</title>` + siteIconLinks + `</head><body><div id="app"></div></body></html>`
 }
 
 type articleSanitizeState struct {

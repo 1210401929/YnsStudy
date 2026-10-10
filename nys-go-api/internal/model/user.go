@@ -43,3 +43,11 @@ func (u User) Public() User {
 	u.LoginIP = ""
 	return u
 }
+
+// PublicProfile 用于查看他人主页等无需登录的接口：在 Public 的基础上再去掉手机号。
+// 邮箱和登录地区是个人主页上公开展示的信息，予以保留。
+func (u User) PublicProfile() User {
+	u = u.Public()
+	u.Phone = ""
+	return u
+}

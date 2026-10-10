@@ -220,7 +220,7 @@ import {ref, onMounted, computed, defineAsyncComponent, watch, nextTick} from 'v
 import {ElMessage} from 'element-plus'
 import {useRoute} from 'vue-router'
 import {useRouter} from "vue-router";
-import { useHead } from '@vueuse/head'; // 1. 引入 useHead
+import {useSeo} from '@/utils/seo.js';
 import {
   pubFormatDate,
   sendAxiosRequest,
@@ -280,19 +280,20 @@ const fileSection = ref(null)
 //控制是否显示欢迎页
 const showWelcome = ref(false);
 
-// 2. 定义响应式的 SEO 数据源，给定默认值
-const seoTitle = ref('ynsStudy的个人博客');
-const seoDescription = ref('ynsStudy的个人博客');
+// SEO：主页统一以 /user/:u 为收录地址；带文章 ID 打开时，文章本身以 /oneBlog/:id 为准
+const seoTitle = ref('个人主页 - YnsStudy');
+const seoDescription = ref('');
+const userNotFound = ref(false);
 
-useHead({
-  title: seoTitle,
-  meta: [
-    {
-      name: 'description',
-      content: seoDescription
-    }
-  ]
-});
+useSeo(() => ({
+  title: seoTitle.value,
+  description: seoDescription.value,
+  type: 'profile',
+  path: route.params.blogId
+      ? `/oneBlog/${encodeURIComponent(route.params.blogId)}`
+      : `/user/${encodeURIComponent(route.params.u || '')}`,
+  noindex: !route.params.u || userNotFound.value
+}));
 // ----------------------------------------------------
 // 核心优化区
 // ----------------------------------------------------
@@ -311,8 +312,8 @@ const initPageData = async () => {
       user.value = res.result;
       debugger;
       // 设置页面标题
-      seoTitle.value = (user.value.name || '用户') + "的个人博客";
-      seoDescription.value = user.value.remark || seoTitle.value;
+      seoTitle.value = (user.value.name || '用户') + "的个人主页 - YnsStudy";
+      seoDescription.value = user.value.remark || `${user.value.name || '用户'} 在 YnsStudy 发表的文章、动态与分享的资源。`;
 
       // 【核心开关】用户信息和 CODE 都有了，允许子组件渲染！
       isPageReady.value = true;
@@ -327,6 +328,7 @@ const initPageData = async () => {
         window.prerenderReady = true;
       });
     } else {
+      userNotFound.value = true;
       ElMessage.error("未找到对应用户信息");
     }
   } catch (e) {

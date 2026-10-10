@@ -73,7 +73,15 @@
                     <el-avatar :src="article.AVATAR" :size="20" class="meta-avatar">
                       {{ article.USERNAME?.charAt(0) }}
                     </el-avatar>
-                    <span>{{ article.USERNAME }}</span>
+                    <a
+                        v-if="article.USERNUM"
+                        class="meta-author"
+                        :href="`/user/${encodeURIComponent(article.USERNUM)}`"
+                        target="_blank"
+                        rel="noopener"
+                        @click.stop
+                    >{{ article.USERNAME }}</a>
+                    <span v-else>{{ article.USERNAME }}</span>
                   </div>
                 </div>
 
@@ -158,6 +166,7 @@
               </li>
             </ul>
           </section>
+
 
           <section v-if="hotFiles.length" class="card envelope">
             <h2 class="hand card-title">热门资源</h2>
@@ -400,8 +409,8 @@ function goMe() {
 <style scoped>
 .desk {
   --ink: #2b2a27;
-  --ink-soft: #57534c;
-  --muted: #918b80;
+  --ink-soft: #4d4943;
+  --muted: #7d776c;
   --paper: #fffdf8;
   --desk: #efe8da;
   --rule: #e6dfd1;
@@ -410,7 +419,7 @@ function goMe() {
   --tape-yellow: rgba(246, 214, 120, 0.78);
   --tape-green: rgba(160, 205, 180, 0.78);
   --tape-pink: rgba(240, 175, 175, 0.75);
-  --hand: "Kaiti SC", "STKaiti", "KaiTi", "楷体", "AR PL UKai CN", serif;
+  --hand: "LXGW WenKai Screen", "Kaiti SC", "STKaiti", "KaiTi", "楷体", serif;
 
   min-height: 100%;
   padding: 0 0 72px;
@@ -661,7 +670,7 @@ function goMe() {
 }
 
 .search input::placeholder {
-  color: #b9b2a6;
+  color: #a39c90;
 }
 
 .search input::-webkit-search-cancel-button {
@@ -750,6 +759,16 @@ function goMe() {
   -webkit-box-orient: vertical;
   overflow: hidden;
   word-break: break-word;
+}
+
+.meta-author {
+  color: inherit;
+  text-decoration: none;
+}
+
+.meta-author:hover {
+  color: var(--j-pen);
+  text-decoration: underline;
 }
 
 .entry-meta {

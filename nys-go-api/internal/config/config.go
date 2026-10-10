@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -71,7 +72,12 @@ type SecurityConfig struct {
 	SessionExpirationSecond int      `yaml:"session_expiration_seconds"`
 	SessionCookieSecure     bool     `yaml:"session_cookie_secure"`
 	Whitelist               []string `yaml:"whitelist"`
+	// SuperAdminCode 是唯一的超级管理员账号，需与前端 vue-config.js 的 adminUserCode 一致；为空时使用 DefaultSuperAdminCode。
+	SuperAdminCode string `yaml:"super_admin_code"`
 }
+
+// DefaultSuperAdminCode 与前端 adminUserCode 的默认值保持一致。
+const DefaultSuperAdminCode = "yulei"
 
 type QQOAuthConfig struct {
 	Enabled                bool   `yaml:"enabled"`
@@ -97,7 +103,15 @@ type SEOConfig struct {
 	DefaultImage         string `yaml:"default_image"`
 	FrontendIndexFile    string `yaml:"frontend_index_file"`
 	ResponseCacheSeconds int    `yaml:"response_cache_seconds"`
+	// IndexNowKey 为空时不推送；填写后文章发布、修改、删除会通知 Bing 等支持 IndexNow 的搜索引擎。
+	IndexNowKey      string `yaml:"indexnow_key"`
+	IndexNowEndpoint string `yaml:"indexnow_endpoint"`
 }
+
+// DefaultIndexNowEndpoint 是 IndexNow 的公共入口，会同步给 Bing、Yandex 等参与方。
+const DefaultIndexNowEndpoint = "https://api.indexnow.org/indexnow"
+
+var indexNowKeyPattern = regexp.MustCompile(`^[a-zA-Z0-9-]{8,128}$`)
 
 type UploadConfig struct {
 	Directory         string   `yaml:"directory"`
@@ -225,6 +239,15 @@ func (c *Config) validate() error {
 		imageURL, err := url.Parse(c.SEO.DefaultImage)
 		if err != nil || (imageURL.Scheme != "http" && imageURL.Scheme != "https") || imageURL.Host == "" {
 			return fmt.Errorf("seo.default_image 必须是有效的 HTTP(S) 地址")
+		}
+	}
+	if key := strings.TrimSpace(c.SEO.IndexNowKey); key != "" && !indexNowKeyPattern.MatchString(key) {
+		return fmt.Errorf("seo.indexnow_key 只能包含字母、数字和连字符，长度 8-128")
+	}
+	if endpoint := strings.TrimSpace(c.SEO.IndexNowEndpoint); endpoint != "" {
+		parsed, err := url.Parse(endpoint)
+		if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" {
+			return fmt.Errorf("seo.indexnow_endpoint 必须是有效的 HTTP(S) 地址")
 		}
 	}
 	if c.Upload.PublicPrefix == "" || c.Upload.Directory == "" {

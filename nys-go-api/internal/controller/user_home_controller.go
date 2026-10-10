@@ -54,7 +54,7 @@ func (h *Controller) registerUserInformationRoutes(group *gin.RouterGroup) {
 	group.Any("/setPersonInfo", func(c *gin.Context) {
 		body, ok := requireBody(c)
 		if ok {
-			writeResult(c, h.service.SetPersonInfo(c.Request.Context(), stringParam(body, "userCode"), stringParam(body, "fieldName"), stringParam(body, "fieldValue")))
+			writeResult(c, h.service.SetPersonInfo(c, stringParam(body, "userCode"), stringParam(body, "fieldName"), stringParam(body, "fieldValue")))
 		}
 	})
 	group.Any("/getPersonInfo", func(c *gin.Context) {
@@ -79,6 +79,11 @@ func (h *Controller) registerHomeRoutes(group *gin.RouterGroup) {
 	group.Any("/getHigAuthor", func(c *gin.Context) {
 		body, _ := readBody(c)
 		writeResult(c, h.service.GetHighQualityAuthors(c.Request.Context(), parseIntOr(stringParam(body, "num"), 4)))
+	})
+	// 首页封面下方的最新文章，只返回标题等轻量字段
+	group.Any("/getLatestArticles", func(c *gin.Context) {
+		body, _ := readBody(c)
+		writeResult(c, h.service.GetLatestBlogsForSEO(c.Request.Context(), parseIntOr(stringParam(body, "num"), 6)))
 	})
 	group.GET("/sitemap_blog.xml", h.sitemapBlogs)
 	group.GET("/sitemap_user.xml", h.sitemapUsers)

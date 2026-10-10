@@ -18,7 +18,15 @@
             {{ blogContent.USERNAME?.charAt(0) }}
           </el-avatar>
           <div class="author-text" @click="avatarClick(blogContent)" title="查看发布者信息">
-            <div class="author-name">{{ blogContent.USERNAME || '匿名用户' }}</div>
+            <!-- 有用户编号时输出真实链接，搜索引擎可以由文章发现作者主页 -->
+            <a
+                v-if="blogContent.USERNUM"
+                class="author-name author-link"
+                :href="`/user/${encodeURIComponent(blogContent.USERNUM)}`"
+                target="_blank"
+                @click.stop
+            >{{ blogContent.USERNAME || '匿名用户' }}</a>
+            <div v-else class="author-name">{{ blogContent.USERNAME || '匿名用户' }}</div>
             <div class="author-tagline">发布时间: {{ pubFormatDate(blogContent.CREATE_TIME) }}</div>
           </div>
         </div>
@@ -53,6 +61,12 @@
             </button>
           </div>
         </div>
+
+        <ArticleLinks
+            v-if="route.name === 'oneBlog' && blogContent.GUID"
+            :blog-id="blogContent.GUID"
+            :author="blogContent.USERNAME"
+        />
       </article>
     </el-col>
 
@@ -266,6 +280,7 @@ import { useRoute, useRouter } from "vue-router";
 import { useUserStore } from "@/stores/main/user.js";
 import { useBlogContentStore } from "@/stores/detail/blog.js";
 import ArticleEditor from "@/components/detail/ArticleEditor.vue";
+import ArticleLinks from "@/components/detail/myblog/ArticleLinks.vue";
 import { Star, Comment, Right, User, Message, Link, Edit } from '@element-plus/icons-vue'
 import { ElMessage } from "element-plus";
 import debounce from 'lodash/debounce'
@@ -975,6 +990,11 @@ const getAvatarStyle = (name) => {
 }
 
 /* 文章底部互动区 */
+.author-link {
+  display: block;
+  text-decoration: none;
+}
+
 .article-bottom-actions {
   margin-top: 40px;
   padding-top: 8px;

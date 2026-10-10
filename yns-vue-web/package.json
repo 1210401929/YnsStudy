@@ -18,6 +18,7 @@
     "dompurify": "^3.2.6",
     "element-plus": "^2.9.9",
     "lodash": "^4.17.23",
+    "lxgw-wenkai-screen-webfont": "^1.7.0",
     "marked": "^16.1.1",
     "pinia": "^3.0.2",
     "vue": "^3.4.21",
@@ -26,6 +27,7 @@
   "devDependencies": {
     "@vitejs/plugin-vue": "^5.0.4",
     "disable-devtool": "^0.3.9",
+    "unplugin-vue-components": "^0.27.5",
     "vite": "^5.2.8"
   }
 }
