@@ -105,6 +105,8 @@ func (s *Service) mailWorker() {
 		}
 		if err := send(job); err != nil {
 			log.Printf("发送邮件给 %s 失败: %v", job.To, err)
+		} else {
+			log.Printf("已发送邮件给 %s：%s", job.To, job.Subject)
 		}
 		time.Sleep(mailSendInterval)
 	}

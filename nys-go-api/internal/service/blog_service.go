@@ -437,6 +437,9 @@ func (s *Service) notifyBlogComment(ctx context.Context, comment map[string]any,
 			renderReplyMail(remark, nil, "你的评论：", originalText, quote, "查看文章", link))
 	}
 	// 站长接收全站评论，用于审核内容；站长自己发的评论不再通知自己
+	if senderIsAdmin {
+		log.Printf("评论由站长本人发表，不发站长通知邮件: blog=%s", blogID)
+	}
 	if adminEmail != "" && !senderIsAdmin {
 		kind := "评论"
 		if model.StringValue(comment, "SUPERGUID") != "" {
