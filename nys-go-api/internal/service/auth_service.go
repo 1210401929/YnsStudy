@@ -58,8 +58,10 @@ func (s *Service) SendPhoneCode(c *gin.Context, phone string) model.Result {
 	if err != nil {
 		return model.Failure("发送验证码失败:" + err.Error())
 	}
-	_, _ = io.Copy(io.Discard, response.Body)
+	// 很多短信服务发送失败（余额不足、签名未审核等）时也返回 200，只在内容里说明原因，记下来便于排查
+	body, _ := io.ReadAll(io.LimitReader(response.Body, 2048))
 	response.Body.Close()
+	log.Printf("短信接口返回 %s: %s", response.Status, strings.TrimSpace(string(body)))
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
 		return model.Failure("发送验证码失败: 短信服务返回 " + response.Status)
 	}
