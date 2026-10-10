@@ -1,6 +1,7 @@
 <!--
   开发环境专用：对比文章的两种展示方式（左：wangEditor 只读，右：直接渲染 HTML）
-  只在 npm run dev 时注册路由，打包后不存在。访问 /dev/article-compare
+  只在 npm run dev 时注册路由，打包后不存在。
+  访问 /dev/article-compare 逐篇查看，或 /dev/article-compare/文章ID 直接打开某一篇
 -->
 <template>
   <div class="compare-page">
@@ -40,12 +41,14 @@
 
 <script setup>
 import {defineAsyncComponent, onMounted, ref, watch} from 'vue'
+import {useRoute} from 'vue-router'
 import {ElMessage} from 'element-plus'
 import {sendAxiosRequest} from '@/utils/common.js'
 import ArticleViewer from '@/components/detail/ArticleViewer.vue'
 
 const ArticleEditor = defineAsyncComponent(() => import('@/components/detail/ArticleEditor.vue'))
 
+const route = useRoute()
 const keyword = ref('')
 const articles = ref([])
 const currentId = ref('')
@@ -63,13 +66,18 @@ async function loadList() {
     return
   }
   articles.value = res.result?.data || []
-  if (articles.value.length) pickArticle(articles.value[0].GUID)
+  // 地址里带了文章 ID 时优先打开那一篇（私密文章不在列表里也能打开）
+  const target = route.params.id
+  if (target) pickArticle(String(target))
+  else if (articles.value.length) pickArticle(articles.value[0].GUID)
 }
 
 async function pickArticle(guid) {
   currentId.value = guid
   const res = await sendAxiosRequest('/blog-api/blog/getBlog', {blogId: guid})
-  html.value = res?.result?.[0]?.MAINTEXT || ''
+  const article = res?.result?.[0]
+  if (!article) ElMessage.error('没有找到这篇文章，确认 ID 正确且本地后台已启动')
+  html.value = article?.MAINTEXT || ''
 }
 
 function step(offset) {

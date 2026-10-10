@@ -75,7 +75,7 @@ const routes = [
 // 开发环境专用：对比文章两种展示方式，打包后不包含
 if (import.meta.env.DEV) {
     routes.splice(routes.length - 1, 0, {
-        path: '/dev/article-compare',
+        path: '/dev/article-compare/:id?',
         name: 'devArticleCompare',
         component: () => import('@/views/dev/ArticleCompare.vue'),
         meta: {noindex: true}
