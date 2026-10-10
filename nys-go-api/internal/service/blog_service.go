@@ -352,7 +352,54 @@ func (s *Service) AddBlogComment(c *gin.Context, comment map[string]any) model.R
 		// 评论已经保存，避免向客户端返回失败而导致用户重复提交。
 		log.Printf("评论已保存，但更新限流计数失败: %v", err)
 	}
+	s.notifyBlogComment(ctx, comment)
 	return result
+}
+
+// notifyBlogComment 在后台给文章作者或被回复的人发消息。
+// 匿名访客没有登录，无法调用发消息接口，所以评论的消息统一由这里发送；
+// 接收人从数据库确认，不信任请求里的 RECEIVE_USERCODE。发送失败只记日志，不影响评论。
+func (s *Service) notifyBlogComment(ctx context.Context, comment map[string]any) {
+	blogID := model.StringValue(comment, "BLOGID")
+	blogs, err := s.Repo.Query(ctx, "SELECT USERCODE, BLOG_TITLE FROM blogInfo WHERE GUID = ? LIMIT 1", blogID)
+	if err != nil || len(blogs) == 0 {
+		return
+	}
+	title := model.StringValue(blogs[0], "BLOG_TITLE")
+	sender := strings.TrimSpace(model.StringValue(comment, "USERCODE"))
+	senderName := strings.TrimSpace(model.StringValue(comment, "USERNAME"))
+	if senderName == "" {
+		senderName = "访客"
+	}
+
+	receiver, remark := "", ""
+	if parentID := strings.TrimSpace(model.StringValue(comment, "SUPERGUID")); parentID == "" {
+		receiver = model.StringValue(blogs[0], "USERCODE")
+		remark = senderName + "评论了你的文章《" + title + "》"
+	} else {
+		// 被回复的人必须是这条评论所在楼层里真实发过评论的登录用户
+		target := strings.TrimSpace(model.StringValue(comment, "RECEIVE_USERCODE"))
+		if target == "" {
+			return
+		}
+		rows, err := s.Repo.Query(ctx, "SELECT 1 FROM BLOGCOMMENT WHERE BLOGID = ? AND (GUID = ? OR SUPERGUID = ?) AND USERCODE = ? LIMIT 1", blogID, parentID, parentID, target)
+		if err != nil || len(rows) == 0 {
+			return
+		}
+		receiver = target
+		remark = senderName + "回复了你在文章《" + title + "》下的评论"
+	}
+	// 自己评论自己的文章、回复自己不发消息
+	if receiver == "" || receiver == sender {
+		return
+	}
+	if sender == "" {
+		sender = "guest"
+	}
+	if _, err := s.Repo.Exec(ctx, "INSERT INTO noticeInfo (SENDUSERCODE, RECEIVERUSERCODE, TYPE, EXECUTE, REMARK) VALUES (?, ?, 'comment', ?, ?)",
+		sender, receiver, "/oneBlog/"+blogID, remark); err != nil {
+		log.Printf("评论已保存，但发送消息失败: %v", err)
+	}
 }
 
 func (s *Service) GetBlogComments(ctx context.Context, blogID string) model.Result {

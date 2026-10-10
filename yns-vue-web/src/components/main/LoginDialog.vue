@@ -288,7 +288,11 @@ const markAsRead = (item) => {
 }
 //未读通知点击事件
 const unreadClick = (item) => {
-  window.open(item.EXECUTE,item.EXECUTE);
+  // 只打开站内路径或 http/https 链接，防止 javascript: 之类的链接执行脚本
+  const link = String(item.EXECUTE || '').trim();
+  if ((link.startsWith('/') && !link.startsWith('//')) || /^https?:\/\//i.test(link)) {
+    window.open(link, '_blank', 'noopener');
+  }
   markAsRead(item);
 }
 
