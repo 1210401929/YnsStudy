@@ -117,13 +117,13 @@
             <div v-if="replyInputVisible[comment.GUID]" class="reply-input-wrapper">
               <el-row :gutter="[10, 10]" v-if="!userStore?.userBean?.code" class="guest-form-row">
                 <el-col :xs="24" :sm="12">
-                  <el-input v-model="guestInfo.nickname" :prefix-icon="User" placeholder="昵称 (选填)" size="small" clearable/>
+                  <el-input v-model="guestInfo.nickname" name="author" autocomplete="name" :prefix-icon="User" placeholder="昵称 (选填)" size="small" clearable/>
                 </el-col>
                 <el-col :xs="24" :sm="12">
-                  <el-input v-model="guestInfo.email" :prefix-icon="Message" placeholder="邮箱 (选填)" size="small" clearable/>
+                  <el-input v-model="guestInfo.email" name="email" type="email" autocomplete="email" :prefix-icon="Message" placeholder="邮箱 (选填)" size="small" clearable/>
                 </el-col>
                 <el-col :span="24">
-                  <el-input v-model="guestInfo.website" :prefix-icon="Link" placeholder="网址 (选填)" size="small" clearable/>
+                  <el-input v-model="guestInfo.website" name="url" type="url" autocomplete="url" :prefix-icon="Link" placeholder="网址 (选填)" size="small" clearable/>
                 </el-col>
               </el-row>
               <div class="reply-action-group">
@@ -190,13 +190,13 @@
             <p class="input-title">发表评论</p>
             <el-row :gutter="[10, 10]" v-if="showMainGuestForm" class="guest-form-row">
               <el-col :xs="24" :sm="12">
-                <el-input v-model="guestInfo.nickname" :prefix-icon="User" placeholder="昵称 (选填)" size="default" clearable />
+                <el-input v-model="guestInfo.nickname" name="author" autocomplete="name" :prefix-icon="User" placeholder="昵称 (选填)" size="default" clearable />
               </el-col>
               <el-col :xs="24" :sm="12">
-                <el-input v-model="guestInfo.email" :prefix-icon="Message" placeholder="邮箱 (选填)" size="default" clearable />
+                <el-input v-model="guestInfo.email" name="email" type="email" autocomplete="email" :prefix-icon="Message" placeholder="邮箱 (选填)" size="default" clearable />
               </el-col>
               <el-col :span="24">
-                <el-input v-model="guestInfo.website" :prefix-icon="Link" placeholder="网址 (选填)" size="default" clearable />
+                <el-input v-model="guestInfo.website" name="url" type="url" autocomplete="url" :prefix-icon="Link" placeholder="网址 (选填)" size="default" clearable />
               </el-col>
             </el-row>
 
