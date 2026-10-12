@@ -124,7 +124,7 @@
                   <el-input v-model="guestInfo.email" name="mail" type="email" autocomplete="email" :prefix-icon="Message" placeholder="邮箱 (选填)" size="small" clearable/>
                 </el-col>
                 <el-col :span="24">
-                  <el-input v-model="guestInfo.website" name="link" type="url" autocomplete="on" :prefix-icon="Link" placeholder="网址 (选填)" size="small" clearable/>
+                  <el-input v-model="guestInfo.website" name="url" type="url" autocomplete="on" :prefix-icon="Link" placeholder="http://" size="small" clearable/>
                 </el-col>
               </el-row>
               <div class="reply-action-group">
@@ -196,7 +196,7 @@
                 <el-input v-model="guestInfo.email" name="mail" type="email" autocomplete="email" :prefix-icon="Message" placeholder="邮箱 (选填)" size="default" clearable />
               </el-col>
               <el-col :span="24">
-                <el-input v-model="guestInfo.website" name="link" type="url" autocomplete="on" :prefix-icon="Link" placeholder="网址 (选填)" size="default" clearable />
+                <el-input v-model="guestInfo.website" name="url" type="url" autocomplete="on" :prefix-icon="Link" placeholder="http://" size="default" clearable />
               </el-col>
             </el-row>
 
