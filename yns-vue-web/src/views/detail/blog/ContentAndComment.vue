@@ -118,7 +118,7 @@
             <form v-if="replyInputVisible[comment.GUID]" class="reply-input-wrapper" @submit.prevent="submitReply(comment.GUID)">
               <el-row :gutter="[10, 10]" v-if="!userStore?.userBean?.code" class="guest-form-row">
                 <el-col :xs="24" :sm="12">
-                  <el-input v-model="guestInfo.nickname" name="nick" autocomplete="name" :prefix-icon="User" placeholder="昵称 (选填)" size="small" clearable/>
+                  <el-input v-model="guestInfo.nickname" name="author" autocomplete="name" :prefix-icon="User" placeholder="昵称 (选填)" size="small" clearable/>
                 </el-col>
                 <el-col :xs="24" :sm="12">
                   <el-input v-model="guestInfo.email" name="mail" type="email" autocomplete="email" :prefix-icon="Message" placeholder="邮箱 (选填)" size="small" clearable/>
@@ -190,7 +190,7 @@
             <p class="input-title">发表评论</p>
             <el-row :gutter="[10, 10]" v-if="showMainGuestForm" class="guest-form-row">
               <el-col :xs="24" :sm="12">
-                <el-input v-model="guestInfo.nickname" name="nick" autocomplete="name" :prefix-icon="User" placeholder="昵称 (选填)" size="default" clearable />
+                <el-input v-model="guestInfo.nickname" name="author" autocomplete="name" :prefix-icon="User" placeholder="昵称 (选填)" size="default" clearable />
               </el-col>
               <el-col :xs="24" :sm="12">
                 <el-input v-model="guestInfo.email" name="mail" type="email" autocomplete="email" :prefix-icon="Message" placeholder="邮箱 (选填)" size="default" clearable />
