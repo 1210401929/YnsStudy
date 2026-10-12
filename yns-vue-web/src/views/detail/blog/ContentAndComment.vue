@@ -114,7 +114,8 @@
               </div>
             </div>
 
-            <div v-if="replyInputVisible[comment.GUID]" class="reply-input-wrapper">
+            <!-- 用真正的表单包起来，浏览器才会识别并记住昵称、邮箱、网址，下次自动填充 -->
+            <form v-if="replyInputVisible[comment.GUID]" class="reply-input-wrapper" @submit.prevent="submitReply(comment.GUID)">
               <el-row :gutter="[10, 10]" v-if="!userStore?.userBean?.code" class="guest-form-row">
                 <el-col :xs="24" :sm="12">
                   <el-input v-model="guestInfo.nickname" name="author" autocomplete="name" :prefix-icon="User" placeholder="昵称 (选填)" size="small" clearable/>
@@ -131,14 +132,13 @@
                     v-model="replyInputs[comment.GUID]"
                     :placeholder="replyTargets[comment.GUID] ? `回复 @${replyTargets[comment.GUID].USERNAME}：` : '写下你的回复...'"
                     size="small"
-                    @keyup.enter="submitReply(comment.GUID)"
                     clearable
                 />
-                <el-button type="primary" size="small" @click="submitReply(comment.GUID)">
+                <el-button type="primary" size="small" native-type="submit">
                   发送
                 </el-button>
               </div>
-            </div>
+            </form>
 
             <div class="children-comments" v-if="comment.children?.length">
               <button type="button" class="tool-link toggle-children-btn" @click="toggleChildren(comment.GUID)">
@@ -186,7 +186,7 @@
             </button>
           </div>
 
-          <div class="comment-input-area">
+          <form class="comment-input-area" @submit.prevent="submitComment">
             <p class="input-title">发表评论</p>
             <el-row :gutter="[10, 10]" v-if="showMainGuestForm" class="guest-form-row">
               <el-col :xs="24" :sm="12">
@@ -211,11 +211,11 @@
             />
             <div class="comment-submit-row">
               <span class="hint-text">Ctrl + Enter 快捷发送</span>
-              <el-button type="primary" size="default" :icon="Edit" @click="submitComment">
+              <el-button type="primary" size="default" :icon="Edit" native-type="submit">
                 发表评论
               </el-button>
             </div>
-          </div>
+          </form>
         </section>
 
         <!-- 目录区：固定显示 -->
