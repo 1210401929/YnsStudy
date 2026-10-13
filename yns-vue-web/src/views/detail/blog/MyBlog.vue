@@ -52,7 +52,7 @@
 
 <script setup>
 import {ref, onMounted, watch, defineAsyncComponent} from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useBlogContentStore } from '@/stores/detail/blog.js'
 import { useUserStore } from "@/stores/main/user.js"
 import { Edit } from '@element-plus/icons-vue'
@@ -88,6 +88,15 @@ function subButtonClick() {
 }
 
 router.push({name: 'BlogContent', query: {g: "YouDontNeedToPayAttention"}});
+
+// 已经在“发表”页时再点导航的“发表”，地址会回到不带文章的 /ynsStudy/MyBlog，
+// 页面组件不会重新加载，这里重新显示当前选中的文章，避免内容区空白
+const route = useRoute()
+watch(() => route.name, (name) => {
+  if (name === 'MyBlog' && selectedIndex.value) {
+    router.replace({name: 'BlogContent', query: {g: selectedIndex.value}});
+  }
+});
 
 async function handleEditorSubmit({blog_type, title, content}) {
   let userBean = userStore.userBean;

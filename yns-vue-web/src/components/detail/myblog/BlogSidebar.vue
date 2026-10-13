@@ -52,14 +52,13 @@
                       class="custom-tag">
                 {{ blog.BLOG_TYPE === "public" ? "公" : "私" }}
               </el-tag>
-              <router-link
+              <a
                   v-if="blog.BLOG_TYPE === 'public'"
                   class="blog-title-text"
                   :title="blog.BLOG_TITLE"
-                  :to="{name: 'oneBlog', params: {g: blog.GUID}}"
-                  target="_blank"
-                  @click.stop
-              >{{ blog.BLOG_TITLE }}</router-link>
+                  :href="`/oneBlog/${blog.GUID}`"
+                  @click="onTitleLinkClick"
+              >{{ blog.BLOG_TITLE }}</a>
               <span v-else class="blog-title-text" :title="blog.BLOG_TITLE">{{ blog.BLOG_TITLE }}</span>
             </el-menu-item>
           </el-sub-menu>
@@ -75,14 +74,13 @@
                     class="custom-tag">
               {{ blog.BLOG_TYPE === "public" ? "公" : "私" }}
             </el-tag>
-            <router-link
+            <a
                 v-if="blog.BLOG_TYPE === 'public'"
                 class="blog-title-text"
                 :title="blog.BLOG_TITLE"
-                :to="{name: 'oneBlog', params: {g: blog.GUID}}"
-                target="_blank"
-                @click.stop
-            >{{ blog.BLOG_TITLE }}</router-link>
+                :href="`/oneBlog/${blog.GUID}`"
+                @click="onTitleLinkClick"
+            >{{ blog.BLOG_TITLE }}</a>
             <span v-else class="blog-title-text" :title="blog.BLOG_TITLE">{{ blog.BLOG_TITLE }}</span>
           </el-menu-item>
         </el-sub-menu>
@@ -105,14 +103,13 @@
                     class="custom-tag">
               {{ blog.BLOG_TYPE === "public" ? "公" : "私" }}
             </el-tag>
-            <router-link
+            <a
                 v-if="blog.BLOG_TYPE === 'public'"
                 class="blog-title-text"
                 :title="blog.BLOG_TITLE"
-                :to="{name: 'oneBlog', params: {g: blog.GUID}}"
-                target="_blank"
-                @click.stop
-            >{{ blog.BLOG_TITLE }}</router-link>
+                :href="`/oneBlog/${blog.GUID}`"
+                @click="onTitleLinkClick"
+            >{{ blog.BLOG_TITLE }}</a>
             <span v-else class="blog-title-text" :title="blog.BLOG_TITLE">{{ blog.BLOG_TITLE }}</span>
           </el-menu-item>
         </el-sub-menu>
@@ -448,6 +445,15 @@ function handleSelect(index) {
     if (props.isRouter)
       router.push({name: 'BlogContent', query: {g: item.GUID}})
   }
+}
+
+// 标题保留真实链接（可按住 Ctrl/⌘ 或中键在新窗口打开）；普通点击不跳转，交给目录项在当前页显示文章
+const onTitleLinkClick = (event) => {
+  if (event.ctrlKey || event.metaKey || event.shiftKey) {
+    event.stopPropagation()
+    return
+  }
+  event.preventDefault()
 }
 
 const clickBlog = (blogInfo) => {
