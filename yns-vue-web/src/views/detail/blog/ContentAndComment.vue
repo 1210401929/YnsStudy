@@ -71,18 +71,13 @@
             :blog-id="blogContent.GUID"
             :author="blogContent.USERNAME"
         />
-      </article>
-    </el-col>
 
-    <!-- 右侧区域：评论区 or 目录区 -->
-    <el-col :xs="24" :sm="24" :md="7" :lg="7">
-      <!-- 独立悬浮的包裹层，纯 JS 操控其 translateY -->
-      <div ref="rightSidebarRef" class="side-float">
-        <!-- 评论区 -->
-        <section v-if="showComment" class="comment-card">
+        <!-- 评论区：默认显示在文章下方；打开右侧评论栏时整块移过去，输入内容和展开状态都保留 -->
+        <Teleport defer to="#yns-comment-dock" :disabled="!showComment">
+        <section class="comment-card" :class="{ 'is-inline': !showComment }">
           <div class="comment-header">
             <h3>互动评论 <span class="comment-count-badge">{{ blogComment.length }}</span></h3>
-            <button type="button" class="tool-link" @click="showComment = false">
+            <button v-if="showComment" type="button" class="tool-link" @click="showComment = false">
               收起评论 <el-icon><Right/></el-icon>
             </button>
           </div>
@@ -217,9 +212,19 @@
             </div>
           </form>
         </section>
+        </Teleport>
+      </article>
+    </el-col>
+
+    <!-- 右侧区域：评论区 or 目录区 -->
+    <el-col :xs="24" :sm="24" :md="7" :lg="7">
+      <!-- 独立悬浮的包裹层，纯 JS 操控其 translateY -->
+      <div ref="rightSidebarRef" class="side-float">
+        <!-- 评论区移到右侧时放在这里（点“参与讨论”或右侧悬浮按钮） -->
+        <div id="yns-comment-dock" v-show="showComment"></div>
 
         <!-- 目录区：固定显示 -->
-        <section v-else class="toc-fixed-card">
+        <section v-if="!showComment" class="toc-fixed-card">
           <span class="j-tape j-tape--green toc-tape"></span>
           <div class="toc-title">文章目录</div>
           <el-scrollbar max-height="600px">
@@ -1053,6 +1058,14 @@ const getAvatarStyle = (name) => {
   max-height: calc(100vh - 40px);
   overflow-y: auto;
   box-sizing: border-box;
+}
+
+/* 显示在文章下方时：随正文展开，不限制高度 */
+.comment-card.is-inline {
+  max-height: none;
+  overflow-y: visible;
+  margin-top: 28px;
+  box-shadow: none;
 }
 
 .comment-header {
