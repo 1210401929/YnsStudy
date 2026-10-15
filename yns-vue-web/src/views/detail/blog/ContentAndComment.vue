@@ -59,18 +59,8 @@
               {{ blogContent.$userIsCollect ? '已收藏' : '收藏' }} {{ blogCollectNum > 0 ? `(${blogCollectNum})` : '' }}
             </button>
 
-            <button v-if="!showComment" type="button" class="j-button" @click="showCommentFun">
-              <el-icon><Comment/></el-icon>
-              参与讨论 {{ blogComment.length > 0 ? `(${blogComment.length})` : '' }}
-            </button>
           </div>
         </div>
-
-        <ArticleLinks
-            v-if="route.name === 'oneBlog' && blogContent.GUID"
-            :blog-id="blogContent.GUID"
-            :author="blogContent.USERNAME"
-        />
 
         <!-- 评论区：默认显示在文章下方；打开右侧评论栏时整块移过去，输入内容和展开状态都保留 -->
         <Teleport defer to="#yns-comment-dock" :disabled="!showComment">
@@ -213,6 +203,13 @@
           </form>
         </section>
         </Teleport>
+
+        <!-- 上一篇 / 下一篇 / 同作者文章放在评论之后，读完先看讨论，最后再去别的文章 -->
+        <ArticleLinks
+            v-if="route.name === 'oneBlog' && blogContent.GUID"
+            :blog-id="blogContent.GUID"
+            :author="blogContent.USERNAME"
+        />
       </article>
     </el-col>
 
@@ -220,7 +217,7 @@
     <el-col :xs="24" :sm="24" :md="7" :lg="7">
       <!-- 独立悬浮的包裹层，纯 JS 操控其 translateY -->
       <div ref="rightSidebarRef" class="side-float">
-        <!-- 评论区移到右侧时放在这里（点“参与讨论”或右侧悬浮按钮） -->
+        <!-- 评论区移到右侧时放在这里（点右侧悬浮的评论按钮） -->
         <div id="yns-comment-dock" v-show="showComment"></div>
 
         <!-- 目录区：固定显示 -->
