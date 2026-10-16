@@ -157,10 +157,15 @@ const onDblClick = (e) => {
   line-height: normal;
 }
 
-/* 多级列表逐级缩进 */
-.article-body :deep(li > ul),
-.article-body :deep(li > ol) {
-  padding-left: 2em;
+/*
+ * 多级列表逐级缩进，与编辑器一致（每深一级缩进 20px）。
+ * wangEditor 保存二级列表时，里层的 ul/ol 直接写在外层 ul/ol 里（不在 li 里），两种写法都要覆盖
+ */
+.article-body :deep(ul ul),
+.article-body :deep(ul ol),
+.article-body :deep(ol ul),
+.article-body :deep(ol ol) {
+  padding-left: 20px;
 }
 
 .article-body :deep(a) {
