@@ -133,7 +133,7 @@ func renderSEOArchiveHTML(rows []map[string]any, page, totalPages, total int, cf
 			articleTitle = "未命名文章"
 		}
 		excerpt := truncateRunes(collapseWhitespace(plainTextFromHTML(model.StringValue(row, "EXCERPT_HTML"))), 120)
-		author := strings.TrimSpace(model.StringValue(row, "USERNAME"))
+		author := model.PublicDisplayName(model.StringValue(row, "USERNAME"))
 		created := model.Lookup(row, "CREATE_TIME")
 		fmt.Fprintf(&list, `<li class="archive-item"><time datetime="%s">%s</time><div class="archive-body"><h2><a href="%s">%s</a></h2>`,
 			htmlstd.EscapeString(formatSEOTime(created)), htmlstd.EscapeString(formatDate(created)),
@@ -142,7 +142,7 @@ func renderSEOArchiveHTML(rows []map[string]any, page, totalPages, total int, cf
 			fmt.Fprintf(&list, `<p>%s</p>`, htmlstd.EscapeString(excerpt))
 		}
 		if author != "" {
-			fmt.Fprintf(&list, `<span class="archive-author">%s</span>`, htmlstd.EscapeString(author))
+			list.WriteString(`<span class="archive-author">` + authorLinkHTML(author, model.StringValue(row, "USERNUM"), domain) + `</span>`)
 		}
 		list.WriteString(`</div></li>`)
 	}
@@ -268,7 +268,7 @@ a:hover{text-decoration:underline}
 .archive-body{min-width:0}
 .archive-body h2{margin:0 0 6px;font-size:18px;line-height:1.5;font-weight:600}
 .archive-body p{margin:0 0 6px;color:#4d4943;font-size:14px;line-height:1.75;overflow-wrap:anywhere}
-.archive-author{color:var(--muted);font-size:12px}
+.archive-author{color:var(--muted);font-size:12px}.archive-author a{color:inherit}
 .archive-empty{padding:24px 0;color:var(--muted)}
 .archive-pager{display:flex;flex-wrap:wrap;gap:8px;margin-top:24px;padding-top:18px;border-top:1px dashed var(--rule);font-size:14px}
 .archive-pager a,.archive-pager span{padding:4px 10px;border:1px solid var(--rule);background:#fff}

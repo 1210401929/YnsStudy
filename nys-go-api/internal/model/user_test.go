@@ -22,3 +22,19 @@ func TestUserJSONMatchesJavaBeanContract(t *testing.T) {
 		t.Fatalf("空密码字段不应输出: %s", text)
 	}
 }
+
+func TestPublicDisplayNameMasksPhoneNumbers(t *testing.T) {
+	cases := map[string]string{
+		"15611122742":   "手机用户2742",
+		" 18531349133 ": "手机用户9133",
+		"余南松":           "余南松",
+		"1561112274":    "1561112274",   // 只有 10 位，不是手机号
+		"156111227421":  "156111227421", // 12 位
+		"手机用户2742":      "手机用户2742",
+	}
+	for input, want := range cases {
+		if got := PublicDisplayName(input); got != want {
+			t.Errorf("PublicDisplayName(%q) = %q, want %q", input, got, want)
+		}
+	}
+}

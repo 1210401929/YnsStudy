@@ -69,6 +69,16 @@ server {
     }
 
     # 文章归档（/archive、/archive/page/N）是 Go 输出的完整页面，让搜索引擎能顺着分页找到所有旧文章。
+    # 作者主页 /user/编号：Go 输出名字、简介和文章列表的首屏，随后由 Vue 接管（搜索作者名字时的落地页）。
+    # 带文章编号的 /user/编号/文章编号 仍交给下面的 Vue 路由。
+    location ~ ^/user/[^/]+/?$ {
+        proxy_pass http://127.0.0.1:8889;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
     location ~ ^/archive(/page/[0-9]+)?/?$ {
         proxy_pass http://127.0.0.1:8889;
         proxy_set_header Host $host;
@@ -111,7 +121,12 @@ server {
         try_files /index.html =404;
     }
 
-    location ~ ^/(user|userV2)/[^/]+(/[^/]+)?/?$ {
+    location ~ ^/user/[^/]+/[^/]+/?$ {
+        add_header Cache-Control "no-cache";
+        try_files /index.html =404;
+    }
+
+    location ~ ^/userV2/[^/]+(/[^/]+)?/?$ {
         add_header Cache-Control "no-cache";
         try_files /index.html =404;
     }

@@ -36,6 +36,7 @@ func (h *Controller) registerSEORoutes(router *gin.Engine) {
 	router.GET("/robots.txt", h.robots)
 	router.GET("/rss.xml", h.rss)
 	router.GET("/archive", h.seoArchive)
+	router.GET("/user/:u", h.seoProfile)
 	router.GET("/archive/page/:page", h.seoArchive)
 	router.GET(service.IndexNowKeyPath, h.indexNowKey)
 }
@@ -59,7 +60,8 @@ func (h *Controller) seoHome(c *gin.Context) {
 		return
 	}
 	articles, _ := result.Result.([]map[string]any)
-	page := renderSEOHomeHTML(h.readFrontendShell(), articles, h.service.Config)
+	owner := h.service.GetSiteOwner(c.Request.Context())
+	page := renderSEOHomeHTML(h.readFrontendShell(), articles, owner, h.service.Config)
 	cacheSeconds := h.service.Config.SEO.ResponseCacheSeconds
 	c.Header("Cache-Control", fmt.Sprintf("public, max-age=0, s-maxage=%d, stale-while-revalidate=60", cacheSeconds))
 	c.Header("X-Robots-Tag", "index, follow, max-image-preview:large, max-snippet:-1")
@@ -82,7 +84,8 @@ func (h *Controller) seoArticle(c *gin.Context) {
 	}
 
 	links := h.service.GetArticleLinksForSEO(c.Request.Context(), article)
-	page := renderSEOArticleHTML(h.readFrontendShell(), article, links, h.service.Config)
+	owner := h.service.GetSiteOwner(c.Request.Context())
+	page := renderSEOArticleHTML(h.readFrontendShell(), article, links, owner, h.service.Config)
 	cacheSeconds := h.service.Config.SEO.ResponseCacheSeconds
 	c.Header("Cache-Control", fmt.Sprintf("public, max-age=0, s-maxage=%d, stale-while-revalidate=60", cacheSeconds))
 	c.Header("X-Robots-Tag", "index, follow, max-image-preview:large, max-snippet:-1")
@@ -187,9 +190,31 @@ type structuredMainEntity struct {
 }
 
 type structuredPerson struct {
-	Type string `json:"@type"`
-	Name string `json:"name"`
-	URL  string `json:"url,omitempty"`
+	Type          string   `json:"@type"`
+	Name          string   `json:"name"`
+	AlternateName []string `json:"alternateName,omitempty"`
+	URL           string   `json:"url,omitempty"`
+	Image         string   `json:"image,omitempty"`
+	Description   string   `json:"description,omitempty"`
+	SameAs        []string `json:"sameAs,omitempty"`
+}
+
+// ownerPerson 生成站长的 Person 结构化数据：名字、别名和外部主页让搜索引擎把
+// “余南松 / YuNanSong / GitHub 账号 / 本站”识别为同一个人。
+func ownerPerson(owner service.SiteOwner, domain string) structuredPerson {
+	person := structuredPerson{Type: "Person", Name: owner.Name, AlternateName: owner.AlternateNames, SameAs: owner.SameAs}
+	if owner.ProfilePath != "" {
+		person.URL = domain + owner.ProfilePath
+	}
+	return person
+}
+
+// ownerDisplay 返回“余南松（YuNanSong）”形式的名字，用于标题以外的介绍文字。
+func ownerDisplay(owner service.SiteOwner) string {
+	if len(owner.AlternateNames) > 0 && owner.AlternateNames[0] != "" {
+		return owner.Name + "（" + owner.AlternateNames[0] + "）"
+	}
+	return owner.Name
 }
 
 type structuredOrganization struct {
@@ -199,24 +224,26 @@ type structuredOrganization struct {
 	Logo string `json:"logo,omitempty"`
 }
 
-func renderSEOHomeHTML(shell string, articles []map[string]any, cfg *config.Config) string {
+func renderSEOHomeHTML(shell string, articles []map[string]any, owner service.SiteOwner, cfg *config.Config) string {
 	// 首页使用服务端生成的完整站点 meta，移除 Vue 外壳中的默认副本，避免重复 description/OG。
 	shell = defaultSEOElement.ReplaceAllString(shell, "\n")
 	shell = javascriptNotice.ReplaceAllString(shell, "\n")
 	domain := strings.TrimRight(cfg.External.DomainName, "/")
 	canonical := domain + "/"
-	title := cfg.SEO.SiteName + " - 技术分享与个人博客"
-	description := strings.TrimSpace(cfg.SEO.DefaultDescription)
-	if description == "" {
-		description = cfg.SEO.SiteName + " 个人博客"
-	}
+	// 首页标题和描述带上站长名字，让搜索“余南松”时也能找到本站；与前端 utils/seo.js 的 DEFAULT_TITLE 一致。
+	title := homeTitle(cfg.SEO.SiteName, owner.Name)
+	description := homeDescription(cfg.SEO.SiteName, ownerDisplay(owner))
 
+	person := ownerPerson(owner, domain)
 	websiteJSON, _ := json.Marshal(map[string]any{
 		"@context":    "https://schema.org",
 		"@type":       "WebSite",
 		"name":        cfg.SEO.SiteName,
 		"url":         canonical,
 		"description": description,
+		"inLanguage":  "zh-CN",
+		"author":      person,
+		"publisher":   person,
 	})
 	escapedTitle := htmlstd.EscapeString(title)
 	escapedDescription := htmlstd.EscapeString(description)
@@ -238,7 +265,7 @@ func renderSEOHomeHTML(shell string, articles []map[string]any, cfg *config.Conf
 <meta name="twitter:description" content="%s">
 <meta name="twitter:image" content="%s">
 <script type="application/ld+json">%s</script>
-<style id="yns-seo-home-first-paint">.seo-home-fallback{min-height:100vh;padding:36px 16px;background-color:#efe8da;background-image:radial-gradient(rgba(120,104,80,.18) 1px,transparent 1px);background-size:22px 22px;color:#2b2a27;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif}.seo-home-intro,.seo-home-latest{max-width:1000px;margin:0 auto;background:#fffdf8;border:1px solid #e6dfd1;box-shadow:0 1px 2px rgba(60,50,30,.06),0 10px 24px -16px rgba(60,50,30,.35);padding:28px 32px}.seo-home-intro h1{margin:0 0 12px;font-family:"LXGW WenKai Screen","Kaiti SC","STKaiti","KaiTi","楷体",serif;font-weight:normal;font-size:36px}.seo-home-intro p{margin:0;color:#4d4943;line-height:1.8}.seo-home-nav{display:flex;flex-wrap:wrap;gap:18px;margin-top:18px}.seo-home-nav a,.seo-home-latest a{color:#2f5d8a;text-decoration:none}.seo-home-latest{margin-top:22px}.seo-home-latest h2{margin:0 0 12px;font-family:"LXGW WenKai Screen","Kaiti SC","STKaiti","KaiTi","楷体",serif;font-weight:normal;font-size:24px}.seo-home-latest ul{list-style:none;margin:0;padding:0}.seo-home-latest li{display:flex;justify-content:space-between;gap:20px;padding:12px 0;border-top:1px dashed #e6dfd1}.seo-home-meta{flex:none;color:#7d776c;font-size:13px}.seo-home-more{margin:16px 0 0;text-align:right}@media(max-width:640px){.seo-home-fallback{padding:14px 10px}.seo-home-intro,.seo-home-latest{padding:22px 16px}.seo-home-latest li{display:block}.seo-home-meta{display:block;margin-top:6px}}</style>
+<style id="yns-seo-home-first-paint">.seo-home-fallback{min-height:100vh;padding:36px 16px;background-color:#efe8da;background-image:radial-gradient(rgba(120,104,80,.18) 1px,transparent 1px);background-size:22px 22px;color:#2b2a27;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif}.seo-home-intro,.seo-home-latest{max-width:1000px;margin:0 auto;background:#fffdf8;border:1px solid #e6dfd1;box-shadow:0 1px 2px rgba(60,50,30,.06),0 10px 24px -16px rgba(60,50,30,.35);padding:28px 32px}.seo-home-intro h1{margin:0 0 12px;font-family:"LXGW WenKai Screen","Kaiti SC","STKaiti","KaiTi","楷体",serif;font-weight:normal;font-size:36px}.seo-home-intro p{margin:0;color:#4d4943;line-height:1.8}.seo-home-intro .seo-home-owner{margin-top:8px;font-size:14px;color:#7d776c}.seo-home-owner a{color:#2f5d8a;text-decoration:none}.seo-home-nav{display:flex;flex-wrap:wrap;gap:18px;margin-top:18px}.seo-home-nav a,.seo-home-latest a{color:#2f5d8a;text-decoration:none}.seo-home-latest{margin-top:22px}.seo-home-latest h2{margin:0 0 12px;font-family:"LXGW WenKai Screen","Kaiti SC","STKaiti","KaiTi","楷体",serif;font-weight:normal;font-size:24px}.seo-home-latest ul{list-style:none;margin:0;padding:0}.seo-home-latest li{display:flex;justify-content:space-between;gap:20px;padding:12px 0;border-top:1px dashed #e6dfd1}.seo-home-meta{flex:none;color:#7d776c;font-size:13px}.seo-home-latest .seo-home-meta a{color:inherit}.seo-home-more{margin:16px 0 0;text-align:right}@media(max-width:640px){.seo-home-fallback{padding:14px 10px}.seo-home-intro,.seo-home-latest{padding:22px 16px}.seo-home-latest li{display:block}.seo-home-meta{display:block;margin-top:6px}}</style>
 `, escapedDescription, escapedCanonical, htmlstd.EscapeString(cfg.SEO.SiteName), escapedTitle,
 		escapedDescription, escapedCanonical, escapedImage, escapedTitle, escapedDescription, escapedImage, websiteJSON)
 
@@ -253,11 +280,14 @@ func renderSEOHomeHTML(shell string, articles []map[string]any, cfg *config.Conf
 			articleTitle = "未命名文章"
 		}
 		articleURL := domain + "/oneBlog/" + url.PathEscape(articleID)
-		author := strings.TrimSpace(model.StringValue(article, "USERNAME"))
-		dateText := formatDate(model.Lookup(article, "CREATE_TIME"))
-		metaText := strings.Trim(strings.Join([]string{author, dateText}, " · "), " ·")
+		author := model.PublicDisplayName(model.StringValue(article, "USERNAME"))
+		dateText := htmlstd.EscapeString(formatDate(model.Lookup(article, "CREATE_TIME")))
+		metaHTML := dateText
+		if author != "" {
+			metaHTML = authorLinkHTML(author, model.StringValue(article, "USERNUM"), domain) + " · " + dateText
+		}
 		fmt.Fprintf(&latest, `<li><a href="%s">%s</a><span class="seo-home-meta">%s</span></li>`,
-			htmlstd.EscapeString(articleURL), htmlstd.EscapeString(articleTitle), htmlstd.EscapeString(metaText))
+			htmlstd.EscapeString(articleURL), htmlstd.EscapeString(articleTitle), metaHTML)
 	}
 	if latest.Len() == 0 {
 		latest.WriteString(`<li>暂时还没有公开文章</li>`)
@@ -267,10 +297,11 @@ func renderSEOHomeHTML(shell string, articles []map[string]any, cfg *config.Conf
 <section class="seo-home-intro" aria-labelledby="seo-home-title">
 <h1 id="seo-home-title">%s</h1>
 <p>%s</p>
+<p class="seo-home-owner">站长：%s</p>
 <nav class="seo-home-nav" aria-label="主要栏目"><a href="%s/ynsStudy/Home">最新文章</a><a href="%s/ynsStudy/Resources">资源</a><a href="%s/ynsStudy/Community">社区</a><a href="%s/ynsStudy/FriendLink">友链</a><a href="%s/ynsStudy/About">关于</a></nav>
 </section>
 <section class="seo-home-latest" aria-labelledby="seo-latest-title"><h2 id="seo-latest-title">最新文章</h2><ul>%s</ul><p class="seo-home-more"><a href="%s/archive">查看全部文章 →</a></p></section>
-</main>`, htmlstd.EscapeString(cfg.SEO.SiteName), escapedDescription,
+</main>`, htmlstd.EscapeString(cfg.SEO.SiteName), escapedDescription, ownerLinkHTML(owner, domain),
 		htmlstd.EscapeString(domain), htmlstd.EscapeString(domain), htmlstd.EscapeString(domain),
 		htmlstd.EscapeString(domain), htmlstd.EscapeString(domain), latest.String(), htmlstd.EscapeString(domain))
 
@@ -294,7 +325,7 @@ func renderSEOHomeHTML(shell string, articles []map[string]any, cfg *config.Conf
 	return strings.Replace(shell, "window.prerenderReady = false", "window.prerenderReady = true", 1)
 }
 
-func renderSEOArticleHTML(shell string, article map[string]any, links service.ArticleLinks, cfg *config.Config) string {
+func renderSEOArticleHTML(shell string, article map[string]any, links service.ArticleLinks, owner service.SiteOwner, cfg *config.Config) string {
 	// index.html 的站点级默认 meta 适用于普通页面；文章页必须移除它们，避免出现两份 description/OG。
 	shell = defaultSEOElement.ReplaceAllString(shell, "\n")
 	shell = javascriptNotice.ReplaceAllString(shell, "\n")
@@ -305,7 +336,7 @@ func renderSEOArticleHTML(shell string, article map[string]any, links service.Ar
 	if title == "" {
 		title = "博客文章"
 	}
-	author := strings.TrimSpace(model.StringValue(article, "USERNAME"))
+	author := model.PublicDisplayName(model.StringValue(article, "USERNAME"))
 	if author == "" {
 		author = cfg.SEO.SiteName
 	}
@@ -348,6 +379,14 @@ func renderSEOArticleHTML(shell string, article map[string]any, links service.Ar
 		},
 		Author:    structuredPerson{Type: "Person", Name: author, URL: authorURL},
 		Publisher: structuredOrganization{Type: "Organization", Name: cfg.SEO.SiteName, URL: domain, Logo: domain + "/icon-512.png"},
+	}
+	// 站长本人的文章，作者信息补充别名和外部主页
+	if owner.Code != "" && model.StringValue(article, "USERCODE") == owner.Code {
+		person := ownerPerson(owner, domain)
+		if authorURL != "" {
+			person.URL = authorURL
+		}
+		structured.Author = person
 	}
 	if firstImage != "" {
 		structured.Image = []string{firstImage}
@@ -467,6 +506,34 @@ const siteIconLinks = `<link rel="icon" href="/favicon.ico" sizes="48x48">
 <link rel="icon" type="image/png" sizes="96x96" href="/icon-96.png">
 <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">`
+
+// homeTitle / homeDescription 是首页的标题和描述，前端 utils/seo.js 使用同样的文字。
+func homeTitle(siteName, ownerName string) string {
+	return siteName + " - " + ownerName + "的技术分享与个人博客"
+}
+
+func homeDescription(siteName, ownerDisplayName string) string {
+	return siteName + " 是" + ownerDisplayName + "的个人博客与技术社区，记录编程学习、技术实践与生活思考。"
+}
+
+// authorLinkHTML 输出作者名；有用户编号时链接到作者主页，帮助搜索引擎发现作者主页。
+func authorLinkHTML(name, userNumber, domain string) string {
+	escaped := htmlstd.EscapeString(name)
+	userNumber = strings.TrimSpace(userNumber)
+	if userNumber == "" {
+		return escaped
+	}
+	return `<a href="` + htmlstd.EscapeString(domain+"/user/"+url.PathEscape(userNumber)) + `">` + escaped + `</a>`
+}
+
+// ownerLinkHTML 输出指向站长主页的链接；查不到主页时只输出名字。
+func ownerLinkHTML(owner service.SiteOwner, domain string) string {
+	name := htmlstd.EscapeString(ownerDisplay(owner))
+	if owner.ProfilePath == "" {
+		return name
+	}
+	return `<a href="` + htmlstd.EscapeString(domain+owner.ProfilePath) + `">` + name + `</a>`
+}
 
 func defaultFrontendShell(siteName string) string {
 	return `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>` +

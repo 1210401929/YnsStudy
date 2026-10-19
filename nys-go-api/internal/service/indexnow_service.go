@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"nys-go-api/internal/config"
+	"nys-go-api/internal/model"
 )
 
 // IndexNowKeyPath 是公开的密钥文件地址。放在站点根目录，表示该密钥对全站 URL 有效。
@@ -34,12 +35,29 @@ func (s *Service) IndexNowEnabled() bool {
 
 // NotifyBlogChanged 在公开文章发布、修改或删除后通知搜索引擎重新抓取。
 // 删除的文章同样需要提交，搜索引擎会据此发现 404 并尽快移出索引。
-func (s *Service) NotifyBlogChanged(blogID string) {
+// authorCode 用于同时推送作者主页（文章列表随之变化）；查不到作者编号时只推送文章和归档。
+func (s *Service) NotifyBlogChanged(blogID, authorCode string) {
 	blogID = strings.TrimSpace(blogID)
-	if blogID == "" {
+	if blogID == "" || !s.IndexNowEnabled() {
 		return
 	}
-	s.SubmitIndexNow("/oneBlog/"+url.PathEscape(blogID), "/archive")
+	paths := []string{"/oneBlog/" + url.PathEscape(blogID), "/archive"}
+	if authorCode = strings.TrimSpace(authorCode); authorCode != "" && s.Repo != nil {
+		go func() {
+			ctx, cancel := context.WithTimeout(context.Background(), indexNowTimeout)
+			defer cancel()
+			if rows, err := s.Repo.Query(ctx, "SELECT USERNUM FROM userInfo WHERE CODE = ? LIMIT 1", authorCode); err == nil && len(rows) > 0 {
+				if number := strings.TrimSpace(model.StringValue(rows[0], "USERNUM")); number != "" {
+					paths = append(paths, "/user/"+url.PathEscape(number))
+				}
+			}
+			if err := s.submitIndexNow(ctx, paths); err != nil {
+				log.Printf("IndexNow 推送失败 %v: %v", paths, err)
+			}
+		}()
+		return
+	}
+	s.SubmitIndexNow(paths...)
 }
 
 // SubmitIndexNow 在后台提交站内路径，不阻塞发布文章等用户请求；失败只记录日志。

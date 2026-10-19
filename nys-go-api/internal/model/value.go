@@ -3,6 +3,7 @@ package model
 import (
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -62,4 +63,22 @@ func Int64Value(row map[string]any, key string) int64 {
 		result, _ := strconv.ParseInt(fmt.Sprint(typed), 10, 64)
 		return result
 	}
+}
+
+// phoneLikeName 匹配中国大陆手机号。早期短信注册的账号直接把手机号当作昵称。
+var phoneLikeName = regexp.MustCompile(`^1\d{10}$`)
+
+// IsPhoneLikeName 判断昵称是否就是一个手机号。
+func IsPhoneLikeName(name string) bool {
+	return phoneLikeName.MatchString(strings.TrimSpace(name))
+}
+
+// PublicDisplayName 返回可以公开展示的昵称：手机号形式的昵称替换为“手机用户”+后四位，
+// 与新注册账号的默认昵称格式一致，避免在页面和搜索结果中泄露手机号。
+func PublicDisplayName(name string) string {
+	name = strings.TrimSpace(name)
+	if IsPhoneLikeName(name) {
+		return "手机用户" + name[len(name)-4:]
+	}
+	return name
 }

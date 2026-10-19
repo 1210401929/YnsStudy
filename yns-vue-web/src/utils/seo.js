@@ -1,9 +1,26 @@
 import { computed, onBeforeUnmount, reactive, unref, watch } from 'vue'
 import { useHead } from '@vueuse/head'
+import { adminUserCode } from '@/config/vue-config.js'
 
 export const SITE_NAME = 'YnsStudy'
-export const DEFAULT_TITLE = 'YnsStudy - 技术分享与个人博客'
-export const DEFAULT_DESCRIPTION = 'YnsStudy 个人博客，记录编程学习、技术实践与生活思考。'
+
+/**
+ * 站长信息：首页标题和结构化数据用它把网站与站长本人关联起来，让搜索站长名字时也能找到本站。
+ * 与 Go 端 config.SEOConfig.Owner() 的默认值保持一致；站长账号即超级管理员 adminUserCode。
+ */
+export const SITE_OWNER = {
+    code: adminUserCode,
+    name: '余南松',
+    alternateNames: ['YuNanSong'],
+    sameAs: ['https://github.com/1210401929'],
+    profilePath: '/user/101'
+}
+// “余南松（YuNanSong）”形式，用于介绍文字
+export const SITE_OWNER_DISPLAY = `${SITE_OWNER.name}（${SITE_OWNER.alternateNames[0]}）`
+
+// 与 Go 端 homeTitle / homeDescription 一致
+export const DEFAULT_TITLE = `${SITE_NAME} - ${SITE_OWNER.name}的技术分享与个人博客`
+export const DEFAULT_DESCRIPTION = `${SITE_NAME} 是${SITE_OWNER_DISPLAY}的个人博客与技术社区，记录编程学习、技术实践与生活思考。`
 // 1200×630 的分享卡片图，用于搜索结果和社交平台预览
 export const DEFAULT_IMAGE_PATH = '/og-image.png'
 
@@ -102,4 +119,74 @@ export function useSeo(source, { root = false } = {}) {
         }
         return head
     })
+}
+
+/** 站长的 schema.org Person，url 默认指向站长主页 */
+export function ownerPerson(url = absoluteUrl(SITE_OWNER.profilePath)) {
+    return {
+        '@type': 'Person',
+        name: SITE_OWNER.name,
+        alternateName: SITE_OWNER.alternateNames,
+        url,
+        sameAs: SITE_OWNER.sameAs
+    }
+}
+
+/**
+ * 手机号形式的昵称替换为“手机用户”+后四位，避免在页面和搜索结果中泄露手机号。
+ * 与 Go 端 model.PublicDisplayName 一致。
+ */
+export function publicDisplayName(name) {
+    const text = String(name || '').trim()
+    return /^1\d{10}$/.test(text) ? `手机用户${text.slice(-4)}` : text
+}
+
+// 与 Go 端 collapseWhitespace + truncateRunes 一致
+function collapseAndTruncate(text, maximum) {
+    const chars = Array.from(String(text || '').split(/\s+/).filter(Boolean).join(' '))
+    return chars.length <= maximum ? chars.join('') : chars.slice(0, maximum).join('') + '…'
+}
+
+/**
+ * 作者主页 /user/:u 的标题、描述和 ProfilePage 结构化数据。
+ * 必须与 Go 端 seo_profile.go 的 profileTitle / profileDescription / renderSEOProfileHTML 保持一致，
+ * 否则 Vue 接管后标题会和服务端首屏不同。
+ */
+export function buildProfileSeo(user, userNumber) {
+    const name = publicDisplayName(user?.name) || '用户'
+    const remark = String(user?.remark || '').trim()
+    const isOwner = !!user?.code && user.code === SITE_OWNER.code
+    const canonical = absoluteUrl(`/user/${encodeURIComponent(userNumber)}`)
+
+    const title = `${isOwner ? SITE_OWNER_DISPLAY : name}的个人主页 - ${SITE_NAME}`
+    const rawDescription = isOwner
+        ? `${SITE_OWNER_DISPLAY}，${SITE_NAME} 站长。${remark}`
+        : (remark || `${name} 在 ${SITE_NAME} 发表的文章、动态与分享的资源。`)
+    const description = collapseAndTruncate(rawDescription, 160)
+
+    let avatar = ''
+    if (user?.avatar) {
+        try {
+            const resolved = new URL(user.avatar, siteOrigin())
+            if (resolved.protocol === 'http:' || resolved.protocol === 'https:') avatar = resolved.href
+        } catch { /* 头像地址无效时不输出 */ }
+    }
+
+    const person = isOwner
+        ? { ...ownerPerson(canonical), description }
+        : { '@type': 'Person', name, url: canonical, ...(remark ? { description: remark } : {}) }
+    if (avatar) person.image = avatar
+
+    return {
+        title,
+        description,
+        image: avatar || undefined,
+        jsonLd: {
+            '@context': 'https://schema.org',
+            '@type': 'ProfilePage',
+            url: canonical,
+            name: title,
+            mainEntity: person
+        }
+    }
 }

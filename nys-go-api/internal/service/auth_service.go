@@ -349,6 +349,9 @@ func (s *Service) Register(ctx context.Context, userName, userCode, password, co
 	if strings.TrimSpace(userName) == "" {
 		userName = "未知用户"
 	}
+	if model.IsPhoneLikeName(userName) {
+		return model.Failure(msgPhoneNickname)
+	}
 	return s.insertUser(ctx, userName, userCode, password)
 }
 
@@ -374,6 +377,9 @@ func (s *Service) insertUser(ctx context.Context, userName, userCode, password s
 	}}, "GUID")
 }
 
+// msgPhoneNickname：昵称会出现在文章、评论和搜索结果中，不允许直接使用手机号。
+const msgPhoneNickname = "昵称不能是手机号，以免在公开页面泄露，请换一个昵称"
+
 // editableUserFields 是用户可以在个人中心自行修改的字段。ROLE、ISBAN、PASSWORD 等不允许通过此接口修改。
 var editableUserFields = []string{"NAME", "REMARK", "EMAIL", "PHONE", "AVATAR"}
 
@@ -388,6 +394,9 @@ func (s *Service) ChangeUserInfo(c *gin.Context, userInfo map[string]any) model.
 	newPassword := fmt.Sprint(userInfo["NEWPASSWORD"])
 	// 只更新白名单字段，并且只能更新当前登录用户自己的记录
 	data := pickFields(userInfo, editableUserFields...)
+	if model.IsPhoneLikeName(model.StringValue(data, "NAME")) {
+		return model.Failure(msgPhoneNickname)
+	}
 	data["GUID"] = current.GUID
 	result := s.SaveAll(contextOf(c), "edit", "userInfo", []map[string]any{data}, "GUID")
 	if result.IsError {

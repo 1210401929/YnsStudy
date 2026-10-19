@@ -197,7 +197,7 @@
 import {ref, onMounted, computed, defineAsyncComponent, watch} from 'vue'
 import {ElMessage} from 'element-plus'
 import {useRoute, useRouter} from 'vue-router'
-import {useSeo} from '@/utils/seo.js';
+import {useSeo, buildProfileSeo} from '@/utils/seo.js';
 import { pubFormatDate, sendAxiosRequest, listExcerpt, downloadFileByUrl } from '@/utils/common.js'
 
 import BackgroundAndMusic from "@/components/detail/personInformation/BackgroundAndMusic.vue";
@@ -245,11 +245,15 @@ const showFriendLink = ref(false);
 // SEO：主页统一以 /user/:u 为收录地址；带文章 ID 打开时，文章本身以 /oneBlog/:id 为准
 const seoTitle = ref('个人主页 - YnsStudy');
 const seoDescription = ref('');
+const seoImage = ref(undefined);
+const seoJsonLd = ref(undefined);
 const userNotFound = ref(false);
 
 useSeo(() => ({
   title: seoTitle.value,
   description: seoDescription.value,
+  image: seoImage.value,
+  jsonLd: route.params.blogId ? undefined : seoJsonLd.value,
   type: 'profile',
   path: route.params.blogId
       ? `/oneBlog/${encodeURIComponent(route.params.blogId)}`
@@ -269,8 +273,12 @@ const initPageData = async () => {
       targetUserCode.value = parsedCode;
       user.value = res.result;
       // 设置页面标题
-      seoTitle.value = (user.value.name || '用户') + "的个人主页 - YnsStudy";
-      seoDescription.value = user.value.remark || `${user.value.name || '用户'} 在 YnsStudy 发表的文章、动态与分享的资源。`;
+      // 标题、描述和结构化数据与 Go 输出的首屏一致（站长主页会带上别名和外部主页）
+      const profileSeo = buildProfileSeo(user.value, userNum);
+      seoTitle.value = profileSeo.title;
+      seoDescription.value = profileSeo.description;
+      seoImage.value = profileSeo.image;
+      seoJsonLd.value = profileSeo.jsonLd;
 
       isPageReady.value = true;
       await Promise.all([
@@ -357,7 +365,9 @@ const enterHomepage = async () => {
 };
 
 onMounted(() => initPageData());
-watch(() => route.params.userId, () => {
+// 路由是 /userV2/:u，切换作者时组件会复用，需要按新的 u 重新加载
+watch(() => route.params.u, () => {
+  userNotFound.value = false;
   page.value = 1; blogs.value = []; files.value = []; noMore.value = false; initPageData();
 });
 watch(() => route.params.blogId, (newBlogId) => {

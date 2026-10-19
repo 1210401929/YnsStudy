@@ -63,7 +63,7 @@
 <script setup>
 import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from "vue-router"
-import { useSeo, absoluteUrl, SITE_NAME, DEFAULT_TITLE } from '@/utils/seo.js'
+import { useSeo, absoluteUrl, ownerPerson, SITE_NAME, DEFAULT_TITLE, DEFAULT_DESCRIPTION } from '@/utils/seo.js'
 import { sendAxiosRequest } from '@/utils/common.js'
 import LoginDialog from "@/components/main/LoginDialog.vue"
 import * as menuUtil from "@/utils/menu.js"
@@ -72,18 +72,20 @@ const router = useRouter()
 const menuItems = menuUtil.getMenuItems()
 
 // SEO 配置：/ 和 /welcome 是同一页面，canonical 统一指向根路径
-const welcomeDescription = 'YnsStudy：少一点迷茫，多一点引导，学习之路不再孤单。永远相信美好的事情即将发生。'
+// 标题、描述和结构化数据与 Go 输出的首页一致：带上站长名字，并声明网站的作者是站长本人
 useSeo({
-  // 与 Go 输出的首页标题保持一致，避免搜索引擎看到两个不同的首页标题
   title: DEFAULT_TITLE,
-  description: welcomeDescription,
+  description: DEFAULT_DESCRIPTION,
   path: '/',
   jsonLd: {
     '@context': 'https://schema.org',
     '@type': 'WebSite',
     name: SITE_NAME,
     url: absoluteUrl('/'),
-    description: welcomeDescription
+    description: DEFAULT_DESCRIPTION,
+    inLanguage: 'zh-CN',
+    author: ownerPerson(),
+    publisher: ownerPerson()
   }
 })
 

@@ -46,7 +46,9 @@ mail:
 
 文章会持续新增，单纯 Vue CSR 或构建时 Prerender 无法保证新文章的首次 HTML 包含正文。因此将首页 `/`、`/oneBlog/:id`、`/archive`、`/sitemap.xml` 和 `/rss.xml` 交给 Go 动态输出：首页包含站点介绍和最新文章链接，文章页包含真实正文、上一篇/下一篇和同作者文章链接，`/archive`（及 `/archive/page/N`）是按发布时间分页的全部文章归档，其他页面继续由原 Vue + Nginx 提供。
 
-`security.whitelist` 需要包含 `/archive`、`/archive/**` 和 `/indexnow.txt`，否则这些公开页面会被鉴权拦截。
+作者主页 `/user/:编号` 也由 Go 输出首屏（名字、简介、文章列表和 ProfilePage 结构化数据），用于搜索作者名字时的落地页；站长（`security.super_admin_code` 对应的账号）的主页和首页标题、结构化数据还会带上 `seo.owner_name`、`seo.owner_alternate_names`、`seo.owner_same_as`，三项不填时默认为“余南松”“YuNanSong”和 GitHub 主页。
+
+`security.whitelist` 需要包含 `/archive`、`/archive/**`、`/user/**` 和 `/indexnow.txt`，否则这些公开页面会被鉴权拦截。
 
 ### IndexNow（Bing 等搜索引擎）
 

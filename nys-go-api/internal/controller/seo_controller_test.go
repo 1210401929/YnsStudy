@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"nys-go-api/internal/config"
+	"nys-go-api/internal/model"
 	"nys-go-api/internal/service"
 )
 
@@ -22,13 +23,21 @@ func TestRenderSEOHomeHTMLContainsIntroductionAndRealArticleLinks(t *testing.T) 
 		"GUID":        "435",
 		"BLOG_TITLE":  "我把博客从 Spring Cloud 改成了 Go",
 		"USERNAME":    "YuNanSong",
+		"USERNUM":     "101",
 		"CREATE_TIME": time.Date(2026, 8, 18, 10, 0, 0, 0, time.FixedZone("CST", 8*60*60)),
 	}}
 	shell := `<!doctype html><html><head><title>旧标题</title><meta data-yns-seo="default" name="description" content="旧摘要"></head><body><noscript>YnsStudy 需要启用 JavaScript。</noscript><div id="app"></div><script type="module" src="/assets/app.js"></script></body></html>`
 
-	page := renderSEOHomeHTML(shell, articles, cfg)
+	owner := testOwner()
+	articles = append(articles, map[string]any{"GUID": "436", "BLOG_TITLE": "手机号昵称", "USERNAME": "15611122742"})
+	page := renderSEOHomeHTML(shell, articles, owner, cfg)
 	for _, expected := range []string{
-		`<title>YnsStudy - 技术分享与个人博客</title>`,
+		`<title>YnsStudy - 余南松的技术分享与个人博客</title>`,
+		`YnsStudy 是余南松（YuNanSong）的个人博客与技术社区`,
+		`站长：<a href="https://ynsstudy.cn/user/101">余南松（YuNanSong）</a>`,
+		`"author":{"@type":"Person","name":"余南松","alternateName":["YuNanSong"],"url":"https://ynsstudy.cn/user/101","sameAs":["https://github.com/1210401929"]}`,
+		`手机用户2742`,
+		`<span class="seo-home-meta"><a href="https://ynsstudy.cn/user/101">YuNanSong</a> · 2026-08-18</span>`,
 		`<link rel="canonical" href="https://ynsstudy.cn/">`,
 		`"@type":"WebSite"`,
 		`<h1 id="seo-home-title">YnsStudy</h1>`,
@@ -42,6 +51,12 @@ func TestRenderSEOHomeHTMLContainsIntroductionAndRealArticleLinks(t *testing.T) 
 	}
 	if strings.Contains(page, "需要启用 JavaScript") {
 		t.Fatal("首页 SEO HTML 不应保留 JavaScript 提示")
+	}
+	if strings.Contains(page, "15611122742") {
+		t.Fatal("首页不应输出手机号形式的昵称")
+	}
+	if strings.Contains(page, "%!") {
+		t.Fatal("首页格式化参数数量不匹配")
 	}
 }
 
@@ -75,7 +90,7 @@ func TestRenderSEOArticleHTMLContainsArticleSignalsAndBody(t *testing.T) {
 			{"GUID": "300", "BLOG_TITLE": "同作者的旧文章"},
 		},
 	}
-	page := renderSEOArticleHTML(shell, article, links, cfg)
+	page := renderSEOArticleHTML(shell, article, links, testOwner(), cfg)
 	for _, expected := range []string{
 		"<title>Go $1 SEO 实践 - YnsStudy</title>",
 		`<meta name="description" content="正文一级标题 这是真实文章摘要。">`,
@@ -145,6 +160,7 @@ func TestRenderSEOArchiveHTMLListsArticlesAndPagination(t *testing.T) {
 		"USERNAME":     "YuNanSong",
 		"CREATE_TIME":  time.Date(2026, 8, 18, 10, 0, 0, 0, time.FixedZone("CST", 8*60*60)),
 		"EXCERPT_HTML": `<p>这是摘要<script>alert(1)</script></p><img src="x.png"><p>被截断的`,
+		"USERNUM":      "101",
 	}}
 
 	page := renderSEOArchiveHTML(rows, 2, 5, 90, cfg)
@@ -159,6 +175,7 @@ func TestRenderSEOArchiveHTMLListsArticlesAndPagination(t *testing.T) {
 		`<span class="current" aria-current="page">2</span>`,
 		`"@type":"BreadcrumbList"`,
 		`"@type":"CollectionPage"`,
+		`<span class="archive-author"><a href="https://ynsstudy.cn/user/101">YuNanSong</a></span>`,
 		`<link rel="icon" href="/favicon.ico" sizes="48x48">`,
 	} {
 		if !strings.Contains(page, expected) {
@@ -193,5 +210,67 @@ func TestArchivePagerAndPageCount(t *testing.T) {
 		if !strings.Contains(pager, expected) {
 			t.Errorf("分页缺少 %q: %s", expected, pager)
 		}
+	}
+}
+
+func testOwner() service.SiteOwner {
+	return service.SiteOwner{
+		Code: "yulei", Name: "余南松", AlternateNames: []string{"YuNanSong"},
+		SameAs: []string{"https://github.com/1210401929"}, ProfilePath: "/user/101",
+	}
+}
+
+func TestRenderSEOProfileHTMLForOwnerAndMaskedUsers(t *testing.T) {
+	cfg := &config.Config{
+		External: config.ExternalConfig{DomainName: "https://ynsstudy.cn"},
+		SEO:      config.SEOConfig{SiteName: "YnsStudy", DefaultImage: "https://ynsstudy.cn/og-image.png"},
+	}
+	shell := `<!doctype html><html lang="zh-CN"><head><title>YnsStudy</title><meta data-yns-seo="default" name="description" content="旧摘要"></head><body><div id="app"></div><script type="module" src="/assets/app.js"></script></body></html>`
+	created := time.Date(2026, 9, 20, 11, 30, 0, 0, time.FixedZone("CST", 8*60*60))
+
+	ownerPage := renderSEOProfileHTML(shell, service.PublicProfile{
+		User:         model.User{Code: "yulei", Name: "余南松", Remark: "找出一个bug五块,先欠着", Avatar: "/uploadFile/userAvatar/a.jpg", UserNum: 101},
+		Articles:     []map[string]any{{"GUID": "441", "BLOG_TITLE": "【末世鼠疫2】自动开箱", "CREATE_TIME": created}},
+		ArticleTotal: 12,
+		IsOwner:      true,
+	}, testOwner(), cfg)
+	for _, expected := range []string{
+		`<title>余南松（YuNanSong）的个人主页 - YnsStudy</title>`,
+		`<meta name="description" content="余南松（YuNanSong），YnsStudy 站长。找出一个bug五块,先欠着">`,
+		`<link rel="canonical" href="https://ynsstudy.cn/user/101">`,
+		`<meta property="og:type" content="profile">`,
+		`"@type":"ProfilePage"`,
+		`"alternateName":["YuNanSong"]`,
+		`"sameAs":["https://github.com/1210401929"]`,
+		`<h1 id="seo-profile-name">余南松</h1>`,
+		`<p class="seo-profile-badge">YnsStudy 站长</p>`,
+		`<a href="https://github.com/1210401929" rel="me noopener" target="_blank">GitHub</a>`,
+		`src="https://ynsstudy.cn/uploadFile/userAvatar/a.jpg"`,
+		`<a href="https://ynsstudy.cn/oneBlog/441">【末世鼠疫2】自动开箱</a>`,
+		`余南松 的文章（12）`,
+		`src="/assets/app.js"`,
+	} {
+		if !strings.Contains(ownerPage, expected) {
+			t.Errorf("站长主页 HTML 缺少 %q", expected)
+		}
+	}
+	if strings.Count(ownerPage, `name="description"`) != 1 || strings.Contains(ownerPage, "%!") {
+		t.Fatal("站长主页的 description 重复或格式化参数不匹配")
+	}
+
+	userPage := renderSEOProfileHTML(shell, service.PublicProfile{
+		User: model.User{Code: "$userPhone15611122742", Name: "15611122742", UserNum: 120},
+	}, testOwner(), cfg)
+	for _, expected := range []string{
+		`<title>手机用户2742的个人主页 - YnsStudy</title>`,
+		`手机用户2742 在 YnsStudy 发表的文章、动态与分享的资源。`,
+		`暂时还没有公开文章`,
+	} {
+		if !strings.Contains(userPage, expected) {
+			t.Errorf("普通用户主页 HTML 缺少 %q", expected)
+		}
+	}
+	if strings.Contains(userPage, "15611122742") || strings.Contains(userPage, "站长") {
+		t.Fatal("普通用户主页不应出现手机号或站长标识")
 	}
 }

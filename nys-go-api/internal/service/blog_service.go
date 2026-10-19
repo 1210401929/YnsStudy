@@ -61,7 +61,7 @@ func (s *Service) AddBlog(c *gin.Context, blog map[string]any) model.Result {
 	result := stripSearchTextResult(s.SaveAll(ctx, "add", "BLOGINFO", []map[string]any{blog}, "GUID"))
 	if !result.IsError && isPublicBlogType(model.StringValue(blog, "BLOG_TYPE")) {
 		guid := model.StringValue(blog, "GUID")
-		s.NotifyBlogChanged(guid)
+		s.NotifyBlogChanged(guid, actor.Code())
 		s.notifyAdminContent(ctx, actor.Code(), actor.User.Name, "新文章", model.StringValue(blog, "BLOG_TITLE"),
 			model.StringValue(blog, "MAINTEXT"), s.mailSiteURL("/oneBlog/"+guid))
 	}
@@ -218,7 +218,7 @@ func (s *Service) UpdateBlog(c *gin.Context, guid, title, content, blogType stri
 	s.DeleteUploadedFiles(difference(oldURLs, newURLs))
 	// 公开文章被修改或改为私密时都要通知，后者让搜索引擎发现页面已不可访问。
 	if wasPublic || isPublicBlogType(blogType) {
-		s.NotifyBlogChanged(guid)
+		s.NotifyBlogChanged(guid, model.StringValue(rows[0], "USERCODE"))
 	}
 	// 私密文章改为公开，等同于新发表，同样通知站长审核
 	if !wasPublic && isPublicBlogType(blogType) {
@@ -259,7 +259,7 @@ func (s *Service) DeleteBlog(c *gin.Context, guid string) model.Result {
 	}
 	s.DeleteUploadedFiles(extractImageURLs(model.StringValue(rows[0], "MAINTEXT")))
 	if wasPublic {
-		s.NotifyBlogChanged(guid)
+		s.NotifyBlogChanged(guid, model.StringValue(rows[0], "USERCODE"))
 	}
 	return model.Success("删除成功")
 }

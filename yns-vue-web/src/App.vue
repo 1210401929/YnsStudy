@@ -10,7 +10,7 @@
       <div class="beian-container">
         <div class="beian-text">
           <div class="footer-contact">
-            <p>作者：YuNanSong | 联系方式：
+            <p>作者：<a :href="SITE_OWNER.profilePath">{{ SITE_OWNER_DISPLAY }}</a> | 联系方式：
               <a href="mailto:yvnansong@qq.com">yvnansong@qq.com</a> |
               <a href="https://github.com/1210401929/YnsStudy" target="_blank">访问作者 GitHub</a> |
               <a href="/archive">文章归档</a> |
@@ -45,7 +45,7 @@ import { computed, ref, onMounted, onUnmounted } from 'vue';
 import { useRoute } from 'vue-router';
 import { Top } from "@element-plus/icons-vue";// 引入 Top 图标
 import {getSendAxiosUrl} from "@/utils/common.js";
-import {useSeo, pageNoindex} from "@/utils/seo.js";
+import {useSeo, pageNoindex, SITE_OWNER, SITE_OWNER_DISPLAY} from "@/utils/seo.js";
 
 const route = useRoute();
 

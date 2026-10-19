@@ -77,8 +77,11 @@ func (s *Service) GetAllPublicBlogIDs(ctx context.Context) model.Result {
 	return s.SelectList(ctx, query, nil)
 }
 
+// RSSItemLimit 是 RSS 输出的文章数。Bing 等搜索引擎会把 RSS 当作补充 sitemap 读取，条目太少时旧文章不会被提交。
+const RSSItemLimit = 20
+
 func (s *Service) GetLatestBlogs(ctx context.Context) model.Result {
-	return s.SelectList(ctx, "SELECT * FROM blogInfo WHERE BLOG_TYPE = 'public' ORDER BY CREATE_TIME DESC LIMIT 5", nil)
+	return s.SelectList(ctx, "SELECT * FROM blogInfo WHERE BLOG_TYPE = 'public' ORDER BY CREATE_TIME DESC LIMIT ?", []any{RSSItemLimit})
 }
 
 // GetLatestBlogsForSEO 仅查询首页服务端 HTML 所需的轻量字段，避免读取大段文章正文。
@@ -89,10 +92,12 @@ func (s *Service) GetLatestBlogsForSEO(ctx context.Context, limit int) model.Res
 	if limit > 20 {
 		limit = 20
 	}
-	query := `SELECT GUID, BLOG_TITLE, USERNAME, CREATE_TIME
-FROM blogInfo
-WHERE BLOG_TYPE = 'public'
-ORDER BY CREATE_TIME DESC
+	// USERNUM 用于把作者名链接到作者主页
+	query := `SELECT b.GUID, b.BLOG_TITLE, b.USERNAME, b.CREATE_TIME, u.USERNUM
+FROM blogInfo b
+LEFT JOIN userInfo u ON b.USERCODE = u.CODE
+WHERE b.BLOG_TYPE = 'public'
+ORDER BY b.CREATE_TIME DESC
 LIMIT ?`
 	return s.SelectList(ctx, query, []any{limit})
 }

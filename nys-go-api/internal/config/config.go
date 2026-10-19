@@ -122,6 +122,36 @@ type SEOConfig struct {
 	// IndexNowKey 为空时不推送；填写后文章发布、修改、删除会通知 Bing 等支持 IndexNow 的搜索引擎。
 	IndexNowKey      string `yaml:"indexnow_key"`
 	IndexNowEndpoint string `yaml:"indexnow_endpoint"`
+	// 站长信息：首页标题、首页和站长主页的结构化数据会用它把网站和站长本人关联起来。
+	// 站长账号就是 security.super_admin_code；三项都可以不填，使用下面的默认值。
+	OwnerName           string   `yaml:"owner_name"`
+	OwnerAlternateNames []string `yaml:"owner_alternate_names"`
+	OwnerSameAs         []string `yaml:"owner_same_as"`
+}
+
+// 站长信息默认值，与前端 utils/seo.js 中的 SITE_OWNER 保持一致。
+const DefaultOwnerName = "余南松"
+
+var (
+	DefaultOwnerAlternateNames = []string{"YuNanSong"}
+	DefaultOwnerSameAs         = []string{"https://github.com/1210401929"}
+)
+
+// Owner 返回站长名字、别名和外部主页，未配置的项使用默认值。
+func (c SEOConfig) Owner() (name string, alternateNames, sameAs []string) {
+	name = strings.TrimSpace(c.OwnerName)
+	if name == "" {
+		name = DefaultOwnerName
+	}
+	alternateNames = c.OwnerAlternateNames
+	if len(alternateNames) == 0 {
+		alternateNames = DefaultOwnerAlternateNames
+	}
+	sameAs = c.OwnerSameAs
+	if len(sameAs) == 0 {
+		sameAs = DefaultOwnerSameAs
+	}
+	return name, alternateNames, sameAs
 }
 
 // DefaultIndexNowEndpoint 是 IndexNow 的公共入口，会同步给 Bing、Yandex 等参与方。

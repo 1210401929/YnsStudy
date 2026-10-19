@@ -23,10 +23,11 @@ func (s *Service) GetBlogArchivePage(ctx context.Context, page int) ([]map[strin
 		return nil, 0, err
 	}
 	total := firstCount(counts)
-	rows, err := s.Repo.Query(ctx, `SELECT GUID, BLOG_TITLE, USERNAME, CREATE_TIME, SUBSTRING(MAINTEXT, 1, ?) AS EXCERPT_HTML
-FROM blogInfo
-WHERE BLOG_TYPE = 'public'
-ORDER BY CREATE_TIME DESC, GUID DESC
+	rows, err := s.Repo.Query(ctx, `SELECT b.GUID, b.BLOG_TITLE, b.USERNAME, b.CREATE_TIME, u.USERNUM, SUBSTRING(b.MAINTEXT, 1, ?) AS EXCERPT_HTML
+FROM blogInfo b
+LEFT JOIN userInfo u ON b.USERCODE = u.CODE
+WHERE b.BLOG_TYPE = 'public'
+ORDER BY b.CREATE_TIME DESC, b.GUID DESC
 LIMIT ? OFFSET ?`, archiveExcerptChars, ArchivePageSize, (page-1)*ArchivePageSize)
 	if err != nil {
 		return nil, 0, err
