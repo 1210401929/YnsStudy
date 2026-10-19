@@ -20,7 +20,7 @@ type Controller struct {
 func NewRouter(cfg *config.Config, serviceLayer *service.Service, cipher *security.AESCipher) *gin.Engine {
 	gin.SetMode(cfg.Server.Mode)
 	router := gin.New()
-	router.Use(gin.Logger(), middleware.CORS(cfg.Security.InnerCallHeader), middleware.Crypto(cipher), gin.Recovery(), middleware.Auth(cfg.Security, serviceLayer.JWT))
+	router.Use(gin.Logger(), middleware.CORS(cfg.Security.InnerCallHeader), middleware.Crypto(cipher), gin.Recovery(), middleware.Auth(cfg.Security, serviceLayer.JWT, serviceLayer.Sessions), middleware.RenewLogin(serviceLayer.JWT, serviceLayer.Sessions))
 	_ = router.SetTrustedProxies(nil)
 	router.MaxMultipartMemory = cfg.Server.MaxUploadMB << 20
 

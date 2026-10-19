@@ -7,7 +7,7 @@ import (
 )
 
 func TestJWTRoundTrip(t *testing.T) {
-	jwt := NewJWT("test-secret", time.Hour)
+	jwt := NewJWT("test-secret", time.Hour, time.Hour)
 	token, err := jwt.Generate("user-guid")
 	if err != nil {
 		t.Fatal(err)
@@ -28,7 +28,7 @@ func TestJWTRoundTrip(t *testing.T) {
 }
 
 func TestJWTExpires(t *testing.T) {
-	jwt := NewJWT("test-secret", -time.Second)
+	jwt := NewJWT("test-secret", -time.Second, -time.Second)
 	token, err := jwt.Generate("user-guid")
 	if err != nil {
 		t.Fatal(err)

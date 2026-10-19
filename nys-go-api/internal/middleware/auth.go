@@ -12,7 +12,8 @@ import (
 
 const UserIDContextKey = "authenticated_user_id"
 
-func Auth(cfg config.SecurityConfig, jwt *security.JWT) gin.HandlerFunc {
+// Auth 校验 Token；sessions 用于识别已被作废（修改密码、封禁）的登录，传 nil 时不检查。
+func Auth(cfg config.SecurityConfig, jwt *security.JWT, sessions LoginSessions) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		path := c.Request.URL.Path
 		if c.Request.Method == http.MethodOptions || path == "/health" {
@@ -29,19 +30,17 @@ func Auth(cfg config.SecurityConfig, jwt *security.JWT) gin.HandlerFunc {
 			return
 		}
 
-		token := strings.TrimSpace(c.GetHeader("Authorization"))
-		if strings.HasPrefix(strings.ToLower(token), "bearer ") {
-			token = strings.TrimSpace(token[7:])
-		}
+		token := bearerToken(c)
 		if token == "" {
 			unauthorized(c, "未携带Token，请先登录")
 			return
 		}
-		userID, err := jwt.Verify(token)
-		if err != nil {
+		claims, err := jwt.Parse(token)
+		if err != nil || (sessions != nil && sessions.IsRevoked(c.Request.Context(), claims.Subject, claims.LoginAt)) {
 			unauthorized(c, "Token无效或已过期")
 			return
 		}
+		userID := claims.Subject
 		c.Set(UserIDContextKey, userID)
 		c.Request.Header.Set("X-User-Id", userID)
 		c.Next()

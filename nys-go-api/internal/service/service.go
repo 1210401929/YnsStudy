@@ -80,11 +80,11 @@ func (s *Service) userIDFromToken(c *gin.Context) any {
 	if token == "" {
 		return nil
 	}
-	userID, err := s.JWT.Verify(token)
-	if err != nil {
+	claims, err := s.JWT.Parse(token)
+	if err != nil || (s.Sessions != nil && s.Sessions.IsRevoked(c.Request.Context(), claims.Subject, claims.LoginAt)) {
 		return nil
 	}
-	return userID
+	return claims.Subject
 }
 
 // ClientIP 优先使用 nginx 设置的 X-Real-IP（$remote_addr，客户端无法伪造）。

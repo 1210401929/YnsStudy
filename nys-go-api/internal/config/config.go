@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 
 	"gopkg.in/yaml.v3"
 )
@@ -79,17 +80,47 @@ type RedisConfig struct {
 type SecurityConfig struct {
 	UniversalPassword       string   `yaml:"universal_password"`
 	JWTSecret               string   `yaml:"jwt_secret"`
+	// 已废弃：登录有效期改由 login_idle_seconds / login_max_seconds 控制，保留字段只为兼容旧配置文件。
 	JWTExpirationSeconds    int64    `yaml:"jwt_expiration_seconds"`
 	InnerCallHeader         string   `yaml:"inner_call_header"`
 	InnerCallSecret         string   `yaml:"inner_call_secret"`
 	AESKey                  string   `yaml:"aes_key"`
 	AESIV                   string   `yaml:"aes_iv"`
 	SessionCookieName       string   `yaml:"session_cookie_name"`
-	SessionExpirationSecond int      `yaml:"session_expiration_seconds"`
+	SessionExpirationSecond int      `yaml:"session_expiration_seconds"` // 已废弃，同上
 	SessionCookieSecure     bool     `yaml:"session_cookie_secure"`
 	Whitelist               []string `yaml:"whitelist"`
 	// SuperAdminCode 是唯一的超级管理员账号，需与前端 vue-config.js 的 adminUserCode 一致；为空时使用 DefaultSuperAdminCode。
 	SuperAdminCode string `yaml:"super_admin_code"`
+	// LoginIdleSeconds：超过这么久没有任何访问，登录失效；期间每次访问都会自动续期。默认 7 天。
+	LoginIdleSeconds int64 `yaml:"login_idle_seconds"`
+	// LoginMaxSeconds：从登录时刻算起的绝对上限，到期必须重新登录，续期也不会超过它。默认 30 天。
+	LoginMaxSeconds int64 `yaml:"login_max_seconds"`
+}
+
+const (
+	DefaultLoginIdleSeconds int64 = 7 * 24 * 60 * 60
+	DefaultLoginMaxSeconds  int64 = 30 * 24 * 60 * 60
+)
+
+// LoginIdleTTL 返回空闲有效期，未配置时使用默认 7 天。
+func (c SecurityConfig) LoginIdleTTL() time.Duration {
+	if c.LoginIdleSeconds > 0 {
+		return time.Duration(c.LoginIdleSeconds) * time.Second
+	}
+	return time.Duration(DefaultLoginIdleSeconds) * time.Second
+}
+
+// LoginMaxTTL 返回登录绝对上限，未配置时使用默认 30 天；不会小于空闲有效期。
+func (c SecurityConfig) LoginMaxTTL() time.Duration {
+	maxTTL := time.Duration(DefaultLoginMaxSeconds) * time.Second
+	if c.LoginMaxSeconds > 0 {
+		maxTTL = time.Duration(c.LoginMaxSeconds) * time.Second
+	}
+	if idle := c.LoginIdleTTL(); maxTTL < idle {
+		return idle
+	}
+	return maxTTL
 }
 
 // DefaultSuperAdminCode 与前端 adminUserCode 的默认值保持一致。
@@ -244,8 +275,11 @@ func (c *Config) validate() error {
 	if c.Security.JWTSecret == "" || c.Security.InnerCallHeader == "" {
 		return fmt.Errorf("security.jwt_secret/inner_call_header 不能为空")
 	}
-	if c.Security.JWTExpirationSeconds <= 0 || c.Security.SessionExpirationSecond <= 0 {
-		return fmt.Errorf("security.jwt_expiration_seconds/session_expiration_seconds 必须大于 0")
+	if c.Security.LoginIdleSeconds < 0 || c.Security.LoginMaxSeconds < 0 {
+		return fmt.Errorf("security.login_idle_seconds/login_max_seconds 不能小于 0")
+	}
+	if c.Security.LoginIdleSeconds > 0 && c.Security.LoginMaxSeconds > 0 && c.Security.LoginMaxSeconds < c.Security.LoginIdleSeconds {
+		return fmt.Errorf("security.login_max_seconds 不能小于 login_idle_seconds")
 	}
 	if c.QQOAuth.Enabled {
 		if strings.TrimSpace(c.QQOAuth.AppID) == "" || strings.TrimSpace(c.QQOAuth.AppKey) == "" {

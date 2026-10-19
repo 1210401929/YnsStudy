@@ -48,7 +48,8 @@ func main() {
 	}
 	defer store.Close()
 
-	jwt := security.NewJWT(cfg.Security.JWTSecret, time.Duration(cfg.Security.JWTExpirationSeconds)*time.Second)
+	// 登录 Token：空闲有效期内有访问就自动续期，但不超过从登录算起的绝对上限
+	jwt := security.NewJWT(cfg.Security.JWTSecret, cfg.Security.LoginIdleTTL(), cfg.Security.LoginMaxTTL())
 	aesCipher, err := security.NewAESCipher(cfg.Security.AESKey, cfg.Security.AESIV)
 	if err != nil {
 		log.Fatal(err)

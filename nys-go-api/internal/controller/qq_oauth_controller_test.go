@@ -26,7 +26,7 @@ func TestQQAuthorizeBindsStateToBrowserCookie(t *testing.T) {
 	cfg.QQOAuth.AppKey = "test-key"
 
 	store := cache.NewMemoryStore()
-	jwt := security.NewJWT(cfg.Security.JWTSecret, time.Hour)
+	jwt := security.NewJWT(cfg.Security.JWTSecret, time.Hour, time.Hour)
 	sessions := session.NewManager(store, cfg.Security)
 	services := service.New(cfg, nil, store, sessions, jwt)
 	cipher, err := security.NewAESCipher(cfg.Security.AESKey, cfg.Security.AESIV)

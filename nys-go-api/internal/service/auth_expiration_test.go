@@ -9,6 +9,7 @@ import (
 
 	"nys-go-api/internal/cache"
 	"nys-go-api/internal/config"
+	"nys-go-api/internal/middleware"
 	"nys-go-api/internal/model"
 	"nys-go-api/internal/security"
 	"nys-go-api/internal/session"
@@ -21,7 +22,7 @@ func TestCheckUserLoginKeepsOriginalToken(t *testing.T) {
 		SessionCookieName:       "NYS_SESSION",
 		SessionExpirationSecond: 7 * 24 * 60 * 60,
 	}}
-	jwt := security.NewJWT("test-secret", 7*24*time.Hour)
+	jwt := security.NewJWT("test-secret", 7*24*time.Hour, 30*24*time.Hour)
 	manager := session.NewManager(store, cfg.Security)
 	service := &Service{Config: cfg, Cache: store, Sessions: manager, JWT: jwt}
 	user := model.User{GUID: "user-guid", Code: "user-code", Name: "测试用户"}
@@ -59,7 +60,7 @@ func TestCheckUserLoginRejectsExpiredToken(t *testing.T) {
 		SessionCookieName:       "NYS_SESSION",
 		SessionExpirationSecond: 7 * 24 * 60 * 60,
 	}}
-	expiredJWT := security.NewJWT("test-secret", -time.Second)
+	expiredJWT := security.NewJWT("test-secret", -time.Second, -time.Second)
 	manager := session.NewManager(store, cfg.Security)
 	service := &Service{Config: cfg, Cache: store, Sessions: manager, JWT: expiredJWT}
 	user := model.User{GUID: "user-guid", Code: "user-code"}
@@ -86,5 +87,36 @@ func TestCheckUserLoginRejectsExpiredToken(t *testing.T) {
 	}
 	if _, err := manager.Get(checkContext); err == nil {
 		t.Fatal("过期 Token 对应的会话没有被销毁")
+	}
+}
+
+func TestCheckUserLoginReturnsRenewedToken(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	store := cache.NewMemoryStore()
+	cfg := &config.Config{Security: config.SecurityConfig{SessionCookieName: "NYS_SESSION"}}
+	jwt := security.NewJWT("test-secret", 7*24*time.Hour, 30*24*time.Hour)
+	manager := session.NewManager(store, cfg.Security)
+	service := &Service{Config: cfg, Cache: store, Sessions: manager, JWT: jwt}
+	user := model.User{GUID: "user-guid", Code: "user-code"}
+
+	loginWriter := httptest.NewRecorder()
+	loginContext, _ := gin.CreateTestContext(loginWriter)
+	loginContext.Request = httptest.NewRequest("POST", "/login", nil)
+	if err := manager.Create(loginContext, user); err != nil {
+		t.Fatal(err)
+	}
+	token, _ := jwt.Generate(user.GUID)
+
+	checkWriter := httptest.NewRecorder()
+	checkContext, _ := gin.CreateTestContext(checkWriter)
+	checkContext.Request = httptest.NewRequest("POST", "/check", nil)
+	checkContext.Request.AddCookie(loginWriter.Result().Cookies()[0])
+	checkContext.Request.Header.Set("Authorization", token)
+	// 模拟 RenewLogin 中间件已在本次请求中下发了新 Token
+	checkContext.Header(middleware.RefreshTokenHeader, "renewed-token")
+	result := service.CheckUserLogin(checkContext)
+	payload, _ := result.Result.(map[string]any)
+	if result.IsError || payload["userToken"] != "renewed-token" {
+		t.Fatalf("续期后应在响应体中返回新 Token: %#v", result)
 	}
 }

@@ -31,7 +31,7 @@ func TestUploadedFilesAreCachedAndNotListed(t *testing.T) {
 	cfg.Security.InnerCallHeader = "X-Inner-Test"
 	cfg.Security.InnerCallSecret = "secret"
 	store := cache.NewMemoryStore()
-	jwt := security.NewJWT("test", time.Hour)
+	jwt := security.NewJWT("test", time.Hour, time.Hour)
 	services := service.New(cfg, nil, store, session.NewManager(store, cfg.Security), jwt)
 	cipher, err := security.NewAESCipher("7546455674406856", "7513956994549178")
 	if err != nil {

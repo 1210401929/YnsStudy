@@ -17,6 +17,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"nys-go-api/internal/middleware"
 	"nys-go-api/internal/model"
 	"nys-go-api/internal/security"
 )
@@ -288,8 +289,8 @@ func (s *Service) CheckUserLogin(c *gin.Context) model.Result {
 	if err != nil {
 		return model.Failure("未登录!")
 	}
-	// 登录状态检查只验证登录时签发的 Token，不再生成新 Token。
-	// 因此刷新页面和普通访问不会把过期时间不断向后延长。
+	// 这里只校验 Token 与会话属于同一用户，原样返回 Token；
+	// 有效期过半时由 RenewLogin 中间件在 X-Refresh-Token 响应头里下发续期后的新 Token。
 	token := strings.TrimSpace(c.GetHeader("Authorization"))
 	if strings.HasPrefix(strings.ToLower(token), "bearer ") {
 		token = strings.TrimSpace(token[7:])
@@ -298,6 +299,10 @@ func (s *Service) CheckUserLogin(c *gin.Context) model.Result {
 	if tokenErr != nil || subject != user.GUID {
 		_ = s.Sessions.Destroy(c)
 		return model.Failure("登录已过期，请重新登录!")
+	}
+	// 本次请求触发了续期时返回新 Token，避免前端用响应体里的旧 Token 覆盖掉刚续期的新 Token
+	if renewed := c.Writer.Header().Get(middleware.RefreshTokenHeader); renewed != "" {
+		token = renewed
 	}
 	return model.Success(map[string]any{"userToken": token, "user": user.Public()})
 }
@@ -330,6 +335,10 @@ func (s *Service) ChangePassword(c *gin.Context, oldPassword, newPassword, confi
 	}
 	if _, err := s.Repo.Exec(contextOf(c), "UPDATE userInfo SET PASSWORD = ?, PASSWORDSALT = ? WHERE CODE = ?", hashed, salt, user.Code); err != nil {
 		return dbFailure("修改密码", err)
+	}
+	// 登录可以续期很久，修改密码后让该账号在所有设备上的登录全部失效
+	if err := s.Sessions.RevokeUser(contextOf(c), user.GUID); err != nil {
+		log.Printf("修改密码后作废旧登录失败: %v", err)
 	}
 	_ = s.Sessions.Destroy(c)
 	return model.Success("执行成功，影响行数：1")
@@ -501,7 +510,14 @@ func (s *Service) OperationUser(c *gin.Context, userID, operation string) model.
 	if set == "" {
 		return model.Failure("不支持的用户操作")
 	}
-	return s.ExecuteSQL(ctx, "UPDATE userInfo SET "+set+" WHERE GUID = ?", []any{userID})
+	result := s.ExecuteSQL(ctx, "UPDATE userInfo SET "+set+" WHERE GUID = ?", []any{userID})
+	// 封禁后立即让该用户所有设备退出登录
+	if !result.IsError && operation == "ban" {
+		if err := s.Sessions.RevokeUser(ctx, userID); err != nil {
+			log.Printf("封禁后作废登录失败: %v", err)
+		}
+	}
+	return result
 }
 
 func (s *Service) DeleteUserAvatar(c *gin.Context, userCode string) model.Result {

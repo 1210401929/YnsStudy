@@ -13,7 +13,11 @@
 
 Docker 部署时 `database.location` 必须保持为 `Asia/Shanghai`。Go 会把数据库时间解析、接口 JSON、RSS、SEO 和进程本地时间统一为北京时间，不依赖容器是否安装系统时区数据。
 
-登录有效期由 `security.jwt_expiration_seconds` 和 `security.session_expiration_seconds` 统一控制，默认都是 `3600` 秒（1 小时）。这是从登录时刻开始计算的绝对期限，检查登录、刷新页面和修改资料都不会续期；过期后必须重新登录。
+登录有效期由 `security.login_idle_seconds`（默认 7 天）和 `security.login_max_seconds`（默认 30 天）控制，不配置时使用默认值：
+- 超过空闲有效期没有任何访问，登录失效；期间的访问在有效期过半后自动续期（新 Token 通过 `X-Refresh-Token` 响应头下发，前端自动替换，会话 Cookie 同步延长）。
+- 从登录时刻算起不超过绝对上限，无论怎样续期，到期都必须重新登录。
+- 修改密码或被封禁后，该账号在所有设备上的登录立即失效（作废记录保存在 Redis/缓存中）。
+- 旧的 `jwt_expiration_seconds`、`session_expiration_seconds` 已不再使用，保留只为兼容旧配置文件。
 
 ### QQ 登录配置
 

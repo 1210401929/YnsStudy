@@ -41,9 +41,22 @@ export const getSendAxiosUrl = (url) => {
 
 let loginExpiredMessageShown = false;
 
+/**
+ * 登录有效期过半后，后端会在 X-Refresh-Token 响应头里下发续期后的新 Token。
+ * 只在本地仍处于登录状态时替换，避免退出登录后又被写回。
+ */
+export function applyRefreshedToken(token) {
+    if (token && localStorage.getItem('userToken')) {
+        localStorage.setItem('userToken', token);
+    }
+}
+
 // 后端对过期 Token 返回 401 时立即清理本地登录信息，避免页面继续显示“已登录”。
 axios.interceptors.response.use(
-    response => response,
+    response => {
+        applyRefreshedToken(response?.headers?.['x-refresh-token']);
+        return response;
+    },
     error => {
         if (error?.response?.status === 401) {
             const hadLogin = Boolean(localStorage.getItem('userToken') || localStorage.getItem('userBean'));
@@ -209,6 +222,7 @@ export function uploadFileWithProgress({
     };
 
     xhr.onload = () => {
+        applyRefreshedToken(xhr.getResponseHeader('X-Refresh-Token'));
         if (xhr.status === 200) {
             try {
                 const res = JSON.parse(xhr.responseText);
