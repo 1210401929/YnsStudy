@@ -50,15 +50,17 @@
       </el-table-column>
       <el-table-column label="操作" width="130" fixed="right">
         <template #default="{ row }">
-          <el-button link type="danger" size="small" @click="remove(row)">删除</el-button>
-          <el-dropdown v-if="banOptions(row).length" trigger="click" @command="(option) => openBan(option)">
-            <el-button link type="warning" size="small">禁止评论</el-button>
-            <template #dropdown>
-              <el-dropdown-menu>
-                <el-dropdown-item v-for="option in banOptions(row)" :key="option.type" :command="option">{{ option.label }}</el-dropdown-item>
-              </el-dropdown-menu>
-            </template>
-          </el-dropdown>
+          <div class="row-actions">
+            <el-button link type="danger" size="small" @click="remove(row)">删除</el-button>
+            <el-dropdown v-if="banOptions(row).length" trigger="click" @command="(option) => openBan(option)">
+              <el-button link type="warning" size="small">禁止评论</el-button>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item v-for="option in banOptions(row)" :key="option.type" :command="option">{{ option.label }}</el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
+          </div>
         </template>
       </el-table-column>
     </el-table>
@@ -147,6 +149,17 @@ onMounted(load)
   align-items: center;
   gap: 10px;
   margin-bottom: 14px;
+}
+
+/* 下拉菜单是 inline-flex，和普通按钮放一起基线不同，用 flex 统一垂直居中 */
+.row-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.row-actions .el-button + .el-button {
+  margin-left: 0;
 }
 
 .target-link {

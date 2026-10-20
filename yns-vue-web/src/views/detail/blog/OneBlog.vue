@@ -1,5 +1,5 @@
 <template>
-  <div class="blog-detail-page j-desk" :style="currentBgStyle">
+  <div class="blog-detail-page j-desk" :class="{ 'has-bg': hasBg }" :style="currentBgStyle">
     <BackgroundAndMusic
         ref="bgMusicComponentRef"
         :is-self="false"
@@ -24,19 +24,24 @@
 
       <main class="main-body">
 
-        <UserInfo
-            v-if="targetUserCode"
-            :user="authorInfo"
-            :target-user-code="targetUserCode"
-            @open-chat=""
-            @blog-click="openLikedOrCollectedBlog"
-        />
+        <!-- 左栏：作者卡片 + 文章目录。卡片滚走后目录吸附在顶部；没有目录时卡片自己吸附 -->
+        <aside class="side-column" :class="{ 'no-toc': !hasToc }">
+          <UserInfo
+              v-if="targetUserCode"
+              :user="authorInfo"
+              :target-user-code="targetUserCode"
+              @open-chat=""
+              @blog-click="openLikedOrCollectedBlog"
+          />
+          <div id="yns-toc-dock" class="toc-dock"></div>
+        </aside>
 
         <article class="content-side">
           <ContentAndComment
               :blogId="blogId"
               @loaded="contentAndCommentIsLoad"
               @not-found="handleArticleNotFound"
+              @toc-change="hasToc = $event > 0"
           />
         </article>
 
@@ -80,6 +85,7 @@ const targetUserCode = ref('');
 const authorInfo = ref({});
 const articleTitle = ref("");
 const articleNotFound = ref(false);
+const hasToc = ref(false);
 // 文章不存在时通知全站默认 SEO 不再输出 canonical
 usePageNoindex(articleNotFound);
 
@@ -92,6 +98,8 @@ const currentBgStyle = ref({});
 const handleBgStyleUpdate = (style) => {
   currentBgStyle.value = style;
 }
+// 作者设置了背景时，卡片、目录和正文改为半透明，透出一点背景
+const hasBg = computed(() => !!currentBgStyle.value?.backgroundImage);
 
 const canonicalUrl = computed(() => `${window.location.origin}/oneBlog/${encodeURIComponent(blogId)}`);
 const seoTitle = ref('博客详情 - YnsStudy');
@@ -242,6 +250,8 @@ const handleArticleNotFound = () => {
   width: 100%;
   max-width: 100vw;
   overflow-x: hidden;
+  /* clip 只裁切、不产生滚动容器，左栏的目录和卡片才能 sticky 吸附 */
+  overflow-x: clip;
   box-sizing: border-box;
 }
 
@@ -287,13 +297,34 @@ const handleArticleNotFound = () => {
   color: var(--j-ink);
 }
 
-/* 主体两栏 */
+/* 有背景时：卡片和目录透明度高一些并加模糊；正文保持接近不透明，长时间阅读也看得清。
+   正文很长，又是 fixed 背景，不给它加 backdrop-filter，避免滚动时卡顿 */
+.has-bg :deep(.profile-card),
+.has-bg :deep(.toc-fixed-card) {
+  background: rgba(255, 253, 248, 0.78);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+
+.has-bg :deep(.article-sheet) {
+  background: rgba(255, 253, 248, 0.9);
+}
+
+.has-bg :deep(.comment-card) {
+  background: rgba(251, 246, 234, 0.6);
+}
+
+.has-bg .blog-top-bar {
+  background: rgba(255, 253, 248, 0.85);
+}
+
+/* 主体两栏：左 280px 卡片和目录，右侧正文最宽 864px（一行文字约 760px） */
 .main-body {
   display: flex;
   align-items: flex-start;
   gap: 28px;
   width: 100%;
-  max-width: 1600px;
+  max-width: 1220px;
   margin: 0 auto;
   padding: 32px 24px;
   flex: 1;
@@ -306,6 +337,30 @@ const handleArticleNotFound = () => {
   max-width: 100%;
   box-sizing: border-box;
   min-height: 82vh;
+}
+
+/* 左栏拉满整行高度，里面的 sticky 才能一路吸附到文章结束 */
+.side-column {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  align-self: stretch;
+  width: 280px;
+  flex-shrink: 0;
+}
+
+.toc-dock {
+  position: sticky;
+  top: 20px;
+}
+
+.toc-dock:empty {
+  display: none;
+}
+
+.side-column.no-toc :deep(.left-sidebar) {
+  position: sticky;
+  top: 20px;
 }
 
 /* 文章不存在：一张便签 */
@@ -336,15 +391,34 @@ const handleArticleNotFound = () => {
   color: var(--j-pen);
 }
 
-@media (max-width: 768px) {
+/* 小屏单栏：卡片在文章上方，目录改为右下角按钮 + 抽屉（见 ContentAndComment） */
+@media (max-width: 991px) {
   .main-body {
     flex-direction: column;
     gap: 20px;
-    padding: 16px 12px;
+  }
+
+  .side-column {
+    width: 100%;
+    align-self: auto;
+  }
+
+  .toc-dock {
+    display: none;
+  }
+
+  .side-column.no-toc :deep(.left-sidebar) {
+    position: static;
   }
 
   .content-side {
     width: 100%;
+  }
+}
+
+@media (max-width: 768px) {
+  .main-body {
+    padding: 16px 12px;
   }
 
   :deep(.user-info-container) {

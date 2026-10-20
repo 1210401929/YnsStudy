@@ -1,8 +1,8 @@
 <template>
-  <el-row ref="layoutRowRef" :gutter="28" class="article-view-row" justify="space-between" align="top">
-    <!-- 左侧文章区域 -->
-    <el-col :xs="24" :sm="24" :md="17" :lg="17">
-      <article class="article-sheet">
+  <el-row :gutter="28" class="article-view-row" :class="{ 'is-focus': isFocusPage }" justify="space-between" align="top">
+    <!-- 文章区域：文章详情页独占整行（目录在页面左栏），其他页面右侧留一栏放目录 -->
+    <el-col :xs="24" :sm="24" :md="isFocusPage ? 24 : 17" :lg="isFocusPage ? 24 : 17">
+      <article ref="articleSheetRef" class="article-sheet">
         <span class="j-tape j-tape--top"></span>
 
         <div class="author-info">
@@ -30,6 +30,12 @@
             <div class="author-tagline">
               发布时间: {{ pubFormatDate(blogContent.CREATE_TIME) }}
               <span v-if="readingStats" class="reading-stats">· 约 {{ readingStats.words }} 字 · 阅读约 {{ readingStats.minutes }} 分钟</span>
+              <!-- 点赞、收藏只展示数量（操作在文章末尾），点评论数跳到评论区 -->
+              <span class="meta-stats" @click.stop>
+                <span class="meta-stat" title="点赞数">👍 {{ blogLikeNum }}</span>
+                <span class="meta-stat" title="收藏数">⭐ {{ blogCollectNum }}</span>
+                <button type="button" class="meta-stat meta-comment" title="查看评论" @click="scrollToComments">💬 {{ commentTotal }}</button>
+              </span>
             </div>
           </div>
         </div>
@@ -62,14 +68,10 @@
           </div>
         </div>
 
-        <!-- 评论区：默认显示在文章下方；打开右侧评论栏时整块移过去，输入内容和展开状态都保留 -->
-        <Teleport defer to="#yns-comment-dock" :disabled="!showComment">
-        <section class="comment-card" :class="{ 'is-inline': !showComment }">
+        <!-- 评论区：在文章下方 -->
+        <section ref="commentCardRef" class="comment-card">
           <div class="comment-header">
-            <h3>互动评论 <span class="comment-count-badge">{{ blogComment.length }}</span></h3>
-            <button v-if="showComment" type="button" class="tool-link" @click="showComment = false">
-              收起评论 <el-icon><Right/></el-icon>
-            </button>
+            <h3>互动评论 <span class="comment-count-badge">{{ commentTotal }}</span></h3>
           </div>
 
           <div v-for="(comment, i) in visibleComments" :key="comment.GUID || i" class="comment-item">
@@ -109,7 +111,7 @@
                   <el-input v-model="guestInfo.email" name="mail" type="email" autocomplete="email" :prefix-icon="Message" placeholder="邮箱 (选填)" size="small" clearable/>
                 </el-col>
                 <el-col :span="24">
-                  <el-input v-model="guestInfo.website" name="url" type="url" autocomplete="on" :prefix-icon="Link" placeholder="http://" size="small" clearable/>
+                  <el-input v-model="guestInfo.website" v-url-hint="guestInfo.website" name="url" type="url" autocomplete="on" :prefix-icon="Link" placeholder="http://" size="small" clearable/>
                 </el-col>
               </el-row>
               <div class="reply-action-group">
@@ -127,10 +129,10 @@
 
             <div class="children-comments" v-if="comment.children?.length">
               <button type="button" class="tool-link toggle-children-btn" @click="toggleChildren(comment.GUID)">
-                {{ isChildrenVisible[comment.GUID] ? '收起回复' : `查看回复 (${comment.children.length})` }}
+                {{ repliesOpen(comment.GUID) ? '收起回复' : `查看回复 (${comment.children.length})` }}
               </button>
 
-              <div v-show="isChildrenVisible[comment.GUID]" class="children-list">
+              <div v-show="repliesOpen(comment.GUID)" class="children-list">
                 <div v-for="(child, idx) in comment.children" :key="child.GUID || idx" class="comment-child"
                      @click="toggleAction(child.GUID)">
                   <div class="avatar-container">
@@ -181,7 +183,7 @@
                 <el-input v-model="guestInfo.email" name="mail" type="email" autocomplete="email" :prefix-icon="Message" placeholder="邮箱 (选填)" size="default" clearable />
               </el-col>
               <el-col :span="24">
-                <el-input v-model="guestInfo.website" name="url" type="url" autocomplete="on" :prefix-icon="Link" placeholder="http://" size="default" clearable />
+                <el-input v-model="guestInfo.website" v-url-hint="guestInfo.website" name="url" type="url" autocomplete="on" :prefix-icon="Link" placeholder="http://" size="default" clearable />
               </el-col>
             </el-row>
 
@@ -202,7 +204,6 @@
             </div>
           </form>
         </section>
-        </Teleport>
 
         <!-- 上一篇 / 下一篇 / 同作者文章放在评论之后，读完先看讨论，最后再去别的文章 -->
         <ArticleLinks
@@ -213,52 +214,29 @@
       </article>
     </el-col>
 
-    <!-- 右侧区域：评论区 or 目录区 -->
-    <el-col :xs="24" :sm="24" :md="7" :lg="7">
-      <!-- 独立悬浮的包裹层，纯 JS 操控其 translateY -->
-      <div ref="rightSidebarRef" class="side-float">
-        <!-- 评论区移到右侧时放在这里（点右侧悬浮的评论按钮） -->
-        <div id="yns-comment-dock" v-show="showComment"></div>
-
-        <!-- 目录区：固定显示 -->
-        <section v-if="!showComment" class="toc-fixed-card">
-          <span class="j-tape j-tape--green toc-tape"></span>
-          <div class="toc-title">文章目录</div>
-          <el-scrollbar max-height="600px">
-            <div v-if="tocList.length === 0" class="toc-empty">暂无目录或提取中...</div>
-            <div v-for="item in tocList" :key="item.id"
-                 class="toc-item"
-                 :class="['toc-level-' + item.level, { 'is-active': activeTocId === item.id }]"
-                 @click="scrollToAnchor(item.id)">
-              <span>{{ item.text }}</span>
-            </div>
-          </el-scrollbar>
-        </section>
+    <!-- 其他页面（我的博客、弹窗）：右侧目录，滚动时吸附在顶部 -->
+    <el-col v-if="!isFocusPage" :xs="24" :sm="24" :md="7" :lg="7" class="toc-col" :class="{ 'use-drawer': useTocDrawer }">
+      <div class="side-float">
+        <ArticleToc :items="tocList" :active-id="activeTocId" @select="scrollToAnchor"/>
       </div>
     </el-col>
   </el-row>
 
-  <!-- 悬浮按钮：贴在屏幕右边缘的索引标签 -->
-  <div class="floating-wrapper">
-    <el-tooltip :content="blogContent.$userIsLike ? '取消点赞' : '点赞'" placement="left">
-      <button type="button" class="side-tab tab-yellow" :class="{ 'is-on': blogContent.$userIsLike }" @click="handleLike">
-        👍
-      </button>
-    </el-tooltip>
+  <!-- 文章详情页：目录放进页面左栏、用户信息卡片下方 -->
+  <Teleport v-if="isFocusPage && tocList.length" defer to="#yns-toc-dock">
+    <ArticleToc :items="tocList" :active-id="activeTocId" @select="scrollToAnchor"/>
+  </Teleport>
 
-    <el-tooltip :content="blogContent.$userIsCollect ? '取消收藏' : '收藏'" placement="left">
-      <button type="button" class="side-tab tab-green" :class="{ 'is-on': blogContent.$userIsCollect }" @click="handleCollect">
-        <el-icon><Star/></el-icon>
-      </button>
-    </el-tooltip>
-
-    <el-tooltip :content="showComment ? '关闭评论' : '打开评论'" placement="left">
-      <button type="button" class="side-tab tab-pink" :class="{ 'is-on': showComment }" @click="showCommentFun">
-        <el-icon><Comment/></el-icon>
-        <span v-if="blogComment.length > 0" class="side-tab-badge">{{ blogComment.length }}</span>
-      </button>
-    </el-tooltip>
-  </div>
+  <!-- 小屏：目录收进右下角按钮，点开从右侧滑出 -->
+  <template v-if="useTocDrawer && tocList.length">
+    <button type="button" class="toc-drawer-btn" title="文章目录" @click="tocDrawerVisible = true">
+      <el-icon><Memo/></el-icon>
+      <span>目录</span>
+    </button>
+    <el-drawer v-model="tocDrawerVisible" direction="rtl" size="min(300px, 82vw)" :with-header="false">
+      <ArticleToc plain :items="tocList" :active-id="activeTocId" max-height="calc(100vh - 80px)" @select="selectFromDrawer"/>
+    </el-drawer>
+  </template>
 
   <!-- 编辑弹窗 -->
   <el-dialog
@@ -283,13 +261,14 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, watch, nextTick, defineAsyncComponent } from "vue";
+import { ref, computed, onUnmounted, watch, nextTick, defineAsyncComponent } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useUserStore } from "@/stores/main/user.js";
 import { useBlogContentStore } from "@/stores/detail/blog.js";
 import ArticleViewer from "@/components/detail/ArticleViewer.vue";
 import ArticleLinks from "@/components/detail/myblog/ArticleLinks.vue";
-import { Star, Comment, Right, User, Message, Link, Edit } from '@element-plus/icons-vue'
+import ArticleToc from "@/components/detail/myblog/ArticleToc.vue";
+import { Star, User, Message, Link, Edit, Memo } from '@element-plus/icons-vue'
 import { ElMessage } from "element-plus";
 import debounce from 'lodash/debounce'
 
@@ -308,6 +287,24 @@ import { pubOpenOneBlog, pubOpenUser } from "@/utils/blogUtil.js";
 
 // 编辑器体积较大，只在打开编辑弹窗（或切回编辑器展示方式）时才下载
 const ArticleEditor = defineAsyncComponent(() => import("@/components/detail/ArticleEditor.vue"));
+
+// 网址输入框是 type="url"，浏览器默认只提示“请输入网址”，看不出缺的是 http:// 或 https://。
+// 格式不对时换成明确的提示；内容一变（包括点清除按钮）就清掉，交给浏览器重新校验，
+// 否则自定义错误会一直保留，清空后也无法提交。
+const URL_HINT = '网址需要以 http:// 或 https:// 开头，例如 https://example.com';
+const urlInputOf = (el) => (el.tagName === 'INPUT' ? el : el.querySelector('input'));
+const vUrlHint = {
+  mounted(el) {
+    const input = urlInputOf(el);
+    if (!input) return;
+    input.addEventListener('invalid', () => {
+      if (input.validity.typeMismatch) input.setCustomValidity(URL_HINT);
+    });
+  },
+  updated(el, binding) {
+    if (binding.value !== binding.oldValue) urlInputOf(el)?.setCustomValidity('');
+  }
+};
 const articleEditorRef = ref(null);
 
 const route = useRoute();
@@ -331,7 +328,20 @@ const editorVisible = ref(false);
 
 const showAllComments = ref(false);
 const newComment = ref("");
-const showComment = ref(false);
+
+// 文章详情页：目录由页面放在左栏；我的博客页和详情页在小屏时把目录收进抽屉
+const isFocusPage = computed(() => route.name === 'oneBlog');
+const useTocDrawer = computed(() => ['oneBlog', 'BlogContent'].includes(route.name));
+const tocDrawerVisible = ref(false);
+const articleSheetRef = ref(null);
+const commentCardRef = ref(null);
+
+// 评论总数包含楼中楼
+const commentTotal = computed(() => blogComment.value.reduce((sum, c) => sum + 1 + (c.children?.length || 0), 0));
+
+const scrollToComments = () => {
+  commentCardRef.value?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+};
 
 const getLocalGuestData = () => {
   try {
@@ -351,17 +361,7 @@ const showMainGuestForm = computed(() => {
   return !Object.values(replyInputVisible.value).some(visible => visible === true);
 });
 
-const emit = defineEmits(['loaded', 'not-found'])
-
-const showCommentFun = () => {
-  showComment.value = !showComment.value;
-  nextTick(() => {
-    const commentSection = document.querySelector('.comment-card');
-    if (commentSection && showComment.value) {
-      commentSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    }
-  });
-}
+const emit = defineEmits(['loaded', 'not-found', 'toc-change'])
 
 const activeCommentId = ref("");
 
@@ -454,8 +454,7 @@ let observer = null;
 
 const generateToc = () => {
   nextTick(() => {
-    const layoutElement = layoutRowRef.value?.$el || layoutRowRef.value;
-    const contentEl = layoutElement?.querySelector?.('.editor-container');
+    const contentEl = articleSheetRef.value?.querySelector('.editor-container');
     if (!contentEl) return;
 
     // 详情页标题已经是唯一 H1；旧文章正文若含 H1，则降为 H2，保持语义层级正确。
@@ -497,6 +496,7 @@ const generateToc = () => {
       });
     });
     tocList.value = tempToc;
+    emit('toc-change', tempToc.length);
     if (tempToc.length > 0) initObserver();
   });
 };
@@ -528,95 +528,13 @@ const scrollToAnchor = (anchorId) => {
 };
 
 
-// ==================== JS 完全独立悬浮核心逻辑 ====================
-const layoutRowRef = ref(null);
-const rightSidebarRef = ref(null);
-let scrollContainer = null;
-let ticking = false;
-
-const doScrollUpdate = () => {
-  if (!layoutRowRef.value || !rightSidebarRef.value) return;
-
-  const rowEl = layoutRowRef.value.$el || layoutRowRef.value;
-  const sidebarEl = rightSidebarRef.value;
-
-  // 移动端排版自动取消悬浮
-  if (window.innerWidth < 992) {
-    sidebarEl.style.transform = `translateY(0px)`;
-    return;
-  }
-
-  // 完全基于视口物理位置计算
-  const rowRect = rowEl.getBoundingClientRect();
-  const sidebarHeight = sidebarEl.offsetHeight;
-
-  const offsetTop = 20; // 悬浮时距离视口顶部的间距
-
-  // 如果父容器顶部已经超出了视口距离（开始往下滚了）
-  if (rowRect.top < offsetTop) {
-    let translateY = Math.abs(rowRect.top) + offsetTop;
-
-    // 触底限制
-    const maxTranslateY = rowRect.height - sidebarHeight;
-
-    if (maxTranslateY <= 0) {
-      sidebarEl.style.transform = `translateY(0px)`;
-      return;
-    }
-
-    if (translateY > maxTranslateY) {
-      translateY = maxTranslateY;
-    }
-
-    sidebarEl.style.transform = `translateY(${translateY}px)`;
-  } else {
-    sidebarEl.style.transform = `translateY(0px)`;
-  }
+const selectFromDrawer = (anchorId) => {
+  tocDrawerVisible.value = false;
+  scrollToAnchor(anchorId);
 };
-
-const handleScroll = () => {
-  if (!ticking) {
-    window.requestAnimationFrame(() => {
-      doScrollUpdate();
-      ticking = false;
-    });
-    ticking = true;
-  }
-};
-
-// 自动向外寻找真正能滚动的 DOM 节点
-const getScrollContainer = (el) => {
-  let parent = el.parentElement;
-  while (parent) {
-    const style = window.getComputedStyle(parent);
-    if (/(auto|scroll|overlay)/.test(style.overflow + style.overflowY)) {
-      return parent;
-    }
-    parent = parent.parentElement;
-  }
-  return window;
-};
-
-onMounted(() => {
-  requestAnimationFrame(() => {
-    const rowEl = layoutRowRef.value.$el || layoutRowRef.value;
-    if (rowEl) {
-      scrollContainer = getScrollContainer(rowEl);
-      scrollContainer.addEventListener('scroll', handleScroll, { passive: true });
-      window.addEventListener('scroll', handleScroll, { passive: true });
-    }
-  });
-});
-// =================================================================
 
 onUnmounted(() => {
   if (observer) observer.disconnect();
-
-  // 销毁监听事件
-  if (scrollContainer) {
-    scrollContainer.removeEventListener('scroll', handleScroll);
-  }
-  window.removeEventListener('scroll', handleScroll);
 });
 
 
@@ -822,8 +740,14 @@ function deleteComment(commentId, parentId = null) {
   })
 }
 
+// 楼中楼默认展开；手动点过“收起回复/查看回复”的按手动结果
+function repliesOpen(commentId) {
+  if (commentId in isChildrenVisible.value) return isChildrenVisible.value[commentId];
+  return true;
+}
+
 function toggleChildren(commentId) {
-  isChildrenVisible.value[commentId] = !isChildrenVisible.value[commentId];
+  isChildrenVisible.value[commentId] = !repliesOpen(commentId);
 }
 
 function openOneBlog() { pubOpenOneBlog(router, blogContent.value.GUID) }
@@ -880,11 +804,19 @@ const getAvatarStyle = (name) => {
   align-items: flex-start;
 }
 
-/* 给屏幕右边缘的索引标签留出位置 */
-@media (min-width: 992px) {
-  .article-view-row {
-    padding-right: 44px;
-  }
+/* 文章详情页：正文一行控制在 760px 左右，宽屏时也不会拉得太长 */
+.article-view-row.is-focus .article-sheet {
+  max-width: 864px;
+}
+
+/* 右侧目录栏拉满整行高度，目录卡片才能一路吸附到文章结束 */
+.toc-col {
+  align-self: stretch;
+}
+
+.side-float {
+  position: sticky;
+  top: 20px;
 }
 
 /* ====== 文章：一张贴着胶带的纸 ====== */
@@ -952,6 +884,37 @@ const getAvatarStyle = (name) => {
 
 .reading-stats {
   margin-left: 4px;
+}
+
+.meta-stats {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: 10px;
+  cursor: default;
+}
+
+.meta-stat {
+  font-family: var(--j-sans);
+  font-size: 13px;
+  color: var(--j-muted);
+  white-space: nowrap;
+}
+
+.meta-comment {
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-underline-offset: 3px;
+  transition: color 0.15s, text-decoration-color 0.15s;
+}
+
+.meta-comment:hover {
+  color: var(--j-pen);
+  text-decoration-color: currentColor;
 }
 
 .article-header {
@@ -1051,18 +1014,9 @@ const getAvatarStyle = (name) => {
   padding: 20px 18px 18px;
   background: var(--j-paper-warm);
   border: 1px solid var(--j-rule);
-  box-shadow: var(--j-shadow);
-  max-height: calc(100vh - 40px);
-  overflow-y: auto;
-  box-sizing: border-box;
-}
-
-/* 显示在文章下方时：随正文展开，不限制高度 */
-.comment-card.is-inline {
-  max-height: none;
-  overflow-y: visible;
   margin-top: 28px;
-  box-shadow: none;
+  box-sizing: border-box;
+  scroll-margin-top: 20px;
 }
 
 .comment-header {
@@ -1240,149 +1194,52 @@ const getAvatarStyle = (name) => {
   color: var(--j-muted);
 }
 
-/* ====== 目录：一张索引卡 ====== */
-.toc-fixed-card {
-  position: relative;
-  padding: 24px 18px 16px;
-  background: var(--j-paper);
-  border: 1px solid var(--j-rule);
-  box-shadow: var(--j-shadow);
-}
-
-.toc-tape {
-  top: -10px;
-  left: 22px;
-  transform: rotate(-4deg);
-}
-
-.toc-title {
-  margin-bottom: 12px;
-  font-family: var(--j-hand);
-  font-size: 19px;
-  color: var(--j-ink);
-}
-
-.toc-empty {
-  padding: 10px 4px;
-  font-family: var(--j-hand);
-  font-size: 15px;
-  color: var(--j-muted);
-}
-
-.toc-item {
-  padding: 7px 4px;
-  border-bottom: 1px dashed var(--j-rule);
-  font-size: 14px;
-  line-height: 20px;
-  color: var(--j-ink-soft);
-  cursor: pointer;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.toc-item span {
-  background-repeat: no-repeat;
-  background-image: linear-gradient(transparent 55%, var(--j-highlight) 55%, var(--j-highlight) 95%, transparent 95%);
-  background-size: 0 100%;
-  transition: background-size 0.3s ease;
-}
-
-.toc-item:hover {
-  color: var(--j-ink);
-}
-
-.toc-item.is-active {
-  color: var(--j-ink);
-}
-
-.toc-item.is-active span {
-  background-size: 100% 100%;
-}
-
-.toc-level-2 { padding-left: 4px; }
-.toc-level-3 { padding-left: 18px; font-size: 13px; }
-.toc-level-4 { padding-left: 32px; font-size: 12px; }
-
 :deep(h1), :deep(h2), :deep(h3), :deep(h4) {
   scroll-margin-top: 80px;
 }
 
-/* ====== 悬浮工具：屏幕右边缘的索引标签 ====== */
-.floating-wrapper {
-  position: fixed;
-  top: 50%;
-  right: 0;
-  transform: translateY(-50%);
-  z-index: 1000;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 8px;
+/* ====== 小屏目录按钮 ====== */
+.toc-drawer-btn {
+  display: none;
 }
 
-.side-tab {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 42px;
-  height: 40px;
-  padding: 0 0 0 4px;
-  border: none;
-  border-radius: 6px 0 0 6px;
-  font-size: 17px;
-  color: var(--j-ink);
-  cursor: pointer;
-  box-shadow: -1px 1px 3px rgba(60, 50, 30, 0.15);
-  transition: width 0.2s ease;
-}
-
-.side-tab:hover,
-.side-tab.is-on {
-  width: 52px;
-}
-
-.side-tab.is-on {
-  box-shadow: -2px 2px 6px rgba(60, 50, 30, 0.25);
-}
-
-.tab-yellow { background: #f6e3a1; }
-.tab-green { background: #c7e2cf; }
-.tab-pink { background: #f3cccc; }
-
-.side-tab-badge {
-  position: absolute;
-  top: -6px;
-  left: -6px;
-  min-width: 18px;
-  padding: 0 4px;
-  border-radius: 9px;
-  background: var(--j-stamp);
-  color: #fff;
-  font-size: 11px;
-  line-height: 18px;
-  box-sizing: border-box;
-}
-
-/* =========================================================================
-   移动端适配
-   ========================================================================= */
 @media (max-width: 991px) {
+  /* 详情页、我的博客页的目录改到抽屉里 */
+  .toc-col.use-drawer {
+    display: none;
+  }
+
+  .toc-col .side-float {
+    position: static;
+    margin-top: 18px;
+  }
+
   .comment-card {
-    max-height: none !important;
-    overflow-y: visible !important;
     margin-top: 18px;
   }
 
-  .toc-fixed-card {
-    margin-top: 18px;
-  }
-
-  .floating-wrapper {
-    top: auto;
+  .toc-drawer-btn {
+    position: fixed;
+    right: 0;
     bottom: 90px;
-    transform: none;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    width: 44px;
+    padding: 8px 0 6px 4px;
+    border: none;
+    border-radius: 6px 0 0 6px;
+    background: #c7e2cf;
+    color: var(--j-ink);
+    font-size: 12px;
+    cursor: pointer;
+    box-shadow: -1px 1px 3px rgba(60, 50, 30, 0.15);
+  }
+
+  .toc-drawer-btn .el-icon {
+    font-size: 17px;
   }
 }
 
