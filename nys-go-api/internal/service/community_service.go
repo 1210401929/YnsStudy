@@ -20,6 +20,9 @@ func (s *Service) AddCommunity(c *gin.Context, community map[string]any) model.R
 		// 帖子是 Markdown 转出的 HTML，保存前过滤脚本和事件属性
 		community["TEXT"] = sanitizeRichText(model.StringValue(community, "TEXT"))
 	}
+	if s.containsBannedWord(model.StringValue(community, "TEXT")) {
+		return model.Failure(msgBannedWord)
+	}
 	community["USERCODE"] = actor.Code()
 	community["USERNAME"] = actor.User.Name
 	ctx := contextOf(c)
@@ -56,6 +59,7 @@ func (s *Service) DeleteCommunity(c *gin.Context, guid string) model.Result {
 	if err != nil {
 		return dbFailure("删除社区内容", err)
 	}
+	s.logModeration(c, actor, row, AdminActionDeletePost, postLabel(row), "在社区页删除帖子")
 	return model.Success("删除成功")
 }
 
@@ -105,9 +109,19 @@ func (s *Service) AddCommunityComment(c *gin.Context, comment map[string]any) mo
 		return *failure
 	}
 	comment = pickFields(comment, "GUID", "COMMUNITYID", "SUPERGUID", "TEXT")
+	if s.containsBannedWord(model.StringValue(comment, "TEXT")) {
+		return model.Failure(msgBannedWord)
+	}
+	clientIP := ClientIP(c)
+	if failure := s.checkCommentBan(c, commentSubject{UserCode: actor.Code(), IP: clientIP, Nickname: actor.User.Name}); failure != nil {
+		return *failure
+	}
 	comment["USERCODE"] = actor.Code()
 	comment["USERNAME"] = actor.User.Name
 	ctx := contextOf(c)
+	if s.tableHasColumn(ctx, "communityComment", "IP") {
+		comment["IP"] = clientIP
+	}
 	result := s.SaveAll(ctx, "add", "communityComment", []map[string]any{comment}, "GUID")
 	if !result.IsError {
 		s.notifyAdminContent(ctx, actor.Code(), actor.User.Name, "社区新评论", "", model.StringValue(comment, "TEXT"), s.mailSiteURL("/ynsStudy/Community"))

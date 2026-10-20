@@ -48,10 +48,16 @@
             </el-button>
             <template #dropdown>
               <el-dropdown-menu>
-                <el-dropdown-item command="setAdmin">设为管理员</el-dropdown-item>
+                <el-dropdown-item command="detail">查看详情</el-dropdown-item>
+                <el-dropdown-item divided command="setAdmin">设为管理员</el-dropdown-item>
                 <el-dropdown-item command="removeAdmin">取消管理员</el-dropdown-item>
                 <el-dropdown-item divided command="ban" class="text-danger">封禁用户</el-dropdown-item>
                 <el-dropdown-item command="removeBan">取消封禁</el-dropdown-item>
+                <template v-if="userInfo.CODE !== adminUserCode">
+                  <el-dropdown-item divided command="banComment">禁止评论</el-dropdown-item>
+                  <el-dropdown-item command="forceLogout">强制下线</el-dropdown-item>
+                  <el-dropdown-item command="resetPassword" class="text-danger">重置密码</el-dropdown-item>
+                </template>
               </el-dropdown-menu>
             </template>
           </el-dropdown>
@@ -72,17 +78,63 @@
     </el-button>
     <div v-if="noMore && allUserArr.length > 0" class="end-text-v2">- 到底了 -</div>
   </div>
+
+  <CommentBanDialog v-model="banVisible" preset-type="user" :preset-value="banUserCode" lock-type/>
+
+  <!-- 用户详情 -->
+  <el-dialog v-model="detailVisible" :title="detailTitle" width="640px" append-to-body>
+    <div v-loading="detailLoading">
+      <template v-if="detail">
+        <div class="detail-grid">
+          <div><span class="k">账号</span>{{ detail.user.code }}</div>
+          <div><span class="k">用户编号</span>{{ detail.user.usernum }}</div>
+          <div><span class="k">手机</span>{{ detail.user.phone || '—' }}</div>
+          <div><span class="k">邮箱</span>{{ detail.user.email || '—' }}</div>
+          <div><span class="k">最近登录地区</span>{{ detail.user.loginaddress || '—' }}</div>
+          <div><span class="k">最近登录 IP</span>{{ detail.user.loginip || '—' }}</div>
+        </div>
+        <div class="detail-stats">
+          <span>公开文章 <b>{{ show(detail.stats.publicArticles) }}</b></span>
+          <span>私密文章 <b>{{ show(detail.stats.privateArticles) }}</b></span>
+          <span>社区帖子 <b>{{ show(detail.stats.communityPosts) }}</b></span>
+          <span>评论 <b>{{ show(detail.stats.comments) }}</b></span>
+          <span>登录次数 <b>{{ show(detail.stats.logins) }}</b></span>
+        </div>
+        <h4 class="detail-sub">最近登录记录</h4>
+        <el-table v-if="detail.recentLogins.length" :data="detail.recentLogins" size="small" max-height="260">
+          <el-table-column label="时间" min-width="150">
+            <template #default="{ row }">{{ pubFormatDate(row.LOGIN_TIME) }}</template>
+          </el-table-column>
+          <el-table-column prop="LOGINADDRESS" label="地区" min-width="100"/>
+          <el-table-column prop="LOGINIP" label="IP" min-width="130"/>
+        </el-table>
+        <el-empty v-else description="暂无登录记录" :image-size="50"/>
+      </template>
+    </div>
+  </el-dialog>
+
+  <!-- 重置密码结果：临时密码只显示这一次 -->
+  <el-dialog v-model="passwordVisible" title="密码已重置" width="420px" append-to-body :close-on-click-modal="false">
+    <p>已为 <b>{{ passwordResult.name }}</b>（账号 {{ passwordResult.account }}）生成临时密码，该用户所有设备已退出登录：</p>
+    <div class="temp-password">{{ passwordResult.password }}</div>
+    <p class="warn">关闭后将无法再次查看，请告知用户登录后尽快在个人中心修改密码。</p>
+    <template #footer>
+      <el-button @click="copyPassword">复制密码</el-button>
+      <el-button type="primary" @click="passwordVisible = false">我已记下</el-button>
+    </template>
+  </el-dialog>
 </template>
 
 <script setup>
 import {ArrowDown, MoreFilled} from "@element-plus/icons-vue";
 import {onMounted, ref} from "vue";
-import {ele_confirm, getCurrentUserAdminObject, sendAxiosRequest, sendAxiosRequestChecked} from "@/utils/common.js";
+import {ele_confirm, getCurrentUserAdminObject, pubFormatDate, sendAxiosRequest, sendAxiosRequestChecked} from "@/utils/common.js";
 import {ElMessage} from "element-plus";
 import {pubOpenUser} from "@/utils/blogUtil.js";
 import {useRouter} from "vue-router";
 import debounce from "lodash/debounce.js";
 import {adminUserCode} from "@/config/vue-config.js";
+import CommentBanDialog from "@/components/admin/CommentBanDialog.vue";
 
 const router = useRouter();
 const props = defineProps({
@@ -175,7 +227,64 @@ const userActions = {
   }
 };
 
+// ---------- 后台：用户详情、强制下线、重置密码 ----------
+const detailVisible = ref(false);
+const detailLoading = ref(false);
+const detail = ref(null);
+const detailTitle = ref('用户详情');
+const show = (value) => (value === null || value === undefined ? '无数据' : value);
+
+const openDetail = async (userInfo) => {
+  detailTitle.value = `用户详情 - ${userInfo.NAME}`;
+  detail.value = null;
+  detailVisible.value = true;
+  detailLoading.value = true;
+  try {
+    const result = await sendAxiosRequestChecked('/blog-api/admin/getUserDetail', {userId: userInfo.GUID}, '获取用户详情失败');
+    if (result) detail.value = result.result;
+  } finally {
+    detailLoading.value = false;
+  }
+};
+
+const forceLogout = (userInfo) => {
+  ele_confirm(`确定让【${userInfo.NAME}】在所有设备上退出登录吗？`, async () => {
+    const result = await sendAxiosRequestChecked('/blog-api/admin/forceLogout', {userId: userInfo.GUID}, '强制下线失败');
+    if (result) ElMessage.success(`${userInfo.NAME} 已被强制下线`);
+  });
+};
+
+const passwordVisible = ref(false);
+const passwordResult = ref({});
+const resetPassword = (userInfo) => {
+  ele_confirm(`确定重置【${userInfo.NAME}】的密码吗？原密码将失效，该用户所有设备会退出登录。`, async () => {
+    const result = await sendAxiosRequestChecked('/blog-api/admin/resetPassword', {userId: userInfo.GUID}, '重置密码失败');
+    if (!result) return;
+    passwordResult.value = {name: userInfo.NAME, ...result.result};
+    passwordVisible.value = true;
+  });
+};
+
+const copyPassword = async () => {
+  try {
+    await navigator.clipboard.writeText(passwordResult.value.password);
+    ElMessage.success('已复制');
+  } catch {
+    ElMessage.warning('复制失败，请手动选择密码复制');
+  }
+};
+
+const banVisible = ref(false);
+const banUserCode = ref('');
+const banComment = (userInfo) => {
+  banUserCode.value = userInfo.CODE;
+  banVisible.value = true;
+};
+
+const extraActions = {detail: openDetail, forceLogout, resetPassword, banComment};
+
 const handleUserAction = (command, userInfo) => {
+  if (extraActions[command]) return extraActions[command](userInfo);
   const action = userActions[command];
   if (!action) return;
   ele_confirm(action.confirm(userInfo.NAME), async () => {
@@ -193,6 +302,60 @@ onMounted(() => {
 
 </script>
 <style scoped>
+/* --- 后台：用户详情与临时密码 --- */
+.detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 20px;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+
+.detail-grid .k {
+  display: inline-block;
+  min-width: 96px;
+  color: var(--j-muted);
+}
+
+.detail-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin: 16px 0;
+  padding: 10px 12px;
+  background: var(--j-paper-warm);
+  font-size: 13px;
+}
+
+.detail-sub {
+  margin: 0 0 8px;
+  font-weight: normal;
+  font-family: var(--j-hand);
+  font-size: 16px;
+}
+
+.temp-password {
+  margin: 12px 0;
+  padding: 12px;
+  text-align: center;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 22px;
+  letter-spacing: 2px;
+  background: var(--j-note);
+  user-select: all;
+}
+
+.warn {
+  color: var(--j-stamp);
+  font-size: 13px;
+}
+
+@media (max-width: 640px) {
+  .detail-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* --- 用户网格布局 --- */
 .user-grid {
   display: grid;

@@ -47,7 +47,11 @@ func TestAllCompatibilityRoutesAreRegistered(t *testing.T) {
 		"/blog-api/home/getHomeData", "/blog-api/home/getWebsiteStatistics", "/blog-api/home/getHigAuthor", "/blog-api/home/sitemap_blog.xml", "/blog-api/home/sitemap_user.xml", "/blog-api/home/rss.xml",
 		"/blog-api/lulu/status", "/blog-api/lulu/feed", "/blog-api/lulu/play", "/blog-api/lulu/care", "/blog-api/lulu/visit", "/blog-api/lulu/sleep", "/blog-api/lulu/messages", "/blog-api/lulu/message/add", "/blog-api/lulu/message/delete", "/blog-api/lulu/logs", "/blog-api/lulu/companionship/monthly", "/blog-api/lulu/fun-state", "/blog-api/lulu/mission/advance", "/blog-api/lulu/clothes/change", "/blog-api/lulu/world",
 		"/blog-api/blog/addBlog", "/blog-api/blog/deleteBlog", "/blog-api/blog/updateBlog", "/blog-api/blog/getUserBlog", "/blog-api/blog/getUserBlogByUserCode", "/blog-api/blog/updateBlogCatId", "/blog-api/blog/getBlog", "/blog-api/blog/getAllBlog", "/blog-api/blog/addBlogCat", "/blog-api/blog/updateBlogCat", "/blog-api/blog/getUserBlogCat", "/blog-api/blog/deleteBlogCat", "/blog-api/blog/addComment", "/blog-api/blog/getComment", "/blog-api/blog/deleteComment", "/blog-api/blog/giveLikeBlog", "/blog-api/blog/noGiveLikeBlog", "/blog-api/blog/getGiveLikeByBlogId", "/blog-api/blog/getLikeAndCollectByBlogId", "/blog-api/blog/getLikeAndCollectByUserCode", "/blog-api/blog/collectBlog", "/blog-api/blog/noCollectBlog",
-		"/blog-api/file/consistencyFileCheck", "/ai-api/ai/qWen", "/ai-api/ai/qWenStream",
+		"/blog-api/file/consistencyFileCheck",
+		"/blog-api/admin/getDashboard", "/blog-api/admin/getComments", "/blog-api/admin/deleteComment", "/blog-api/admin/getUserDetail", "/blog-api/admin/forceLogout", "/blog-api/admin/resetPassword",
+		"/blog-api/admin/getArticles", "/blog-api/admin/setArticleType", "/blog-api/admin/deleteArticle", "/blog-api/admin/getPosts", "/blog-api/admin/setPostTop", "/blog-api/admin/deletePost",
+		"/blog-api/admin/getBannedWords", "/blog-api/admin/addBannedWord", "/blog-api/admin/deleteBannedWord", "/blog-api/admin/getSeoStatus", "/blog-api/admin/submitIndexNow", "/blog-api/admin/getLogs",
+		"/blog-api/admin/getCommentBans", "/blog-api/admin/addCommentBan", "/blog-api/admin/deleteCommentBan", "/ai-api/ai/qWen", "/ai-api/ai/qWenStream",
 	}
 	for _, path := range expected {
 		if !registered[path] {

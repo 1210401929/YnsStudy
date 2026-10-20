@@ -490,11 +490,12 @@ func (s *Service) GetAllUsers(c *gin.Context, page, pageSize int, keyword string
 
 // OperationUser 设置/撤销管理员、封禁/解封，仅超级管理员可用，且不能操作超级管理员本人。
 func (s *Service) OperationUser(c *gin.Context, userID, operation string) model.Result {
-	if _, failure := s.requireSuperAdmin(c); failure != nil {
+	actor, failure := s.requireSuperAdmin(c)
+	if failure != nil {
 		return *failure
 	}
 	ctx := contextOf(c)
-	target, err := s.Repo.Query(ctx, "SELECT CODE FROM userInfo WHERE GUID = ? LIMIT 1", userID)
+	target, err := s.Repo.Query(ctx, "SELECT CODE, NAME FROM userInfo WHERE GUID = ? LIMIT 1", userID)
 	if err != nil {
 		return dbFailure("查询用户", err)
 	}
@@ -517,7 +518,16 @@ func (s *Service) OperationUser(c *gin.Context, userID, operation string) model.
 			log.Printf("封禁后作废登录失败: %v", err)
 		}
 	}
+	if !result.IsError {
+		label := map[string]string{"setAdmin": "设为管理员", "removeAdmin": "取消管理员", "ban": "封禁用户", "removeBan": "取消封禁"}[operation]
+		s.recordAdminAction(c, actor, operation, userLabel(target[0]), label)
+	}
 	return result
+}
+
+// userLabel 用于操作日志：“昵称（账号）”
+func userLabel(row map[string]any) string {
+	return model.PublicDisplayName(model.StringValue(row, "NAME")) + "（" + model.StringValue(row, "CODE") + "）"
 }
 
 func (s *Service) DeleteUserAvatar(c *gin.Context, userCode string) model.Result {

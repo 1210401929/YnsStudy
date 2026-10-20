@@ -220,6 +220,7 @@ func (s *Service) UpdateBlog(c *gin.Context, guid, title, content, blogType stri
 	if wasPublic || isPublicBlogType(blogType) {
 		s.NotifyBlogChanged(guid, model.StringValue(rows[0], "USERCODE"))
 	}
+	s.logModeration(c, nil, row, AdminActionEditArticle, model.StringValue(row, "BLOG_TITLE"), "在文章页修改了他人的文章 "+guid)
 	// 私密文章改为公开，等同于新发表，同样通知站长审核
 	if !wasPublic && isPublicBlogType(blogType) {
 		s.notifyAdminContent(ctx, model.StringValue(row, "USERCODE"), model.StringValue(row, "USERNAME"), "文章改为公开", title,
@@ -261,6 +262,7 @@ func (s *Service) DeleteBlog(c *gin.Context, guid string) model.Result {
 	if wasPublic {
 		s.NotifyBlogChanged(guid, model.StringValue(rows[0], "USERCODE"))
 	}
+	s.logModeration(c, nil, row, AdminActionDeleteArticle, model.StringValue(row, "BLOG_TITLE"), "在文章页删除了他人的文章 "+guid)
 	return model.Success("删除成功")
 }
 
@@ -350,9 +352,25 @@ func (s *Service) AddBlogComment(c *gin.Context, comment map[string]any) model.R
 		delete(comment, "usercode")
 	}
 
+	// 评论限制：按用户、IP、网址、邮箱、昵称拦截被禁止评论的人
+	clientIP := ClientIP(c)
+	if failure := s.checkCommentBan(c, commentSubject{
+		UserCode: model.StringValue(comment, "USERCODE"),
+		IP:       clientIP,
+		Website:  model.StringValue(comment, "USERWEBSITE"),
+		Email:    model.StringValue(comment, "USEREMAIL"),
+		Nickname: model.StringValue(comment, "USERNAME"),
+	}); failure != nil {
+		return *failure
+	}
+	// 执行迁移 008 后记录评论者 IP，后台可按 IP 禁止评论
+	if s.tableHasColumn(ctx, "blogComment", "IP") {
+		comment["IP"] = clientIP
+	}
+
 	for _, field := range []string{"TEXT", "USERWEBSITE", "USERNAME"} {
 		if s.containsBannedWord(fmt.Sprint(comment[field])) {
-			return model.Failure("提交的内容包含违禁词，禁止发布！")
+			return model.Failure(msgBannedWord)
 		}
 	}
 
@@ -520,10 +538,16 @@ bc.CREATE_TIME ASC`
 }
 
 func (s *Service) DeleteBlogComment(c *gin.Context, guid string) model.Result {
-	if _, failure := s.requireOwnerOrAdmin(c, "blogComment", guid); failure != nil {
+	row, failure := s.requireOwnerOrAdmin(c, "blogComment", guid)
+	if failure != nil {
 		return *failure
 	}
-	return s.ExecuteSQL(contextOf(c), "DELETE FROM BLOGCOMMENT WHERE GUID = ? OR SUPERGUID = ?", []any{guid, guid})
+	result := s.ExecuteSQL(contextOf(c), "DELETE FROM BLOGCOMMENT WHERE GUID = ? OR SUPERGUID = ?", []any{guid, guid})
+	if !result.IsError {
+		excerpt, _ := summarizeHTML(model.StringValue(row, "TEXT"), 80)
+		s.logModeration(c, nil, row, AdminActionDeleteComment, model.PublicDisplayName(model.StringValue(row, "USERNAME")), "在文章页删除评论："+excerpt)
+	}
+	return result
 }
 
 func (s *Service) AddBlogReaction(c *gin.Context, blogID, reactionType string) model.Result {
@@ -568,15 +592,7 @@ FROM blogInfo b JOIN blogGiveLike g ON g.BLOGID = b.GUID WHERE g.USERCODE = ?`
 	return s.SelectList(ctx, query, args)
 }
 
-func (s *Service) containsBannedWord(content string) bool {
-	content = strings.ToLower(strings.TrimSpace(content))
-	for _, word := range s.Config.Content.BannedWords {
-		if word != "" && strings.Contains(content, strings.ToLower(word)) {
-			return true
-		}
-	}
-	return false
-}
+// containsBannedWord 见 banned_word_service.go（配置文件 + 后台维护的违禁词）
 
 func extractImageURLs(html string) []string {
 	matches := imageSourcePattern.FindAllStringSubmatch(html, -1)

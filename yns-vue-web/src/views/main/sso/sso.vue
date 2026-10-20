@@ -3,21 +3,20 @@
     <div class="sso-container" v-if="getCurrentUserAdminObject().adminLevel==='superAdmin'">
       <el-card class="sync-card">
         <template #header>
-          <div class="card-header">检查一致性文件</div>
+          <div class="card-header">后台管理</div>
         </template>
-        <div class="button-row">
-          <el-button type="primary" @click="checkEditorFiles">检查编辑器文件</el-button>
-          <el-button type="warning" @click="checkResourceFiles">检查资源文件</el-button>
-          <el-button type="success" @click="checkAvatarFiles">检查用户头像文件</el-button>
+        <!-- lazy：切到对应标签页时才加载数据 -->
+        <el-tabs v-model="activeTab" class="admin-tabs" :tab-position="isWide ? 'left' : 'top'">
+          <el-tab-pane label="数据概览" name="dashboard" lazy><AdminDashboard/></el-tab-pane>
+          <el-tab-pane label="内容管理" name="content" lazy><AdminContent/></el-tab-pane>
+          <el-tab-pane label="评论管理" name="comments" lazy><AdminComments/></el-tab-pane>
+          <el-tab-pane label="评论限制" name="commentBans" lazy><AdminCommentBans/></el-tab-pane>
+          <el-tab-pane label="用户管理" name="users" lazy><user-list ISOPERATIONUSER="true"></user-list></el-tab-pane>
+          <el-tab-pane label="全站公告" name="announcements" lazy>
+        <div class="card-header-row announcement-toolbar">
+          <span class="tab-hint">公告会显示在对应栏目页的顶部</span>
+          <el-button type="primary" size="small" @click="addAnnouncement">新增</el-button>
         </div>
-      </el-card>
-      <el-card class="sync-card">
-        <template #header>
-          <div class="card-header-row">
-            <div class="card-header">发送全网站通知公告</div>
-            <el-button type="primary" size="small" @click="addAnnouncement">新增</el-button>
-          </div>
-        </template>
         <div>
           <el-table :data="tableData" height="250" stripe border style="width: 100%">
             <el-table-column prop="TEXT" label="内容" min-width="300">
@@ -59,14 +58,12 @@
             </el-table-column>
           </el-table>
         </div>
-      </el-card>
-      <el-card class="sync-card">
-        <template #header>
-          <div class="card-header-row">
-            <div class="card-header">用户权限设置</div>
-          </div>
-        </template>
-        <user-list ISOPERATIONUSER="true"></user-list>
+          </el-tab-pane>
+          <el-tab-pane label="违禁词" name="bannedWords" lazy><AdminBannedWords/></el-tab-pane>
+          <el-tab-pane label="SEO 工具" name="seo" lazy><AdminSeoTools/></el-tab-pane>
+          <el-tab-pane label="文件清理" name="files" lazy><AdminFiles/></el-tab-pane>
+          <el-tab-pane label="操作日志" name="logs" lazy><AdminLogs/></el-tab-pane>
+        </el-tabs>
       </el-card>
     </div>
     <div class="no-access" v-else>
@@ -80,8 +77,23 @@ import {ElMessage} from 'element-plus'
 import {useUserStore} from "@/stores/main/user.js";
 import {ele_confirm, getCurrentUserAdminObject, getGuid, pubFormatDate, sendAxiosRequest} from "@/utils/common.js";
 import {getMenuItems} from "@/utils/menu.js";
-import {ref} from "vue";
+import {onBeforeUnmount, onMounted, ref} from "vue";
 import UserList from "@/components/detail/UserList.vue";
+import AdminDashboard from "@/components/admin/AdminDashboard.vue";
+import AdminComments from "@/components/admin/AdminComments.vue";
+import AdminFiles from "@/components/admin/AdminFiles.vue";
+import AdminContent from "@/components/admin/AdminContent.vue";
+import AdminBannedWords from "@/components/admin/AdminBannedWords.vue";
+import AdminSeoTools from "@/components/admin/AdminSeoTools.vue";
+import AdminLogs from "@/components/admin/AdminLogs.vue";
+import AdminCommentBans from "@/components/admin/AdminCommentBans.vue";
+
+const activeTab = ref('dashboard');
+// 标签较多，宽屏放在左侧，窄屏放在顶部
+const isWide = ref(window.innerWidth >= 1000);
+const updateWidth = () => { isWide.value = window.innerWidth >= 1000; };
+onMounted(() => window.addEventListener('resize', updateWidth));
+onBeforeUnmount(() => window.removeEventListener('resize', updateWidth));
 import { useHead } from '@vueuse/head'; // 1. 引入 useHead
 // 2. 定义响应式的 SEO 数据源，给定默认值
 const seoTitle = ref('后台管理 - ynsStudy');
@@ -99,36 +111,7 @@ useHead({
 
 const userStore = useUserStore();
 userStore.initFromLocal();
-//------------------------------检查文件一致性---------------------------------------------------------
-const checkEditorFiles = async () => {
-  ElMessage.success('正在验证编辑器文件...请等待');
-  let result = await sendAxiosRequest("/blog-api/file/consistencyFileCheck", {type: "editorImage"});
-  if (result && !result.isError) {
-    ElMessage.success(`核对成功:删除文件总数:${result.result.length},文件名:${result.result}`);
-  } else {
-    ElMessage.error(result.errMsg);
-  }
-};
-
-const checkResourceFiles = async () => {
-  ElMessage.success('正在验证资源文件...');
-  let result = await sendAxiosRequest("/blog-api/file/consistencyFileCheck", {type: "resourcesFile"});
-  if (result && !result.isError) {
-    ElMessage.success(`核对成功:删除文件总数:${result.result.length},文件名:${result.result}`);
-  } else {
-    ElMessage.error(result.errMsg);
-  }
-};
-
-const checkAvatarFiles = async () => {
-  ElMessage.success('正在验证用户头像文件...');
-  let result = await sendAxiosRequest("/blog-api/file/consistencyFileCheck", {type: "userAvatar"});
-  if (result && !result.isError) {
-    ElMessage.success(`核对成功:删除文件总数:${result.result.length},文件名:${result.result}`);
-  } else {
-    ElMessage.error(result.errMsg);
-  }
-};
+// 文件清理已移到 AdminFiles 组件：先预览，确认后再删除
 //--------------------------------发送全网站通知公告-------------------------------------------------------
 const tableData = ref([]);
 const setTableData = async () => {
@@ -199,7 +182,7 @@ const deleteAnnouncement = async (row) => {
 }
 
 .sync-card {
-  width: 80%;
+  width: min(1200px, 100%);
   border: 1px solid var(--j-rule);
   border-radius: 2px;
   background-color: var(--j-paper);
@@ -223,6 +206,35 @@ const deleteAnnouncement = async (row) => {
   flex-wrap: wrap;
   gap: 16px;
   padding-top: 8px;
+}
+
+.announcement-toolbar {
+  margin-bottom: 12px;
+}
+
+.tab-hint {
+  color: var(--j-muted);
+  font-size: 13px;
+}
+
+.admin-tabs :deep(.el-tabs__item) {
+  font-size: 15px;
+}
+
+/* 左侧标签栏时，内容区不能被撑出卡片 */
+.admin-tabs :deep(.el-tabs__content) {
+  min-width: 0;
+}
+
+.admin-tabs.el-tabs--left :deep(.el-tabs__content) {
+  padding-left: 20px;
+}
+
+.sync-card :deep(.admin-table) {
+  --el-table-header-bg-color: var(--j-paper-warm);
+  --el-table-row-hover-bg-color: rgba(250, 216, 96, 0.18);
+  --el-table-tr-bg-color: #fffefb;
+  --el-table-bg-color: #fffefb;
 }
 
 .no-access {

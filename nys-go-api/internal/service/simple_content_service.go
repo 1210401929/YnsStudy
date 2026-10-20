@@ -19,7 +19,11 @@ func (s *Service) AddAnnouncement(c *gin.Context, announcement map[string]any) m
 	}
 	announcement["userCode"] = actor.Code()
 	announcement["userName"] = actor.User.Name
-	return s.SaveAll(contextOf(c), "add", "announcementInfo", []map[string]any{announcement}, "GUID")
+	result := s.SaveAll(contextOf(c), "add", "announcementInfo", []map[string]any{announcement}, "GUID")
+	if !result.IsError {
+		s.recordAdminAction(c, actor, AdminActionAnnouncement, fmt.Sprint(announcement["TEXT"]), "新增公告")
+	}
+	return result
 }
 
 func (s *Service) EditAnnouncement(c *gin.Context, announcement map[string]any) model.Result {
@@ -30,14 +34,26 @@ func (s *Service) EditAnnouncement(c *gin.Context, announcement map[string]any) 
 	if fmt.Sprint(announcement["TEXT"]) == "" {
 		return model.Failure("未传递有效内容:text")
 	}
-	return s.SaveAll(ctx, "edit", "announcementInfo", []map[string]any{announcement}, "GUID")
+	result := s.SaveAll(ctx, "edit", "announcementInfo", []map[string]any{announcement}, "GUID")
+	if !result.IsError {
+		s.recordAdminAction(c, nil, AdminActionAnnouncement, fmt.Sprint(announcement["TEXT"]), "修改公告")
+	}
+	return result
 }
 
 func (s *Service) DeleteAnnouncement(c *gin.Context, guid string) model.Result {
 	if _, failure := s.requireSuperAdmin(c); failure != nil {
 		return *failure
 	}
-	return s.ExecuteSQL(contextOf(c), "DELETE FROM announcementInfo WHERE GUID = ?", []any{guid})
+	var text string
+	if rows, err := s.Repo.Query(contextOf(c), "SELECT TEXT FROM announcementInfo WHERE GUID = ? LIMIT 1", guid); err == nil && len(rows) > 0 {
+		text = model.StringValue(rows[0], "TEXT")
+	}
+	result := s.ExecuteSQL(contextOf(c), "DELETE FROM announcementInfo WHERE GUID = ?", []any{guid})
+	if !result.IsError {
+		s.recordAdminAction(c, nil, AdminActionAnnouncement, text, "删除公告")
+	}
+	return result
 }
 
 func (s *Service) GetAllAnnouncements(ctx context.Context) model.Result {
@@ -63,37 +79,47 @@ func (s *Service) AddFriendLink(c *gin.Context, value map[string]any) model.Resu
 }
 
 // requireFriendLinkManager：友链发布者本人或任意管理员可以修改、删除（与前端 isAdmin || 本人 的显示规则一致）。
-func (s *Service) requireFriendLinkManager(c *gin.Context, guid string) *model.Result {
+func (s *Service) requireFriendLinkManager(c *gin.Context, guid string) (map[string]any, *model.Result) {
 	actor, failure := s.requireLogin(c)
 	if failure != nil {
-		return failure
+		return nil, failure
 	}
 	row, failure := s.loadRow(c, "friendLinkInfo", guid)
 	if failure != nil {
-		return failure
+		return nil, failure
 	}
 	if !actor.IsAdmin && model.StringValue(row, "USERCODE") != actor.Code() {
 		result := model.Failure(msgForbidden)
-		return &result
+		return nil, &result
 	}
-	return nil
+	return row, nil
 }
 
 func (s *Service) UpdateFriendLink(c *gin.Context, value map[string]any) model.Result {
 	guid := model.StringValue(value, "GUID")
-	if failure := s.requireFriendLinkManager(c, guid); failure != nil {
+	row, failure := s.requireFriendLinkManager(c, guid)
+	if failure != nil {
 		return *failure
 	}
 	data := pickFields(value, friendLinkFields...)
 	data["GUID"] = guid
-	return s.SaveAll(contextOf(c), "edit", "friendLinkInfo", []map[string]any{data}, "GUID")
+	result := s.SaveAll(contextOf(c), "edit", "friendLinkInfo", []map[string]any{data}, "GUID")
+	if !result.IsError {
+		s.logModeration(c, nil, row, AdminActionFriendLink, model.StringValue(row, "NAME"), "修改了他人的友链")
+	}
+	return result
 }
 
 func (s *Service) DeleteFriendLink(c *gin.Context, guid string) model.Result {
-	if failure := s.requireFriendLinkManager(c, guid); failure != nil {
+	row, failure := s.requireFriendLinkManager(c, guid)
+	if failure != nil {
 		return *failure
 	}
-	return s.ExecuteSQL(contextOf(c), "DELETE FROM friendLinkInfo WHERE GUID = ?", []any{guid})
+	result := s.ExecuteSQL(contextOf(c), "DELETE FROM friendLinkInfo WHERE GUID = ?", []any{guid})
+	if !result.IsError {
+		s.logModeration(c, nil, row, AdminActionFriendLink, model.StringValue(row, "NAME"), "删除了他人的友链 "+model.StringValue(row, "LINK"))
+	}
+	return result
 }
 
 func (s *Service) GetFriendLink(ctx context.Context, guid string) model.Result {

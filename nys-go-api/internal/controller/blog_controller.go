@@ -16,6 +16,7 @@ func (h *Controller) registerBlogRoutes(router *gin.Engine) {
 	h.registerUserInformationRoutes(router.Group("/blog-api/userInformation"))
 	h.registerHomeRoutes(router.Group("/blog-api/home"))
 	h.registerLuluRoutes(router.Group("/blog-api/lulu"))
+	h.registerAdminRoutes(router.Group("/blog-api/admin"))
 	router.Any("/blog-api/file/consistencyFileCheck", h.consistencyFileCheck)
 }
 
@@ -320,7 +321,13 @@ func (h *Controller) consistencyFileCheck(c *gin.Context) {
 		writeResult(c, *failure)
 		return
 	}
-	writeResult(c, h.service.CheckFileConsistency(c.Request.Context(), fileType))
+	// 默认只预览；明确传 mode=delete 才会删除
+	mode := stringParam(body, "mode")
+	result := h.service.CheckFileConsistency(c.Request.Context(), fileType, mode)
+	if mode == "delete" && !result.IsError {
+		h.service.RecordFileCleanup(c, fileType, result)
+	}
+	writeResult(c, result)
 }
 
 func asBoolValue(value any) bool { return strings.EqualFold(fmt.Sprint(value), "true") }

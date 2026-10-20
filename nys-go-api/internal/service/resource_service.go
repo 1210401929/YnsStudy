@@ -36,6 +36,7 @@ func (s *Service) DeleteFileInfo(c *gin.Context, guid string) model.Result {
 	if result.IsError {
 		return model.Failure("删除失败!" + result.ErrMsg)
 	}
+	s.logModeration(c, nil, row, AdminActionDeleteResource, model.StringValue(row, "ORIGINALFILENAME"), "在资源页删除了他人的资源")
 	return s.DeleteUploadedFile(fileURL)
 }
 
@@ -71,10 +72,15 @@ func (s *Service) GetFileByID(ctx context.Context, guid string) model.Result {
 }
 
 func (s *Service) UpdateFileInfo(c *gin.Context, guid, originalName, remark string) model.Result {
-	if _, failure := s.requireOwnerOrAdmin(c, "fileInfo", guid); failure != nil {
+	row, failure := s.requireOwnerOrAdmin(c, "fileInfo", guid)
+	if failure != nil {
 		return *failure
 	}
-	return s.ExecuteSQL(contextOf(c), "UPDATE fileInfo SET ORIGINALFILENAME = ?, REMARK = ? WHERE GUID = ?", []any{originalName, remark, guid})
+	result := s.ExecuteSQL(contextOf(c), "UPDATE fileInfo SET ORIGINALFILENAME = ?, REMARK = ? WHERE GUID = ?", []any{originalName, remark, guid})
+	if !result.IsError {
+		s.logModeration(c, nil, row, AdminActionEditResource, model.StringValue(row, "ORIGINALFILENAME"), "在资源页修改为："+originalName)
+	}
+	return result
 }
 
 func (s *Service) IncrementFileDownloads(ctx context.Context, guid string) model.Result {
