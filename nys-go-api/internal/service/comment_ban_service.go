@@ -300,3 +300,25 @@ func parseControllerLikeTime(value any) time.Time {
 	}
 	return time.Time{}
 }
+
+// privateCommentFields 是评论表中只给站长使用、不能通过公开接口返回的字段：
+// 邮箱只用于回复通知，IP 只用于后台的评论限制。
+var privateCommentFields = []string{"USEREMAIL", "IP"}
+
+// stripPrivateCommentFields 删除公开评论列表中的隐私字段（大小写都处理，查询用的是 bc.*）。
+func stripPrivateCommentFields(result model.Result) model.Result {
+	rows, ok := result.Result.([]map[string]any)
+	if !ok {
+		return result
+	}
+	for _, row := range rows {
+		for key := range row {
+			for _, field := range privateCommentFields {
+				if strings.EqualFold(key, field) {
+					delete(row, key)
+				}
+			}
+		}
+	}
+	return result
+}

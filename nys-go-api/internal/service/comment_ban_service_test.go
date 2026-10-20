@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"nys-go-api/internal/config"
+	"nys-go-api/internal/model"
 )
 
 func TestMatchCommentBanByEachType(t *testing.T) {
@@ -73,5 +74,20 @@ func TestNormalizeCommentBanValue(t *testing.T) {
 	// 超级管理员不能被限制（在查询数据库之前就拒绝）
 	if _, problem := s.normalizeCommentBanValue(ctx, CommentBanUser, config.DefaultSuperAdminCode); problem == "" {
 		t.Fatal("不应允许限制超级管理员")
+	}
+}
+
+func TestStripPrivateCommentFields(t *testing.T) {
+	result := stripPrivateCommentFields(model.Success([]map[string]any{
+		{"GUID": "1", "TEXT": "你好", "IP": "1.2.3.4", "USEREMAIL": "a@b.c", "ip": "x"},
+	}))
+	row := result.Result.([]map[string]any)[0]
+	for _, field := range []string{"IP", "ip", "USEREMAIL"} {
+		if _, exists := row[field]; exists {
+			t.Fatalf("公开评论不应返回 %s: %#v", field, row)
+		}
+	}
+	if row["TEXT"] != "你好" || row["GUID"] != "1" {
+		t.Fatalf("其他字段不应被删除: %#v", row)
 	}
 }

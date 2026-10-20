@@ -527,14 +527,7 @@ WHERE bc.BLOGID = ?
 ORDER BY COALESCE(p.CREATE_TIME, bc.CREATE_TIME) DESC,
 CASE WHEN bc.SUPERGUID IS NULL OR bc.SUPERGUID = '' THEN 0 ELSE 1 END ASC,
 bc.CREATE_TIME ASC`
-	result := s.SelectList(ctx, query, []any{blogID})
-	// 评论者留的邮箱只用于回复通知，不对外返回
-	if rows, ok := result.Result.([]map[string]any); ok {
-		for _, row := range rows {
-			delete(row, "USEREMAIL")
-		}
-	}
-	return result
+	return stripPrivateCommentFields(s.SelectList(ctx, query, []any{blogID}))
 }
 
 func (s *Service) DeleteBlogComment(c *gin.Context, guid string) model.Result {

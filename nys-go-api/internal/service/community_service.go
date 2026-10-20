@@ -135,5 +135,5 @@ FROM communityComment bc
 LEFT JOIN userInfo ui ON bc.USERCODE = ui.CODE
 WHERE bc.COMMUNITYID = ?
 ORDER BY bc.CREATE_TIME DESC`
-	return s.SelectList(ctx, query, []any{communityID})
+	return stripPrivateCommentFields(s.SelectList(ctx, query, []any{communityID}))
 }
