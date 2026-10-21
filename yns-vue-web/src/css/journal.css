@@ -98,6 +98,21 @@
     --w-e-modal-button-border-color: #e1d9c9;
 }
 
+/*
+ * 始终给滚动条留出位置：内容变少、滚动条消失时页面宽度不变，
+ * 导航栏等居中的内容不会左右跳动（例如便签墙切到没有内容的分类）。
+ * 不支持 scrollbar-gutter 的旧浏览器改为始终显示滚动条。
+ */
+html {
+    scrollbar-gutter: stable;
+}
+
+@supports not (scrollbar-gutter: stable) {
+    html {
+        overflow-y: scroll;
+    }
+}
+
 body {
     font-family: var(--j-sans);
     color: var(--j-ink);

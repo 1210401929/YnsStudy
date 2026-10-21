@@ -45,7 +45,8 @@
       </div>
     </div>
 
-    <!-- 切换筛选时先保留旧内容（变淡），新内容到了再替换，页面高度不会突然塌下去 -->
+    <!-- 切换筛选时先保留旧内容（变淡），新内容到了再替换；内容区保留最小高度，切到空分类时页面不会一下子塌下去 -->
+    <div class="wall-area">
     <div ref="wallRef" class="wall" :class="{ 'is-refreshing': refreshing }" :style="{ '--cols': columnCount }">
       <div v-for="(column, ci) in columns" :key="ci" class="wall-column">
         <NoteCard v-for="item in column" :key="item.note.GUID" :note="item.note"
@@ -60,6 +61,7 @@
       <span v-if="loading && !refreshing" class="more-text">正在翻找…</span>
       <button v-else-if="!noMore" type="button" class="j-button" @click="fetchNotes()">再翻一页</button>
       <span v-else-if="notes.length" class="more-text">墙上就这些了</span>
+    </div>
     </div>
 
     <el-dialog v-model="userSearchVisible" title="找人" width="min(720px, 92vw)" append-to-body>
@@ -371,6 +373,10 @@ getAnnouncementByRouterName('Community').then(list => { topAlert.value = list ||
   grid-template-columns: repeat(var(--cols), minmax(0, 1fr));
   gap: 26px 22px;
   align-items: start;
+}
+
+.wall-area {
+  min-height: 70vh;
 }
 
 .wall.is-refreshing {
