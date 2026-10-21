@@ -56,8 +56,8 @@ const ACTION_LABELS = {
   deleteComment: '删除评论',
   deleteArticle: '删除文章',
   articleType: '文章可见性',
-  deletePost: '删除帖子',
-  topPost: '帖子置顶',
+  deletePost: '删除随记',
+  topPost: '随记置顶',
   announcement: '公告',
   deleteFiles: '清理文件',
   bannedWord: '违禁词',
@@ -66,7 +66,8 @@ const ACTION_LABELS = {
   deleteResource: '删除资源',
   editResource: '修改资源',
   friendLink: '友链',
-  commentBan: '评论限制'
+  commentBan: '评论限制',
+  editPost: '修改随记'
 }
 
 const action = ref('')

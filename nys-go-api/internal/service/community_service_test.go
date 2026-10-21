@@ -67,3 +67,12 @@ func TestNoteTitleAndDecode(t *testing.T) {
 		t.Fatalf("没有图片时应为空数组: %#v", rows[1])
 	}
 }
+
+func TestIsNumericID(t *testing.T) {
+	cases := map[string]bool{"12": true, "0": true, "": false, "12a": false, "BBA624F7B5BD4546B014AA4335A692C2": false, "-1": false}
+	for input, want := range cases {
+		if got := isNumericID(input); got != want {
+			t.Errorf("isNumericID(%q) = %v, want %v", input, got, want)
+		}
+	}
+}

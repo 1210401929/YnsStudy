@@ -87,6 +87,11 @@ func (h *Controller) seoNote(c *gin.Context) {
 		h.renderSEOStatusPage(c, http.StatusNotFound, "便签不存在", "这张便签可能已被删除，或地址有误。")
 		return
 	}
+	// 用旧编号（一长串字符）访问时，永久跳转到数字编号的新地址
+	if guid := model.StringValue(note, "GUID"); guid != strings.TrimSpace(c.Param("id")) {
+		c.Redirect(http.StatusMovedPermanently, "/note/"+url.PathEscape(guid))
+		return
+	}
 	previous, next := h.service.NoteNeighbors(ctx, note)
 	owner := h.service.GetSiteOwner(ctx)
 	h.writeSEOPage(c, renderSEONoteHTML(h.readFrontendShell(), note, previous, next, owner, h.service.Config))

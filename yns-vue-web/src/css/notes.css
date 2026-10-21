@@ -1,0 +1,69 @@
+/*
+ * 便签墙的纸张：底色统一用米白，只用很淡的色调和胶带、圆点的颜色区分类型，
+ * 不让整面墙都是同一种颜色。便签卡片、发布框、随记页共用。
+ */
+.paper-note {
+    background-color: #fffdf8;
+    border: 1px solid var(--j-rule);
+}
+
+/* 技巧：索引卡，顶部一道红线 + 浅蓝横线 */
+.paper-tip {
+    background-color: #fffefa;
+    background-image: repeating-linear-gradient(transparent 0 27px, rgba(165, 195, 225, 0.28) 27px 28px);
+    border: 1px solid var(--j-rule);
+    border-top: 3px solid rgba(232, 165, 155, 0.7);
+}
+
+.paper-share {
+    background-color: #faf6ee;
+    border: 1px solid #e9dfcb;
+}
+
+.paper-question {
+    background-color: #fffaf8;
+    border: 1px solid #f0dcd7;
+}
+
+/* 胶带颜色跟着类型走 */
+.paper-note .note-type-tape { background: var(--j-tape-yellow); }
+.paper-tip .note-type-tape { background: var(--j-tape-green); }
+.paper-share .note-type-tape { background: var(--j-tape-blue); }
+.paper-question .note-type-tape { background: var(--j-tape-pink); }
+
+/* 类型标签：小圆点 + 楷体名字 */
+.note-type-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 0 9px 0 7px;
+    border: 1px solid var(--j-rule-strong);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.7);
+    font-family: var(--j-hand);
+    font-size: 13px;
+    line-height: 20px;
+    color: var(--j-ink-soft);
+    white-space: nowrap;
+}
+
+.note-type-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+/* 置顶：一枚红色图钉 */
+.note-pin {
+    position: absolute;
+    top: -8px;
+    left: 50%;
+    z-index: 2;
+    width: 16px;
+    height: 16px;
+    margin-left: -8px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%, #f08a80 0 25%, var(--j-stamp) 60%, #8f2f28 100%);
+    box-shadow: 0 3px 4px rgba(60, 30, 20, 0.35);
+}

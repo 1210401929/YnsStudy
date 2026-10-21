@@ -114,54 +114,126 @@ func NoteTitle(row map[string]any) string {
 	return "一张便签"
 }
 
+// noteContent 校验并整理随记内容：正文（Markdown 转出的 HTML）、Markdown 原文、类型和图片。
+// 发布和编辑共用；只返回数据库里已有的字段（迁移 009/010 之前的表没有类型、图片、原文）。
+func (s *Service) noteContent(ctx context.Context, input map[string]any) (map[string]any, *model.Result) {
+	images := s.normalizeNoteImages(model.Lookup(input, "IMAGES"))
+	// 正文是 Markdown 转出的 HTML，保存前过滤脚本和事件属性
+	text := sanitizeRichText(model.StringValue(input, "TEXT"))
+	plain, _ := summarizeHTML(text, 10)
+	if strings.TrimSpace(plain) == "" && len(images) == 0 && !strings.Contains(text, "<img") {
+		result := model.Failure("便签内容不能为空")
+		return nil, &result
+	}
+	source := model.StringValue(input, "SOURCE")
+	if s.containsBannedWord(text) || s.containsBannedWord(source) {
+		result := model.Failure(msgBannedWord)
+		return nil, &result
+	}
+	fields := map[string]any{"TEXT": text}
+	if s.tableHasColumn(ctx, "communityInfo", "TYPE") {
+		fields["TYPE"] = normalizeNoteType(model.StringValue(input, "TYPE"))
+	}
+	if s.tableHasColumn(ctx, "communityInfo", "IMAGES") {
+		if len(images) > 0 {
+			encoded, _ := json.Marshal(images)
+			fields["IMAGES"] = string(encoded)
+		} else {
+			fields["IMAGES"] = nil
+		}
+	}
+	if s.tableHasColumn(ctx, "communityInfo", "SOURCE") {
+		if len(source) > 60000 {
+			source = source[:60000]
+		}
+		fields["SOURCE"] = source
+	}
+	if s.hasSearchText(ctx, "communityInfo") {
+		fields[searchTextColumn] = htmlToSearchText(text)
+	}
+	return fields, nil
+}
+
 func (s *Service) AddCommunity(c *gin.Context, community map[string]any) model.Result {
 	actor, failure := s.requireLogin(c)
 	if failure != nil {
 		return *failure
 	}
 	ctx := contextOf(c)
-	images := s.normalizeNoteImages(model.Lookup(community, "IMAGES"))
-	noteType := normalizeNoteType(model.StringValue(community, "TYPE"))
-	// 只接受帖子编号和内容；作者以登录账号为准，置顶只能由超级管理员通过 setTopCommunity 设置
-	community = pickFields(community, "GUID", "TEXT")
-	// 帖子是 Markdown 转出的 HTML，保存前过滤脚本和事件属性
-	community["TEXT"] = sanitizeRichText(model.StringValue(community, "TEXT"))
-	plain, _ := summarizeHTML(model.StringValue(community, "TEXT"), 10)
-	if strings.TrimSpace(plain) == "" && len(images) == 0 && !strings.Contains(model.StringValue(community, "TEXT"), "<img") {
-		return model.Failure("便签内容不能为空")
+	// 只接受内容字段；作者以登录账号为准，置顶只能由超级管理员通过 setTopCommunity 设置
+	fields, failure := s.noteContent(ctx, community)
+	if failure != nil {
+		return *failure
 	}
-	if s.containsBannedWord(model.StringValue(community, "TEXT")) {
-		return model.Failure(msgBannedWord)
-	}
-	community["USERCODE"] = actor.Code()
-	community["USERNAME"] = actor.User.Name
-	// 执行迁移 009 后保存类型和图片
-	if s.tableHasColumn(ctx, "communityInfo", "TYPE") {
-		community["TYPE"] = noteType
-	}
-	if s.tableHasColumn(ctx, "communityInfo", "IMAGES") && len(images) > 0 {
-		encoded, _ := json.Marshal(images)
-		community["IMAGES"] = string(encoded)
+	fields["GUID"] = model.StringValue(community, "GUID")
+	fields["USERCODE"] = actor.Code()
+	fields["USERNAME"] = actor.User.Name
+	if fields["IMAGES"] == nil {
+		delete(fields, "IMAGES")
 	}
 	// 新随记使用数字编号，地址更短；编号表里没有随记这一行时继续使用前端生成的编号
 	if nextID, err := s.nextSequenceID(ctx, "communityinfo"); err != nil {
 		log.Printf("生成随记编号失败，使用前端编号: %v", err)
 	} else if nextID != "" {
-		community["GUID"] = nextID
+		fields["GUID"] = nextID
 	}
-	if model.StringValue(community, "GUID") == "" {
+	guid := model.StringValue(fields, "GUID")
+	if guid == "" {
 		return model.Failure("缺少便签编号")
 	}
-	if s.hasSearchText(ctx, "communityInfo") {
-		community[searchTextColumn] = htmlToSearchText(model.StringValue(community, "TEXT"))
-	}
-	result := s.SaveAll(ctx, "add", "communityInfo", []map[string]any{community}, "GUID")
+	result := s.SaveAll(ctx, "add", "communityInfo", []map[string]any{fields}, "GUID")
 	if result.IsError {
 		return stripSearchTextResult(result)
 	}
+	s.notifyAdminContent(ctx, actor.Code(), actor.User.Name, "便签墙新随记", "", model.StringValue(fields, "TEXT"), s.mailSiteURL(NotePath(guid)))
+	return s.noteSavedResult(ctx, guid)
+}
+
+// UpdateCommunity 编辑随记。权限：自己的可以改；管理员可以改除超级管理员以外所有人的；超级管理员都能改。
+func (s *Service) UpdateCommunity(c *gin.Context, community map[string]any) model.Result {
+	actor, failure := s.requireLogin(c)
+	if failure != nil {
+		return *failure
+	}
 	guid := model.StringValue(community, "GUID")
-	s.notifyAdminContent(ctx, actor.Code(), actor.User.Name, "便签墙新随记", "", model.StringValue(community, "TEXT"), s.mailSiteURL(NotePath(guid)))
-	return model.Success(map[string]any{"GUID": guid, "TYPE": noteType, "IMAGES": images})
+	row, failure := s.loadRow(c, "communityInfo", guid)
+	if failure != nil {
+		return *failure
+	}
+	if !actor.CanManage(model.StringValue(row, "USERCODE")) {
+		return model.Failure(msgForbidden)
+	}
+	ctx := contextOf(c)
+	fields, failure := s.noteContent(ctx, community)
+	if failure != nil {
+		return *failure
+	}
+	columns := make([]string, 0, len(fields)+1)
+	args := make([]any, 0, len(fields)+2)
+	for _, column := range []string{"TEXT", "TYPE", "IMAGES", "SOURCE", searchTextColumn} {
+		if value, ok := fields[column]; ok {
+			columns = append(columns, column+" = ?")
+			args = append(args, value)
+		}
+	}
+	if s.tableHasColumn(ctx, "communityInfo", "UPDATE_TIME") {
+		columns = append(columns, "UPDATE_TIME = NOW()")
+	}
+	args = append(args, guid)
+	if _, err := s.Repo.Exec(ctx, "UPDATE communityInfo SET "+strings.Join(columns, ", ")+" WHERE GUID = ?", args...); err != nil {
+		return dbFailure("修改随记", err)
+	}
+	s.logModeration(c, actor, row, AdminActionEditPost, postLabel(row), "在便签墙修改随记")
+	return s.noteSavedResult(ctx, guid)
+}
+
+// noteSavedResult 返回保存后的随记，前端直接用它刷新页面
+func (s *Service) noteSavedResult(ctx context.Context, guid string) model.Result {
+	note, found, err := s.FindNote(ctx, guid)
+	if err != nil || !found {
+		return model.Success(map[string]any{"GUID": guid})
+	}
+	return model.Success(note)
 }
 
 // DeleteCommunity 的规则与前端一致：超级管理员可删除任何帖子；置顶帖只有超级管理员能删；
@@ -265,7 +337,12 @@ func (s *Service) GetAllCommunities(c *gin.Context, query NoteQuery) model.Resul
 	if err != nil {
 		return dbFailure("统计随记", err)
 	}
-	return model.Success(map[string]any{"total": firstCount(counts), "data": decodeNoteRows(stripSearchText(rows))})
+	rows = decodeNoteRows(stripSearchText(rows))
+	// 墙上只显示正文，Markdown 原文只在编辑时用（单条随记接口会返回）
+	for _, row := range rows {
+		delete(row, "SOURCE")
+	}
+	return model.Success(map[string]any{"total": firstCount(counts), "data": rows})
 }
 
 // GetNote 返回单条随记，以及按发布时间相邻的上一条（更早）和下一条（更新）。
@@ -281,13 +358,18 @@ func (s *Service) GetNote(ctx context.Context, guid string) model.Result {
 	return model.Success(map[string]any{"note": note, "previous": previous, "next": next})
 }
 
-// FindNote 查询单条随记，SEO 页面和接口共用
+// FindNote 查询单条随记，SEO 页面和接口共用。
+// 旧随记改成数字编号后，用旧编号也能查到（返回的 GUID 是新编号，调用方据此跳转到新地址）。
 func (s *Service) FindNote(ctx context.Context, guid string) (map[string]any, bool, error) {
 	guid = strings.TrimSpace(guid)
 	if guid == "" || len(guid) > 64 {
 		return nil, false, nil
 	}
-	rows, err := s.Repo.Query(ctx, noteSelect+" WHERE b.GUID = ? LIMIT 1", guid)
+	query, args := noteSelect+" WHERE b.GUID = ? LIMIT 1", []any{guid}
+	if !isNumericID(guid) && s.tableHasColumn(ctx, "communityInfo", "LEGACY_GUID") {
+		query, args = noteSelect+" WHERE b.GUID = ? OR b.LEGACY_GUID = ? LIMIT 1", []any{guid, guid}
+	}
+	rows, err := s.Repo.Query(ctx, query, args...)
 	if err != nil {
 		return nil, false, err
 	}
@@ -320,6 +402,54 @@ func (s *Service) GetLatestNotesForSEO(ctx context.Context, limit int) ([]map[st
 		return nil, err
 	}
 	return decodeNoteRows(stripSearchText(rows)), nil
+}
+
+func isNumericID(value string) bool {
+	if value == "" {
+		return false
+	}
+	for _, r := range value {
+		if r < '0' || r > '9' {
+			return false
+		}
+	}
+	return true
+}
+
+// RenumberLegacyNotes 把编号是一长串字符的旧随记依次改成数字编号（按发布时间，早的编号小），
+// 评论和站内消息里的链接跟着改，旧编号记在 LEGACY_GUID 用于旧地址跳转。
+// 需要先执行迁移 010；启动时在后台执行一次，已经改过的不会重复处理。
+func (s *Service) RenumberLegacyNotes(ctx context.Context) {
+	if !s.tableHasColumn(ctx, "communityInfo", "LEGACY_GUID") {
+		return
+	}
+	rows, err := s.Repo.Query(ctx, "SELECT GUID FROM communityInfo WHERE GUID NOT REGEXP '^[0-9]+$' ORDER BY CREATE_TIME ASC, GUID ASC")
+	if err != nil {
+		log.Printf("查询旧随记编号失败: %v", err)
+		return
+	}
+	renumbered := 0
+	for _, row := range rows {
+		oldID := model.StringValue(row, "GUID")
+		newID, err := s.nextSequenceID(ctx, "communityinfo")
+		if err != nil || newID == "" {
+			log.Printf("旧随记改数字编号失败（编号表里需要有 communityinfo 这一行，见迁移 010）: %v", err)
+			return
+		}
+		_, _, err = s.Repo.ExecuteBatch(ctx, []string{
+			"UPDATE communityInfo SET GUID = ?, LEGACY_GUID = ? WHERE GUID = ?",
+			"UPDATE communityComment SET COMMUNITYID = ? WHERE COMMUNITYID = ?",
+			"UPDATE noticeInfo SET EXECUTE = ? WHERE EXECUTE = ?",
+		}, [][]any{{newID, oldID, oldID}, {newID, oldID}, {NotePath(newID), NotePath(oldID)}}, false)
+		if err != nil {
+			log.Printf("旧随记 %s 改数字编号失败: %v", oldID, err)
+			return
+		}
+		renumbered++
+	}
+	if renumbered > 0 {
+		log.Printf("已把 %d 条旧随记改成数字编号", renumbered)
+	}
 }
 
 // GetAllNoteIDs 返回全部随记编号和最后评论时间，用于站点地图

@@ -1,82 +1,103 @@
-<!-- 便签墙顶部的“贴一张便签”：选类型、写 Markdown、加图片（最多 9 张，上传前压缩） -->
+<!--
+  贴便签 / 编辑便签：选类型、写 Markdown、加图片（最多 9 张，上传前压缩）。
+  不传 note 时是便签墙顶部的发布框；传入 note 时是编辑这张便签（放在弹窗里用）。
+-->
 <template>
-  <section class="composer" :class="[currentType.paper, { 'is-open': open }]">
-    <span class="j-tape j-tape--white composer-tape"></span>
-
-    <div v-if="!userStore.userBean?.code" class="composer-guest">
-      ✎ 登录后就可以在墙上贴便签了（右上角登录）
+  <section class="composer" :class="{ 'is-editing': isEdit }">
+    <!-- 收起时：头像 + 像输入框的提示 + 明显的按钮 -->
+    <div v-if="!isEdit && !open" class="composer-entry" role="button" tabindex="0"
+         @click="startWriting" @keydown.enter.prevent="startWriting">
+      <el-avatar :src="userStore.userBean?.avatar" :size="36" class="entry-avatar"
+                 :style="!userStore.userBean?.avatar ? getAvatarStyle(userStore.userBean?.name || '访') : {}">
+        {{ (userStore.userBean?.name || '访').charAt(0) }}
+      </el-avatar>
+      <div class="entry-input">
+        {{ isLoggedIn ? '写点什么吧：一个技巧、一条踩坑、一个好链接…' : '登录后就可以在墙上贴便签了' }}
+      </div>
+      <el-button type="primary" class="entry-button" :disabled="!isLoggedIn">
+        <el-icon class="el-icon--left"><EditPen/></el-icon>{{ isLoggedIn ? '贴一张便签' : '请先登录' }}
+      </el-button>
     </div>
 
-    <template v-else>
-      <div v-if="!open" class="composer-placeholder" @click="open = true">
-        ✎ 贴一张便签：随手记下一个技巧、一条踩坑、一个好链接…
+    <form v-else class="composer-form" @submit.prevent="submit">
+      <div class="type-row" role="radiogroup" aria-label="便签类型">
+        <span class="row-label">类型</span>
+        <button v-for="item in NOTE_TYPES" :key="item.value" type="button"
+                class="type-chip" :class="{ 'is-on': form.type === item.value }"
+                role="radio" :aria-checked="form.type === item.value"
+                :title="item.hint" @click="form.type = item.value">
+          <i class="note-type-dot" :style="{ background: item.color }"></i>{{ item.label }}
+        </button>
+        <span class="type-hint">{{ currentType.hint }}</span>
       </div>
 
-      <form v-else class="composer-form" @submit.prevent="submit">
-        <div class="type-row" role="radiogroup" aria-label="便签类型">
-          <button v-for="item in NOTE_TYPES" :key="item.value" type="button"
-                  class="type-chip" :class="[item.paper, { 'is-on': form.type === item.value }]"
-                  role="radio" :aria-checked="form.type === item.value"
-                  :title="item.hint" @click="form.type = item.value">
-            {{ item.label }}
-          </button>
-          <span class="type-hint">{{ currentType.hint }}</span>
-        </div>
+      <el-input
+          v-if="!preview"
+          ref="textRef"
+          v-model="form.text"
+          type="textarea"
+          :autosize="{ minRows: 4, maxRows: 16 }"
+          placeholder="写点什么吧（支持 Markdown，例如 **加粗**、`代码`、[链接](https://...)）"
+          class="composer-text"
+          @keyup.enter.ctrl="submit"
+      />
+      <div v-else class="composer-preview" v-html="previewHtml || '<p class=&quot;empty&quot;>还没有内容</p>'"></div>
 
-        <el-input
-            v-if="!preview"
-            v-model="form.text"
-            type="textarea"
-            :autosize="{ minRows: 4, maxRows: 14 }"
-            placeholder="写点什么吧（支持 Markdown，例如 **加粗**、`代码`、[链接](https://...)）"
-            class="composer-text"
-            @keyup.enter.ctrl="submit"
-        />
-        <div v-else class="composer-preview" v-html="previewHtml"></div>
+      <div v-if="images.length" class="image-list">
+        <span v-for="(image, index) in images" :key="image.key" class="image-item">
+          <img :src="image.url || image.local" alt="便签图片">
+          <span v-if="image.uploading" class="image-mask">上传中…</span>
+          <button type="button" class="image-remove" title="移除" @click="removeImage(index)">×</button>
+        </span>
+      </div>
 
-        <div v-if="images.length" class="image-list">
-          <span v-for="(image, index) in images" :key="image.key" class="image-item">
-            <img :src="image.url || image.local" alt="待发布的图片">
-            <span v-if="image.uploading" class="image-mask">上传中…</span>
-            <button type="button" class="image-remove" title="移除" @click="removeImage(index)">×</button>
-          </span>
-        </div>
-
-        <div class="composer-actions">
-          <span class="left-actions">
-            <label class="tool-btn" :class="{ disabled: images.length >= MAX_IMAGES }">
-              <input type="file" accept="image/*" multiple hidden :disabled="images.length >= MAX_IMAGES" @change="pickImages">
-              🖼 图片 {{ images.length }}/{{ MAX_IMAGES }}
-            </label>
-            <button type="button" class="tool-btn" @click="preview = !preview">{{ preview ? '继续编辑' : '预览' }}</button>
-          </span>
-          <span class="right-actions">
-            <span class="hint-text">Ctrl + Enter 发布</span>
-            <el-button size="small" @click="cancel">收起</el-button>
-            <el-button size="small" type="primary" native-type="submit" :loading="saving" :disabled="uploading">贴上墙</el-button>
-          </span>
-        </div>
-      </form>
-    </template>
+      <div class="composer-actions">
+        <span class="left-actions">
+          <label class="tool-btn" :class="{ disabled: images.length >= MAX_IMAGES }">
+            <input type="file" accept="image/*" multiple hidden :disabled="images.length >= MAX_IMAGES" @change="pickImages">
+            🖼 图片 {{ images.length }}/{{ MAX_IMAGES }}
+          </label>
+          <button type="button" class="tool-btn" @click="preview = !preview">{{ preview ? '继续编辑' : '预览' }}</button>
+        </span>
+        <span class="right-actions">
+          <span class="hint-text">Ctrl + Enter {{ isEdit ? '保存' : '发布' }}</span>
+          <el-button size="small" @click="cancel">{{ isEdit ? '取消' : '收起' }}</el-button>
+          <el-button size="small" type="primary" native-type="submit" :loading="saving" :disabled="uploading">
+            {{ isEdit ? '保存修改' : '贴上墙' }}
+          </el-button>
+        </span>
+      </div>
+    </form>
   </section>
 </template>
 
 <script setup>
-import { computed, reactive, ref } from 'vue'
+import { computed, nextTick, reactive, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
+import { EditPen } from '@element-plus/icons-vue'
 import { marked } from 'marked'
 import { useUserStore } from '@/stores/main/user.js'
 import { getGuid, sanitizeHtml, sendAxiosRequest } from '@/utils/common.js'
 import { compressImage, IMAGE_PRESETS } from '@/utils/imageCompress.js'
+import { getAvatarStyle } from '@/utils/avatarStyle.js'
+import { htmlToMarkdown } from '@/utils/htmlToMarkdown.js'
 import { NOTE_TYPES, noteTypeOf } from '@/utils/noteTypes.js'
+import '@/css/notes.css'
 
 const MAX_IMAGES = 9
-const emit = defineEmits(['posted'])
+const props = defineProps({
+  // 传入时为编辑模式
+  note: { type: Object, default: null }
+})
+const emit = defineEmits(['posted', 'saved', 'cancel'])
 const userStore = useUserStore()
 
+const isEdit = computed(() => !!props.note)
+const isLoggedIn = computed(() => !!userStore.userBean?.code)
 const open = ref(false)
 const preview = ref(false)
 const saving = ref(false)
+const textRef = ref(null)
 const form = reactive({ type: 'note', text: '' })
 // { key, local: 本地预览地址, url: 上传后的地址, uploading }
 const images = ref([])
@@ -84,6 +105,24 @@ const images = ref([])
 const currentType = computed(() => noteTypeOf(form.type))
 const previewHtml = computed(() => sanitizeHtml(marked.parse(form.text || '')))
 const uploading = computed(() => images.value.some(image => image.uploading))
+
+// 编辑时填入原来的内容；旧随记没有 Markdown 原文，把 HTML 转回 Markdown
+watch(() => props.note, (note) => {
+  if (!note) return
+  form.type = noteTypeOf(note.TYPE).value
+  form.text = note.SOURCE || htmlToMarkdown(note.TEXT || '')
+  images.value = (Array.isArray(note.IMAGES) ? note.IMAGES : []).map(url => ({ key: url, url, local: '', uploading: false }))
+  preview.value = false
+}, { immediate: true })
+
+function startWriting() {
+  if (!isLoggedIn.value) {
+    ElMessage.info('请先点击右上角登录')
+    return
+  }
+  open.value = true
+  nextTick(() => textRef.value?.focus())
+}
 
 async function uploadOne(item, file) {
   try {
@@ -129,7 +168,8 @@ function reset() {
 }
 
 function cancel() {
-  open.value = false
+  if (isEdit.value) emit('cancel')
+  else open.value = false
 }
 
 async function submit() {
@@ -147,28 +187,29 @@ async function submit() {
   saving.value = true
   try {
     const html = text ? sanitizeHtml(marked.parse(text)) : ''
-    const res = await sendAxiosRequest('/blog-api/community/addCommunity', {
-      community: { GUID: getGuid(), TEXT: html, TYPE: form.type, IMAGES: urls }
-    })
+    const community = { GUID: isEdit.value ? props.note.GUID : getGuid(), TEXT: html, SOURCE: text, TYPE: form.type, IMAGES: urls }
+    const url = isEdit.value ? '/blog-api/community/updateCommunity' : '/blog-api/community/addCommunity'
+    const res = await sendAxiosRequest(url, { community })
     if (!res || res.isError) {
-      ElMessage.error(res?.errMsg || '发布失败')
+      ElMessage.error(res?.errMsg || (isEdit.value ? '保存失败' : '发布失败'))
       return
     }
+    // 后端返回保存后的完整随记；字段缺失时用本地内容补上
     const user = userStore.userBean
-    emit('posted', {
-      GUID: res.result?.GUID,
-      TEXT: html,
-      TYPE: res.result?.TYPE || form.type,
-      IMAGES: res.result?.IMAGES || urls,
-      USERCODE: user.code,
-      USERNAME: user.name,
-      AVATAR: user.avatar || '',
-      CREATE_TIME: '刚刚',
-      COMMENTNUM: 0
-    })
-    ElMessage.success('已贴上墙')
-    reset()
-    open.value = false
+    const saved = {
+      ...(isEdit.value ? props.note : { USERCODE: user.code, USERNAME: user.name, AVATAR: user.avatar || '', CREATE_TIME: '刚刚', COMMENTNUM: 0 }),
+      TEXT: html, SOURCE: text, TYPE: form.type, IMAGES: urls,
+      ...(res.result || {})
+    }
+    if (isEdit.value) {
+      ElMessage.success('已保存')
+      emit('saved', saved)
+    } else {
+      ElMessage.success('已贴上墙')
+      emit('posted', saved)
+      reset()
+      open.value = false
+    }
   } finally {
     saving.value = false
   }
@@ -178,38 +219,60 @@ async function submit() {
 <style scoped>
 .composer {
   position: relative;
-  padding: 22px 20px 16px;
-  box-shadow: 0 1px 2px rgba(60, 50, 30, 0.1), 0 10px 18px -12px rgba(60, 50, 30, 0.4);
-  transition: background-color 0.2s ease;
+  padding: 16px 18px;
+  background: var(--j-paper);
+  border: 1px solid var(--j-rule);
+  box-shadow: var(--j-shadow);
 }
 
-.composer.paper-note { background: var(--j-note); }
-.composer.paper-tip { background: #fffdf8; border: 1px solid var(--j-rule); }
-.composer.paper-share { background: var(--j-kraft); }
-.composer.paper-question { background: #f8dcdc; }
-
-.composer-tape {
-  top: -10px;
-  left: 50%;
-  margin-left: -42px;
-  transform: rotate(-2deg);
+.composer.is-editing {
+  padding: 0;
+  background: transparent;
+  border: none;
+  box-shadow: none;
 }
 
-.composer-guest,
-.composer-placeholder {
-  font-family: var(--j-hand);
-  font-size: 17px;
-  color: var(--j-ink-soft);
+/* ---------- 收起时的入口 ---------- */
+.composer-entry {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
 }
 
-.composer-placeholder {
-  cursor: text;
+.entry-avatar {
+  flex-shrink: 0;
 }
 
-.composer-placeholder:hover {
-  color: var(--j-ink);
+.entry-input {
+  flex: 1;
+  min-width: 0;
+  padding: 9px 14px;
+  border: 1px solid var(--j-rule-strong);
+  border-radius: 20px;
+  background: #fff;
+  font-size: 14px;
+  color: var(--j-muted);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  transition: border-color 0.15s;
 }
 
+.composer-entry:hover .entry-input,
+.composer-entry:focus-visible .entry-input {
+  border-color: var(--j-pen);
+}
+
+.composer-entry:focus-visible {
+  outline: none;
+}
+
+.entry-button {
+  flex-shrink: 0;
+}
+
+/* ---------- 展开后 ---------- */
 .type-row {
   display: flex;
   flex-wrap: wrap;
@@ -218,27 +281,33 @@ async function submit() {
   margin-bottom: 12px;
 }
 
+.row-label {
+  font-size: 13px;
+  color: var(--j-muted);
+}
+
 .type-chip {
-  padding: 3px 14px;
-  border: 1px solid rgba(77, 73, 67, 0.25);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 14px 3px 11px;
+  border: 1px solid var(--j-rule-strong);
   border-radius: 14px;
+  background: #fff;
   font-family: var(--j-hand);
   font-size: 15px;
   color: var(--j-ink-soft);
   cursor: pointer;
-  opacity: 0.75;
 }
 
-.type-chip.paper-note { background: var(--j-note); }
-.type-chip.paper-tip { background: #fffdf8; }
-.type-chip.paper-share { background: var(--j-kraft); }
-.type-chip.paper-question { background: #f8dcdc; }
+.type-chip:hover {
+  border-color: var(--j-ink-soft);
+}
 
 .type-chip.is-on {
-  border-color: var(--j-ink-soft);
-  color: var(--j-ink);
-  opacity: 1;
-  box-shadow: 0 1px 3px rgba(60, 50, 30, 0.25);
+  border-color: var(--j-ink);
+  background: var(--j-ink);
+  color: #fff;
 }
 
 .type-hint {
@@ -247,20 +316,24 @@ async function submit() {
 }
 
 .composer-text :deep(.el-textarea__inner) {
-  background: rgba(255, 255, 255, 0.6);
   line-height: 1.75;
 }
 
 .composer-preview {
   min-height: 96px;
   padding: 8px 12px;
-  background: rgba(255, 255, 255, 0.6);
+  border: 1px dashed var(--j-rule-strong);
+  background: #fff;
   line-height: 1.75;
   overflow-wrap: anywhere;
 }
 
 .composer-preview :deep(p) {
   margin: 0 0 0.5em;
+}
+
+.composer-preview :deep(.empty) {
+  color: var(--j-muted);
 }
 
 .image-list {
@@ -331,9 +404,9 @@ async function submit() {
 
 .tool-btn {
   padding: 3px 10px;
-  border: 1px dashed rgba(77, 73, 67, 0.35);
+  border: 1px dashed var(--j-rule-strong);
   border-radius: 3px;
-  background: rgba(255, 255, 255, 0.5);
+  background: #fff;
   font-size: 13px;
   color: var(--j-ink-soft);
   cursor: pointer;
@@ -341,6 +414,7 @@ async function submit() {
 
 .tool-btn:hover {
   color: var(--j-pen);
+  border-color: var(--j-pen);
 }
 
 .tool-btn.disabled {
@@ -354,8 +428,13 @@ async function submit() {
 }
 
 @media (max-width: 640px) {
-  .hint-text {
+  .hint-text,
+  .entry-avatar {
     display: none;
+  }
+
+  .entry-input {
+    padding: 8px 12px;
   }
 }
 </style>

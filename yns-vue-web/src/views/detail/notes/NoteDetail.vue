@@ -24,7 +24,7 @@
         <template v-else>
           <article class="note-sheet" :class="type.paper">
             <span v-if="note.ISTOP === '1'" class="note-pin" title="置顶"></span>
-            <span v-else class="j-tape j-tape--top"></span>
+            <span v-else class="j-tape j-tape--top note-type-tape"></span>
 
             <header class="note-head">
               <el-avatar :src="note.AVATAR" :size="40" class="author-avatar" @click="openAuthor"
@@ -36,13 +36,15 @@
                    @click.prevent="openAuthor">{{ note.USERNAME || '访客' }}</a>
                 <span v-else class="author-name">{{ note.USERNAME || '访客' }}</span>
                 <div class="head-meta">
-                  <span class="note-type">{{ type.label }}</span>
+                  <span class="note-type-badge"><i class="note-type-dot" :style="{ background: type.color }"></i>{{ type.label }}</span>
                   <time>{{ pubFormatDate(note.CREATE_TIME) }}</time>
+                  <span v-if="note.UPDATE_TIME" class="edited" :title="'修改于 ' + pubFormatDate(note.UPDATE_TIME)">已编辑</span>
                   <button type="button" class="meta-comment" title="查看评论" @click="scrollToComments">💬 {{ commentTotal }}</button>
                 </div>
               </div>
               <div class="head-tools">
                 <button v-if="isSuperAdmin" type="button" class="tool-link" @click="toggleTop">{{ note.ISTOP === '1' ? '取消置顶' : '置顶' }}</button>
+                <button v-if="canEdit" type="button" class="tool-link" @click="editVisible = true">编辑</button>
                 <button v-if="canDelete" type="button" class="tool-link danger" @click="removeNote">删除</button>
               </div>
             </header>
@@ -79,6 +81,10 @@
             </a>
           </nav>
           <p class="back-wall"><router-link to="/ynsStudy/Notes">回到便签墙 →</router-link></p>
+
+          <el-dialog v-model="editVisible" title="编辑便签" width="min(720px, 94vw)" append-to-body destroy-on-close>
+            <NoteComposer :note="note" @saved="onSaved" @cancel="editVisible = false"/>
+          </el-dialog>
         </template>
       </div>
     </main>
@@ -92,12 +98,14 @@ import { ElMessage } from 'element-plus'
 import ArticleViewer from '@/components/detail/ArticleViewer.vue'
 import CommentSection from '@/components/detail/comment/CommentSection.vue'
 import UserInfo from '@/components/main/UserInfo.vue'
+import NoteComposer from '@/components/detail/notes/NoteComposer.vue'
 import { useUserStore } from '@/stores/main/user.js'
-import { adminUserCode } from '@/config/vue-config.js'
 import {
   ele_confirm, extractPlainTextFromHTML, getCurrentUserAdminObject, getUserInfoByCode,
   pubFormatDate, sendAxiosRequest, sendAxiosRequestChecked
 } from '@/utils/common.js'
+import { canDeleteNote, canEditNote } from '@/utils/notePermission.js'
+import '@/css/notes.css'
 import { getAvatarStyle } from '@/utils/avatarStyle.js'
 import { pubOpenOneBlog, pubOpenUser } from '@/utils/blogUtil.js'
 import { noteTitle, notePath, noteTypeOf } from '@/utils/noteTypes.js'
@@ -130,6 +138,8 @@ const load = async (id) => {
     return
   }
   note.value = res.result.note
+  // 用旧编号（一长串字符）打开时，地址换成数字编号的新地址
+  if (String(note.value.GUID) !== String(id)) router.replace(notePath(note.value.GUID))
   previous.value = res.result.previous || null
   next.value = res.result.next || null
   authorInfo.value = {}
@@ -141,7 +151,8 @@ const load = async (id) => {
   nextTick(() => { window.prerenderReady = true })
 }
 watch(() => route.params.id, (id) => {
-  if (!id) return
+  // 旧地址换成新地址时内容已经加载过，不再重复请求
+  if (!id || String(note.value?.GUID) === String(id)) return
   window.scrollTo(0, 0)
   load(id)
 }, { immediate: true })
@@ -152,14 +163,14 @@ const openAuthor = () => note.value?.USERCODE && pubOpenUser(router, note.value.
 const openBlog = (blog) => pubOpenOneBlog(router, blog.GUID)
 
 const isSuperAdmin = computed(() => getCurrentUserAdminObject().adminLevel === 'superAdmin')
-const canDelete = computed(() => {
-  const admin = getCurrentUserAdminObject()
-  if (!note.value) return false
-  if (admin.adminLevel === 'superAdmin') return true
-  if (note.value.ISTOP === '1') return false
-  return (userStore.userBean?.code && userStore.userBean.code === note.value.USERCODE) ||
-      (admin.isAdmin && note.value.USERCODE !== adminUserCode)
-})
+const canEdit = computed(() => canEditNote(note.value, userStore.userBean))
+const canDelete = computed(() => canDeleteNote(note.value, userStore.userBean))
+
+const editVisible = ref(false)
+function onSaved(saved) {
+  note.value = { ...note.value, ...saved }
+  editVisible.value = false
+}
 
 function removeNote() {
   ele_confirm('确定撕下这张便签吗？它下面的评论会一起删除。', async () => {
@@ -292,28 +303,6 @@ useSeo(() => {
   box-shadow: 0 1px 2px rgba(60, 50, 30, 0.1), 0 14px 24px -16px rgba(60, 50, 30, 0.45);
 }
 
-.note-sheet.paper-note { background: var(--j-note); }
-.note-sheet.paper-tip {
-  background-color: #fffdf8;
-  background-image: repeating-linear-gradient(transparent 0 31px, rgba(165, 195, 225, 0.3) 31px 32px);
-  border: 1px solid var(--j-rule);
-  border-top: 3px solid rgba(232, 165, 155, 0.7);
-}
-.note-sheet.paper-share { background: var(--j-kraft); border: 1px solid #d8c49d; }
-.note-sheet.paper-question { background: #f8dcdc; }
-
-.note-pin {
-  position: absolute;
-  top: -9px;
-  left: 50%;
-  z-index: 2;
-  width: 18px;
-  height: 18px;
-  margin-left: -9px;
-  border-radius: 50%;
-  background: radial-gradient(circle at 35% 35%, #f08a80 0 25%, var(--j-stamp) 60%, #8f2f28 100%);
-  box-shadow: 0 3px 4px rgba(60, 30, 20, 0.35);
-}
 
 .note-head {
   display: flex;
@@ -356,13 +345,9 @@ useSeo(() => {
   color: var(--j-muted);
 }
 
-.note-type {
-  padding: 0 8px;
-  border: 1px solid rgba(77, 73, 67, 0.25);
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.5);
-  font-family: var(--j-hand);
-  color: var(--j-ink-soft);
+.edited {
+  font-size: 12px;
+  color: var(--j-muted);
 }
 
 .meta-comment {

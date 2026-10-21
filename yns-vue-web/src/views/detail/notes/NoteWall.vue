@@ -26,8 +26,8 @@
       <div class="filter-chips" role="tablist" aria-label="按类型筛选">
         <button type="button" class="filter-chip" :class="{ 'is-on': query.type === '' }" @click="setType('')">全部</button>
         <button v-for="item in NOTE_TYPES" :key="item.value" type="button"
-                class="filter-chip" :class="[item.paper, { 'is-on': query.type === item.value }]"
-                @click="setType(item.value)">{{ item.label }}</button>
+                class="filter-chip" :class="{ 'is-on': query.type === item.value }"
+                @click="setType(item.value)"><i class="note-type-dot" :style="{ background: item.color }"></i>{{ item.label }}</button>
       </div>
       <div class="toolbar-right">
         <el-checkbox v-if="userStore.userBean?.code" v-model="query.mine" @change="reload">只看我的</el-checkbox>
@@ -45,24 +45,29 @@
       </div>
     </div>
 
-    <div ref="wallRef" class="wall" :style="{ '--cols': columnCount }">
+    <!-- 切换筛选时先保留旧内容（变淡），新内容到了再替换，页面高度不会突然塌下去 -->
+    <div ref="wallRef" class="wall" :class="{ 'is-refreshing': refreshing }" :style="{ '--cols': columnCount }">
       <div v-for="(column, ci) in columns" :key="ci" class="wall-column">
-        <NoteCard v-for="item in column" :key="item.note.GUID" :note="item.note" :index="item.index"
-                  @delete="removeNote" @top="toggleTop"/>
+        <NoteCard v-for="item in column" :key="item.note.GUID" :note="item.note"
+                  @delete="removeNote" @top="toggleTop" @edit="openEdit"/>
       </div>
     </div>
 
-    <p v-if="!loading && notes.length === 0" class="wall-empty">
+    <p v-if="!loading && !refreshing && notes.length === 0" class="wall-empty">
       {{ query.mine ? '你还没有贴过便签，在上面写下第一张吧' : (query.keyword || query.type ? '没有找到符合条件的便签' : '墙上还空着，来贴第一张便签吧') }}
     </p>
     <div class="wall-more">
-      <span v-if="loading" class="more-text">正在翻找…</span>
-      <button v-else-if="!noMore" type="button" class="j-button" @click="fetchNotes">再翻一页</button>
+      <span v-if="loading && !refreshing" class="more-text">正在翻找…</span>
+      <button v-else-if="!noMore" type="button" class="j-button" @click="fetchNotes()">再翻一页</button>
       <span v-else-if="notes.length" class="more-text">墙上就这些了</span>
     </div>
 
     <el-dialog v-model="userSearchVisible" title="找人" width="min(720px, 92vw)" append-to-body>
       <UserList/>
+    </el-dialog>
+
+    <el-dialog v-model="editVisible" title="编辑便签" width="min(720px, 94vw)" append-to-body destroy-on-close>
+      <NoteComposer v-if="editingNote" :note="editingNote" @saved="onSaved" @cancel="editVisible = false"/>
     </el-dialog>
   </div>
 </template>
@@ -78,6 +83,7 @@ import { useUserStore } from '@/stores/main/user.js'
 import { ele_confirm, sendAxiosRequest, sendAxiosRequestChecked } from '@/utils/common.js'
 import { getAnnouncementByRouterName } from '@/utils/blogUtil.js'
 import { NOTE_TYPES } from '@/utils/noteTypes.js'
+import '@/css/notes.css'
 
 // 找人只在点开时才加载
 const UserList = defineAsyncComponent(() => import('@/components/detail/UserList.vue'))
@@ -90,37 +96,42 @@ const notes = ref([])
 const total = ref(0)
 const page = ref(1)
 const loading = ref(false)
+const refreshing = ref(false)
 const noMore = ref(false)
 const userSearchVisible = ref(false)
+// 每次请求的序号：快速连续切换筛选时，只采用最后一次的结果
+let requestSeq = 0
 
-const fetchNotes = async () => {
-  if (loading.value || noMore.value) return
+// replace 为 true 时用新结果替换整面墙（切换筛选、搜索），否则追加下一页
+const fetchNotes = async (replace = false) => {
+  if (!replace && (loading.value || noMore.value)) return
+  const seq = ++requestSeq
+  const targetPage = replace ? 1 : page.value
   loading.value = true
+  refreshing.value = replace
   try {
     const res = await sendAxiosRequest('/blog-api/community/getAllCommunity', {
-      page: page.value, pageSize: PAGE_SIZE, ...query
+      page: targetPage, pageSize: PAGE_SIZE, ...query
     })
+    if (seq !== requestSeq) return
     if (!res || res.isError) {
       ElMessage.error(res?.errMsg || '获取便签失败')
-      noMore.value = true
       return
     }
     const rows = res.result?.data || []
-    notes.value.push(...rows)
+    notes.value = replace ? rows : [...notes.value, ...rows]
     total.value = res.result?.total || 0
-    if (rows.length < PAGE_SIZE) noMore.value = true
-    page.value++
+    noMore.value = rows.length < PAGE_SIZE
+    page.value = targetPage + 1
   } finally {
-    loading.value = false
+    if (seq === requestSeq) {
+      loading.value = false
+      refreshing.value = false
+    }
   }
 }
 
-const reload = () => {
-  notes.value = []
-  page.value = 1
-  noMore.value = false
-  fetchNotes()
-}
+const reload = () => fetchNotes(true)
 
 const setType = (type) => {
   query.type = type
@@ -170,7 +181,23 @@ onBeforeUnmount(() => {
   window.removeEventListener('resize', updateColumns)
 })
 
-// ---------- 发布、删除、置顶 ----------
+// ---------- 发布、编辑、删除、置顶 ----------
+const editVisible = ref(false)
+const editingNote = ref(null)
+
+async function openEdit(note) {
+  // 列表里没有 Markdown 原文，编辑前取一次完整的随记
+  const res = await sendAxiosRequest('/blog-api/community/getNote', { noteId: note.GUID })
+  editingNote.value = res && !res.isError && res.result?.note ? res.result.note : note
+  editVisible.value = true
+}
+
+function onSaved(saved) {
+  const index = notes.value.findIndex(item => item.GUID === saved.GUID)
+  if (index !== -1) notes.value[index] = { ...notes.value[index], ...saved }
+  editVisible.value = false
+}
+
 function onPosted(note) {
   // 筛选条件和新便签不符时也放到最前面，方便作者确认已经贴上
   notes.value.unshift(note)
@@ -259,23 +286,22 @@ getAnnouncementByRouterName('Community').then(list => { topAlert.value = list ||
 
 .wall-tab {
   padding: 6px 18px 8px;
+  border: 1px solid transparent;
   border-radius: 6px 6px 0 0;
   font-family: var(--j-hand);
   font-size: 16px;
   color: var(--j-ink-soft);
-  background: #f6e3a1;
   transform: translateY(1px);
 }
 
 .wall-tab.is-on {
   background: var(--j-paper);
-  border: 1px solid var(--j-rule-strong);
+  border-color: var(--j-rule-strong);
   border-bottom-color: var(--j-paper);
   color: var(--j-ink);
 }
 
 .wall-tab.is-disabled {
-  background: #e9e2d3;
   color: var(--j-muted);
   cursor: not-allowed;
 }
@@ -300,25 +326,28 @@ getAnnouncementByRouterName('Community').then(list => { topAlert.value = list ||
 }
 
 .filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   padding: 3px 14px;
-  border: 1px solid rgba(77, 73, 67, 0.25);
+  border: 1px solid var(--j-rule-strong);
   border-radius: 14px;
   background: var(--j-paper);
   font-family: var(--j-hand);
   font-size: 15px;
   color: var(--j-ink-soft);
   cursor: pointer;
+  transition: background-color 0.15s, color 0.15s, border-color 0.15s;
 }
 
-.filter-chip.paper-note { background: var(--j-note); }
-.filter-chip.paper-tip { background: #fffdf8; }
-.filter-chip.paper-share { background: var(--j-kraft); }
-.filter-chip.paper-question { background: #f8dcdc; }
+.filter-chip:hover {
+  border-color: var(--j-ink-soft);
+}
 
 .filter-chip.is-on {
   border-color: var(--j-ink);
-  color: var(--j-ink);
-  box-shadow: 0 1px 3px rgba(60, 50, 30, 0.25);
+  background: var(--j-ink);
+  color: #fff;
 }
 
 .toolbar-right {
@@ -342,6 +371,12 @@ getAnnouncementByRouterName('Community').then(list => { topAlert.value = list ||
   grid-template-columns: repeat(var(--cols), minmax(0, 1fr));
   gap: 26px 22px;
   align-items: start;
+}
+
+.wall.is-refreshing {
+  opacity: 0.5;
+  pointer-events: none;
+  transition: opacity 0.15s;
 }
 
 .wall-column {

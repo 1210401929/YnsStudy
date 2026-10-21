@@ -35,6 +35,7 @@ const (
 	AdminActionEditResource   = "editResource"
 	AdminActionFriendLink     = "friendLink"
 	AdminActionCommentBan     = "commentBan"
+	AdminActionEditPost       = "editPost"
 )
 
 // msgBannedWord 是内容命中违禁词时的提示

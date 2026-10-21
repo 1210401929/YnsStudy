@@ -202,6 +202,12 @@ func (h *Controller) registerCommunityRoutes(group *gin.RouterGroup) {
 			writeResult(c, h.service.AddCommunity(c, nestedMap(body, "community")))
 		}
 	})
+	group.Any("/updateCommunity", func(c *gin.Context) {
+		body, ok := requireBody(c)
+		if ok {
+			writeResult(c, h.service.UpdateCommunity(c, nestedMap(body, "community")))
+		}
+	})
 	group.Any("/deleteCommunity", func(c *gin.Context) {
 		body, ok := requireBody(c)
 		if ok {
