@@ -18,6 +18,11 @@
       </span>
     </div>
 
+    <div v-if="tags.length" class="note-tags" @click.stop>
+      <a v-for="tag in tags" :key="tag" class="note-tag" :href="tagHref(tag)" rel="tag"
+         @click.prevent="$emit('tag', tag)">#{{ tag }}</a>
+    </div>
+
     <footer class="note-foot">
       <span class="note-author" @click.stop="openAuthor">
         <el-avatar :src="note.AVATAR" :size="22" :style="!note.AVATAR ? getAvatarStyle(note.USERNAME) : {}">
@@ -46,13 +51,14 @@ import { getCurrentUserAdminObject, pubFormatDate, sanitizeHtml } from '@/utils/
 import { getAvatarStyle } from '@/utils/avatarStyle.js'
 import { pubOpenUser } from '@/utils/blogUtil.js'
 import { noteTitle, notePath, noteTypeOf } from '@/utils/noteTypes.js'
+import { tagHref } from '@/utils/noteTags.js'
 import { canDeleteNote, canEditNote } from '@/utils/notePermission.js'
 import '@/css/notes.css'
 
 const props = defineProps({
   note: { type: Object, required: true }
 })
-defineEmits(['delete', 'top', 'edit'])
+defineEmits(['delete', 'top', 'edit', 'tag'])
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -61,6 +67,7 @@ const type = computed(() => noteTypeOf(props.note.TYPE))
 const title = computed(() => noteTitle(props.note))
 const href = computed(() => notePath(props.note.GUID))
 const images = computed(() => Array.isArray(props.note.IMAGES) ? props.note.IMAGES : [])
+const tags = computed(() => Array.isArray(props.note.TAGS) ? props.note.TAGS : [])
 const safeHtml = computed(() => sanitizeHtml(props.note.TEXT || ''))
 
 // 正文较长时截断，渐隐提示还有内容
@@ -221,6 +228,22 @@ function openAuthor() {
   background: rgba(43, 42, 39, 0.45);
   color: #fff;
   font-size: 18px;
+}
+
+.note-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+}
+
+.note-tag {
+  font-size: 12px;
+  color: var(--j-pen);
+  text-decoration: none;
+}
+
+.note-tag:hover {
+  text-decoration: underline;
 }
 
 .note-foot {

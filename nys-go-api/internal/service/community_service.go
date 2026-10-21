@@ -165,6 +165,12 @@ func (s *Service) AddCommunity(c *gin.Context, community map[string]any) model.R
 	if failure != nil {
 		return *failure
 	}
+	tags := normalizeTags(model.Lookup(community, "TAGS"))
+	for _, tag := range tags {
+		if s.containsBannedWord(tag) {
+			return model.Failure(msgBannedWord)
+		}
+	}
 	fields["GUID"] = model.StringValue(community, "GUID")
 	fields["USERCODE"] = actor.Code()
 	fields["USERNAME"] = actor.User.Name
@@ -185,6 +191,7 @@ func (s *Service) AddCommunity(c *gin.Context, community map[string]any) model.R
 	if result.IsError {
 		return stripSearchTextResult(result)
 	}
+	s.saveTargetTags(ctx, TagTargetNote, guid, tags)
 	s.notifyAdminContent(ctx, actor.Code(), actor.User.Name, "便签墙新随记", "", model.StringValue(fields, "TEXT"), s.mailSiteURL(NotePath(guid)))
 	return s.noteSavedResult(ctx, guid)
 }
@@ -208,6 +215,12 @@ func (s *Service) UpdateCommunity(c *gin.Context, community map[string]any) mode
 	if failure != nil {
 		return *failure
 	}
+	tags := normalizeTags(model.Lookup(community, "TAGS"))
+	for _, tag := range tags {
+		if s.containsBannedWord(tag) {
+			return model.Failure(msgBannedWord)
+		}
+	}
 	columns := make([]string, 0, len(fields)+1)
 	args := make([]any, 0, len(fields)+2)
 	for _, column := range []string{"TEXT", "TYPE", "IMAGES", "SOURCE", searchTextColumn} {
@@ -223,6 +236,7 @@ func (s *Service) UpdateCommunity(c *gin.Context, community map[string]any) mode
 	if _, err := s.Repo.Exec(ctx, "UPDATE communityInfo SET "+strings.Join(columns, ", ")+" WHERE GUID = ?", args...); err != nil {
 		return dbFailure("修改随记", err)
 	}
+	s.saveTargetTags(ctx, TagTargetNote, guid, tags)
 	s.logModeration(c, actor, row, AdminActionEditPost, postLabel(row), "在便签墙修改随记")
 	return s.noteSavedResult(ctx, guid)
 }
@@ -259,6 +273,7 @@ func (s *Service) DeleteCommunity(c *gin.Context, guid string) model.Result {
 	if err != nil {
 		return dbFailure("删除随记", err)
 	}
+	s.deleteTargetTags(ctx, TagTargetNote, guid)
 	s.logModeration(c, actor, row, AdminActionDeletePost, postLabel(row), "在便签墙删除随记")
 	return model.Success("删除成功")
 }
@@ -287,6 +302,7 @@ type NoteQuery struct {
 	Type     string // 空表示全部
 	Sort     string // latest 最新（默认）、hot 最多讨论
 	Mine     bool   // 只看自己发的
+	Tag      string // 只看某个话题
 }
 
 // noteSelect 是随记列表和详情共用的查询字段：作者头像、作者主页编号、评论数
@@ -313,6 +329,10 @@ func (s *Service) GetAllCommunities(c *gin.Context, query NoteQuery) model.Resul
 		}
 		args = append(args, noteType)
 	}
+	if tag := normalizeTagName(query.Tag); tag != "" && s.tagsReady(ctx) {
+		conditions = append(conditions, "b.GUID IN (SELECT r.TARGET_ID FROM tagRelation r JOIN tag t ON t.ID = r.TAG_ID WHERE r.TARGET_TYPE = ? AND t.NAME = ?)")
+		args = append(args, TagTargetNote, tag)
+	}
 	if query.Mine {
 		actor, failure := s.requireLogin(c)
 		if failure != nil {
@@ -338,6 +358,7 @@ func (s *Service) GetAllCommunities(c *gin.Context, query NoteQuery) model.Resul
 		return dbFailure("统计随记", err)
 	}
 	rows = decodeNoteRows(stripSearchText(rows))
+	s.attachTags(ctx, TagTargetNote, rows)
 	// 墙上只显示正文，Markdown 原文只在编辑时用（单条随记接口会返回）
 	for _, row := range rows {
 		delete(row, "SOURCE")
@@ -376,7 +397,9 @@ func (s *Service) FindNote(ctx context.Context, guid string) (map[string]any, bo
 	if len(rows) == 0 {
 		return nil, false, nil
 	}
-	return decodeNoteRows(stripSearchText(rows))[0], true, nil
+	note := decodeNoteRows(stripSearchText(rows))[0]
+	s.attachTags(ctx, TagTargetNote, []map[string]any{note})
+	return note, true, nil
 }
 
 // NoteNeighbors 返回上一条（更早发布）和下一条（更晚发布），只带编号和标题
@@ -436,11 +459,17 @@ func (s *Service) RenumberLegacyNotes(ctx context.Context) {
 			log.Printf("旧随记改数字编号失败（编号表里需要有 communityinfo 这一行，见迁移 010）: %v", err)
 			return
 		}
-		_, _, err = s.Repo.ExecuteBatch(ctx, []string{
+		queries := []string{
 			"UPDATE communityInfo SET GUID = ?, LEGACY_GUID = ? WHERE GUID = ?",
 			"UPDATE communityComment SET COMMUNITYID = ? WHERE COMMUNITYID = ?",
 			"UPDATE noticeInfo SET EXECUTE = ? WHERE EXECUTE = ?",
-		}, [][]any{{newID, oldID, oldID}, {newID, oldID}, {NotePath(newID), NotePath(oldID)}}, false)
+		}
+		args := [][]any{{newID, oldID, oldID}, {newID, oldID}, {NotePath(newID), NotePath(oldID)}}
+		if s.tagsReady(ctx) {
+			queries = append(queries, "UPDATE tagRelation SET TARGET_ID = ? WHERE TARGET_TYPE = ? AND TARGET_ID = ?")
+			args = append(args, []any{newID, TagTargetNote, oldID})
+		}
+		_, _, err = s.Repo.ExecuteBatch(ctx, queries, args, false)
 		if err != nil {
 			log.Printf("旧随记 %s 改数字编号失败: %v", oldID, err)
 			return

@@ -42,6 +42,34 @@ func noteImages(row map[string]any) []string {
 	return images
 }
 
+func noteTags(row map[string]any) []string {
+	tags, _ := row["TAGS"].([]string)
+	return tags
+}
+
+// tagMetaHTML 为每个话题输出一个 article:tag
+func tagMetaHTML(tags []string) string {
+	var output strings.Builder
+	for _, tag := range tags {
+		fmt.Fprintf(&output, "\n<meta property=\"article:tag\" content=\"%s\">", htmlstd.EscapeString(tag))
+	}
+	return output.String()
+}
+
+// tagLinksHTML 输出话题链接，点开是便签墙上这个话题的随记
+func tagLinksHTML(tags []string, domain string) string {
+	if len(tags) == 0 {
+		return ""
+	}
+	var output strings.Builder
+	output.WriteString(`<p class="seo-note-tags">话题：`)
+	for _, tag := range tags {
+		fmt.Fprintf(&output, ` <a href="%s%s?tag=%s" rel="tag">#%s</a>`, htmlstd.EscapeString(domain), noteWallPath, url.QueryEscape(tag), htmlstd.EscapeString(tag))
+	}
+	output.WriteString(`</p>`)
+	return output.String()
+}
+
 // injectSEOShell 把标题、head 内容和首屏正文放进 Vue 的 index.html 外壳
 func injectSEOShell(shell, fullTitle, head, body string) string {
 	shell = defaultSEOElement.ReplaceAllString(shell, "\n")
@@ -137,6 +165,7 @@ func renderSEONoteHTML(shell string, note, previous, next map[string]any, owner 
 		Author:           structuredPerson{Type: "Person", Name: author, URL: authorURL},
 		Publisher:        structuredOrganization{Type: "Organization", Name: cfg.SEO.SiteName, URL: domain, Logo: domain + "/icon-512.png"},
 		Image:            []string{firstImage},
+		Keywords:         strings.Join(noteTags(note), ","),
 	}
 	if owner.Code != "" && model.StringValue(note, "USERCODE") == owner.Code {
 		person := ownerPerson(owner, domain)
@@ -161,7 +190,7 @@ func renderSEONoteHTML(shell string, note, previous, next map[string]any, owner 
 <meta property="og:description" content="%s">
 <meta property="og:url" content="%s">
 <meta property="og:image" content="%s">
-<meta property="article:published_time" content="%s">
+<meta property="article:published_time" content="%s">%s
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="%s">
 <meta name="twitter:description" content="%s">
@@ -169,7 +198,7 @@ func renderSEONoteHTML(shell string, note, previous, next map[string]any, owner 
 <script type="application/ld+json">%s</script>
 %s
 `, escapedDescription, escapedCanonical, htmlstd.EscapeString(cfg.SEO.SiteName), escapedTitle, escapedDescription,
-		escapedCanonical, escapedImage, htmlstd.EscapeString(published), escapedTitle, escapedDescription, structuredJSON,
+		escapedCanonical, escapedImage, htmlstd.EscapeString(published), tagMetaHTML(noteTags(note)), escapedTitle, escapedDescription, structuredJSON,
 		breadcrumbJSON([]breadcrumbItem{{Name: cfg.SEO.SiteName, URL: domain + "/"}, {Name: "便签墙", URL: domain + noteWallPath}, {Name: title}}),
 		noteFirstPaintStyle)
 
@@ -200,9 +229,10 @@ func renderSEONoteHTML(shell string, note, previous, next map[string]any, owner 
 <div class="seo-note-content" itemprop="articleBody">%s</div>
 %s
 %s
+%s
 </article></main>`, htmlstd.EscapeString(domain), htmlstd.EscapeString(domain), noteWallPath, escapedTitle,
 		htmlstd.EscapeString(noteTypeName(note)), authorHTML, htmlstd.EscapeString(published),
-		htmlstd.EscapeString(formatDate(model.Lookup(note, "CREATE_TIME"))), safeContent, imageHTML.String(), links.String())
+		htmlstd.EscapeString(formatDate(model.Lookup(note, "CREATE_TIME"))), safeContent, imageHTML.String(), tagLinksHTML(noteTags(note), domain), links.String())
 
 	return injectSEOShell(shell, title+" - 便签墙 - "+cfg.SEO.SiteName, head, body)
 }

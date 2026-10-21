@@ -30,17 +30,23 @@ var (
 
 func (h *Controller) registerSEORoutes(router *gin.Engine) {
 	// 这些地址由 Nginx 直接转发到 Go。API 原地址继续保留，避免影响现有前端和订阅者。
-	router.GET("/", h.seoHome)
-	router.GET("/oneBlog/:id", h.seoArticle)
-	router.GET("/sitemap.xml", h.sitemap)
-	router.GET("/robots.txt", h.robots)
-	router.GET("/rss.xml", h.rss)
-	router.GET("/archive", h.seoArchive)
-	router.GET("/user/:u", h.seoProfile)
-	router.GET("/archive/page/:page", h.seoArchive)
-	router.GET("/note/:id", h.seoNote)
-	router.GET(noteWallPath, h.seoNoteWall)
-	router.GET(service.IndexNowKeyPath, h.indexNowKey)
+	// 同时注册 HEAD：链接检查工具、站长平台检测死链时常用 HEAD，只注册 GET 会被当成 404。
+	// HEAD 请求复用 GET 的处理函数，Go 的 net/http 会自动丢掉响应正文，只返回状态码和响应头。
+	page := func(path string, handler gin.HandlerFunc) {
+		router.GET(path, handler)
+		router.HEAD(path, handler)
+	}
+	page("/", h.seoHome)
+	page("/oneBlog/:id", h.seoArticle)
+	page("/sitemap.xml", h.sitemap)
+	page("/robots.txt", h.robots)
+	page("/rss.xml", h.rss)
+	page("/archive", h.seoArchive)
+	page("/user/:u", h.seoProfile)
+	page("/archive/page/:page", h.seoArchive)
+	page("/note/:id", h.seoNote)
+	page(noteWallPath, h.seoNoteWall)
+	page(service.IndexNowKeyPath, h.indexNowKey)
 }
 
 // indexNowKey 返回 IndexNow 密钥文件，搜索引擎用它确认推送请求来自站点所有者。
@@ -159,7 +165,7 @@ func (h *Controller) robots(c *gin.Context) {
 	domain := strings.TrimRight(h.service.Config.External.DomainName, "/")
 	body := "User-agent: *\n" +
 		"Allow: /\n" +
-		"Disallow: /api/\n" +
+		// 不屏蔽 /api/：搜索引擎渲染页面时要靠它加载数据；接口返回的 JSON 由 Nginx 加 X-Robots-Tag: noindex，不会被当作网页收录
 		"Disallow: /blog-api/\n" +
 		"Disallow: /sso\n" +
 		"Disallow: /personalCenter\n" +
@@ -195,6 +201,7 @@ type articleStructuredData struct {
 	Author           structuredPerson       `json:"author"`
 	Publisher        structuredOrganization `json:"publisher"`
 	Image            []string               `json:"image,omitempty"`
+	Keywords         string                 `json:"keywords,omitempty"`
 }
 
 type structuredMainEntity struct {

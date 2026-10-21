@@ -1,6 +1,5 @@
 User-agent: *
 Allow: /
-Disallow: /api/
 Disallow: /blog-api/
 Disallow: /sso
 Disallow: /personalCenter

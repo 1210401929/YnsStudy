@@ -23,6 +23,7 @@ func TestRenderSEONoteHTML(t *testing.T) {
 		"TYPE":        "tip",
 		"TEXT":        `<p>Go 里用 <code>errors.Is</code> 判断错误</p><script>alert(1)</script>`,
 		"IMAGES":      []string{"/uploadFile/editorImage/a.webp"},
+		"TAGS":        []string{"Go", "踩坑"},
 		"USERNAME":    "余南松",
 		"USERNUM":     "101",
 		"CREATE_TIME": time.Date(2026, 10, 1, 10, 0, 0, 0, time.FixedZone("CST", 8*60*60)),
@@ -41,6 +42,9 @@ func TestRenderSEONoteHTML(t *testing.T) {
 		`<a href="https://ynsstudy.cn/ynsStudy/Notes">回到便签墙 →</a>`,
 		`"@type":"BreadcrumbList"`,
 		`src="/assets/app.js"`,
+		`<meta property="article:tag" content="Go">`,
+		`"keywords":"Go,踩坑"`,
+		`<a href="https://ynsstudy.cn/ynsStudy/Notes?tag=%E8%B8%A9%E5%9D%91" rel="tag">#踩坑</a>`,
 	} {
 		if !strings.Contains(page, expected) {
 			t.Errorf("随记页缺少 %q", expected)

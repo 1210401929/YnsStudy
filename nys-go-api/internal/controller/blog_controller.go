@@ -240,6 +240,13 @@ func (h *Controller) registerCommunityRoutes(group *gin.RouterGroup) {
 			writeResult(c, h.service.DeleteCommunityComment(c, stringParam(body, "commentGuid")))
 		}
 	})
+	// 便签墙的热门话题
+	group.Any("/getTags", func(c *gin.Context) {
+		body, ok := requireBody(c)
+		if ok {
+			writeResult(c, h.service.GetPopularTags(c.Request.Context(), service.TagTargetNote, intParam(body, "limit", 30)))
+		}
+	})
 	// 单条随记及上一条、下一条
 	group.Any("/getNote", func(c *gin.Context) {
 		body, ok := requireBody(c)
@@ -289,6 +296,7 @@ func (h *Controller) getAllCommunities(c *gin.Context) {
 		Type:     stringParam(body, "type"),
 		Sort:     stringParam(body, "sort"),
 		Mine:     asBoolValue(body["mine"]),
+		Tag:      stringParam(body, "tag"),
 	}))
 }
 

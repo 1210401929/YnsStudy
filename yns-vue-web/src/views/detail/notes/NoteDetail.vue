@@ -51,6 +51,10 @@
 
             <ArticleViewer v-if="note.TEXT" :content="note.TEXT" class="note-text"/>
 
+            <p v-if="note.TAGS?.length" class="note-tags">
+              <router-link v-for="tag in note.TAGS" :key="tag" :to="tagHref(tag)" class="note-tag" rel="tag">#{{ tag }}</router-link>
+            </p>
+
             <div v-if="images.length" class="note-gallery" :class="{ single: images.length === 1 }">
               <el-image v-for="(image, index) in images" :key="image" :src="image" :alt="`${title} 配图 ${index + 1}`"
                         :preview-src-list="images" :initial-index="index" fit="cover" lazy class="gallery-item"
@@ -105,6 +109,7 @@ import {
   pubFormatDate, sendAxiosRequest, sendAxiosRequestChecked
 } from '@/utils/common.js'
 import { canDeleteNote, canEditNote } from '@/utils/notePermission.js'
+import { tagHref } from '@/utils/noteTags.js'
 import '@/css/notes.css'
 import { getAvatarStyle } from '@/utils/avatarStyle.js'
 import { pubOpenOneBlog, pubOpenUser } from '@/utils/blogUtil.js'
@@ -392,6 +397,26 @@ useSeo(() => {
 /* 正文组件默认最小高度 300px，便签通常很短，不需要 */
 .note-sheet .note-text {
   min-height: 0;
+}
+
+.note-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  margin: 16px 0 0;
+}
+
+.note-tag {
+  padding: 1px 10px;
+  border-radius: 10px;
+  background: #eef3f8;
+  font-size: 13px;
+  color: var(--j-pen);
+  text-decoration: none;
+}
+
+.note-tag:hover {
+  background: #dfe9f3;
 }
 
 .note-gallery {

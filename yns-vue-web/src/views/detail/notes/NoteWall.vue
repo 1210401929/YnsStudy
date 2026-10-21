@@ -47,17 +47,30 @@
       </div>
     </div>
 
+    <!-- 话题：当前筛选的话题 + 热门话题，筛选写在地址里（?tag=Go），可以直接分享 -->
+    <div v-if="activeTag || popularTags.length" class="tag-bar">
+      <span class="tag-bar-label">话题</span>
+      <span v-if="activeTag" class="tag-active">
+        #{{ activeTag }}
+        <button type="button" class="tag-clear" title="取消话题筛选" @click="setTag('')">×</button>
+      </span>
+      <a v-for="item in popularTags.filter(t => t.NAME !== activeTag)" :key="item.NAME"
+         class="tag-link" :href="tagHref(item.NAME)" rel="tag" @click.prevent="setTag(item.NAME)">
+        #{{ item.NAME }}<span class="tag-count">{{ item.TOTAL }}</span>
+      </a>
+    </div>
+
     <!-- 切换筛选时先保留旧内容（变淡），新内容到了再替换；内容区保留最小高度，切到空分类时页面不会一下子塌下去 -->
     <div class="wall-area">
     <div ref="wallRef" class="wall" :class="{ 'is-refreshing': refreshing }" :style="{ '--cols': columnCount }">
       <div v-for="(column, ci) in columns" :key="ci" class="wall-column">
         <NoteCard v-for="item in column" :key="item.note.GUID" :note="item.note"
-                  @delete="removeNote" @top="toggleTop" @edit="openEdit"/>
+                  @delete="removeNote" @top="toggleTop" @edit="openEdit" @tag="setTag"/>
       </div>
     </div>
 
     <p v-if="!loading && !refreshing && notes.length === 0" class="wall-empty">
-      {{ query.mine ? '你还没有贴过便签，在上面写下第一张吧' : (query.keyword || query.type ? '没有找到符合条件的便签' : '墙上还空着，来贴第一张便签吧') }}
+      {{ query.mine ? '你还没有贴过便签，在上面写下第一张吧' : (query.keyword || query.type || activeTag ? '没有找到符合条件的便签' : '墙上还空着，来贴第一张便签吧') }}
     </p>
     <div class="wall-more">
       <span v-if="loading && !refreshing" class="more-text">正在翻找…</span>
@@ -78,7 +91,7 @@
 </template>
 
 <script setup>
-import { computed, defineAsyncComponent, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
+import { computed, defineAsyncComponent, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Search, User } from '@element-plus/icons-vue'
@@ -90,6 +103,7 @@ import { ele_confirm, sendAxiosRequest, sendAxiosRequestChecked } from '@/utils/
 import { getAnnouncementByRouterName } from '@/utils/blogUtil.js'
 import { NOTE_TYPES } from '@/utils/noteTypes.js'
 import '@/css/notes.css'
+import { loadPopularTags, tagHref } from '@/utils/noteTags.js'
 
 // 找人、留言板只在用到时才加载
 const UserList = defineAsyncComponent(() => import('@/components/detail/UserList.vue'))
@@ -101,6 +115,17 @@ const tab = computed(() => route.query.tab === 'guestbook' ? 'guestbook' : 'note
 const switchTab = (name) => {
   if (name === tab.value) return
   router.replace({ query: name === 'guestbook' ? { tab: 'guestbook' } : {} })
+}
+
+// 话题筛选记在地址里
+const activeTag = computed(() => typeof route.query.tag === 'string' ? route.query.tag.trim() : '')
+const setTag = (tag) => {
+  if (tag === activeTag.value) return
+  router.replace({ query: tag ? { tag } : {} })
+}
+const popularTags = ref([])
+const refreshTags = async (refresh = false) => {
+  popularTags.value = (await loadPopularTags({ refresh })).slice(0, 15)
 }
 
 const PAGE_SIZE = 12
@@ -126,7 +151,7 @@ const fetchNotes = async (replace = false) => {
   refreshing.value = replace
   try {
     const res = await sendAxiosRequest('/blog-api/community/getAllCommunity', {
-      page: targetPage, pageSize: PAGE_SIZE, ...query
+      page: targetPage, pageSize: PAGE_SIZE, ...query, tag: activeTag.value
     })
     if (seq !== requestSeq) return
     if (!res || res.isError) {
@@ -147,6 +172,8 @@ const fetchNotes = async (replace = false) => {
 }
 
 const reload = () => fetchNotes(true)
+// 地址里的话题变了（点话题、浏览器后退）就重新筛选
+watch(activeTag, () => reload())
 
 const setType = (type) => {
   query.type = type
@@ -190,6 +217,7 @@ onMounted(() => {
   // 旋转屏幕等情况下 ResizeObserver 可能不触发，窗口尺寸变化时也重新计算
   window.addEventListener('resize', updateColumns)
   fetchNotes()
+  refreshTags()
 })
 onBeforeUnmount(() => {
   resizeObserver?.disconnect()
@@ -211,12 +239,14 @@ function onSaved(saved) {
   const index = notes.value.findIndex(item => item.GUID === saved.GUID)
   if (index !== -1) notes.value[index] = { ...notes.value[index], ...saved }
   editVisible.value = false
+  refreshTags(true)
 }
 
 function onPosted(note) {
   // 筛选条件和新便签不符时也放到最前面，方便作者确认已经贴上
   notes.value.unshift(note)
   total.value++
+  refreshTags(true)
 }
 
 function removeNote(note) {
@@ -237,9 +267,10 @@ async function toggleTop(note) {
   ElMessage.success(isTop === '1' ? '已置顶，刷新后排到最前' : '已取消置顶')
 }
 
-// 公告沿用原“社区”栏目的设置
+// 公告：后台“显示位置”选“便签墙”时类型是 Notes；改名前给“社区”设置的公告类型是 Community，两种都显示
 const topAlert = ref([])
-getAnnouncementByRouterName('Community').then(list => { topAlert.value = list || [] }).catch(() => {})
+Promise.all(['Notes', 'Community'].map(type => getAnnouncementByRouterName(type).catch(() => [])))
+    .then(lists => { topAlert.value = lists.flat().filter(Boolean) })
 </script>
 
 <style scoped>
@@ -395,6 +426,59 @@ getAnnouncementByRouterName('Community').then(list => { topAlert.value = list ||
   grid-template-columns: repeat(var(--cols), minmax(0, 1fr));
   gap: 26px 22px;
   align-items: start;
+}
+
+.tag-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 14px;
+  margin: -8px 0 22px;
+  font-size: 13px;
+}
+
+.tag-bar-label {
+  font-family: var(--j-hand);
+  font-size: 14px;
+  color: var(--j-muted);
+}
+
+.tag-active {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 4px 1px 10px;
+  border-radius: 12px;
+  background: var(--j-pen);
+  color: #fff;
+}
+
+.tag-clear {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+  font-size: 14px;
+  line-height: 18px;
+  cursor: pointer;
+}
+
+.tag-link {
+  color: var(--j-pen);
+  text-decoration: none;
+}
+
+.tag-link:hover {
+  text-decoration: underline;
+}
+
+.tag-count {
+  margin-left: 3px;
+  font-size: 11px;
+  color: var(--j-muted);
 }
 
 .wall-area {

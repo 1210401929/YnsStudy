@@ -43,6 +43,8 @@
       />
       <div v-else class="composer-preview" v-html="previewHtml || '<p class=&quot;empty&quot;>还没有内容</p>'"></div>
 
+      <NoteTagInput v-model="form.tags" :popular="popularTags" class="composer-tags"/>
+
       <div v-if="images.length" class="image-list">
         <span v-for="(image, index) in images" :key="image.key" class="image-item">
           <img :src="image.url || image.local" alt="便签图片">
@@ -82,6 +84,8 @@ import { compressImage, IMAGE_PRESETS } from '@/utils/imageCompress.js'
 import { getAvatarStyle } from '@/utils/avatarStyle.js'
 import { htmlToMarkdown } from '@/utils/htmlToMarkdown.js'
 import { NOTE_TYPES, noteTypeOf } from '@/utils/noteTypes.js'
+import { loadPopularTags } from '@/utils/noteTags.js'
+import NoteTagInput from './NoteTagInput.vue'
 import '@/css/notes.css'
 
 const MAX_IMAGES = 9
@@ -98,7 +102,12 @@ const open = ref(false)
 const preview = ref(false)
 const saving = ref(false)
 const textRef = ref(null)
-const form = reactive({ type: 'note', text: '' })
+const form = reactive({ type: 'note', text: '', tags: [] })
+// 常用话题：打开发布框或编辑时加载一次
+const popularTags = ref([])
+const fetchPopularTags = async () => {
+  popularTags.value = (await loadPopularTags()).map(item => item.NAME)
+}
 // { key, local: 本地预览地址, url: 上传后的地址, uploading }
 const images = ref([])
 
@@ -113,6 +122,8 @@ watch(() => props.note, (note) => {
   if (!note) return
   form.type = noteTypeOf(note.TYPE).value
   form.text = note.SOURCE || htmlToMarkdown(note.TEXT || '')
+  form.tags = Array.isArray(note.TAGS) ? [...note.TAGS] : []
+  fetchPopularTags()
   images.value = (Array.isArray(note.IMAGES) ? note.IMAGES : []).map(url => ({ key: url, url, local: '', uploading: false }))
   preview.value = false
 }, { immediate: true })
@@ -123,6 +134,7 @@ function startWriting() {
     return
   }
   open.value = true
+  fetchPopularTags()
   nextTick(() => textRef.value?.focus())
 }
 
@@ -166,6 +178,7 @@ function reset() {
   images.value = []
   form.text = ''
   form.type = 'note'
+  form.tags = []
   preview.value = false
 }
 
@@ -189,7 +202,7 @@ async function submit() {
   saving.value = true
   try {
     const html = text ? renderMarkdown(text) : ''
-    const community = { GUID: isEdit.value ? props.note.GUID : getGuid(), TEXT: html, SOURCE: text, TYPE: form.type, IMAGES: urls }
+    const community = { GUID: isEdit.value ? props.note.GUID : getGuid(), TEXT: html, SOURCE: text, TYPE: form.type, IMAGES: urls, TAGS: form.tags }
     const url = isEdit.value ? '/blog-api/community/updateCommunity' : '/blog-api/community/addCommunity'
     const res = await sendAxiosRequest(url, { community })
     if (!res || res.isError) {
@@ -200,7 +213,7 @@ async function submit() {
     const user = userStore.userBean
     const saved = {
       ...(isEdit.value ? props.note : { USERCODE: user.code, USERNAME: user.name, AVATAR: user.avatar || '', CREATE_TIME: '刚刚', COMMENTNUM: 0 }),
-      TEXT: html, SOURCE: text, TYPE: form.type, IMAGES: urls,
+      TEXT: html, SOURCE: text, TYPE: form.type, IMAGES: urls, TAGS: [...form.tags],
       ...(res.result || {})
     }
     if (isEdit.value) {
@@ -336,6 +349,10 @@ async function submit() {
 
 .composer-preview :deep(.empty) {
   color: var(--j-muted);
+}
+
+.composer-tags {
+  margin-top: 10px;
 }
 
 .image-list {
