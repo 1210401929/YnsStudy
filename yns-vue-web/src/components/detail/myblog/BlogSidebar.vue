@@ -48,10 +48,8 @@
                 class="el-menu_"
                 @click="clickBlog(blog)"
                 @contextmenu.stop.prevent="handleRightClick($event, 'blog', blog.GUID)">
-              <el-tag :type="blog.BLOG_TYPE === 'public' ? 'success' : 'info'" effect="light" size="small"
-                      class="custom-tag">
-                {{ blog.BLOG_TYPE === "public" ? "公" : "私" }}
-              </el-tag>
+              <!-- 公开是默认状态不标记；只在自己的发表页给私密文章显示一把小锁（作者主页只列公开文章，不需要标记） -->
+              <el-icon v-if="isSelf() && blog.BLOG_TYPE !== 'public'" class="private-mark" title="私密文章，只有自己能看到"><Lock/></el-icon>
               <a
                   v-if="blog.BLOG_TYPE === 'public'"
                   class="blog-title-text"
@@ -59,7 +57,7 @@
                   :href="`/oneBlog/${blog.GUID}`"
                   @click="onTitleLinkClick"
               >{{ blog.BLOG_TITLE }}</a>
-              <span v-else class="blog-title-text" :title="blog.BLOG_TITLE">{{ blog.BLOG_TITLE }}</span>
+              <span v-else class="blog-title-text is-private" :title="blog.BLOG_TITLE + '（私密）'">{{ blog.BLOG_TITLE }}</span>
             </el-menu-item>
           </el-sub-menu>
 
@@ -70,10 +68,8 @@
               class="el-menu_"
               @click="clickBlog(blog)"
               @contextmenu.stop.prevent="handleRightClick($event, 'blog', blog.GUID)">
-            <el-tag :type="blog.BLOG_TYPE === 'public' ? 'success' : 'info'" effect="light" size="small"
-                    class="custom-tag">
-              {{ blog.BLOG_TYPE === "public" ? "公" : "私" }}
-            </el-tag>
+            <!-- 公开是默认状态不标记；只在自己的发表页给私密文章显示一把小锁（作者主页只列公开文章，不需要标记） -->
+            <el-icon v-if="isSelf() && blog.BLOG_TYPE !== 'public'" class="private-mark" title="私密文章，只有自己能看到"><Lock/></el-icon>
             <a
                 v-if="blog.BLOG_TYPE === 'public'"
                 class="blog-title-text"
@@ -81,7 +77,7 @@
                 :href="`/oneBlog/${blog.GUID}`"
                 @click="onTitleLinkClick"
             >{{ blog.BLOG_TITLE }}</a>
-            <span v-else class="blog-title-text" :title="blog.BLOG_TITLE">{{ blog.BLOG_TITLE }}</span>
+            <span v-else class="blog-title-text is-private" :title="blog.BLOG_TITLE + '（私密）'">{{ blog.BLOG_TITLE }}</span>
           </el-menu-item>
         </el-sub-menu>
 
@@ -99,10 +95,8 @@
               class="el-menu_"
               @click="clickBlog(blog)"
               @contextmenu.stop.prevent="handleRightClick($event, 'blog', blog.GUID)">
-            <el-tag :type="blog.BLOG_TYPE === 'public' ? 'success' : 'info'" effect="light" size="small"
-                    class="custom-tag">
-              {{ blog.BLOG_TYPE === "public" ? "公" : "私" }}
-            </el-tag>
+            <!-- 公开是默认状态不标记；只在自己的发表页给私密文章显示一把小锁（作者主页只列公开文章，不需要标记） -->
+            <el-icon v-if="isSelf() && blog.BLOG_TYPE !== 'public'" class="private-mark" title="私密文章，只有自己能看到"><Lock/></el-icon>
             <a
                 v-if="blog.BLOG_TYPE === 'public'"
                 class="blog-title-text"
@@ -110,7 +104,7 @@
                 :href="`/oneBlog/${blog.GUID}`"
                 @click="onTitleLinkClick"
             >{{ blog.BLOG_TITLE }}</a>
-            <span v-else class="blog-title-text" :title="blog.BLOG_TITLE">{{ blog.BLOG_TITLE }}</span>
+            <span v-else class="blog-title-text is-private" :title="blog.BLOG_TITLE + '（私密）'">{{ blog.BLOG_TITLE }}</span>
           </el-menu-item>
         </el-sub-menu>
       </el-menu>
@@ -202,7 +196,7 @@
 import {ref, computed, onMounted, onBeforeUnmount, reactive, watch} from 'vue'
 import {useRouter} from 'vue-router'
 import {useBlogContentStore} from '@/stores/detail/blog.js'
-import {Folder, FolderOpened, FolderAdd, EditPen, Delete, Document, Plus, Switch} from '@element-plus/icons-vue'
+import {Folder, FolderOpened, FolderAdd, EditPen, Delete, Document, Plus, Switch, Lock} from '@element-plus/icons-vue'
 import {ElMessage} from 'element-plus'
 import {ele_confirm, getGuid, sendAxiosRequest} from "@/utils/common.js";
 
@@ -590,27 +584,16 @@ onBeforeUnmount(() => window.removeEventListener('click', closeContextMenu))
   text-decoration: none;
 }
 
-/* 公 / 私：小小的圆形印章 */
-.custom-tag {
+/* 私密文章：标题前一把灰色小锁，标题稍淡 */
+.private-mark {
   flex-shrink: 0;
-  width: 20px;
-  height: 20px;
-  padding: 0;
-  border-radius: 50%;
-  border: 1px solid currentColor;
-  background: transparent;
-  font-family: var(--j-hand);
-  font-size: 12px;
-  line-height: 18px;
-  text-align: center;
+  margin-right: 0 !important;
+  font-size: 13px;
+  color: var(--j-muted);
 }
 
-.custom-tag.el-tag--success {
-  color: #4f8a5b;
-}
-
-.custom-tag.el-tag--info {
-  color: var(--j-stamp);
+.blog-title-text.is-private {
+  color: var(--j-muted);
 }
 
 /* ================= 右键菜单：一张小便签 ================= */
