@@ -185,7 +185,16 @@ func (s *Service) GetAdminComments(c *gin.Context, query AdminCommentQuery) mode
 		}
 		return ""
 	}
-	if query.Source != "community" {
+	// source 为空或 all 时三种评论都查
+	include := func(source string) bool {
+		return query.Source == "" || query.Source == "all" || query.Source == source
+	}
+	// 执行迁移 009 之后随记评论才有邮箱、网址
+	communityContact := ""
+	if s.tableHasColumn(ctx, "communityComment", "USEREMAIL") {
+		communityContact = " c.USEREMAIL, c.USERWEBSITE,"
+	}
+	if include("blog") {
 		rows, err := s.Repo.Query(ctx, `SELECT 'blog' AS SOURCE, c.GUID, c.SUPERGUID, c.TEXT, c.USERCODE, c.USERNAME, c.USEREMAIL, c.USERWEBSITE,
 c.CREATE_TIME, c.BLOGID AS TARGETID, b.BLOG_TITLE AS TARGETTITLE`+ipColumn("blogComment")+`
 FROM blogComment c LEFT JOIN blogInfo b ON b.GUID = c.BLOGID`+where+` ORDER BY c.CREATE_TIME DESC LIMIT ?`, append(args, fetch)...)
@@ -195,15 +204,32 @@ FROM blogComment c LEFT JOIN blogInfo b ON b.GUID = c.BLOGID`+where+` ORDER BY c
 		all = append(all, rows...)
 		total += firstCount(mustRows(s.Repo.Query(ctx, "SELECT COUNT(*) AS total FROM blogComment c"+where, args...)))
 	}
-	if query.Source != "blog" {
-		rows, err := s.Repo.Query(ctx, `SELECT 'community' AS SOURCE, c.GUID, c.SUPERGUID, c.TEXT, c.USERCODE, c.USERNAME,
-c.CREATE_TIME, c.COMMUNITYID AS TARGETID, p.TITLE AS TARGETTITLE`+ipColumn("communityComment")+`
+	if include("community") {
+		rows, err := s.Repo.Query(ctx, `SELECT 'community' AS SOURCE, c.GUID, c.SUPERGUID, c.TEXT, c.USERCODE, c.USERNAME,`+communityContact+`
+c.CREATE_TIME, c.COMMUNITYID AS TARGETID, p.TITLE AS TARGETTITLE, p.TEXT AS TARGETTEXT`+ipColumn("communityComment")+`
 FROM communityComment c LEFT JOIN communityInfo p ON p.GUID = c.COMMUNITYID`+where+` ORDER BY c.CREATE_TIME DESC LIMIT ?`, append(args, fetch)...)
 		if err != nil {
 			return dbFailure("查询社区评论", err)
 		}
+		// 随记大多没有标题，用正文开头当标题
+		for _, row := range rows {
+			if model.StringValue(row, "TARGETTITLE") == "" && model.StringValue(row, "TARGETTEXT") != "" {
+				row["TARGETTITLE"] = NoteTitle(map[string]any{"TEXT": row["TARGETTEXT"]})
+			}
+			delete(row, "TARGETTEXT")
+		}
 		all = append(all, rows...)
 		total += firstCount(mustRows(s.Repo.Query(ctx, "SELECT COUNT(*) AS total FROM communityComment c"+where, args...)))
+	}
+	if include("guestbook") && s.guestbookReady(ctx) {
+		rows, err := s.Repo.Query(ctx, `SELECT 'guestbook' AS SOURCE, c.GUID, c.SUPERGUID, c.TEXT, c.USERCODE, c.USERNAME, c.USEREMAIL, c.USERWEBSITE,
+c.CREATE_TIME, '' AS TARGETID, '便签墙留言板' AS TARGETTITLE, c.IP
+FROM guestbook c`+where+` ORDER BY c.CREATE_TIME DESC LIMIT ?`, append(args, fetch)...)
+		if err != nil {
+			return dbFailure("查询留言", err)
+		}
+		all = append(all, rows...)
+		total += firstCount(mustRows(s.Repo.Query(ctx, "SELECT COUNT(*) AS total FROM guestbook c"+where, args...)))
 	}
 
 	sort.SliceStable(all, func(i, j int) bool {
@@ -252,7 +278,7 @@ func mustRows(rows []map[string]any, err error) []map[string]any {
 	return rows
 }
 
-// DeleteAdminComment 删除一条评论及其回复。source 为 blog 或 community。
+// DeleteAdminComment 删除一条评论及其回复。source 为 blog、community 或 guestbook。
 func (s *Service) DeleteAdminComment(c *gin.Context, source, guid string) model.Result {
 	if _, failure := s.requireSuperAdmin(c); failure != nil {
 		return *failure
@@ -261,7 +287,7 @@ func (s *Service) DeleteAdminComment(c *gin.Context, source, guid string) model.
 	if guid == "" {
 		return model.Failure(msgNotFound)
 	}
-	table := map[string]string{"blog": "blogComment", "community": "communityComment"}[source]
+	table := map[string]string{"blog": "blogComment", "community": "communityComment", "guestbook": "guestbook"}[source]
 	if table == "" {
 		return model.Failure("未知的评论类型")
 	}
@@ -275,10 +301,10 @@ func (s *Service) DeleteAdminComment(c *gin.Context, source, guid string) model.
 	if source == "blog" {
 		result = s.DeleteBlogComment(c, guid)
 	} else {
-		result = s.ExecuteSQL(contextOf(c), "DELETE FROM communityComment WHERE GUID = ? OR SUPERGUID = ?", []any{guid, guid})
+		result = s.ExecuteSQL(contextOf(c), "DELETE FROM "+table+" WHERE GUID = ? OR SUPERGUID = ?", []any{guid, guid})
 	}
 	if !result.IsError {
-		s.recordAdminAction(c, nil, AdminActionDeleteComment, author, map[string]string{"blog": "文章评论：", "community": "社区评论："}[source]+excerpt)
+		s.recordAdminAction(c, nil, AdminActionDeleteComment, author, map[string]string{"blog": "文章评论：", "community": "随记评论：", "guestbook": "留言："}[source]+excerpt)
 	}
 	return result
 }

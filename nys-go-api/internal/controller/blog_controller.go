@@ -13,6 +13,7 @@ func (h *Controller) registerBlogRoutes(router *gin.Engine) {
 	h.registerAnnouncementRoutes(router.Group("/blog-api/sso"))
 	h.registerArticleRoutes(router.Group("/blog-api/blog"))
 	h.registerCommunityRoutes(router.Group("/blog-api/community"))
+	h.registerGuestbookRoutes(router.Group("/blog-api/guestbook"))
 	h.registerFriendLinkRoutes(router.Group("/blog-api/friendLink"))
 	h.registerResourceRoutes(router.Group("/blog-api/resource"))
 	h.registerUserInformationRoutes(router.Group("/blog-api/userInformation"))
@@ -244,6 +245,34 @@ func (h *Controller) registerCommunityRoutes(group *gin.RouterGroup) {
 		body, ok := requireBody(c)
 		if ok {
 			writeResult(c, h.service.GetNote(c.Request.Context(), stringParam(body, "noteId")))
+		}
+	})
+}
+
+// 便签墙的留言板
+func (h *Controller) registerGuestbookRoutes(group *gin.RouterGroup) {
+	group.Any("/getMessages", func(c *gin.Context) {
+		body, ok := requireBody(c)
+		if ok {
+			writeResult(c, h.service.GetGuestbook(c.Request.Context(), intParam(body, "page", 1), intParam(body, "pageSize", 10)))
+		}
+	})
+	group.Any("/addMessage", func(c *gin.Context) {
+		body, ok := requireBody(c)
+		if ok {
+			writeResult(c, h.service.AddGuestbookMessage(c, nestedMap(body, "message")))
+		}
+	})
+	group.Any("/deleteMessage", func(c *gin.Context) {
+		body, ok := requireBody(c)
+		if ok {
+			writeResult(c, h.service.DeleteGuestbookMessage(c, stringParam(body, "guid")))
+		}
+	})
+	group.Any("/setTopMessage", func(c *gin.Context) {
+		body, ok := requireBody(c)
+		if ok {
+			writeResult(c, h.service.SetTopGuestbook(c, stringParam(body, "guid"), stringParam(body, "isTop")))
 		}
 	})
 }

@@ -1,4 +1,4 @@
-<!-- 便签墙（原“社区”）：随记一张张贴在墙上，可按类型筛选、只看自己的、搜索 -->
+<!-- 便签墙（原“社区”）：随记一张张贴在墙上，可按类型筛选、只看自己的、搜索；另一栏是访客留言板 -->
 <template>
   <Announcement v-for="al in topAlert" :key="al.GUID" :TEXT="al.TEXT" :URL="al.URL" :URLNAME="al.URLNAME"/>
 
@@ -12,14 +12,16 @@
       </div>
     </header>
 
-    <!-- 两栏：随记是大家贴的内容，留言板在下一版开放 -->
+    <!-- 两栏：随记是大家贴的内容，留言是访客的留言板；当前栏目记在地址里（?tab=guestbook），可以直接分享 -->
     <nav class="wall-tabs" aria-label="便签墙栏目">
-      <span class="wall-tab is-on">随记</span>
-      <el-tooltip content="留言板即将开放" placement="top">
-        <span class="wall-tab is-disabled">留言</span>
-      </el-tooltip>
+      <a href="/ynsStudy/Notes" class="wall-tab" :class="{ 'is-on': tab === 'notes' }" @click.prevent="switchTab('notes')">随记</a>
+      <a href="/ynsStudy/Notes?tab=guestbook" class="wall-tab" :class="{ 'is-on': tab === 'guestbook' }" @click.prevent="switchTab('guestbook')">留言</a>
     </nav>
 
+    <GuestbookBoard v-if="tab === 'guestbook'"/>
+
+    <!-- 随记栏用 v-show：切到留言再切回来时，已经加载的便签和滚动到的页数都还在 -->
+    <div v-show="tab === 'notes'">
     <NoteComposer class="wall-composer" @posted="onPosted"/>
 
     <div class="wall-toolbar">
@@ -63,6 +65,7 @@
       <span v-else-if="notes.length" class="more-text">墙上就这些了</span>
     </div>
     </div>
+    </div>
 
     <el-dialog v-model="userSearchVisible" title="找人" width="min(720px, 92vw)" append-to-body>
       <UserList/>
@@ -76,6 +79,7 @@
 
 <script setup>
 import { computed, defineAsyncComponent, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Search, User } from '@element-plus/icons-vue'
 import Announcement from '@/components/detail/Announcement.vue'
@@ -87,8 +91,17 @@ import { getAnnouncementByRouterName } from '@/utils/blogUtil.js'
 import { NOTE_TYPES } from '@/utils/noteTypes.js'
 import '@/css/notes.css'
 
-// 找人只在点开时才加载
+// 找人、留言板只在用到时才加载
 const UserList = defineAsyncComponent(() => import('@/components/detail/UserList.vue'))
+const GuestbookBoard = defineAsyncComponent(() => import('@/components/detail/notes/GuestbookBoard.vue'))
+
+const route = useRoute()
+const router = useRouter()
+const tab = computed(() => route.query.tab === 'guestbook' ? 'guestbook' : 'notes')
+const switchTab = (name) => {
+  if (name === tab.value) return
+  router.replace({ query: name === 'guestbook' ? { tab: 'guestbook' } : {} })
+}
 
 const PAGE_SIZE = 12
 const userStore = useUserStore()
@@ -294,6 +307,15 @@ getAnnouncementByRouterName('Community').then(list => { topAlert.value = list ||
   font-size: 16px;
   color: var(--j-ink-soft);
   transform: translateY(1px);
+}
+
+.wall-tab {
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.wall-tab:hover {
+  color: var(--j-ink);
 }
 
 .wall-tab.is-on {

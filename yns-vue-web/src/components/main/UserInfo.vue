@@ -21,7 +21,8 @@
             <h2 class="username-vertical">
               <span class="name">{{ user.name }}</span>
               <div class="badges-container">
-                <span v-if="user.code === adminUserCode" class="public-badge superAdmin-badge">超级管理员</span>
+                <!-- 对访客展示身份：超级管理员账号就是站长本人 -->
+                <span v-if="user.code === adminUserCode" class="public-badge superAdmin-badge">站长</span>
                 <span v-if="user.role === 'admin'" class="public-badge admin-badge">管理员</span>
                 <span v-if="user.isban === '1'" class="public-badge ban-badge">已封禁</span>
               </div>

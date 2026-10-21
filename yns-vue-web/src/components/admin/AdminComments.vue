@@ -1,4 +1,4 @@
-<!-- 后台：全站评论管理（文章评论 + 便签墙随记评论） -->
+<!-- 后台：全站评论管理（文章评论、便签墙随记评论、留言板） -->
 <template>
   <div class="admin-comments">
     <div class="filters">
@@ -6,6 +6,7 @@
         <el-option label="全部评论" value="all"/>
         <el-option label="文章评论" value="blog"/>
         <el-option label="随记评论" value="community"/>
+        <el-option label="留言板" value="guestbook"/>
       </el-select>
       <el-input
           v-model="query.keyword"
@@ -26,7 +27,7 @@
       </el-table-column>
       <el-table-column label="来源" width="80">
         <template #default="{ row }">
-          <el-tag size="small" :type="row.SOURCE === 'blog' ? 'primary' : 'success'">{{ row.SOURCE === 'blog' ? '文章' : '随记' }}</el-tag>
+          <el-tag size="small" :type="sourceTag[row.SOURCE]?.type">{{ sourceTag[row.SOURCE]?.label || row.SOURCE }}</el-tag>
         </template>
       </el-table-column>
       <el-table-column label="所在内容" min-width="180">
@@ -90,9 +91,17 @@ const rows = ref([])
 const total = ref(0)
 const loading = ref(false)
 
-const targetHref = (row) => row.SOURCE === 'blog'
-    ? `/oneBlog/${encodeURIComponent(row.TARGETID)}`
-    : `/note/${encodeURIComponent(row.TARGETID)}`
+const sourceTag = {
+  blog: { label: '文章', type: 'primary' },
+  community: { label: '随记', type: 'success' },
+  guestbook: { label: '留言', type: 'warning' }
+}
+
+const targetHref = (row) => ({
+  blog: `/oneBlog/${encodeURIComponent(row.TARGETID)}`,
+  community: `/note/${encodeURIComponent(row.TARGETID)}`,
+  guestbook: '/ynsStudy/Notes?tab=guestbook'
+})[row.SOURCE] || '/ynsStudy/Notes'
 
 const load = async () => {
   loading.value = true

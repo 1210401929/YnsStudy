@@ -48,11 +48,12 @@ func Auth(cfg config.SecurityConfig, jwt *security.JWT, sessions LoginSessions) 
 }
 
 // builtinPublicPaths 是无需登录即可访问的地址，写在代码里，新增功能时不用再改服务器上的 config.yaml。
-// 便签墙：随记页面由 Go 输出首屏；匿名访客可以评论随记（服务层会做频率、评论限制和违禁词检查）。
+// 便签墙：随记页面由 Go 输出首屏；匿名访客可以评论随记、在留言板留言（服务层会做频率、评论限制和违禁词检查）。
 var builtinPublicPaths = []string{
 	"/note/**",
 	"/ynsStudy/Notes",
 	"/blog-api/community/addComment",
+	"/blog-api/guestbook/addMessage",
 }
 
 func matchesAny(path string, patterns []string) bool {

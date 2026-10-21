@@ -134,7 +134,7 @@ func (s *Service) requireOwnerOrAdmin(c *gin.Context, table, guid string) (map[s
 
 // ownedTables 是允许按 GUID 读取归属信息的表，表名固定，避免拼接任意输入。
 var ownedTables = map[string]bool{
-	"blogInfo": true, "blogComment": true, "blogCatInfo": true, "communityInfo": true, "communityComment": true,
+	"blogInfo": true, "blogComment": true, "blogCatInfo": true, "communityInfo": true, "communityComment": true, "guestbook": true,
 	"fileInfo": true, "friendLinkInfo": true,
 }
 
