@@ -43,6 +43,11 @@
       />
       <div v-else class="composer-preview" v-html="previewHtml || '<p class=&quot;empty&quot;>还没有内容</p>'"></div>
 
+      <div v-if="linkPreview || linkLoading" class="composer-link">
+        <p class="composer-link-tip">{{ linkLoading ? '正在读取链接信息…' : '正文里的第一个链接会显示成这张卡片' }}</p>
+        <LinkCard v-if="linkPreview" :link="linkPreview"/>
+      </div>
+
       <NoteTagInput v-model="form.tags" :popular="popularTags" class="composer-tags"/>
 
       <div v-if="images.length" class="image-list">
@@ -77,14 +82,16 @@
 import { computed, nextTick, reactive, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { EditPen } from '@element-plus/icons-vue'
-import { marked } from 'marked'
 import { useUserStore } from '@/stores/main/user.js'
-import { getGuid, sanitizeHtml, sendAxiosRequest } from '@/utils/common.js'
+import { getGuid, sendAxiosRequest } from '@/utils/common.js'
 import { compressImage, IMAGE_PRESETS } from '@/utils/imageCompress.js'
 import { getAvatarStyle } from '@/utils/avatarStyle.js'
 import { htmlToMarkdown } from '@/utils/htmlToMarkdown.js'
 import { NOTE_TYPES, noteTypeOf } from '@/utils/noteTypes.js'
 import { loadPopularTags } from '@/utils/noteTags.js'
+import { firstUrl, renderNoteMarkdown } from '@/utils/noteMarkdown.js'
+import LinkCard from './LinkCard.vue'
+import debounce from 'lodash/debounce'
 import NoteTagInput from './NoteTagInput.vue'
 import '@/css/notes.css'
 
@@ -105,6 +112,33 @@ const textRef = ref(null)
 const form = reactive({ type: 'note', text: '', tags: [] })
 // 常用话题：打开发布框或编辑时加载一次
 const popularTags = ref([])
+
+// ---------- 链接卡片预览：正文里出现网址时，停顿一下就去读取它的标题和简介 ----------
+const linkPreview = ref(null)
+const linkUrl = ref('')
+const linkLoading = ref(false)
+// firstUrl 和转换规则一致（见 noteMarkdown.js）：只认 http/https，Markdown 链接 [文字](网址) 里的网址也能找到
+const fetchLinkPreview = debounce(async (url) => {
+  if (url !== firstUrl(form.text)) return
+  linkLoading.value = true
+  try {
+    const res = await sendAxiosRequest('/blog-api/community/previewLink', { url })
+    // 等待期间正文又改了，就不用这次的结果
+    if (url !== linkUrl.value) return
+    linkPreview.value = res && !res.isError ? res.result : null
+  } catch {
+    linkPreview.value = null
+  } finally {
+    linkLoading.value = false
+  }
+}, 800)
+watch(() => form.text, (text) => {
+  const url = firstUrl(text)
+  if (url === linkUrl.value) return
+  linkUrl.value = url
+  linkPreview.value = null
+  if (url && isLoggedIn.value) fetchLinkPreview(url)
+})
 const fetchPopularTags = async () => {
   popularTags.value = (await loadPopularTags()).map(item => item.NAME)
 }
@@ -112,9 +146,7 @@ const fetchPopularTags = async () => {
 const images = ref([])
 
 const currentType = computed(() => noteTypeOf(form.type))
-// breaks：单个回车也换行（标准 Markdown 要空一行才分段，写便签时不符合习惯）
-const renderMarkdown = (text) => sanitizeHtml(marked.parse(text, { breaks: true, gfm: true }))
-const previewHtml = computed(() => renderMarkdown(form.text || ''))
+const previewHtml = computed(() => renderNoteMarkdown(form.text))
 const uploading = computed(() => images.value.some(image => image.uploading))
 
 // 编辑时填入原来的内容；旧随记没有 Markdown 原文，把 HTML 转回 Markdown
@@ -123,6 +155,9 @@ watch(() => props.note, (note) => {
   form.type = noteTypeOf(note.TYPE).value
   form.text = note.SOURCE || htmlToMarkdown(note.TEXT || '')
   form.tags = Array.isArray(note.TAGS) ? [...note.TAGS] : []
+  // 已经有卡片的不用重新读取
+  linkUrl.value = note.LINK?.url && firstUrl(form.text) === note.LINK.url ? note.LINK.url : ''
+  linkPreview.value = linkUrl.value ? note.LINK : null
   fetchPopularTags()
   images.value = (Array.isArray(note.IMAGES) ? note.IMAGES : []).map(url => ({ key: url, url, local: '', uploading: false }))
   preview.value = false
@@ -179,6 +214,8 @@ function reset() {
   form.text = ''
   form.type = 'note'
   form.tags = []
+  linkUrl.value = ''
+  linkPreview.value = null
   preview.value = false
 }
 
@@ -201,7 +238,7 @@ async function submit() {
   }
   saving.value = true
   try {
-    const html = text ? renderMarkdown(text) : ''
+    const html = text ? renderNoteMarkdown(text) : ''
     const community = { GUID: isEdit.value ? props.note.GUID : getGuid(), TEXT: html, SOURCE: text, TYPE: form.type, IMAGES: urls, TAGS: form.tags }
     const url = isEdit.value ? '/blog-api/community/updateCommunity' : '/blog-api/community/addCommunity'
     const res = await sendAxiosRequest(url, { community })
@@ -214,6 +251,8 @@ async function submit() {
     const saved = {
       ...(isEdit.value ? props.note : { USERCODE: user.code, USERNAME: user.name, AVATAR: user.avatar || '', CREATE_TIME: '刚刚', COMMENTNUM: 0 }),
       TEXT: html, SOURCE: text, TYPE: form.type, IMAGES: urls, TAGS: [...form.tags],
+      // 卡片由后端在后台抓取保存；这里先用预览结果显示，刷新后就是后端保存的内容
+      LINK: linkPreview.value,
       ...(res.result || {})
     }
     if (isEdit.value) {
@@ -348,6 +387,16 @@ async function submit() {
 }
 
 .composer-preview :deep(.empty) {
+  color: var(--j-muted);
+}
+
+.composer-link {
+  margin-top: 10px;
+}
+
+.composer-link-tip {
+  margin: 0 0 6px;
+  font-size: 12px;
   color: var(--j-muted);
 }
 

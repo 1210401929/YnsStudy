@@ -1,9 +1,9 @@
-<!-- 后台：全站评论管理（文章评论、便签墙随记评论、留言板） -->
+<!-- 后台“评论与留言”：全站的文章评论、便签墙随记评论和留言板留言 -->
 <template>
   <div class="admin-comments">
     <div class="filters">
-      <el-select v-model="query.source" size="small" style="width: 120px" @change="reload">
-        <el-option label="全部评论" value="all"/>
+      <el-select v-model="query.source" size="small" style="width: 150px" @change="reload">
+        <el-option label="全部评论与留言" value="all"/>
         <el-option label="文章评论" value="blog"/>
         <el-option label="随记评论" value="community"/>
         <el-option label="留言板" value="guestbook"/>
@@ -21,7 +21,7 @@
       <el-button size="small" type="primary" @click="reload">查询</el-button>
     </div>
 
-    <el-table v-loading="loading" :data="rows" border size="small" class="admin-table" empty-text="没有符合条件的评论">
+    <el-table v-loading="loading" :data="rows" border size="small" class="admin-table" empty-text="没有符合条件的评论或留言">
       <el-table-column label="时间" width="150">
         <template #default="{ row }">{{ pubFormatDate(row.CREATE_TIME) }}</template>
       </el-table-column>
@@ -38,6 +38,7 @@
       <el-table-column label="评论者" min-width="140">
         <template #default="{ row }">
           <div>{{ row.USERNAME || '匿名' }}
+            <el-tag v-if="row.ISTOP === '1'" size="small" type="danger">置顶</el-tag>
             <el-tag v-if="row.ISANONYMOUS" size="small" type="info">匿名</el-tag>
             <el-tag v-if="row.ISREPLY" size="small" type="warning">回复</el-tag>
           </div>
@@ -49,10 +50,13 @@
       <el-table-column label="内容" min-width="260">
         <template #default="{ row }"><div class="comment-text">{{ row.TEXT }}</div></template>
       </el-table-column>
-      <el-table-column label="操作" width="130" fixed="right">
+      <el-table-column label="操作" width="190" fixed="right">
         <template #default="{ row }">
           <div class="row-actions">
             <el-button link type="danger" size="small" @click="remove(row)">删除</el-button>
+            <el-button v-if="row.SOURCE === 'guestbook' && !row.ISREPLY" link type="primary" size="small" @click="toggleTop(row)">
+              {{ row.ISTOP === '1' ? '取消置顶' : '置顶' }}
+            </el-button>
             <el-dropdown v-if="banOptions(row).length" trigger="click" @command="(option) => openBan(option)">
               <el-button link type="warning" size="small">禁止评论</el-button>
               <template #dropdown>
@@ -136,6 +140,15 @@ const openBan = (option) => {
   banPreset.type = option.type
   banPreset.value = option.value
   banVisible.value = true
+}
+
+// 留言板的留言可以置顶（只有超级管理员能进后台）
+const toggleTop = async (row) => {
+  const isTop = row.ISTOP === '1' ? '0' : '1'
+  const result = await sendAxiosRequestChecked('/blog-api/guestbook/setTopMessage', { guid: row.GUID, isTop }, '置顶操作失败')
+  if (!result) return
+  row.ISTOP = isTop === '1' ? '1' : null
+  ElMessage.success(isTop === '1' ? '已置顶' : '已取消置顶')
 }
 
 const remove = (row) => {

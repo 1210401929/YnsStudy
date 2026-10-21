@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"nys-go-api/internal/config"
+	"nys-go-api/internal/service"
 )
 
 func noteTestConfig() *config.Config {
@@ -24,6 +25,7 @@ func TestRenderSEONoteHTML(t *testing.T) {
 		"TEXT":        `<p>Go 里用 <code>errors.Is</code> 判断错误</p><script>alert(1)</script>`,
 		"IMAGES":      []string{"/uploadFile/editorImage/a.webp"},
 		"TAGS":        []string{"Go", "踩坑"},
+		"LINK":        service.LinkPreview{URL: "https://go.dev/doc", Title: "Go 文档", Description: "官方文档", SiteName: "go.dev"},
 		"USERNAME":    "余南松",
 		"USERNUM":     "101",
 		"CREATE_TIME": time.Date(2026, 10, 1, 10, 0, 0, 0, time.FixedZone("CST", 8*60*60)),
@@ -44,6 +46,7 @@ func TestRenderSEONoteHTML(t *testing.T) {
 		`src="/assets/app.js"`,
 		`<meta property="article:tag" content="Go">`,
 		`"keywords":"Go,踩坑"`,
+		`<a href="https://go.dev/doc" rel="nofollow ugc noopener" target="_blank">Go 文档</a> · go.dev<br>官方文档`,
 		`<a href="https://ynsstudy.cn/ynsStudy/Notes?tag=%E8%B8%A9%E5%9D%91" rel="tag">#踩坑</a>`,
 	} {
 		if !strings.Contains(page, expected) {

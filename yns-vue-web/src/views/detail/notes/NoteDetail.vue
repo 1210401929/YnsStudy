@@ -51,6 +51,8 @@
 
             <ArticleViewer v-if="note.TEXT" :content="note.TEXT" class="note-text"/>
 
+            <LinkCard v-if="note.LINK?.url" :link="note.LINK" class="note-link-card"/>
+
             <p v-if="note.TAGS?.length" class="note-tags">
               <router-link v-for="tag in note.TAGS" :key="tag" :to="tagHref(tag)" class="note-tag" rel="tag">#{{ tag }}</router-link>
             </p>
@@ -103,6 +105,7 @@ import ArticleViewer from '@/components/detail/ArticleViewer.vue'
 import CommentSection from '@/components/detail/comment/CommentSection.vue'
 import UserInfo from '@/components/main/UserInfo.vue'
 import NoteComposer from '@/components/detail/notes/NoteComposer.vue'
+import LinkCard from '@/components/detail/notes/LinkCard.vue'
 import { useUserStore } from '@/stores/main/user.js'
 import {
   ele_confirm, extractPlainTextFromHTML, getCurrentUserAdminObject, getUserInfoByCode,
@@ -397,6 +400,10 @@ useSeo(() => {
 /* 正文组件默认最小高度 300px，便签通常很短，不需要 */
 .note-sheet .note-text {
   min-height: 0;
+}
+
+.note-link-card {
+  margin-top: 16px;
 }
 
 .note-tags {

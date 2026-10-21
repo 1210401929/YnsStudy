@@ -240,6 +240,13 @@ func (h *Controller) registerCommunityRoutes(group *gin.RouterGroup) {
 			writeResult(c, h.service.DeleteCommunityComment(c, stringParam(body, "commentGuid")))
 		}
 	})
+	// 发布便签时实时预览链接卡片（需要登录）
+	group.Any("/previewLink", func(c *gin.Context) {
+		body, ok := requireBody(c)
+		if ok {
+			writeResult(c, h.service.PreviewLink(c, stringParam(body, "url")))
+		}
+	})
 	// 便签墙的热门话题
 	group.Any("/getTags", func(c *gin.Context) {
 		body, ok := requireBody(c)

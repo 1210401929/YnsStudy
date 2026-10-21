@@ -83,7 +83,7 @@ func (s *Service) normalizeNoteImages(value any) []string {
 	return images
 }
 
-// decodeNoteRows 把 IMAGES 从 JSON 字符串转成数组，并补齐 TYPE，前端可以直接使用
+// decodeNoteRows 把 IMAGES 从 JSON 字符串转成数组，补齐 TYPE，把链接卡片 LINK_PREVIEW 转成 LINK，前端可以直接使用
 func decodeNoteRows(rows []map[string]any) []map[string]any {
 	for _, row := range rows {
 		images := []string{}
@@ -92,6 +92,14 @@ func decodeNoteRows(rows []map[string]any) []map[string]any {
 		}
 		row["IMAGES"] = images
 		row["TYPE"] = normalizeNoteType(model.StringValue(row, "TYPE"))
+		row["LINK"] = nil
+		if raw := model.StringValue(row, "LINK_PREVIEW"); raw != "" {
+			var preview LinkPreview
+			if json.Unmarshal([]byte(raw), &preview) == nil && preview.URL != "" {
+				row["LINK"] = preview
+			}
+		}
+		delete(row, "LINK_PREVIEW")
 	}
 	return rows
 }
@@ -192,6 +200,8 @@ func (s *Service) AddCommunity(c *gin.Context, community map[string]any) model.R
 		return stripSearchTextResult(result)
 	}
 	s.saveTargetTags(ctx, TagTargetNote, guid, tags)
+	// 链接卡片要访问对方网站，放到后台抓取，不拖慢发布
+	go s.refreshNoteLinkPreview(guid, model.StringValue(fields, "TEXT"))
 	s.notifyAdminContent(ctx, actor.Code(), actor.User.Name, "便签墙新随记", "", model.StringValue(fields, "TEXT"), s.mailSiteURL(NotePath(guid)))
 	return s.noteSavedResult(ctx, guid)
 }
@@ -237,6 +247,7 @@ func (s *Service) UpdateCommunity(c *gin.Context, community map[string]any) mode
 		return dbFailure("修改随记", err)
 	}
 	s.saveTargetTags(ctx, TagTargetNote, guid, tags)
+	go s.refreshNoteLinkPreview(guid, model.StringValue(fields, "TEXT"))
 	s.logModeration(c, actor, row, AdminActionEditPost, postLabel(row), "在便签墙修改随记")
 	return s.noteSavedResult(ctx, guid)
 }

@@ -9,7 +9,7 @@
         <el-tabs v-model="activeTab" class="admin-tabs" :tab-position="isWide ? 'left' : 'top'">
           <el-tab-pane label="数据概览" name="dashboard" lazy><AdminDashboard/></el-tab-pane>
           <el-tab-pane label="内容管理" name="content" lazy><AdminContent/></el-tab-pane>
-          <el-tab-pane label="评论管理" name="comments" lazy><AdminComments/></el-tab-pane>
+          <el-tab-pane label="评论与留言" name="comments" lazy><AdminComments/></el-tab-pane>
           <el-tab-pane label="评论限制" name="commentBans" lazy><AdminCommentBans/></el-tab-pane>
           <el-tab-pane label="用户管理" name="users" lazy><user-list ISOPERATIONUSER="true"></user-list></el-tab-pane>
           <el-tab-pane label="全站公告" name="announcements" lazy>

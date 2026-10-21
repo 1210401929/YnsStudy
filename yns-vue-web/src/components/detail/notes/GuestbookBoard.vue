@@ -32,10 +32,9 @@
     <p class="board-count">共 {{ total }} 条留言</p>
 
     <div class="message-list" :class="{ 'is-refreshing': loading && messages.length }">
-      <article v-for="(message, index) in messages" :key="message.GUID" class="message-card"
-               :class="'tilt-' + (index % 3)">
+      <article v-for="(message, index) in messages" :key="message.GUID" class="message-card">
         <span v-if="message.ISTOP === '1'" class="note-pin" title="置顶"></span>
-        <span v-else class="j-tape message-tape" :class="tapeClasses[index % tapeClasses.length]"></span>
+        <span v-else class="j-tape message-tape" :class="[tapeClasses[index % tapeClasses.length], 'tape-' + (index % 3)]"></span>
 
         <header class="message-head">
           <el-avatar :src="message.AVATAR" :size="32" class="message-avatar" @click="openPerson(message)"
@@ -396,16 +395,18 @@ async function toggleTop(message) {
   box-shadow: 0 1px 2px rgba(60, 50, 30, 0.06), 0 10px 20px -14px rgba(60, 50, 30, 0.35);
 }
 
-.tilt-0 { transform: rotate(-0.4deg); }
-.tilt-1 { transform: rotate(0.3deg); }
-.tilt-2 { transform: rotate(-0.15deg); }
-
+/*
+ * 卡片本身不旋转：旋转后的文字和输入框不再对齐像素，看起来发虚（尤其是回复框里的小字）。
+ * “贴在墙上”的感觉交给胶带：每张的胶带位置和角度略有不同。
+ */
 .message-tape {
   top: -10px;
-  left: 28px;
   width: 70px;
-  transform: rotate(-4deg);
 }
+
+.tape-0 { left: 28px; transform: rotate(-4deg); }
+.tape-1 { left: 50%; margin-left: -35px; transform: rotate(2deg); }
+.tape-2 { left: auto; right: 34px; transform: rotate(-2deg); }
 
 .message-head {
   display: flex;
@@ -557,10 +558,6 @@ async function toggleTop(message) {
 
   .message-card {
     padding: 20px 14px 12px;
-  }
-
-  .tilt-0, .tilt-1, .tilt-2 {
-    transform: none;
   }
 
   .message-head {

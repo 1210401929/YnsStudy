@@ -47,6 +47,29 @@ func noteTags(row map[string]any) []string {
 	return tags
 }
 
+// linkCardHTML 输出正文第一个链接的卡片：标题、简介、网站名。用户分享的外链加 nofollow ugc
+func linkCardHTML(note map[string]any) string {
+	preview, ok := note["LINK"].(service.LinkPreview)
+	if !ok || preview.URL == "" {
+		return ""
+	}
+	title := preview.Title
+	if title == "" {
+		title = preview.URL
+	}
+	var output strings.Builder
+	fmt.Fprintf(&output, `<p class="seo-note-link"><a href="%s" rel="nofollow ugc noopener" target="_blank">%s</a>`,
+		htmlstd.EscapeString(preview.URL), htmlstd.EscapeString(title))
+	if preview.SiteName != "" {
+		fmt.Fprintf(&output, ` · %s`, htmlstd.EscapeString(preview.SiteName))
+	}
+	if preview.Description != "" {
+		fmt.Fprintf(&output, `<br>%s`, htmlstd.EscapeString(preview.Description))
+	}
+	output.WriteString(`</p>`)
+	return output.String()
+}
+
 // tagMetaHTML 为每个话题输出一个 article:tag
 func tagMetaHTML(tags []string) string {
 	var output strings.Builder
@@ -230,9 +253,10 @@ func renderSEONoteHTML(shell string, note, previous, next map[string]any, owner 
 %s
 %s
 %s
+%s
 </article></main>`, htmlstd.EscapeString(domain), htmlstd.EscapeString(domain), noteWallPath, escapedTitle,
 		htmlstd.EscapeString(noteTypeName(note)), authorHTML, htmlstd.EscapeString(published),
-		htmlstd.EscapeString(formatDate(model.Lookup(note, "CREATE_TIME"))), safeContent, imageHTML.String(), tagLinksHTML(noteTags(note), domain), links.String())
+		htmlstd.EscapeString(formatDate(model.Lookup(note, "CREATE_TIME"))), safeContent, linkCardHTML(note), imageHTML.String(), tagLinksHTML(noteTags(note), domain), links.String())
 
 	return injectSEOShell(shell, title+" - 便签墙 - "+cfg.SEO.SiteName, head, body)
 }

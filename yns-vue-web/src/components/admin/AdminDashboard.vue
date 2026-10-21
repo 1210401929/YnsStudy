@@ -21,6 +21,7 @@
         <el-table-column label="文章"><template #default="{ row }">{{ show(row.articles) }}</template></el-table-column>
         <el-table-column label="随记"><template #default="{ row }">{{ show(row.communityPosts) }}</template></el-table-column>
         <el-table-column label="评论"><template #default="{ row }">{{ show(row.comments) }}</template></el-table-column>
+        <el-table-column label="留言"><template #default="{ row }">{{ show(row.guestbook) }}</template></el-table-column>
         <el-table-column label="新用户"><template #default="{ row }">{{ show(row.users) }}</template></el-table-column>
       </el-table>
     </section>
@@ -72,6 +73,7 @@ const tiles = computed(() => {
     { label: '总阅读量', value: t.totalViews },
     { label: '注册用户', value: t.users },
     { label: '随记', value: t.communityPosts },
+    { label: '留言', value: t.guestbook },
     { label: '评论', value: comments, extra: t.blogComments != null ? `文章 ${t.blogComments} · 随记 ${t.communityComments}` : '' },
     { label: '累计登录', value: t.logins }
   ]

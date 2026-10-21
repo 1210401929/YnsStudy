@@ -1,4 +1,4 @@
-<!-- 新增“禁止评论”规则的弹窗：评论限制页、评论管理、用户管理共用 -->
+<!-- 新增“禁止评论”规则的弹窗：评论限制页、评论与留言、用户管理共用 -->
 <template>
   <el-dialog :model-value="modelValue" title="禁止评论" width="460px" append-to-body @update:model-value="$emit('update:modelValue', $event)">
     <el-form label-width="80px" size="small" @submit.prevent>

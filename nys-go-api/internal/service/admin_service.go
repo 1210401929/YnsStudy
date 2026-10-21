@@ -15,7 +15,7 @@ import (
 	"nys-go-api/internal/security"
 )
 
-// 超级管理员后台：数据概览、评论管理、用户管理。所有接口都只允许超级管理员调用。
+// 超级管理员后台：数据概览、评论与留言、用户管理。所有接口都只允许超级管理员调用。
 
 // columnCache 缓存“某表是否有某列”。旧库的部分表（如 loginHistory、userInfo）没有统一的时间字段，
 // 统计前先查 information_schema，缺列时对应数据显示为空，而不是让整个页面报错。
@@ -72,6 +72,12 @@ func (s *Service) GetAdminDashboard(c *gin.Context) model.Result {
 		"users":             s.countOrNil(ctx, "SELECT COUNT(*) AS total FROM userInfo"),
 		"totalViews":        s.countOrNil(ctx, "SELECT COALESCE(SUM(VIEW_PAGE), 0) AS total FROM blogInfo"),
 		"logins":            s.countOrNil(ctx, "SELECT COUNT(*) AS total FROM loginHistory"),
+		"guestbook":         nil,
+	}
+	// 执行迁移 011 之后才有留言板
+	guestbookReady := s.guestbookReady(ctx)
+	if guestbookReady {
+		totals["guestbook"] = s.countOrNil(ctx, "SELECT COUNT(*) AS total FROM guestbook WHERE SUPERGUID IS NULL OR SUPERGUID = ''")
 	}
 
 	recent := make(map[string]any, 2)
@@ -85,7 +91,11 @@ func (s *Service) GetAdminDashboard(c *gin.Context) model.Result {
 				s.countOrNil(ctx, "SELECT COUNT(*) AS total FROM blogComment WHERE "+since, days),
 				s.countOrNil(ctx, "SELECT COUNT(*) AS total FROM communityComment WHERE "+since, days),
 			),
-			"users": nil,
+			"users":     nil,
+			"guestbook": nil,
+		}
+		if guestbookReady {
+			item["guestbook"] = s.countOrNil(ctx, "SELECT COUNT(*) AS total FROM guestbook WHERE (SUPERGUID IS NULL OR SUPERGUID = '') AND "+since, days)
 		}
 		if userHasTime {
 			item["users"] = s.countOrNil(ctx, "SELECT COUNT(*) AS total FROM userInfo WHERE "+since, days)
@@ -147,7 +157,7 @@ func (s *Service) recentLogins(ctx context.Context, userID string, limit int) []
 	return rows
 }
 
-// ---------------- 评论管理 ----------------
+// ---------------- 评论与留言 ----------------
 
 // AdminCommentQuery 是评论列表的筛选条件。
 type AdminCommentQuery struct {
@@ -223,7 +233,7 @@ FROM communityComment c LEFT JOIN communityInfo p ON p.GUID = c.COMMUNITYID`+whe
 	}
 	if include("guestbook") && s.guestbookReady(ctx) {
 		rows, err := s.Repo.Query(ctx, `SELECT 'guestbook' AS SOURCE, c.GUID, c.SUPERGUID, c.TEXT, c.USERCODE, c.USERNAME, c.USEREMAIL, c.USERWEBSITE,
-c.CREATE_TIME, '' AS TARGETID, '便签墙留言板' AS TARGETTITLE, c.IP
+c.CREATE_TIME, '' AS TARGETID, '便签墙留言板' AS TARGETTITLE, c.IP, c.ISTOP
 FROM guestbook c`+where+` ORDER BY c.CREATE_TIME DESC LIMIT ?`, append(args, fetch)...)
 		if err != nil {
 			return dbFailure("查询留言", err)

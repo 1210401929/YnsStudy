@@ -11,6 +11,8 @@
 
     <div class="note-body" :class="{ 'is-clamped': clamped }" v-html="safeHtml"></div>
 
+    <LinkCard v-if="note.LINK?.url" :link="note.LINK" compact/>
+
     <div v-if="images.length" class="note-images" :class="'count-' + Math.min(images.length, 3)">
       <span v-for="(image, index) in images.slice(0, 3)" :key="image" class="note-thumb">
         <img :src="image" :alt="`${title} 配图 ${index + 1}`" loading="lazy" decoding="async">
@@ -52,6 +54,7 @@ import { getAvatarStyle } from '@/utils/avatarStyle.js'
 import { pubOpenUser } from '@/utils/blogUtil.js'
 import { noteTitle, notePath, noteTypeOf } from '@/utils/noteTypes.js'
 import { tagHref } from '@/utils/noteTags.js'
+import LinkCard from './LinkCard.vue'
 import { canDeleteNote, canEditNote } from '@/utils/notePermission.js'
 import '@/css/notes.css'
 

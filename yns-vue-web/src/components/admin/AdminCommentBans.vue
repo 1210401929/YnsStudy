@@ -3,7 +3,7 @@
   <div class="admin-comment-bans">
     <p class="hint">
       命中任意一条规则的人无法发表文章评论和随记评论，只会看到“你已被禁止在本站评论”。超级管理员不受限制。
-      也可以在“评论管理”中直接对某条评论的作者、IP、网址或邮箱禁止评论。
+      也可以在“评论与留言”中直接对某条评论或留言的作者、IP、网址或邮箱禁止评论。
     </p>
     <div class="toolbar">
       <el-button size="small" type="danger" @click="openDialog">新增限制</el-button>
