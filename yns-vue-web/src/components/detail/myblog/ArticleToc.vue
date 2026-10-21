@@ -4,7 +4,7 @@
     <span v-if="!plain" class="j-tape j-tape--green toc-tape"></span>
     <div class="toc-title">文章目录</div>
     <el-scrollbar :max-height="maxHeight">
-      <div v-if="items.length === 0" class="toc-empty">暂无目录或提取中...</div>
+      <div v-if="items.length === 0" class="toc-empty">✎ 这篇文章没有小标题</div>
       <div v-for="item in items" :key="item.id"
            class="toc-item"
            :class="['toc-level-' + item.level, { 'is-active': activeId === item.id }]"

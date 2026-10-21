@@ -1,5 +1,5 @@
 <template>
-  <div class="blog-detail-page j-desk" :class="{ 'has-bg': hasBg }" :style="currentBgStyle">
+  <div class="blog-detail-page j-desk" :class="{ 'has-bg': hasBg }" :style="pageStyle">
     <BackgroundAndMusic
         ref="bgMusicComponentRef"
         :is-self="false"
@@ -100,6 +100,10 @@ const handleBgStyleUpdate = (style) => {
 }
 // 作者设置了背景时，卡片、目录和正文改为半透明，透出一点背景
 const hasBg = computed(() => !!currentBgStyle.value?.backgroundImage);
+// 把背景也交给正文纸张的装订孔，孔里露出的是背景而不是一块桌面色
+const pageStyle = computed(() => hasBg.value
+    ? {...currentBgStyle.value, '--page-bg': currentBgStyle.value.backgroundImage}
+    : currentBgStyle.value);
 
 const canonicalUrl = computed(() => `${window.location.origin}/oneBlog/${encodeURIComponent(blogId)}`);
 const seoTitle = ref('博客详情 - YnsStudy');
@@ -306,8 +310,9 @@ const handleArticleNotFound = () => {
   backdrop-filter: blur(8px);
 }
 
+/* 只改底色，保留背景里画的页边红线 */
 .has-bg :deep(.article-sheet) {
-  background: rgba(255, 253, 248, 0.9);
+  background-color: rgba(255, 253, 248, 0.9);
 }
 
 .has-bg :deep(.comment-card) {

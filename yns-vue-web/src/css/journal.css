@@ -281,6 +281,33 @@ body {
     color: var(--j-muted);
 }
 
+/* 红色小印章（如“作者”“已赞”），微微歪一点，像手盖上去的 */
+.j-stamp {
+    display: inline-block;
+    padding: 0 5px;
+    border: 1.5px solid var(--j-stamp);
+    border-radius: 3px;
+    font-family: var(--j-hand);
+    font-size: 12px;
+    font-weight: normal;
+    line-height: 17px;
+    color: var(--j-stamp);
+    white-space: nowrap;
+    opacity: 0.85;
+    transform: rotate(-8deg);
+}
+
+/* 盖章动画：从大到小按下去 */
+.j-stamp--press {
+    animation: j-stamp-press 0.35s ease-out;
+}
+
+@keyframes j-stamp-press {
+    from { opacity: 0; transform: scale(1.8) rotate(-8deg); }
+    70% { opacity: 0.9; transform: scale(0.94) rotate(-8deg); }
+    to { opacity: 0.85; transform: scale(1) rotate(-8deg); }
+}
+
 @media (max-width: 640px) {
     .j-page {
         padding: 20px 16px 56px;

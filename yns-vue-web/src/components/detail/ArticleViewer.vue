@@ -23,8 +23,28 @@ const props = defineProps({
 const bodyRef = ref(null)
 const safeHtml = computed(() => prepareArticleHtml(props.content))
 
+/* ---------- 单独成段的大图像照片一样贴一条胶带 ---------- */
+// 和文字混排的小图、并排的多张图、链接或表格里的图不处理；图片加载后宽度够大才显示胶带，避免贴在小图标上
+const framePhotos = (root) => {
+  root?.querySelectorAll('img').forEach((img) => {
+    if (img.closest('.photo-frame, a, td, th, li')) return
+    const block = img.parentElement
+    if (!block || block.textContent.trim() || block.querySelectorAll('img').length > 1) return
+    const frame = document.createElement('span')
+    frame.className = 'photo-frame'
+    img.replaceWith(frame)
+    frame.appendChild(img)
+    const mark = () => frame.classList.toggle('has-tape', img.naturalWidth >= 160)
+    if (img.complete) mark()
+    else img.addEventListener('load', mark, {once: true})
+  })
+}
+
 /* ---------- 代码高亮 ---------- */
-const highlight = () => nextTick(() => highlightCodeBlocks(bodyRef.value))
+const highlight = () => nextTick(() => {
+  highlightCodeBlocks(bodyRef.value)
+  framePhotos(bodyRef.value)
+})
 onMounted(highlight)
 watch(safeHtml, highlight)
 
@@ -127,13 +147,20 @@ const onDblClick = (e) => {
   font-size: 2em;
 }
 
+/* 二级标题：荧光笔划过（按行重复，标题折行时每一行都有） */
 .article-body :deep(h2) {
+  width: fit-content;
+  max-width: 100%;
+  padding: 0 4px;
   font-size: 22px;
-  padding-bottom: 6px;
-  border-bottom: 1px dashed var(--j-rule-strong);
+  background-image: linear-gradient(transparent 58%, rgba(250, 216, 96, 0.55) 58%, rgba(250, 216, 96, 0.55) 90%, transparent 90%);
+  background-size: 100% 1.4em;
 }
 
+/* 三级标题：左边一小段绿色胶带 */
 .article-body :deep(h3) {
+  padding-left: 10px;
+  border-left: 4px solid var(--j-tape-green);
   font-size: 19px;
 }
 
@@ -174,15 +201,29 @@ const onDblClick = (e) => {
   text-underline-offset: 3px;
 }
 
+/* 引用：一张贴了胶带的黄色便签 */
 .article-body :deep(blockquote) {
+  position: relative;
   display: block;
-  margin: 1em 0;
-  padding: 10px 16px;
-  border-left: 4px solid #e8c95b;
-  background: #fdf6d8;
+  margin: 1.6em 0 1.2em;
+  padding: 16px 18px 12px;
+  background: var(--j-note);
+  box-shadow: 0 1px 2px rgba(60, 50, 30, 0.1), 0 10px 18px -12px rgba(60, 50, 30, 0.4);
   color: var(--j-ink-soft);
   font-size: 100%;
   line-height: 1.8;
+}
+
+.article-body :deep(blockquote)::before {
+  content: "";
+  position: absolute;
+  top: -9px;
+  left: 50%;
+  width: 64px;
+  height: 18px;
+  margin-left: -32px;
+  background: var(--j-tape-green);
+  transform: rotate(-2deg);
 }
 
 .article-body :deep(code) {
@@ -233,6 +274,7 @@ const onDblClick = (e) => {
   overflow: hidden;
 }
 
+/* 代码栏用牛皮纸色，像夹在本子里的一张卡片；代码本身保持清楚，不做装饰 */
 .article-body :deep(.code-bar) {
   display: flex;
   align-items: center;
@@ -240,7 +282,8 @@ const onDblClick = (e) => {
   gap: 8px;
   min-height: 28px;
   padding: 0 8px 0 14px;
-  border-bottom: 1px dashed var(--j-rule-strong);
+  background: rgba(231, 214, 181, 0.45);
+  border-bottom: 1px solid #ddcca9;
   font-size: 12px;
   line-height: 1.5;
   color: var(--j-muted);
@@ -346,6 +389,30 @@ const onDblClick = (e) => {
   font-style: italic;
 }
 
+.article-body :deep(.photo-frame) {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+}
+
+.article-body :deep(.photo-frame.has-tape)::before {
+  content: "";
+  position: absolute;
+  top: -9px;
+  left: 50%;
+  z-index: 1;
+  width: 72px;
+  height: 20px;
+  margin-left: -36px;
+  background: var(--j-tape-yellow);
+  transform: rotate(-3deg);
+  pointer-events: none;
+}
+
+.article-body :deep(.photo-frame img) {
+  vertical-align: bottom;
+}
+
 .article-body :deep(img) {
   display: inline !important;
   max-width: 100%;
@@ -370,27 +437,31 @@ const onDblClick = (e) => {
   border-collapse: collapse;
 }
 
+/* 表格：铅笔画的格子，表头用楷体 */
 .article-body :deep(th),
 .article-body :deep(td) {
   min-width: 30px;
   padding: 6px 10px;
-  border: 1px solid var(--j-rule-strong);
+  border: 1px solid rgba(77, 73, 67, 0.32);
   line-height: 1.5;
   text-align: left;
 }
 
 .article-body :deep(th) {
-  background: var(--j-paper-warm);
-  font-weight: 700;
+  background: rgba(231, 214, 181, 0.3);
+  font-family: var(--j-hand);
+  font-size: 15px;
+  font-weight: normal;
   text-align: center;
 }
 
+/* 分割线：手画的波浪线 */
 .article-body :deep(hr) {
   display: block;
-  height: 1px;
+  height: 8px;
   margin: 40px 20px;
   border: 0;
-  background-color: var(--w-e-textarea-border-color);
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='8'%3E%3Cpath d='M0 4 Q6 0.5 12 4 T24 4' fill='none' stroke='%23c9bea8' stroke-width='1.4'/%3E%3C/svg%3E") repeat-x center;
 }
 
 .article-body :deep([data-w-e-type="todo"]) {

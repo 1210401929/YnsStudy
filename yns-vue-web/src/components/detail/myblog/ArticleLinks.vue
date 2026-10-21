@@ -76,27 +76,31 @@ watch(() => props.blogId, (blogId) => blogId && load(blogId), { immediate: true 
   border-top: 1px dashed var(--j-rule-strong);
 }
 
+/* 上一篇 / 下一篇：两张索引卡，顶上露出彩色书签 */
 .article-pager {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 16px;
+  gap: 30px 16px;
+  padding-top: 22px;
 }
 
 .pager-link {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 4px;
-  padding: 12px 14px;
+  padding: 14px 16px 12px;
   border: 1px solid var(--j-rule);
-  background: var(--j-paper-warm);
+  border-top: 2px solid rgba(232, 165, 155, 0.65);
+  background: var(--j-paper);
+  box-shadow: var(--j-shadow);
   color: var(--j-ink);
   text-decoration: none;
-  transition: border-color 0.2s ease, transform 0.2s ease;
+  transition: transform 0.2s ease;
 }
 
 .pager-link:hover {
-  border-color: var(--j-pen);
-  transform: translateY(-1px);
+  transform: translateY(-2px);
 }
 
 .pager-next {
@@ -104,8 +108,21 @@ watch(() => props.blogId, (blogId) => blogId && load(blogId), { immediate: true 
 }
 
 .pager-label {
-  font-size: 12px;
-  color: var(--j-muted);
+  position: absolute;
+  top: -24px;
+  left: 14px;
+  padding: 2px 12px 3px;
+  border-radius: 6px 6px 0 0;
+  background: #f6e3a1;
+  font-family: var(--j-hand);
+  font-size: 13px;
+  color: var(--j-ink);
+}
+
+.pager-next .pager-label {
+  left: auto;
+  right: 14px;
+  background: #c7e2cf;
 }
 
 .pager-title {
@@ -126,14 +143,22 @@ watch(() => props.blogId, (blogId) => blogId && load(blogId), { immediate: true 
   color: var(--j-ink);
 }
 
+/* 同作者文章：楷体手写清单，实心圆点 */
 .related ul {
   margin: 0;
   padding-left: 20px;
+  list-style: disc;
 }
 
 .related li {
   padding: 3px 0;
+  font-family: var(--j-hand);
+  font-size: 15px;
   line-height: 1.7;
+}
+
+.related li::marker {
+  color: var(--j-pen);
 }
 
 .related a,
@@ -161,6 +186,11 @@ watch(() => props.blogId, (blogId) => blogId && load(blogId), { immediate: true 
 
   .pager-next {
     text-align: left;
+  }
+
+  .pager-next .pager-label {
+    left: 14px;
+    right: auto;
   }
 }
 </style>

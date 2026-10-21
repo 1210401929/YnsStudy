@@ -50,20 +50,33 @@
           </div>
         </div>
 
+        <p v-if="!blogContent.GUID" class="sheet-loading">
+          <svg class="pencil-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20l1.2-4.6L15.8 4.8a2 2 0 0 1 2.8 0l.6.6a2 2 0 0 1 0 2.8L8.6 18.8z M13.5 7l3.5 3.5 M4 20l4.6-1.2"/></svg>
+          正在翻开这一页…
+        </p>
         <ArticleViewer v-if="articleRenderMode === 'html'" :content="blogContent.MAINTEXT"/>
         <ArticleEditor v-else :isReadOnly="true" :content="blogContent.MAINTEXT"/>
 
         <div class="article-bottom-actions">
           <p class="end-mark">文章完</p>
           <div class="bottom-action-buttons">
-            <button type="button" class="j-button" :class="{ 'is-on': blogContent.$userIsLike }" @click="handleLike">
-              👍 {{ blogContent.$userIsLike ? '已赞' : '点赞' }} {{ blogLikeNum > 0 ? `(${blogLikeNum})` : '' }}
-            </button>
+            <!-- 点过之后在按钮角上盖一个红章；按钮有折角裁切，章放在外层才不会被裁掉 -->
+            <span class="stamp-holder">
+              <button type="button" class="j-button" :class="{ 'is-on': blogContent.$userIsLike }"
+                      :title="blogContent.$userIsLike ? '再点一次取消点赞' : '点赞'" @click="handleLike">
+                👍 点赞 {{ blogLikeNum > 0 ? `(${blogLikeNum})` : '' }}
+              </button>
+              <span v-if="blogContent.$userIsLike" class="j-stamp action-stamp" :class="{ 'j-stamp--press': stampPressed.like }">已赞</span>
+            </span>
 
-            <button type="button" class="j-button" :class="{ 'is-on': blogContent.$userIsCollect }" @click="handleCollect">
-              <el-icon><Star/></el-icon>
-              {{ blogContent.$userIsCollect ? '已收藏' : '收藏' }} {{ blogCollectNum > 0 ? `(${blogCollectNum})` : '' }}
-            </button>
+            <span class="stamp-holder">
+              <button type="button" class="j-button" :class="{ 'is-on': blogContent.$userIsCollect }"
+                      :title="blogContent.$userIsCollect ? '再点一次取消收藏' : '收藏'" @click="handleCollect">
+                <el-icon><Star/></el-icon>
+                收藏 {{ blogCollectNum > 0 ? `(${blogCollectNum})` : '' }}
+              </button>
+              <span v-if="blogContent.$userIsCollect" class="j-stamp action-stamp" :class="{ 'j-stamp--press': stampPressed.collect }">已收藏</span>
+            </span>
 
           </div>
         </div>
@@ -73,6 +86,11 @@
           <div class="comment-header">
             <h3>互动评论 <span class="comment-count-badge">{{ commentTotal }}</span></h3>
           </div>
+
+          <p v-if="blogContent.GUID && blogComment.length === 0" class="comment-empty">
+            <svg class="pencil-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20l1.2-4.6L15.8 4.8a2 2 0 0 1 2.8 0l.6.6a2 2 0 0 1 0 2.8L8.6 18.8z M13.5 7l3.5 3.5 M4 20l4.6-1.2"/></svg>
+            还没有人留言，来写下第一条吧
+          </p>
 
           <div v-for="(comment, i) in visibleComments" :key="comment.GUID || i" class="comment-item">
             <div class="comment-main-row" @click="toggleAction(comment.GUID)">
@@ -87,7 +105,7 @@
               </div>
 
               <div class="comment-content-block">
-                <span class="comment-user-name">{{ comment.USERNAME }}:</span>
+                <span class="comment-user-name">{{ comment.USERNAME }}<span v-if="isArticleAuthor(comment)" class="j-stamp author-stamp">作者</span>:</span>
                 <span class="comment-text">{{ comment.TEXT }}</span>
               </div>
 
@@ -146,7 +164,7 @@
                   </div>
 
                   <div class="comment-content-block">
-                    <span class="comment-user-name child-name">{{ child.USERNAME }}</span>
+                    <span class="comment-user-name child-name">{{ child.USERNAME }}<span v-if="isArticleAuthor(child)" class="j-stamp author-stamp">作者</span></span>
                     <span v-if="child.RECEIVE_USERNAME && child.RECEIVE_USERCODE !== comment.USERCODE"
                           class="reply-to-text">
                       回复 <span class="reply-to-name">@{{ child.RECEIVE_USERNAME }}</span>：
@@ -192,6 +210,7 @@
                 type="textarea"
                 :rows="3"
                 placeholder="写下你的优质评论..."
+                class="lined-paper"
                 @keyup.enter.ctrl="submitComment"
                 clearable
                 resize="none"
@@ -335,6 +354,12 @@ const useTocDrawer = computed(() => ['oneBlog', 'BlogContent'].includes(route.na
 const tocDrawerVisible = ref(false);
 const articleSheetRef = ref(null);
 const commentCardRef = ref(null);
+
+// 评论者是文章作者时盖一个“作者”章
+const isArticleAuthor = (c) => !!c.USERCODE && c.USERCODE === blogContent.value.USERCODE;
+
+// 只有当次点击才播放盖章动画，刷新页面看到的已赞状态直接显示
+const stampPressed = ref({ like: false, collect: false });
 
 // 评论总数包含楼中楼
 const commentTotal = computed(() => blogComment.value.reduce((sum, c) => sum + 1 + (c.children?.length || 0), 0));
@@ -551,6 +576,7 @@ function handleLike() {
   } else {
     blogLikeNum.value++;
     blogContent.value.$userIsLike = true;
+    stampPressed.value.like = true;
     sendAxiosRequest("/blog-api/blog/giveLikeBlog", {blogId: contentGuid.value});
     const routeUrl = router.resolve({name: 'oneBlog', params: {g: contentGuid.value}}).href;
     sendNotifications(userBean.code, blogContent.value.USERCODE, "giveLike", routeUrl, `${userBean.name}点赞了你的作品《${blogContent.value.BLOG_TITLE}》`)
@@ -571,6 +597,7 @@ function handleCollect() {
     ElMessage.success("收藏成功，可在个人中心查看");
     blogCollectNum.value++;
     blogContent.value.$userIsCollect = true;
+    stampPressed.value.collect = true;
     sendAxiosRequest("/blog-api/blog/collectBlog", {blogId: contentGuid.value});
     const routeUrl = router.resolve({name: 'oneBlog', params: {g: contentGuid.value}}).href;
     sendNotifications(userBean.code, blogContent.value.USERCODE, "collect", routeUrl, `${userBean.name}收藏了你的作品《${blogContent.value.BLOG_TITLE}》`)
@@ -824,22 +851,41 @@ const getAvatarStyle = (name) => {
   position: relative;
   min-height: 80vh;
   padding: 34px 40px 28px 64px;
-  background: var(--j-paper);
+  /* 页边红线画在背景里，两个伪元素留给左侧装订孔 */
+  background-color: var(--j-paper);
+  background-image: linear-gradient(90deg, transparent 40px, rgba(232, 165, 155, 0.55) 40px, rgba(232, 165, 155, 0.55) 41px, transparent 41px);
   border: 1px solid var(--j-rule);
+  border-radius: 2px 6px 6px 2px;
   box-shadow: var(--j-shadow);
   box-sizing: border-box;
 }
 
-/* 页边红线 */
-.article-sheet::before {
+/* 左侧装订孔（与首页的纸一致）：::before 画孔边的阴影，::after 是孔里露出的东西 */
+.article-sheet::before,
+.article-sheet::after {
   content: "";
   position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 40px;
-  width: 1px;
-  background: var(--j-margin-red);
-  opacity: 0.55;
+  top: 18px;
+  bottom: 18px;
+  left: 16px;
+  width: 14px;
+  pointer-events: none;
+}
+
+.article-sheet::before {
+  background-image: radial-gradient(circle at 7px 7px, transparent 5px, rgba(120, 104, 80, 0.25) 5.5px, transparent 6.5px);
+  background-size: 14px 44px;
+}
+
+/* 孔里露出桌面；文章详情页设置了背景时露出背景（--page-bg 由页面提供，和页面背景一样固定在视口上，位置能对上） */
+.article-sheet::after {
+  background-color: var(--j-desk);
+  background-image: var(--page-bg, none);
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+  -webkit-mask: radial-gradient(circle at 7px 7px, #000 5px, transparent 5.5px) 0 0 / 14px 44px repeat-y;
+  mask: radial-gradient(circle at 7px 7px, #000 5px, transparent 5.5px) 0 0 / 14px 44px repeat-y;
 }
 
 .author-info {
@@ -1006,6 +1052,61 @@ const getAvatarStyle = (name) => {
   border-color: #e3cf7a;
 }
 
+.stamp-holder {
+  position: relative;
+  display: inline-flex;
+}
+
+.action-stamp {
+  position: absolute;
+  top: -10px;
+  right: -14px;
+  z-index: 1;
+  background: rgba(255, 253, 248, 0.6);
+  pointer-events: none;
+}
+
+/* 加载中、暂无评论：楷体一句话 + 一支铅笔 */
+.sheet-loading,
+.comment-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 0;
+  font-family: var(--j-hand);
+  color: var(--j-muted);
+}
+
+.sheet-loading {
+  padding: 80px 0;
+  font-size: 18px;
+}
+
+.comment-empty {
+  padding: 18px 0 8px;
+  font-size: 16px;
+}
+
+.pencil-icon {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.sheet-loading .pencil-icon {
+  animation: pencil-write 1.2s ease-in-out infinite alternate;
+}
+
+@keyframes pencil-write {
+  from { transform: translateX(-3px) rotate(-4deg); }
+  to { transform: translateX(3px) rotate(4deg); }
+}
+
 /* ====== 评论区 ====== */
 .comment-card {
   position: relative;
@@ -1104,6 +1205,13 @@ const getAvatarStyle = (name) => {
   color: #4f8a5b;
 }
 
+.author-stamp {
+  margin: 0 4px 0 6px;
+  font-size: 11px;
+  line-height: 15px;
+  vertical-align: 1px;
+}
+
 .comment-text {
   font-size: 14px;
   color: var(--j-ink);
@@ -1147,10 +1255,11 @@ const getAvatarStyle = (name) => {
   padding-left: 0;
 }
 
+/* 楼中楼左边一道铅笔线 */
 .children-list {
   margin-top: 6px;
   padding-left: 10px;
-  border-left: 2px solid #ead9a0;
+  border-left: 1.5px solid rgba(110, 100, 85, 0.35);
 }
 
 .comment-more {
@@ -1180,6 +1289,16 @@ const getAvatarStyle = (name) => {
 
 .guest-form-row {
   margin-bottom: 10px;
+}
+
+/* 评论输入框：横线信纸，横线跟着文字一起滚动 */
+.lined-paper :deep(.el-textarea__inner) {
+  padding-top: 4px;
+  line-height: 26px;
+  background-color: var(--j-paper);
+  background-image: repeating-linear-gradient(transparent 0 25px, var(--j-rule) 25px 26px);
+  background-position: 0 4px;
+  background-attachment: local;
 }
 
 .comment-submit-row {
@@ -1248,8 +1367,14 @@ const getAvatarStyle = (name) => {
     padding: 26px 16px 20px 30px;
   }
 
-  .article-sheet::before {
-    left: 16px;
+  /* 手机上左边距放不下装订孔，只保留红线 */
+  .article-sheet {
+    background-image: linear-gradient(90deg, transparent 16px, rgba(232, 165, 155, 0.55) 16px, rgba(232, 165, 155, 0.55) 17px, transparent 17px);
+  }
+
+  .article-sheet::before,
+  .article-sheet::after {
+    display: none;
   }
 
   .article-header {

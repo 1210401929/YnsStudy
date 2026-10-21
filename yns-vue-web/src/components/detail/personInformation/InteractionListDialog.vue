@@ -6,6 +6,7 @@
       width="60%"
       :modal-class="'modern-dialog-wrapper'"
       top="6vh"
+      append-to-body
       destroy-on-close
   >
     <div class="card-list-scroll">
