@@ -19,7 +19,7 @@
       <el-table :data="recentRows" border size="small" class="admin-table">
         <el-table-column prop="label" label="" width="110"/>
         <el-table-column label="文章"><template #default="{ row }">{{ show(row.articles) }}</template></el-table-column>
-        <el-table-column label="社区帖子"><template #default="{ row }">{{ show(row.communityPosts) }}</template></el-table-column>
+        <el-table-column label="随记"><template #default="{ row }">{{ show(row.communityPosts) }}</template></el-table-column>
         <el-table-column label="评论"><template #default="{ row }">{{ show(row.comments) }}</template></el-table-column>
         <el-table-column label="新用户"><template #default="{ row }">{{ show(row.users) }}</template></el-table-column>
       </el-table>
@@ -71,8 +71,8 @@ const tiles = computed(() => {
     { label: '公开文章', value: t.publicArticles, extra: t.privateArticles != null ? `另有私密 ${t.privateArticles} 篇` : '' },
     { label: '总阅读量', value: t.totalViews },
     { label: '注册用户', value: t.users },
-    { label: '社区帖子', value: t.communityPosts },
-    { label: '评论', value: comments, extra: t.blogComments != null ? `文章 ${t.blogComments} · 社区 ${t.communityComments}` : '' },
+    { label: '随记', value: t.communityPosts },
+    { label: '评论', value: comments, extra: t.blogComments != null ? `文章 ${t.blogComments} · 随记 ${t.communityComments}` : '' },
     { label: '累计登录', value: t.logins }
   ]
 })

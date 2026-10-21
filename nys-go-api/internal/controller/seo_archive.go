@@ -179,7 +179,7 @@ func renderSEOArchiveHTML(rows []map[string]any, page, totalPages, total int, cf
 </head>
 <body>
 <header class="archive-top"><div class="archive-top-inner"><a class="archive-brand" href="%s/">%s</a>
-<nav aria-label="主要栏目"><a href="%s/ynsStudy/Home">最新文章</a><a href="%s/ynsStudy/Resources">资源</a><a href="%s/ynsStudy/Community">社区</a><a href="%s/ynsStudy/About">关于</a></nav></div></header>
+<nav aria-label="主要栏目"><a href="%s/ynsStudy/Home">最新文章</a><a href="%s/ynsStudy/Resources">资源</a><a href="%s/ynsStudy/Notes">便签墙</a><a href="%s/ynsStudy/About">关于</a></nav></div></header>
 <main class="archive-page">
 <nav class="archive-crumb" aria-label="面包屑"><a href="%s/">%s</a> / <a href="%s/archive">文章归档</a></nav>
 <section class="archive-paper">

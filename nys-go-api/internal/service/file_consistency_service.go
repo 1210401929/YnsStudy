@@ -103,6 +103,25 @@ func (s *Service) usedFileNames(ctx context.Context, fileType string) (map[strin
 					result[filepath.Base(fileURL)] = struct{}{}
 				}
 			}
+			// 便签墙随记的图片也上传在 editorImage 目录：正文里的图片和 IMAGES 列都算“正在使用”
+			noteColumns := "TEXT"
+			if s.tableHasColumn(ctx, "communityInfo", "IMAGES") {
+				noteColumns += ", IMAGES"
+			}
+			var notes []map[string]any
+			notes, err = s.Repo.Query(ctx, "SELECT "+noteColumns+" FROM communityInfo")
+			if err == nil {
+				for _, note := range decodeNoteRows(notes) {
+					for _, fileURL := range extractImageURLs(model.StringValue(note, "TEXT")) {
+						result[filepath.Base(fileURL)] = struct{}{}
+					}
+					if images, ok := note["IMAGES"].([]string); ok {
+						for _, fileURL := range images {
+							result[filepath.Base(fileURL)] = struct{}{}
+						}
+					}
+				}
+			}
 		}
 	case "resourcesFile":
 		rows, err = s.Repo.Query(ctx, "SELECT FILEVIEWURL AS URL FROM fileInfo")

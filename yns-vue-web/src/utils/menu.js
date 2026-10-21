@@ -16,9 +16,9 @@ const menuItems = [
         description: 'YnsStudy 用户分享的学习资料、工具与文档资源，按分类整理，方便查找和下载。'
     },
     {
-        name: '社区', router: 'Community', path: '/ynsStudy/Community',
-        title: '社区动态 - YnsStudy',
-        description: 'YnsStudy 社区：分享日常、交流学习心得，与其他热爱写作和编程的人互动讨论。'
+        name: '便签墙', router: 'Notes', path: '/ynsStudy/Notes',
+        title: '便签墙 - YnsStudy',
+        description: 'YnsStudy 便签墙：随手记下的技巧、踩坑、分享和想法，一张张贴在墙上。'
     },
     {
         name: '友链', router: 'FriendLink', path: '/ynsStudy/FriendLink',

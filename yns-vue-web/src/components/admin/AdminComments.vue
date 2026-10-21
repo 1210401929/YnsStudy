@@ -1,11 +1,11 @@
-<!-- 后台：全站评论管理（文章评论 + 社区评论） -->
+<!-- 后台：全站评论管理（文章评论 + 便签墙随记评论） -->
 <template>
   <div class="admin-comments">
     <div class="filters">
       <el-select v-model="query.source" size="small" style="width: 120px" @change="reload">
         <el-option label="全部评论" value="all"/>
         <el-option label="文章评论" value="blog"/>
-        <el-option label="社区评论" value="community"/>
+        <el-option label="随记评论" value="community"/>
       </el-select>
       <el-input
           v-model="query.keyword"
@@ -26,7 +26,7 @@
       </el-table-column>
       <el-table-column label="来源" width="80">
         <template #default="{ row }">
-          <el-tag size="small" :type="row.SOURCE === 'blog' ? 'primary' : 'success'">{{ row.SOURCE === 'blog' ? '文章' : '社区' }}</el-tag>
+          <el-tag size="small" :type="row.SOURCE === 'blog' ? 'primary' : 'success'">{{ row.SOURCE === 'blog' ? '文章' : '随记' }}</el-tag>
         </template>
       </el-table-column>
       <el-table-column label="所在内容" min-width="180">
@@ -92,7 +92,7 @@ const loading = ref(false)
 
 const targetHref = (row) => row.SOURCE === 'blog'
     ? `/oneBlog/${encodeURIComponent(row.TARGETID)}`
-    : '/ynsStudy/Community'
+    : `/note/${encodeURIComponent(row.TARGETID)}`
 
 const load = async () => {
   loading.value = true

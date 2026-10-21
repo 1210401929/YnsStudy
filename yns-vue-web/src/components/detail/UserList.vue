@@ -96,7 +96,7 @@
         <div class="detail-stats">
           <span>公开文章 <b>{{ show(detail.stats.publicArticles) }}</b></span>
           <span>私密文章 <b>{{ show(detail.stats.privateArticles) }}</b></span>
-          <span>社区帖子 <b>{{ show(detail.stats.communityPosts) }}</b></span>
+          <span>随记 <b>{{ show(detail.stats.communityPosts) }}</b></span>
           <span>评论 <b>{{ show(detail.stats.comments) }}</b></span>
           <span>登录次数 <b>{{ show(detail.stats.logins) }}</b></span>
         </div>

@@ -85,7 +85,7 @@
                   <div class="timeline-content">
                     <div class="timeline-meta">
                       <span class="meta-tag" :class="blog.TYPE === 'blog' ? 'tag-article' : 'tag-community'">
-                        {{ blog.TYPE === 'blog' ? '文章' : '社区' }}
+                        {{ blog.TYPE === 'blog' ? '文章' : '随记' }}
                       </span>
                       <span class="meta-time">{{ formatDate(blog.CREATE_TIME) }}</span>
                     </div>
@@ -98,7 +98,9 @@
                       >
                         <h4 class="blog-title">{{ blog.BLOG_TITLE }}</h4>
                       </a>
-                      <h4 v-else class="blog-title">{{ blog.BLOG_TITLE }}</h4>
+                      <a v-else :href="'/note/' + encodeURIComponent(blog.GUID)" @click.prevent class="seo-link">
+                        <h4 class="blog-title">{{ blog.BLOG_TITLE || '一张便签' }}</h4>
+                      </a>
                       <p class="blog-summary">{{ listExcerpt(blog) }}</p>
                       <div class="blog-card-footer">
                         <span class="read-more">阅读全文 →</span>
@@ -404,8 +406,9 @@ const showBlogs = computed(() => {
 })
 
 function blogMainClick(blog) {
+  // 便签墙的随记打开自己的页面
   if (blog.TYPE === "community") {
-    ElMessage.info('该内容为社区留言,非文章');
+    router.push('/note/' + encodeURIComponent(blog.GUID));
     return false
   }
   const userNum = route.params.u;

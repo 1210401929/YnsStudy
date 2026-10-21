@@ -81,147 +81,16 @@
           </div>
         </div>
 
-        <!-- 评论区：在文章下方 -->
-        <section ref="commentCardRef" class="comment-card">
-          <div class="comment-header">
-            <h3>互动评论 <span class="comment-count-badge">{{ commentTotal }}</span></h3>
-          </div>
-
-          <p v-if="blogContent.GUID && blogComment.length === 0" class="comment-empty">
-            <svg class="pencil-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20l1.2-4.6L15.8 4.8a2 2 0 0 1 2.8 0l.6.6a2 2 0 0 1 0 2.8L8.6 18.8z M13.5 7l3.5 3.5 M4 20l4.6-1.2"/></svg>
-            还没有人留言，来写下第一条吧
-          </p>
-
-          <div v-for="(comment, i) in visibleComments" :key="comment.GUID || i" class="comment-item">
-            <div class="comment-main-row" @click="toggleAction(comment.GUID)">
-              <div class="avatar-container">
-                <el-tooltip :content="'评论于: '+pubFormatDate(comment.CREATE_TIME)" placement="top" effect="light">
-                  <el-avatar :src="comment.AVATAR" class="author-avatar-comment"
-                             @click.stop="commentAvatarClick(comment)"
-                             :style="!comment.AVATAR ? getAvatarStyle(comment.USERNAME) : {}">
-                    {{ comment.USERNAME?.charAt(0) }}
-                  </el-avatar>
-                </el-tooltip>
-              </div>
-
-              <div class="comment-content-block">
-                <span class="comment-user-name">{{ comment.USERNAME }}<span v-if="isArticleAuthor(comment)" class="j-stamp author-stamp">作者</span>:</span>
-                <span class="comment-text">{{ comment.TEXT }}</span>
-              </div>
-
-              <div class="comment-actions" v-show="activeCommentId === comment.GUID">
-                <button type="button" class="tool-link" @click.stop="replyComment(comment.GUID, comment)">回复</button>
-                <button type="button" class="tool-link danger"
-                        @click.stop="deleteComment(comment.GUID)"
-                        v-if="(userStore?.userBean?.code && comment.USERCODE===userStore.userBean.code) ||(getCurrentUserAdminObject().isAdmin && comment.USERCODE!==adminUserCode) ||getCurrentUserAdminObject().adminLevel==='superAdmin'">
-                  删除
-                </button>
-              </div>
-            </div>
-
-            <!-- 用真正的表单包起来，浏览器才会识别并记住昵称、邮箱、网址，下次自动填充 -->
-            <form v-if="replyInputVisible[comment.GUID]" class="reply-input-wrapper" @submit.prevent="submitReply(comment.GUID)">
-              <el-row :gutter="[10, 10]" v-if="!userStore?.userBean?.code" class="guest-form-row">
-                <el-col :xs="24" :sm="12">
-                  <el-input v-model="guestInfo.nickname" name="author" autocomplete="name" :prefix-icon="User" placeholder="昵称 (选填)" size="small" clearable/>
-                </el-col>
-                <el-col :xs="24" :sm="12">
-                  <el-input v-model="guestInfo.email" name="mail" type="email" autocomplete="email" :prefix-icon="Message" placeholder="邮箱 (选填)" size="small" clearable/>
-                </el-col>
-                <el-col :span="24">
-                  <el-input v-model="guestInfo.website" v-url-hint="guestInfo.website" name="url" type="url" autocomplete="on" :prefix-icon="Link" placeholder="http://" size="small" clearable/>
-                </el-col>
-              </el-row>
-              <div class="reply-action-group">
-                <el-input
-                    v-model="replyInputs[comment.GUID]"
-                    :placeholder="replyTargets[comment.GUID] ? `回复 @${replyTargets[comment.GUID].USERNAME}：` : '写下你的回复...'"
-                    size="small"
-                    clearable
-                />
-                <el-button type="primary" size="small" native-type="submit">
-                  发送
-                </el-button>
-              </div>
-            </form>
-
-            <div class="children-comments" v-if="comment.children?.length">
-              <button type="button" class="tool-link toggle-children-btn" @click="toggleChildren(comment.GUID)">
-                {{ repliesOpen(comment.GUID) ? '收起回复' : `查看回复 (${comment.children.length})` }}
-              </button>
-
-              <div v-show="repliesOpen(comment.GUID)" class="children-list">
-                <div v-for="(child, idx) in comment.children" :key="child.GUID || idx" class="comment-child"
-                     @click="toggleAction(child.GUID)">
-                  <div class="avatar-container">
-                    <el-tooltip :content="'评论于: ' + pubFormatDate(child.CREATE_TIME)" placement="top" effect="light">
-                      <el-avatar :src="child.AVATAR" class="author-avatar-comment child-avatar"
-                                 @click.stop="commentAvatarClick(child)"
-                                 :style="!child.AVATAR ? getAvatarStyle(child.USERNAME) : {}">
-                        {{ child.USERNAME?.charAt(0) }}
-                      </el-avatar>
-                    </el-tooltip>
-                  </div>
-
-                  <div class="comment-content-block">
-                    <span class="comment-user-name child-name">{{ child.USERNAME }}<span v-if="isArticleAuthor(child)" class="j-stamp author-stamp">作者</span></span>
-                    <span v-if="child.RECEIVE_USERNAME && child.RECEIVE_USERCODE !== comment.USERCODE"
-                          class="reply-to-text">
-                      回复 <span class="reply-to-name">@{{ child.RECEIVE_USERNAME }}</span>：
-                    </span>
-                    <span class="comment-text">{{ child.TEXT }}</span>
-                  </div>
-
-                  <div class="comment-actions" v-show="activeCommentId === child.GUID">
-                    <button type="button" class="tool-link" @click.stop="replyComment(comment.GUID, child)">回复</button>
-                    <button type="button" class="tool-link danger"
-                            @click.stop="deleteComment(child.GUID, comment.GUID)"
-                            v-if="(userStore?.userBean?.code && child.USERCODE===userStore.userBean.code) ||(getCurrentUserAdminObject().isAdmin && child.USERCODE!==adminUserCode) ||getCurrentUserAdminObject().adminLevel==='superAdmin'">
-                      删除
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div v-if="blogComment.length > 5" class="comment-more">
-            <button type="button" class="tool-link" @click="toggleComments">
-              {{ showAllComments ? '收起部分评论' : '展开全部评论' }}
-            </button>
-          </div>
-
-          <form class="comment-input-area" @submit.prevent="submitComment">
-            <p class="input-title">发表评论</p>
-            <el-row :gutter="[10, 10]" v-if="showMainGuestForm" class="guest-form-row">
-              <el-col :xs="24" :sm="12">
-                <el-input v-model="guestInfo.nickname" name="author" autocomplete="name" :prefix-icon="User" placeholder="昵称 (选填)" size="default" clearable />
-              </el-col>
-              <el-col :xs="24" :sm="12">
-                <el-input v-model="guestInfo.email" name="mail" type="email" autocomplete="email" :prefix-icon="Message" placeholder="邮箱 (选填)" size="default" clearable />
-              </el-col>
-              <el-col :span="24">
-                <el-input v-model="guestInfo.website" v-url-hint="guestInfo.website" name="url" type="url" autocomplete="on" :prefix-icon="Link" placeholder="http://" size="default" clearable />
-              </el-col>
-            </el-row>
-
-            <el-input
-                v-model="newComment"
-                type="textarea"
-                :rows="3"
-                placeholder="写下你的优质评论..."
-                class="lined-paper"
-                @keyup.enter.ctrl="submitComment"
-                clearable
-                resize="none"
-            />
-            <div class="comment-submit-row">
-              <span class="hint-text">Ctrl + Enter 快捷发送</span>
-              <el-button type="primary" size="default" :icon="Edit" native-type="submit">
-                发表评论
-              </el-button>
-            </div>
-          </form>
+        <!-- 评论区：在文章下方（与便签墙共用组件） -->
+        <section class="comment-anchor" ref="commentAnchorRef">
+          <CommentSection
+              v-if="blogContent.GUID"
+              kind="blog"
+              :target-id="blogContent.GUID"
+              :author-code="blogContent.USERCODE"
+              :author-name="blogContent.USERNAME"
+              @count="commentTotal = $event"
+          />
         </section>
 
         <!-- 上一篇 / 下一篇 / 同作者文章放在评论之后，读完先看讨论，最后再去别的文章 -->
@@ -287,14 +156,14 @@ import { useBlogContentStore } from "@/stores/detail/blog.js";
 import ArticleViewer from "@/components/detail/ArticleViewer.vue";
 import ArticleLinks from "@/components/detail/myblog/ArticleLinks.vue";
 import ArticleToc from "@/components/detail/myblog/ArticleToc.vue";
-import { Star, User, Message, Link, Edit, Memo } from '@element-plus/icons-vue'
+import CommentSection from "@/components/detail/comment/CommentSection.vue";
+import { getAvatarStyle } from "@/utils/avatarStyle.js";
+import { Star, Memo } from '@element-plus/icons-vue'
 import { ElMessage } from "element-plus";
 import debounce from 'lodash/debounce'
 
 import {
-  buildChildrenData,
   ele_confirm,
-  getGuid,
   sendAxiosRequest,
   sendAxiosRequestChecked,
   pubFormatDate,
@@ -307,23 +176,6 @@ import { pubOpenOneBlog, pubOpenUser } from "@/utils/blogUtil.js";
 // 编辑器体积较大，只在打开编辑弹窗（或切回编辑器展示方式）时才下载
 const ArticleEditor = defineAsyncComponent(() => import("@/components/detail/ArticleEditor.vue"));
 
-// 网址输入框是 type="url"，浏览器默认只提示“请输入网址”，看不出缺的是 http:// 或 https://。
-// 格式不对时换成明确的提示；内容一变（包括点清除按钮）就清掉，交给浏览器重新校验，
-// 否则自定义错误会一直保留，清空后也无法提交。
-const URL_HINT = '网址需要以 http:// 或 https:// 开头，例如 https://example.com';
-const urlInputOf = (el) => (el.tagName === 'INPUT' ? el : el.querySelector('input'));
-const vUrlHint = {
-  mounted(el) {
-    const input = urlInputOf(el);
-    if (!input) return;
-    input.addEventListener('invalid', () => {
-      if (input.validity.typeMismatch) input.setCustomValidity(URL_HINT);
-    });
-  },
-  updated(el, binding) {
-    if (binding.value !== binding.oldValue) urlInputOf(el)?.setCustomValidity('');
-  }
-};
 const articleEditorRef = ref(null);
 
 const route = useRoute();
@@ -342,57 +194,26 @@ if (props.blogId) {
 const blogLikeNum = ref(0);
 const blogCollectNum = ref(0);
 const blogContent = ref({});
-const blogComment = ref([]);
 const editorVisible = ref(false);
-
-const showAllComments = ref(false);
-const newComment = ref("");
 
 // 文章详情页：目录由页面放在左栏；我的博客页和详情页在小屏时把目录收进抽屉
 const isFocusPage = computed(() => route.name === 'oneBlog');
 const useTocDrawer = computed(() => ['oneBlog', 'BlogContent'].includes(route.name));
 const tocDrawerVisible = ref(false);
 const articleSheetRef = ref(null);
-const commentCardRef = ref(null);
-
-// 评论者是文章作者时盖一个“作者”章
-const isArticleAuthor = (c) => !!c.USERCODE && c.USERCODE === blogContent.value.USERCODE;
+const commentAnchorRef = ref(null);
 
 // 只有当次点击才播放盖章动画，刷新页面看到的已赞状态直接显示
 const stampPressed = ref({ like: false, collect: false });
 
-// 评论总数包含楼中楼
-const commentTotal = computed(() => blogComment.value.reduce((sum, c) => sum + 1 + (c.children?.length || 0), 0));
+// 评论总数（包含楼中楼）由评论组件告知
+const commentTotal = ref(0);
 
 const scrollToComments = () => {
-  commentCardRef.value?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  commentAnchorRef.value?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 };
-
-const getLocalGuestData = () => {
-  try {
-    const cached = localStorage.getItem('blog_guest_info');
-    if (cached) return JSON.parse(cached);
-  } catch (e) {}
-  return { nickname: '', email: '', website: '' };
-};
-
-const guestInfo = ref(getLocalGuestData());
-const replyInputVisible = ref({});
-const replyInputs = ref({});
-const isChildrenVisible = ref({});
-
-const showMainGuestForm = computed(() => {
-  if (userStore.userBean?.code) return false;
-  return !Object.values(replyInputVisible.value).some(visible => visible === true);
-});
 
 const emit = defineEmits(['loaded', 'not-found', 'toc-change'])
-
-const activeCommentId = ref("");
-
-function toggleAction(id) {
-  activeCommentId.value = activeCommentId.value === id ? "" : id;
-}
 
 const handleEditorSubmit = async ({blog_type, title, content}) => {
   const result = await sendAxiosRequestChecked("/blog-api/blog/updateBlog", {
@@ -415,10 +236,9 @@ const handleEditorSubmit = async ({blog_type, title, content}) => {
 };
 
 const loadContentAndComments = async (guid) => {
-  // 正文、评论、点赞收藏只依赖文章 ID，三个请求同时发出，不再一个接一个地等
-  const [blogResult, commentResult, reactionResult] = await Promise.all([
+  // 正文、点赞收藏只依赖文章 ID，两个请求同时发出；评论由评论组件自己加载
+  const [blogResult, reactionResult] = await Promise.all([
     sendAxiosRequest("/blog-api/blog/getBlog", {blogId: guid}),
-    sendAxiosRequest("/blog-api/blog/getComment", {blogId: guid}),
     sendAxiosRequest("/blog-api/blog/getLikeAndCollectByBlogId", {blogId: guid}),
   ]);
   if (blogResult && !blogResult.isError && blogResult?.result?.[0]) {
@@ -428,12 +248,8 @@ const loadContentAndComments = async (guid) => {
     emit('not-found');
     return false;
   }
-  // 作者信息等由父组件加载，拿到正文就通知，和下面的评论处理互不等待
+  // 作者信息等由父组件加载，拿到正文就通知
   emit('loaded', {blogContent: blogContent.value});
-
-  if (commentResult && !commentResult.isError) {
-    blogComment.value = buildChildrenData(commentResult.result);
-  }
 
   if (reactionResult && !reactionResult.isError) {
     let userBean = userStore.userBean;
@@ -449,9 +265,6 @@ const loadContentAndComments = async (guid) => {
     blogLikeNum.value = likeNum;
     blogCollectNum.value = collectNum;
   }
-  replyInputVisible.value = {};
-  replyInputs.value = {};
-  isChildrenVisible.value = {};
 };
 
 // 文章字数和预计阅读时长：中文按字、英文按单词计数，阅读速度按每分钟 400 字 / 200 词估算
@@ -612,10 +425,6 @@ if (contentGuid.value) {
   loadContentAndCommentsDebounced(contentGuid.value);
 }
 
-const visibleComments = computed(() => {
-  return showAllComments.value ? blogComment.value : blogComment.value.slice(0, 5);
-});
-
 watch(() => props.blogId, (newGuid) => {
   if (newGuid) {
     contentGuid.value = newGuid;
@@ -634,149 +443,6 @@ function avatarClick(blogContent) {
   pubOpenUser(router, blogContent.USERCODE);
 }
 
-function commentAvatarClick(comment) {
-  // 访客填写的网址只打开 http/https 链接，防止 javascript: 之类的链接执行脚本
-  const website = String(comment.USERWEBSITE || '').trim();
-  if (/^https?:\/\//i.test(website)) {
-    window.open(website, '_blank', 'noopener');
-  } else if (comment.USERCODE) {
-    pubOpenUser(router, comment.USERCODE);
-  }
-}
-
-function toggleComments() {
-  showAllComments.value = !showAllComments.value;
-}
-
-const replyTargets = ref({});
-
-function getCommenterPayload() {
-  let userBean = userStore.userBean;
-  if (userBean && userBean.code) {
-    return {
-      name: userBean.name || "匿名用户",
-      code: userBean.code,
-      avatar: userBean.avatar || "",
-      email: "", website: ""
-    }
-  } else {
-    const finalGuest = {
-      name: guestInfo.value.nickname.trim() || "访客",
-      code: "guest_" + getGuid().substring(0, 8),
-      avatar: "",
-      email: guestInfo.value.email.trim(),
-      website: guestInfo.value.website.trim()
-    };
-    localStorage.setItem('blog_guest_info', JSON.stringify({
-      nickname: guestInfo.value.nickname,
-      email: guestInfo.value.email,
-      website: guestInfo.value.website
-    }));
-    return finalGuest;
-  }
-}
-
-async function submitComment() {
-  const value = newComment.value.trim();
-  if (!value) {
-    ElMessage.warning("评论内容不能为空哦");
-    return;
-  }
-  const userPayload = getCommenterPayload();
-  const oneComment = {
-    GUID: getGuid(), BLOGID: contentGuid.value,
-    USERNAME: userPayload.name, USERCODE: userPayload.code,
-    RECEIVE_USERCODE: blogContent.value.USERCODE, RECEIVE_USERNAME: blogContent.value.USERNAME,
-    TEXT: value, CREATE_TIME: "刚刚", AVATAR: userPayload.avatar,
-    USEREMAIL: userPayload.email, USERWEBSITE: userPayload.website, children: [],
-  }
-
-  let comment = {...oneComment};
-  delete comment.children; delete comment.CREATE_TIME; delete comment.AVATAR;
-  let result = await sendAxiosRequest("/blog-api/blog/addComment", {blogComment: comment})
-  if(result && !result.isError){
-    blogComment.value.unshift(oneComment);
-    ElMessage.success("评论发表成功！");
-    // 给文章作者的消息由后台在保存评论时发送，匿名评论也能通知到
-  }else{
-    ElMessage.error(result?.errMsg || "发表评论出错");
-  }
-  newComment.value = "";
-}
-
-function replyComment(parentGuid, targetComment) {
-  if (replyInputVisible.value[parentGuid] && replyTargets.value[parentGuid]?.GUID === targetComment.GUID) {
-    replyInputVisible.value[parentGuid] = false;
-    replyInputs.value[parentGuid] = "";
-    replyTargets.value[parentGuid] = null;
-  } else {
-    Object.keys(replyInputVisible.value).forEach(key => replyInputVisible.value[key] = false);
-    replyInputVisible.value[parentGuid] = true;
-    replyTargets.value[parentGuid] = targetComment;
-    isChildrenVisible.value[parentGuid] = true;
-  }
-}
-
-async function submitReply(parentGuid) {
-  const value = (replyInputs.value[parentGuid] || "").trim();
-  if (!value) return;
-  const userPayload = getCommenterPayload();
-  const parentComment = blogComment.value.find((c) => c.GUID === parentGuid);
-  const targetUser = replyTargets.value[parentGuid] || parentComment;
-
-  if (parentComment) {
-    if (!parentComment.children) parentComment.children = [];
-    const oneComment = {
-      GUID: getGuid(), BLOGID: contentGuid.value, SUPERGUID: parentComment.GUID,
-      USERNAME: userPayload.name, USERCODE: userPayload.code,
-      RECEIVE_USERCODE: targetUser.USERCODE, RECEIVE_USERNAME: targetUser.USERNAME,
-      CREATE_TIME: "刚刚", AVATAR: userPayload.avatar,
-      USEREMAIL: userPayload.email, USERWEBSITE: userPayload.website, TEXT: value,
-    }
-
-    let comment = {...oneComment};
-    delete comment.CREATE_TIME; delete comment.AVATAR;
-    // 告诉后台回复的是哪条评论，用于给对方发站内消息或邮件（匿名访客靠留下的邮箱）
-    comment.REPLY_TO = targetUser.GUID;
-    let result = await sendAxiosRequest("/blog-api/blog/addComment", {blogComment: comment})
-    if(result && !result.isError){
-      parentComment.children.push(oneComment);
-      ElMessage.success("回复成功！");
-      // 给被回复人的消息由后台发送
-    }else{
-      ElMessage.error(result?.errMsg || "回复失败");
-    }
-    replyInputs.value[parentGuid] = "";
-    replyInputVisible.value[parentGuid] = false;
-    replyTargets.value[parentGuid] = null;
-    isChildrenVisible.value[parentGuid] = true;
-  }
-}
-
-function deleteComment(commentId, parentId = null) {
-  ele_confirm("确定要删除这条评论吗?", async () => {
-    const result = await sendAxiosRequestChecked("/blog-api/blog/deleteComment", {blogGuid: commentId}, "删除评论失败");
-    if (!result) return;
-    if (parentId) {
-      let parent = blogComment.value.find(c => c.GUID === parentId);
-      if (parent) parent.children = parent.children.filter(item => item["GUID"] !== commentId);
-    } else {
-      blogComment.value = blogComment.value.filter(item => item["GUID"] !== commentId);
-    }
-    ElMessage.success("评论已删除");
-  })
-}
-
-// 楼中楼默认展开；手动点过“收起回复/查看回复”的按手动结果
-function repliesOpen(commentId) {
-  if (commentId in isChildrenVisible.value) return isChildrenVisible.value[commentId];
-  return true;
-}
-
-function toggleChildren(commentId) {
-  isChildrenVisible.value[commentId] = !repliesOpen(commentId);
-}
-
 function openOneBlog() { pubOpenOneBlog(router, blogContent.value.GUID) }
 
 function deleteArticle() {
@@ -784,7 +450,6 @@ function deleteArticle() {
     const result = await sendAxiosRequestChecked("/blog-api/blog/deleteBlog", {guid: contentGuid.value}, "删除文章失败");
     if (!result) return;
     blogContentStore.blogContents = blogContentStore.blogContents.filter(item => item["GUID"] !== contentGuid.value);
-    blogComment.value = [];
     ElMessage.success("文章已删除");
     if(route.name==="BlogContent"){
       router.push({ name: "BlogContent", query: {g: blogContentStore?.blogContents?.[0]?.GUID || ""} });
@@ -793,34 +458,6 @@ function deleteArticle() {
     }
   })
 }
-
-// 根据用户名生成固定的头像底色（取自胶带配色）
-const getAvatarStyle = (name) => {
-  if (!name) return {};
-
-  const colors = [
-    { bg: '#f6e3a1', text: '#7a5c12' },
-    { bg: '#c7e2cf', text: '#2f6040' },
-    { bg: '#f3cccc', text: '#8a3a34' },
-    { bg: '#c9dbeb', text: '#2f5d8a' },
-    { bg: '#e2d5c0', text: '#6b5330' }
-  ];
-
-  // 简单的字符串哈希算法，确保同一个名字每次计算出的颜色都是固定的
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) {
-    hash = name.charCodeAt(i) + ((hash << 5) - hash);
-  }
-
-  const index = Math.abs(hash) % colors.length;
-  const selectedColor = colors[index];
-
-  return {
-    backgroundColor: selectedColor.bg,
-    color: selectedColor.text,
-    fontWeight: '600'
-  };
-};
 </script>
 
 <style scoped>
@@ -1066,9 +703,8 @@ const getAvatarStyle = (name) => {
   pointer-events: none;
 }
 
-/* 加载中、暂无评论：楷体一句话 + 一支铅笔 */
-.sheet-loading,
-.comment-empty {
+/* 加载中：楷体一句话 + 一支铅笔 */
+.sheet-loading {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1081,11 +717,6 @@ const getAvatarStyle = (name) => {
 .sheet-loading {
   padding: 80px 0;
   font-size: 18px;
-}
-
-.comment-empty {
-  padding: 18px 0 8px;
-  font-size: 16px;
 }
 
 .pencil-icon {
@@ -1107,212 +738,6 @@ const getAvatarStyle = (name) => {
   to { transform: translateX(3px) rotate(4deg); }
 }
 
-/* ====== 评论区 ====== */
-.comment-card {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  padding: 20px 18px 18px;
-  background: var(--j-paper-warm);
-  border: 1px solid var(--j-rule);
-  margin-top: 28px;
-  box-sizing: border-box;
-  scroll-margin-top: 20px;
-}
-
-.comment-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
-  padding-bottom: 10px;
-  border-bottom: 1px dashed var(--j-rule-strong);
-}
-
-.comment-header h3 {
-  margin: 0;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-family: var(--j-hand);
-  font-weight: normal;
-  font-size: 19px;
-}
-
-.comment-count-badge {
-  min-width: 20px;
-  padding: 0 6px;
-  border-radius: 10px;
-  background: var(--j-stamp);
-  color: #fff;
-  font-family: var(--j-sans);
-  font-size: 12px;
-  line-height: 18px;
-  text-align: center;
-}
-
-.comment-item {
-  padding: 6px 0 10px;
-  border-bottom: 1px dashed var(--j-rule);
-}
-
-.comment-main-row,
-.comment-child {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 8px 6px;
-  border-radius: 3px;
-  transition: background-color 0.2s ease;
-  cursor: pointer;
-}
-
-.comment-main-row:hover,
-.comment-child:hover {
-  background-color: rgba(250, 216, 96, 0.18);
-}
-
-.avatar-container {
-  flex-shrink: 0;
-  margin-top: 2px;
-}
-
-.author-avatar-comment {
-  width: 34px !important;
-  height: 34px !important;
-}
-
-.child-avatar {
-  width: 26px !important;
-  height: 26px !important;
-  font-size: 12px;
-}
-
-.comment-content-block {
-  flex: 1;
-  min-width: 0;
-  line-height: 1.65;
-}
-
-.comment-user-name {
-  margin-right: 6px;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--j-pen);
-}
-
-.child-name {
-  color: #4f8a5b;
-}
-
-.author-stamp {
-  margin: 0 4px 0 6px;
-  font-size: 11px;
-  line-height: 15px;
-  vertical-align: 1px;
-}
-
-.comment-text {
-  font-size: 14px;
-  color: var(--j-ink);
-  word-wrap: break-word;
-  word-break: break-all;
-}
-
-.reply-to-text {
-  margin: 0 4px;
-  font-size: 13px;
-  color: var(--j-muted);
-}
-
-.reply-to-name {
-  color: var(--j-pen);
-  font-weight: 600;
-}
-
-.comment-actions {
-  flex-shrink: 0;
-  display: flex;
-  gap: 2px;
-}
-
-.reply-input-wrapper {
-  margin-top: 6px;
-  padding: 0 0 8px 44px;
-}
-
-.reply-action-group {
-  display: flex;
-  gap: 8px;
-  margin-top: 8px;
-}
-
-.children-comments {
-  margin: 2px 0 0 44px;
-}
-
-.toggle-children-btn {
-  padding-left: 0;
-}
-
-/* 楼中楼左边一道铅笔线 */
-.children-list {
-  margin-top: 6px;
-  padding-left: 10px;
-  border-left: 1.5px solid rgba(110, 100, 85, 0.35);
-}
-
-.comment-more {
-  margin-top: 10px;
-  text-align: center;
-}
-
-.comment-input-area {
-  margin-top: 18px;
-}
-
-.input-title {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin: 0 0 12px;
-  font-family: var(--j-hand);
-  font-size: 16px;
-  color: var(--j-ink-soft);
-}
-
-.input-title::after {
-  content: "";
-  flex: 1;
-  border-top: 1px dashed var(--j-rule-strong);
-}
-
-.guest-form-row {
-  margin-bottom: 10px;
-}
-
-/* 评论输入框：横线信纸，横线跟着文字一起滚动 */
-.lined-paper :deep(.el-textarea__inner) {
-  padding-top: 4px;
-  line-height: 26px;
-  background-color: var(--j-paper);
-  background-image: repeating-linear-gradient(transparent 0 25px, var(--j-rule) 25px 26px);
-  background-position: 0 4px;
-  background-attachment: local;
-}
-
-.comment-submit-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-top: 12px;
-}
-
-.hint-text {
-  font-size: 12px;
-  color: var(--j-muted);
-}
-
 :deep(h1), :deep(h2), :deep(h3), :deep(h4) {
   scroll-margin-top: 80px;
 }
@@ -1330,10 +755,6 @@ const getAvatarStyle = (name) => {
 
   .toc-col .side-float {
     position: static;
-    margin-top: 18px;
-  }
-
-  .comment-card {
     margin-top: 18px;
   }
 

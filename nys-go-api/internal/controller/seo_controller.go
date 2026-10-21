@@ -38,6 +38,8 @@ func (h *Controller) registerSEORoutes(router *gin.Engine) {
 	router.GET("/archive", h.seoArchive)
 	router.GET("/user/:u", h.seoProfile)
 	router.GET("/archive/page/:page", h.seoArchive)
+	router.GET("/note/:id", h.seoNote)
+	router.GET(noteWallPath, h.seoNoteWall)
 	router.GET(service.IndexNowKeyPath, h.indexNowKey)
 }
 
@@ -115,7 +117,7 @@ func (h *Controller) sitemap(c *gin.Context) {
 		{Location: domain + "/archive", Frequency: "daily", Priority: "0.9"},
 		{Location: domain + "/ynsStudy/Home", Frequency: "daily", Priority: "0.8"},
 		{Location: domain + "/ynsStudy/Resources", Frequency: "weekly", Priority: "0.6"},
-		{Location: domain + "/ynsStudy/Community", Frequency: "daily", Priority: "0.6"},
+		{Location: domain + noteWallPath, Frequency: "daily", Priority: "0.6"},
 		{Location: domain + "/ynsStudy/FriendLink", Frequency: "monthly", Priority: "0.4"},
 		{Location: domain + "/ynsStudy/About", Frequency: "monthly", Priority: "0.5"},
 	}
@@ -137,6 +139,17 @@ func (h *Controller) sitemap(c *gin.Context) {
 			Frequency:  "weekly",
 			Priority:   "0.8",
 		})
+	}
+	// 便签墙的每一条随记；查询失败时跳过，不影响文章地址。
+	if notes, err := h.service.GetAllNoteIDs(c.Request.Context()); err == nil {
+		for _, note := range notes {
+			urls = append(urls, sitemapURL{
+				Location:   domain + "/note/" + url.PathEscape(model.StringValue(note, "GUID")),
+				LastModify: formatDate(model.Lookup(note, "LAST_MODIFIED")),
+				Frequency:  "monthly",
+				Priority:   "0.5",
+			})
+		}
 	}
 	c.Header("Cache-Control", "public, max-age=300")
 	writeXML(c, sitemapDocument{XMLNS: "http://www.sitemaps.org/schemas/sitemap/0.9", URLs: urls})
@@ -298,7 +311,7 @@ func renderSEOHomeHTML(shell string, articles []map[string]any, owner service.Si
 <h1 id="seo-home-title">%s</h1>
 <p>%s</p>
 <p class="seo-home-owner">站长：%s</p>
-<nav class="seo-home-nav" aria-label="主要栏目"><a href="%s/ynsStudy/Home">最新文章</a><a href="%s/ynsStudy/Resources">资源</a><a href="%s/ynsStudy/Community">社区</a><a href="%s/ynsStudy/FriendLink">友链</a><a href="%s/ynsStudy/About">关于</a></nav>
+<nav class="seo-home-nav" aria-label="主要栏目"><a href="%s/ynsStudy/Home">最新文章</a><a href="%s/ynsStudy/Resources">资源</a><a href="%s/ynsStudy/Notes">便签墙</a><a href="%s/ynsStudy/FriendLink">友链</a><a href="%s/ynsStudy/About">关于</a></nav>
 </section>
 <section class="seo-home-latest" aria-labelledby="seo-latest-title"><h2 id="seo-latest-title">最新文章</h2><ul>%s</ul><p class="seo-home-more"><a href="%s/archive">查看全部文章 →</a></p></section>
 </main>`, htmlstd.EscapeString(cfg.SEO.SiteName), escapedDescription, ownerLinkHTML(owner, domain),

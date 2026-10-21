@@ -101,7 +101,7 @@
                     <span class="switch-box">
                       <span class="switch-handle"></span>
                     </span>
-                    <span class="switch-label">剔除社区留言</span>
+                    <span class="switch-label">只看文章</span>
                   </label>
                 </div>
 
@@ -113,7 +113,7 @@
                       :style="{ animationDelay: index * 0.05 + 's' }"
                   >
                     <div class="card-meta">
-                      <span class="meta-type" :class="blog.TYPE">{{ blog.TYPE === 'blog' ? '文章' : '社区' }}</span>
+                      <span class="meta-type" :class="blog.TYPE">{{ blog.TYPE === 'blog' ? '文章' : '随记' }}</span>
                       <span class="meta-date">{{ formatDate(blog.CREATE_TIME) }}</span>
                     </div>
                     <div class="card-body" @click="blogMainClick(blog)">
@@ -123,7 +123,9 @@
                           @click.prevent
                           class="seo-article-link"
                       ><h3 class="article-title">{{ blog.BLOG_TITLE }}</h3></a>
-                      <h3 v-else class="article-title">{{ blog.BLOG_TITLE }}</h3>
+                      <a v-else :href="'/note/' + encodeURIComponent(blog.GUID)" @click.prevent class="seo-article-link">
+                        <h3 class="article-title">{{ blog.BLOG_TITLE || '一张便签' }}</h3>
+                      </a>
                       <p class="article-desc">{{ listExcerpt(blog) }}</p>
                     </div>
                   </div>
@@ -334,7 +336,8 @@ const showBlogs = computed(() => {
 })
 
 function blogMainClick(blog) {
-  if (blog.TYPE === "community") return ElMessage.info('该内容为社区留言，非独立文章');
+  // 便签墙的随记打开自己的页面
+  if (blog.TYPE === "community") return router.push('/note/' + encodeURIComponent(blog.GUID));
   router.push({name: 'userV2', params: {u: route.params.u, blogId: blog.GUID}});
 }
 

@@ -1,10 +1,10 @@
-<!-- 后台：内容管理（全站文章含私密文章、社区帖子） -->
+<!-- 后台：内容管理（全站文章含私密文章、便签墙随记） -->
 <template>
   <div class="admin-content">
     <div class="filters">
       <el-radio-group v-model="kind" size="small" @change="switchKind">
         <el-radio-button value="articles">文章</el-radio-button>
-        <el-radio-button value="posts">社区帖子</el-radio-button>
+        <el-radio-button value="posts">便签墙随记</el-radio-button>
       </el-radio-group>
       <el-select v-model="query.type" size="small" style="width: 120px" :placeholder="kind === 'articles' ? '全部文章' : '全部帖子'" @change="reload">
         <template v-if="kind === 'articles'">
@@ -54,13 +54,13 @@
       </el-table-column>
     </el-table>
 
-    <!-- 社区帖子 -->
-    <el-table v-else v-loading="loading" :data="rows" border size="small" class="admin-table" empty-text="没有符合条件的帖子">
+    <!-- 便签墙随记 -->
+    <el-table v-else v-loading="loading" :data="rows" border size="small" class="admin-table" empty-text="没有符合条件的随记">
       <el-table-column label="内容" min-width="260">
         <template #default="{ row }">
           <div class="post-title">
             <el-tag v-if="row.ISTOP === '1'" size="small" type="warning">置顶</el-tag>
-            {{ row.TITLE || '（无标题）' }}
+            <a :href="`/note/${encodeURIComponent(row.GUID)}`" target="_blank" rel="noopener" class="title-link">{{ row.TITLE || '查看随记' }}</a>
           </div>
           <div class="post-text">{{ row.TEXT }}</div>
         </template>

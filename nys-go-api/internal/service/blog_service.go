@@ -37,25 +37,12 @@ func (s *Service) AddBlog(c *gin.Context, blog map[string]any) model.Result {
 		blog[searchTextColumn] = htmlToSearchText(model.StringValue(blog, "MAINTEXT"))
 	}
 	if fmt.Sprint(blog["GUID"]) == "" || blog["GUID"] == nil {
-		tx, err := s.Repo.DB().BeginTx(ctx, nil)
+		nextID, err := s.nextSequenceID(ctx, "bloginfo")
 		if err != nil {
 			return dbFailure("生成文章编号", err)
 		}
-		defer tx.Rollback()
-		result, err := tx.ExecContext(ctx, "UPDATE blogInfo_guid_sequence SET current_value = LAST_INSERT_ID(current_value + 1) WHERE table_name = ?", "bloginfo")
-		if err != nil {
-			return dbFailure("生成文章编号", err)
-		}
-		updated, _ := result.RowsAffected()
-		if updated > 0 {
-			var nextID int64
-			if err := tx.QueryRowContext(ctx, "SELECT LAST_INSERT_ID()").Scan(&nextID); err != nil {
-				return dbFailure("读取文章编号", err)
-			}
-			blog["GUID"] = fmt.Sprint(nextID)
-		}
-		if err := tx.Commit(); err != nil {
-			return dbFailure("提交文章编号", err)
+		if nextID != "" {
+			blog["GUID"] = nextID
 		}
 	}
 	result := stripSearchTextResult(s.SaveAll(ctx, "add", "BLOGINFO", []map[string]any{blog}, "GUID"))
@@ -66,6 +53,32 @@ func (s *Service) AddBlog(c *gin.Context, blog map[string]any) model.Result {
 			model.StringValue(blog, "MAINTEXT"), s.mailSiteURL("/oneBlog/"+guid))
 	}
 	return result
+}
+
+// nextSequenceID 从 blogInfo_guid_sequence 取下一个数字编号（文章、随记各占一行，各自计数）。
+// 编号表里没有这一行时返回空字符串，调用方继续使用前端生成的编号。
+func (s *Service) nextSequenceID(ctx context.Context, name string) (string, error) {
+	tx, err := s.Repo.DB().BeginTx(ctx, nil)
+	if err != nil {
+		return "", err
+	}
+	defer tx.Rollback()
+	result, err := tx.ExecContext(ctx, "UPDATE blogInfo_guid_sequence SET current_value = LAST_INSERT_ID(current_value + 1) WHERE table_name = ?", name)
+	if err != nil {
+		return "", err
+	}
+	nextID := ""
+	if updated, _ := result.RowsAffected(); updated > 0 {
+		var value int64
+		if err := tx.QueryRowContext(ctx, "SELECT LAST_INSERT_ID()").Scan(&value); err != nil {
+			return "", err
+		}
+		nextID = fmt.Sprint(value)
+	}
+	if err := tx.Commit(); err != nil {
+		return "", err
+	}
+	return nextID, nil
 }
 
 func isPublicBlogType(blogType string) bool {
@@ -316,23 +329,41 @@ func (s *Service) GetUserBlogCategories(ctx context.Context, userCode string) mo
 	return s.SelectList(ctx, "SELECT * FROM blogCatInfo WHERE USERCODE = ? ORDER BY ORDERNO", []any{userCode})
 }
 
-func (s *Service) AddBlogComment(c *gin.Context, comment map[string]any) model.Result {
-	ctx := contextOf(c)
-	ip := ClientIP(c)
-	limitKey := "comment_limit:" + ip
-
+// checkCommentRate 按 IP 限制评论频率，文章评论和随记评论共用同一个计数。
+func (s *Service) checkCommentRate(ctx context.Context, ip string) *model.Result {
 	currentCount := int64(0)
-	currentValue, err := s.Cache.Get(ctx, limitKey)
+	currentValue, err := s.Cache.Get(ctx, "comment_limit:"+ip)
 	if err == nil {
 		currentCount, err = strconv.ParseInt(currentValue, 10, 64)
 		if err != nil {
-			return model.Failure("评论限流计数格式异常: " + err.Error())
+			result := model.Failure("评论限流计数格式异常: " + err.Error())
+			return &result
 		}
 	} else if !errors.Is(err, cache.ErrNotFound) {
-		return model.Failure("评论限流服务异常: " + err.Error())
+		result := model.Failure("评论限流服务异常: " + err.Error())
+		return &result
 	}
 	if currentCount >= int64(s.Config.Content.CommentLimit) {
-		return model.Failure("评论过于频繁，请稍后再试！")
+		result := model.Failure("评论过于频繁，请稍后再试！")
+		return &result
+	}
+	return nil
+}
+
+// countComment 评论保存成功后计数一次。
+func (s *Service) countComment(ctx context.Context, ip string) {
+	window := time.Duration(s.Config.Content.CommentWindowSecond) * time.Second
+	if _, err := s.Cache.Increment(ctx, "comment_limit:"+ip, window); err != nil {
+		// 评论已经保存，避免向客户端返回失败而导致用户重复提交。
+		log.Printf("评论已保存，但更新限流计数失败: %v", err)
+	}
+}
+
+func (s *Service) AddBlogComment(c *gin.Context, comment map[string]any) model.Result {
+	ctx := contextOf(c)
+	ip := ClientIP(c)
+	if failure := s.checkCommentRate(ctx, ip); failure != nil {
+		return *failure
 	}
 
 	// 被回复的那条评论（不入库，只用于确定通知谁）
@@ -379,11 +410,7 @@ func (s *Service) AddBlogComment(c *gin.Context, comment map[string]any) model.R
 		return result
 	}
 
-	window := time.Duration(s.Config.Content.CommentWindowSecond) * time.Second
-	if _, err := s.Cache.Increment(ctx, limitKey, window); err != nil {
-		// 评论已经保存，避免向客户端返回失败而导致用户重复提交。
-		log.Printf("评论已保存，但更新限流计数失败: %v", err)
-	}
+	s.countComment(ctx, ip)
 	s.notifyBlogComment(ctx, comment, replyTo)
 	return result
 }
@@ -481,8 +508,14 @@ func (s *Service) notifyBlogComment(ctx context.Context, comment map[string]any,
 // findReplyTarget 找到被回复的那条评论，必须在同一篇文章的同一楼层里。
 // 优先用前端传来的被回复评论编号；旧版前端没有传时，退回按 RECEIVE_USERCODE 查找。
 func (s *Service) findReplyTarget(ctx context.Context, blogID, parentID, replyTo, receiverCode string) map[string]any {
+	return s.findReplyTargetIn(ctx, "BLOGCOMMENT", "BLOGID", "USERCODE, USERNAME, USEREMAIL, TEXT", blogID, parentID, replyTo, receiverCode)
+}
+
+// findReplyTargetIn 是 findReplyTarget 的通用版本，文章评论和随记评论共用。
+// table、targetColumn、columns 只由代码传入固定值，不来自请求。
+func (s *Service) findReplyTargetIn(ctx context.Context, table, targetColumn, columns, targetID, parentID, replyTo, receiverCode string) map[string]any {
 	if replyTo != "" {
-		rows, err := s.Repo.Query(ctx, "SELECT USERCODE, USERNAME, USEREMAIL, TEXT FROM BLOGCOMMENT WHERE BLOGID = ? AND GUID = ? AND (GUID = ? OR SUPERGUID = ?) LIMIT 1", blogID, replyTo, parentID, parentID)
+		rows, err := s.Repo.Query(ctx, "SELECT "+columns+" FROM "+table+" WHERE "+targetColumn+" = ? AND GUID = ? AND (GUID = ? OR SUPERGUID = ?) LIMIT 1", targetID, replyTo, parentID, parentID)
 		if err == nil && len(rows) > 0 {
 			return rows[0]
 		}
@@ -491,7 +524,7 @@ func (s *Service) findReplyTarget(ctx context.Context, blogID, parentID, replyTo
 	if receiverCode == "" {
 		return nil
 	}
-	rows, err := s.Repo.Query(ctx, "SELECT USERCODE, USERNAME, USEREMAIL, TEXT FROM BLOGCOMMENT WHERE BLOGID = ? AND (GUID = ? OR SUPERGUID = ?) AND USERCODE = ? LIMIT 1", blogID, parentID, parentID, receiverCode)
+	rows, err := s.Repo.Query(ctx, "SELECT "+columns+" FROM "+table+" WHERE "+targetColumn+" = ? AND (GUID = ? OR SUPERGUID = ?) AND USERCODE = ? LIMIT 1", targetID, parentID, parentID, receiverCode)
 	if err != nil || len(rows) == 0 {
 		return nil
 	}

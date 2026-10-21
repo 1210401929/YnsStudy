@@ -5,6 +5,8 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+
+	"nys-go-api/internal/service"
 )
 
 func (h *Controller) registerBlogRoutes(router *gin.Engine) {
@@ -225,6 +227,19 @@ func (h *Controller) registerCommunityRoutes(group *gin.RouterGroup) {
 			writeResult(c, h.service.GetCommunityComments(c.Request.Context(), stringParam(body, "communityId")))
 		}
 	})
+	group.Any("/deleteComment", func(c *gin.Context) {
+		body, ok := requireBody(c)
+		if ok {
+			writeResult(c, h.service.DeleteCommunityComment(c, stringParam(body, "commentGuid")))
+		}
+	})
+	// 单条随记及上一条、下一条
+	group.Any("/getNote", func(c *gin.Context) {
+		body, ok := requireBody(c)
+		if ok {
+			writeResult(c, h.service.GetNote(c.Request.Context(), stringParam(body, "noteId")))
+		}
+	})
 }
 
 func (h *Controller) getAllCommunities(c *gin.Context) {
@@ -232,7 +247,14 @@ func (h *Controller) getAllCommunities(c *gin.Context) {
 	if !ok {
 		return
 	}
-	writeResult(c, h.service.GetAllCommunities(c.Request.Context(), intParam(body, "page", 1), intParam(body, "pageSize", 10), stringParam(body, "keyword")))
+	writeResult(c, h.service.GetAllCommunities(c, service.NoteQuery{
+		Page:     intParam(body, "page", 1),
+		PageSize: intParam(body, "pageSize", 10),
+		Keyword:  stringParam(body, "keyword"),
+		Type:     stringParam(body, "type"),
+		Sort:     stringParam(body, "sort"),
+		Mine:     asBoolValue(body["mine"]),
+	}))
 }
 
 func (h *Controller) registerFriendLinkRoutes(group *gin.RouterGroup) {

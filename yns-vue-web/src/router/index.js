@@ -7,7 +7,8 @@ const Home = () => import('../views/detail/home/Home.vue')
 const MyBlog = () => import('../views/detail/blog/MyBlog.vue')
 const OneBlog = () => import('../views/detail/blog/OneBlog.vue')
 const Resources = () => import('../views/detail/resources/Resources.vue')
-const Community = () => import('../views/detail/community/Community.vue')
+const NoteWall = () => import('../views/detail/notes/NoteWall.vue')
+const NoteDetail = () => import('../views/detail/notes/NoteDetail.vue')
 const FriendLink = () => import('../views/detail/friendLink/FriendLink.vue')
 const YnsStudyAi = () => import('../views/detail/ai/YnsStudyAi.vue')
 const About = () => import('../views/detail/about/About.vue')
@@ -43,6 +44,8 @@ const routes = [
     {path: '/YnsStudyAi', name: 'YnsStudyAi', component: YnsStudyAi},
     //展示一条博客内容
     {path:'/oneBlog/:g', name: 'oneBlog', component: OneBlog},
+    //便签墙的一条随记
+    {path:'/note/:id', name: 'note', component: NoteDetail},
     //展示一条博客内容
     {path:'/rss', name: 'rss', component: RssDetailView, meta: {noindex: true}},
     //导航栏菜单
@@ -63,7 +66,9 @@ const routes = [
                 }]
             },
             {path: 'Resources', name: 'Resources', component: Resources},
-            {path: 'Community', name: 'Community', component: Community},
+            {path: 'Notes', name: 'Notes', component: NoteWall},
+            //原“社区”地址跳到便签墙
+            {path: 'Community', redirect: '/ynsStudy/Notes'},
             {path: 'FriendLink', name: 'FriendLink', component: FriendLink},
             {path: 'About', name: 'About', component: About}
         ]
