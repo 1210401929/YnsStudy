@@ -103,7 +103,9 @@ const form = reactive({ type: 'note', text: '' })
 const images = ref([])
 
 const currentType = computed(() => noteTypeOf(form.type))
-const previewHtml = computed(() => sanitizeHtml(marked.parse(form.text || '')))
+// breaks：单个回车也换行（标准 Markdown 要空一行才分段，写便签时不符合习惯）
+const renderMarkdown = (text) => sanitizeHtml(marked.parse(text, { breaks: true, gfm: true }))
+const previewHtml = computed(() => renderMarkdown(form.text || ''))
 const uploading = computed(() => images.value.some(image => image.uploading))
 
 // 编辑时填入原来的内容；旧随记没有 Markdown 原文，把 HTML 转回 Markdown
@@ -186,7 +188,7 @@ async function submit() {
   }
   saving.value = true
   try {
-    const html = text ? sanitizeHtml(marked.parse(text)) : ''
+    const html = text ? renderMarkdown(text) : ''
     const community = { GUID: isEdit.value ? props.note.GUID : getGuid(), TEXT: html, SOURCE: text, TYPE: form.type, IMAGES: urls }
     const url = isEdit.value ? '/blog-api/community/updateCommunity' : '/blog-api/community/addCommunity'
     const res = await sendAxiosRequest(url, { community })

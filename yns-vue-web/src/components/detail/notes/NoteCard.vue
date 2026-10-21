@@ -130,8 +130,10 @@ function openAuthor() {
   mask-image: linear-gradient(#000 70%, transparent);
 }
 
+/* 旧便签的回车保存在段落文字里，和详情页一样按原样显示 */
 .note-body :deep(p) {
   margin: 0 0 0.4em;
+  white-space: pre-wrap;
 }
 
 .note-body :deep(h1),
