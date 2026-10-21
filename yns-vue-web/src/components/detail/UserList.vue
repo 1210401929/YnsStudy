@@ -403,8 +403,9 @@ onMounted(() => {
   color: var(--j-stamp);
 }
 
+/* 身份章：超级管理员（站长）红色，管理员绿色 */
 .admin-badge {
-  color: var(--j-pen);
+  color: var(--j-stamp-admin);
 }
 
 .ban-badge {

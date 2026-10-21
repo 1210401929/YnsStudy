@@ -43,7 +43,7 @@
           </el-avatar>
           <div class="message-who">
             <span class="message-name" :class="{ 'has-link': hasLink(message) }" @click="openPerson(message)">{{ message.USERNAME || '访客' }}</span>
-            <span v-if="roleStamp(message)" class="j-stamp owner-stamp">{{ roleStamp(message) }}</span>
+            <span v-if="roleStamp(message)" class="j-stamp owner-stamp" :class="{ 'j-stamp--admin': roleStamp(message) === '管理员' }">{{ roleStamp(message) }}</span>
             <time class="message-time">{{ pubFormatDate(message.CREATE_TIME) }}</time>
           </div>
           <div class="message-tools">
@@ -58,7 +58,7 @@
         <div v-if="message.children?.length" class="reply-list">
           <div v-for="reply in message.children" :key="reply.GUID" class="reply-item">
             <span class="reply-name" :class="{ 'has-link': hasLink(reply) }" @click="openPerson(reply)">{{ reply.USERNAME || '访客' }}</span>
-            <span v-if="roleStamp(reply)" class="j-stamp owner-stamp">{{ roleStamp(reply) }}</span>
+            <span v-if="roleStamp(reply)" class="j-stamp owner-stamp" :class="{ 'j-stamp--admin': roleStamp(reply) === '管理员' }">{{ roleStamp(reply) }}</span>
             <span v-if="reply.RECEIVE_USERNAME && reply.RECEIVE_USERNAME !== message.USERNAME" class="reply-to">
               回复 <b>@{{ reply.RECEIVE_USERNAME }}</b>
             </span>：

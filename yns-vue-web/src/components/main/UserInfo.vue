@@ -437,8 +437,9 @@ const handleBlogClick = (blog) => {
   transform: rotate(-4deg);
 }
 
+/* 身份章：站长红色，管理员绿色 */
 .admin-badge {
-  color: var(--j-pen);
+  color: var(--j-stamp-admin);
   transform: rotate(3deg);
 }
 

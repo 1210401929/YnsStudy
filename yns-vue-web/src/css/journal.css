@@ -16,6 +16,8 @@
     --j-margin-red: #e8a59b;
     --j-pen: #2f5d8a;
     --j-stamp: #c2483e;
+    /* 管理员的章用绿色，站长（超级管理员）的章用红色 --j-stamp */
+    --j-stamp-admin: #3f8a57;
     --j-note: #fbf0b4;
     --j-kraft: #e7d6b5;
     --j-highlight: rgba(250, 216, 96, 0.7);
@@ -310,6 +312,12 @@ body {
     white-space: nowrap;
     opacity: 0.85;
     transform: rotate(-8deg);
+}
+
+/* 管理员的绿色章 */
+.j-stamp--admin {
+    border-color: var(--j-stamp-admin);
+    color: var(--j-stamp-admin);
 }
 
 /* 盖章动画：从大到小按下去 */
