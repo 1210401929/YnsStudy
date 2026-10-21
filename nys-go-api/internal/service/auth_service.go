@@ -429,8 +429,30 @@ func (s *Service) GetUserByCode(ctx context.Context, code string) model.Result {
 	return s.getUser(ctx, "CODE", code, "请传入正确账号!")
 }
 
+// PublicUserWithStats 是作者主页用到的用户公开信息，附带公开文章数
+type PublicUserWithStats struct {
+	model.User
+	PublicArticles int `json:"publicArticles"`
+}
+
+// ProfileIndexable 作者主页是否允许搜索引擎收录：有公开文章，或者是站长本人。
+// 没有公开内容的主页除了名字之外都一样，收录了会被当成重复网页，对搜索也没有价值。
+// Go 输出的首屏和前端 utils/seo.js 的 buildProfileSeo 使用同样的规则。
+func ProfileIndexable(isOwner bool, publicArticles int) bool {
+	return isOwner || publicArticles > 0
+}
+
 func (s *Service) GetUserByNum(ctx context.Context, number string) model.Result {
-	return s.getUser(ctx, "USERNUM", number, "请传入正确用户唯一数字!")
+	result := s.getUser(ctx, "USERNUM", number, "请传入正确用户唯一数字!")
+	user, ok := result.Result.(model.User)
+	if result.IsError || !ok {
+		return result
+	}
+	counts, err := s.Repo.Query(ctx, "SELECT COUNT(*) AS total FROM blogInfo WHERE USERCODE = ? AND BLOG_TYPE = 'public'", user.Code)
+	if err != nil {
+		return result
+	}
+	return model.Success(PublicUserWithStats{User: user, PublicArticles: int(firstCount(counts))})
 }
 
 func (s *Service) getUser(ctx context.Context, field, value, emptyMessage string) model.Result {

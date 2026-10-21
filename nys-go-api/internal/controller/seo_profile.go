@@ -32,7 +32,12 @@ func (h *Controller) seoProfile(c *gin.Context) {
 	page := renderSEOProfileHTML(h.readFrontendShell(), profile, owner, h.service.Config)
 	cacheSeconds := h.service.Config.SEO.ResponseCacheSeconds
 	c.Header("Cache-Control", fmt.Sprintf("public, max-age=0, s-maxage=%d, stale-while-revalidate=60", cacheSeconds))
-	c.Header("X-Robots-Tag", "index, follow, max-image-preview:large, max-snippet:-1")
+	if service.ProfileIndexable(profile.IsOwner, profile.ArticleTotal) {
+		c.Header("X-Robots-Tag", "index, follow, max-image-preview:large, max-snippet:-1")
+	} else {
+		// 还没有公开文章的主页：不收录，但页面上的链接照常可以跟着走；发了第一篇公开文章后自动恢复收录
+		c.Header("X-Robots-Tag", "noindex, follow")
+	}
 	c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(page))
 }
 
@@ -104,9 +109,13 @@ func renderSEOProfileHTML(shell string, profile service.PublicProfile, owner ser
 	escapedImage := htmlstd.EscapeString(image)
 	escapedDomain := htmlstd.EscapeString(domain)
 
+	robots := "index,follow,max-image-preview:large,max-snippet:-1"
+	if !service.ProfileIndexable(profile.IsOwner, profile.ArticleTotal) {
+		robots = "noindex,follow"
+	}
 	head := fmt.Sprintf(`
 <meta name="description" content="%s">
-<meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1">
+<meta name="robots" content="%s">
 <link rel="canonical" href="%s">
 <meta property="og:type" content="profile">
 <meta property="og:site_name" content="%s">
@@ -120,7 +129,7 @@ func renderSEOProfileHTML(shell string, profile service.PublicProfile, owner ser
 <meta name="twitter:image" content="%s">
 <script type="application/ld+json">%s</script>
 <style id="yns-seo-profile-first-paint">%s</style>
-`, escapedDescription, escapedCanonical, htmlstd.EscapeString(siteName), escapedTitle, escapedDescription,
+`, escapedDescription, robots, escapedCanonical, htmlstd.EscapeString(siteName), escapedTitle, escapedDescription,
 		escapedCanonical, escapedImage, escapedTitle, escapedDescription, escapedImage, profileJSON, profileStyle)
 
 	var avatarHTML string

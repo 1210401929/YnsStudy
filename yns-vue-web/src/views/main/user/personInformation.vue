@@ -287,6 +287,8 @@ const seoTitle = ref('个人主页 - YnsStudy');
 const seoDescription = ref('');
 const seoImage = ref(undefined);
 const seoJsonLd = ref(undefined);
+// 还没有公开文章的作者主页不收录（与 Go 输出的首屏一致）
+const seoNoindex = ref(false);
 const userNotFound = ref(false);
 
 useSeo(() => ({
@@ -298,7 +300,7 @@ useSeo(() => ({
   path: route.params.blogId
       ? `/oneBlog/${encodeURIComponent(route.params.blogId)}`
       : `/user/${encodeURIComponent(route.params.u || '')}`,
-  noindex: !route.params.u || userNotFound.value
+  noindex: !route.params.u || userNotFound.value || (!route.params.blogId && seoNoindex.value)
 }));
 // ----------------------------------------------------
 // 核心优化区
@@ -324,6 +326,7 @@ const initPageData = async () => {
       seoDescription.value = profileSeo.description;
       seoImage.value = profileSeo.image;
       seoJsonLd.value = profileSeo.jsonLd;
+      seoNoindex.value = profileSeo.noindex;
 
       // 【核心开关】用户信息和 CODE 都有了，允许子组件渲染！
       isPageReady.value = true;

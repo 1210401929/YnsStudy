@@ -177,10 +177,16 @@ export function buildProfileSeo(user, userNumber) {
         : { '@type': 'Person', name, url: canonical, ...(remark ? { description: remark } : {}) }
     if (avatar) person.image = avatar
 
+    // 收录规则与 Go 的 ProfileIndexable 一致：有公开文章或是站长本人才收录；
+    // 拿不到公开文章数（旧版后端）时按可以收录处理
+    const publicArticles = Number(user?.publicArticles)
+    const noindex = !isOwner && Number.isFinite(publicArticles) && publicArticles === 0
+
     return {
         title,
         description,
         image: avatar || undefined,
+        noindex,
         jsonLd: {
             '@context': 'https://schema.org',
             '@type': 'ProfilePage',
