@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -222,6 +223,38 @@ type ContentConfig struct {
 	BannedWords         []string `yaml:"banned_words"`
 }
 
+// applyEnvOverrides 用环境变量覆盖数据库和 Redis 的地址。
+// config.yaml 里写本地开发用的远程地址；部署到服务器时在启动容器时传环境变量，改成更近的地址，
+// 例如程序在 Docker 里、MySQL 在宿主机上时：NYS_DATABASE_HOST=127.0.0.1（容器使用 host 网络）。
+// 没有设置的环境变量不影响配置文件里的值。
+func (c *Config) applyEnvOverrides() error {
+	stringEnv := map[string]*string{
+		"NYS_DATABASE_HOST": &c.Database.Host,
+		"NYS_REDIS_HOST":    &c.Redis.Host,
+	}
+	for name, target := range stringEnv {
+		if value := strings.TrimSpace(os.Getenv(name)); value != "" {
+			*target = value
+		}
+	}
+	intEnv := map[string]*int{
+		"NYS_DATABASE_PORT": &c.Database.Port,
+		"NYS_REDIS_PORT":    &c.Redis.Port,
+	}
+	for name, target := range intEnv {
+		value := strings.TrimSpace(os.Getenv(name))
+		if value == "" {
+			continue
+		}
+		port, err := strconv.Atoi(value)
+		if err != nil || port <= 0 || port > 65535 {
+			return fmt.Errorf("环境变量 %s=%q 不是有效的端口", name, value)
+		}
+		*target = port
+	}
+	return nil
+}
+
 func Load(path string) (*Config, error) {
 	if strings.TrimSpace(path) == "" {
 		path = DefaultPath
@@ -234,6 +267,9 @@ func Load(path string) (*Config, error) {
 	var cfg Config
 	if err := yaml.Unmarshal(raw, &cfg); err != nil {
 		return nil, fmt.Errorf("解析配置文件 %s: %w", path, err)
+	}
+	if err := cfg.applyEnvOverrides(); err != nil {
+		return nil, err
 	}
 	if err := cfg.validate(); err != nil {
 		return nil, fmt.Errorf("配置文件 %s 无效: %w", path, err)

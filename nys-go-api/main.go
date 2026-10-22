@@ -26,6 +26,8 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	// 打印实际连接的地址，确认 NYS_DATABASE_HOST / NYS_REDIS_HOST 是否生效（不输出密码）
+	log.Printf("数据库地址 %s:%d，Redis 地址 %s:%d（启用：%v）", cfg.Database.Host, cfg.Database.Port, cfg.Redis.Host, cfg.Redis.Port, cfg.Redis.Enabled)
 	appLocation, err := database.ResolveLocation(cfg.Database.Location)
 	if err != nil {
 		log.Fatal(err)

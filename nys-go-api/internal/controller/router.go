@@ -3,6 +3,7 @@ package controller
 import (
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -20,13 +21,29 @@ type Controller struct {
 func NewRouter(cfg *config.Config, serviceLayer *service.Service, cipher *security.AESCipher) *gin.Engine {
 	gin.SetMode(cfg.Server.Mode)
 	router := gin.New()
-	router.Use(gin.Logger(), middleware.CORS(cfg.Security.InnerCallHeader), middleware.Crypto(cipher), gin.Recovery(), middleware.Auth(cfg.Security, serviceLayer.JWT, serviceLayer.Sessions), middleware.RenewLogin(serviceLayer.JWT, serviceLayer.Sessions))
+	router.Use(gin.Logger(), middleware.SlowRequests(3*time.Second), middleware.CORS(cfg.Security.InnerCallHeader), middleware.Crypto(cipher), gin.Recovery(), middleware.Auth(cfg.Security, serviceLayer.JWT, serviceLayer.Sessions), middleware.RenewLogin(serviceLayer.JWT, serviceLayer.Sessions))
 	_ = router.SetTrustedProxies(nil)
 	router.MaxMultipartMemory = cfg.Server.MaxUploadMB << 20
 
 	controller := &Controller{service: serviceLayer, cipher: cipher}
 	router.GET("/health", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"code": 200, "message": "Go 服务运行正常", "data": nil})
+		var data any
+		// 数据库连接池状态：打开、使用中、空闲的连接数，以及排队等待连接的次数和总时长。
+		// “使用中”长期居高不下、等待次数一直增长，说明有连接卡住，用来排查网站变慢。
+		if serviceLayer.Repo != nil {
+			stats := serviceLayer.Repo.DB().Stats()
+			data = gin.H{"db": gin.H{
+				"maxOpen":        stats.MaxOpenConnections,
+				"open":           stats.OpenConnections,
+				"inUse":          stats.InUse,
+				"idle":           stats.Idle,
+				"waitCount":      stats.WaitCount,
+				"waitMs":         stats.WaitDuration.Milliseconds(),
+				"closedIdleTime": stats.MaxIdleTimeClosed,
+				"closedLifetime": stats.MaxLifetimeClosed,
+			}}
+		}
+		c.JSON(http.StatusOK, gin.H{"code": 200, "message": "Go 服务运行正常", "data": data})
 	})
 	staticPath := strings.TrimSuffix(cfg.Upload.PublicPrefix, "/")
 	// 上传文件名是随机生成的，同一地址的内容不会变，浏览器可以长期缓存；
