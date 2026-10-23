@@ -36,6 +36,12 @@ func TestRenderSEOSeriesHTML(t *testing.T) {
 	if !strings.Contains(thin, `<meta name="robots" content="noindex,follow">`) {
 		t.Fatal("只有一篇公开文章的系列页应为 noindex")
 	}
+	if strings.Contains(thin, `rel="canonical"`) || strings.Contains(thin, `og:url`) {
+		t.Fatal("noindex 的系列页不应输出规范网址")
+	}
+	if !strings.Contains(page, `<meta property="og:url" content="https://ynsstudy.cn/series/7">`) {
+		t.Fatal("可收录的系列页应输出 og:url")
+	}
 }
 
 func TestRenderSEOSeriesListHTML(t *testing.T) {
@@ -51,8 +57,9 @@ func TestRenderSEOSeriesListHTML(t *testing.T) {
 			t.Errorf("全部系列页缺少 %q", expected)
 		}
 	}
-	if empty := renderSEOSeriesListHTML(noteTestShell, nil, noteTestConfig()); !strings.Contains(empty, `noindex,follow`) {
-		t.Fatal("没有系列时应为 noindex")
+	empty := renderSEOSeriesListHTML(noteTestShell, nil, noteTestConfig())
+	if !strings.Contains(empty, `noindex,follow`) || strings.Contains(empty, `rel="canonical"`) {
+		t.Fatal("没有系列时应为 noindex，且不输出规范网址")
 	}
 }
 

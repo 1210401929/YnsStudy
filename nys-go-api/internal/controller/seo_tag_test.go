@@ -46,6 +46,12 @@ func TestRenderSEOTagHTML(t *testing.T) {
 	if !strings.Contains(thin, `<meta name="robots" content="noindex,follow">`) {
 		t.Fatal("文章太少的标签页应为 noindex")
 	}
+	if strings.Contains(thin, `rel="canonical"`) || strings.Contains(thin, `og:url`) {
+		t.Fatal("noindex 的标签页不应输出规范网址，否则两个信号互相矛盾")
+	}
+	if !strings.Contains(page, `<meta property="og:url" content="https://ynsstudy.cn/tag/Go?page=2">`) {
+		t.Fatal("可收录的标签页应输出 og:url")
+	}
 	if strings.Contains(thin, `rel="next"`) || strings.Contains(thin, "第 1 / 1 页") {
 		t.Fatal("只有一页时不应输出分页")
 	}

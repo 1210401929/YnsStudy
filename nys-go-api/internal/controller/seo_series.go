@@ -24,6 +24,16 @@ const seriesListPath = "/series"
 
 const seriesFirstPaintStyle = `<style id="yns-seo-series-first-paint">.seo-series-fallback{min-height:100vh;padding:32px 16px;background-color:#efe8da;background-image:radial-gradient(rgba(120,104,80,.18) 1px,transparent 1px);background-size:22px 22px;color:#2b2a27;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif}.seo-series-fallback section{max-width:960px;margin:0 auto;background:#fffdf8;border:1px solid #e6dfd1;box-shadow:0 1px 2px rgba(60,50,30,.06),0 10px 24px -16px rgba(60,50,30,.35);padding:30px 32px}.seo-series-fallback a{color:#2f5d8a;text-decoration:none}.seo-series-fallback h1{font-family:"LXGW WenKai Screen","Kaiti SC","STKaiti","KaiTi","楷体",serif;font-weight:normal;font-size:30px;margin:0 0 6px}.seo-series-meta,.seo-breadcrumb{color:#7d776c;font-size:14px;margin-bottom:16px}.seo-series-desc{line-height:1.8;color:#4d4943}.seo-series-list{margin:0;padding-left:28px}.seo-series-list li{padding:12px 0;border-top:1px dashed #e6dfd1}.seo-series-list h2{margin:0 0 6px;font-size:18px;font-weight:600}.seo-series-list p{margin:0;color:#4d4943;font-size:14px;line-height:1.75;overflow-wrap:anywhere}.seo-series-start{display:inline-block;margin:6px 0 18px}@media(max-width:640px){.seo-series-fallback{padding:12px 10px}.seo-series-fallback section{padding:22px 16px}}</style>`
 
+// canonicalHeadHTML 返回规范网址和 og:url 两个标签。页面不收录（noindex）时都不输出，
+// 避免“不收录”和“规范网址”两个信号互相矛盾，与前端 utils/seo.js 的 useSeo 规则一致。
+func canonicalHeadHTML(canonical string, indexable bool) (link, ogURL string) {
+	if !indexable {
+		return "", ""
+	}
+	escaped := htmlstd.EscapeString(canonical)
+	return `<link rel="canonical" href="` + escaped + `">`, `<meta property="og:url" content="` + escaped + `">`
+}
+
 func seriesURL(domain, id string) string {
 	return domain + service.SeriesPath(url.PathEscape(id))
 }
@@ -113,22 +123,22 @@ func renderSEOSeriesHTML(shell string, series map[string]any, articles []map[str
 	}
 	title := name + "（系列）"
 	escapedDescription := htmlstd.EscapeString(description)
-	escapedCanonical := htmlstd.EscapeString(canonical)
+	canonicalLink, ogURL := canonicalHeadHTML(canonical, indexable)
 	head := fmt.Sprintf(`
 <meta name="description" content="%s">
 <meta name="robots" content="%s">
-<link rel="canonical" href="%s">
+%s
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="%s">
 <meta property="og:title" content="%s">
 <meta property="og:description" content="%s">
-<meta property="og:url" content="%s">
+%s
 <meta property="og:image" content="%s">
 <script type="application/ld+json">%s</script>
 <script type="application/ld+json">%s</script>
 %s
-`, escapedDescription, robots, escapedCanonical, htmlstd.EscapeString(cfg.SEO.SiteName), htmlstd.EscapeString(title),
-		escapedDescription, escapedCanonical, htmlstd.EscapeString(cfg.SEO.DefaultImage), structuredJSON,
+`, escapedDescription, robots, canonicalLink, htmlstd.EscapeString(cfg.SEO.SiteName), htmlstd.EscapeString(title),
+		escapedDescription, ogURL, htmlstd.EscapeString(cfg.SEO.DefaultImage), structuredJSON,
 		breadcrumbJSON([]breadcrumbItem{{Name: cfg.SEO.SiteName, URL: domain + "/"}, {Name: "文章系列", URL: domain + seriesListPath}, {Name: name}}),
 		seriesFirstPaintStyle)
 
@@ -191,20 +201,21 @@ func renderSEOSeriesListHTML(shell string, rows []map[string]any, cfg *config.Co
 		"isPartOf": map[string]any{"@type": "WebSite", "name": cfg.SEO.SiteName, "url": domain + "/"},
 	})
 	escapedDescription := htmlstd.EscapeString(description)
+	canonicalLink, ogURL := canonicalHeadHTML(canonical, len(rows) > 0)
 	head := fmt.Sprintf(`
 <meta name="description" content="%s">
 <meta name="robots" content="%s">
-<link rel="canonical" href="%s">
+%s
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="%s">
 <meta property="og:title" content="%s">
 <meta property="og:description" content="%s">
-<meta property="og:url" content="%s">
+%s
 <script type="application/ld+json">%s</script>
 <script type="application/ld+json">%s</script>
 %s
-`, escapedDescription, robots, htmlstd.EscapeString(canonical), htmlstd.EscapeString(cfg.SEO.SiteName), htmlstd.EscapeString(title),
-		escapedDescription, htmlstd.EscapeString(canonical), collectionJSON,
+`, escapedDescription, robots, canonicalLink, htmlstd.EscapeString(cfg.SEO.SiteName), htmlstd.EscapeString(title),
+		escapedDescription, ogURL, collectionJSON,
 		breadcrumbJSON([]breadcrumbItem{{Name: cfg.SEO.SiteName, URL: domain + "/"}, {Name: "文章系列"}}), seriesFirstPaintStyle)
 
 	var list strings.Builder

@@ -32,6 +32,7 @@
               v-for="cat2 in cat1.children"
               :key="cat2.GUID"
               :index="'cat-' + cat2.GUID"
+              class="nested-cat"
               @contextmenu.stop.prevent="handleRightClick($event, 'category', cat2.GUID, 2)">
 
             <template #title>
@@ -45,7 +46,7 @@
                 v-for="blog in getBlogsByCategory(cat2.GUID)"
                 :key="blog.GUID"
                 :index="blog.GUID"
-                class="el-menu_"
+                class="el-menu_ is-nested"
                 @click="clickBlog(blog)"
                 @contextmenu.stop.prevent="handleRightClick($event, 'blog', blog.GUID)">
               <!-- 公开是默认状态不标记；只在自己的发表页给私密文章显示一把小锁（作者主页只列公开文章，不需要标记） -->
@@ -547,8 +548,28 @@ onBeforeUnmount(() => window.removeEventListener('click', closeContextMenu))
   color: #b39554;
 }
 
+/* 缩进按层级：一级分类标题 20px → 一级分类下的文章 40px → 二级分类标题 40px → 二级分类下的文章 68px，
+   二级分类下的文章左边再画一条虚线，一眼能看出属于哪个分类 */
 :deep(.el-menu-item) {
   padding-left: 40px !important;
+}
+
+:deep(.nested-cat > .el-sub-menu__title) {
+  padding-left: 40px !important;
+}
+
+:deep(.el-menu-item.is-nested) {
+  position: relative;
+  padding-left: 68px !important;
+}
+
+:deep(.el-menu-item.is-nested)::before {
+  content: "";
+  position: absolute;
+  left: 49px;
+  top: 0;
+  bottom: 0;
+  border-left: 1px dashed var(--j-rule-strong);
 }
 
 :deep(.el-sub-menu__title:hover),

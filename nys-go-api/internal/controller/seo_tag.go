@@ -104,7 +104,7 @@ func renderSEOTagHTML(shell, name string, rows []map[string]any, total, page, to
 		"isPartOf":    map[string]any{"@type": "WebSite", "name": cfg.SEO.SiteName, "url": domain + "/"},
 	})
 	escapedDescription := htmlstd.EscapeString(description)
-	escapedCanonical := htmlstd.EscapeString(canonical)
+	canonicalLink, ogURL := canonicalHeadHTML(canonical, indexable)
 	var pagerLinks strings.Builder
 	if page > 1 {
 		fmt.Fprintf(&pagerLinks, "\n<link rel=\"prev\" href=\"%s\">", htmlstd.EscapeString(tagPageURL(domain, name, page-1)))
@@ -115,18 +115,18 @@ func renderSEOTagHTML(shell, name string, rows []map[string]any, total, page, to
 	head := fmt.Sprintf(`
 <meta name="description" content="%s">
 <meta name="robots" content="%s">
-<link rel="canonical" href="%s">%s
+%s%s
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="%s">
 <meta property="og:title" content="%s">
 <meta property="og:description" content="%s">
-<meta property="og:url" content="%s">
+%s
 <meta property="og:image" content="%s">
 <script type="application/ld+json">%s</script>
 <script type="application/ld+json">%s</script>
 %s
-`, escapedDescription, robots, escapedCanonical, pagerLinks.String(), htmlstd.EscapeString(cfg.SEO.SiteName),
-		htmlstd.EscapeString(title), escapedDescription, escapedCanonical, htmlstd.EscapeString(cfg.SEO.DefaultImage),
+`, escapedDescription, robots, canonicalLink, pagerLinks.String(), htmlstd.EscapeString(cfg.SEO.SiteName),
+		htmlstd.EscapeString(title), escapedDescription, ogURL, htmlstd.EscapeString(cfg.SEO.DefaultImage),
 		collectionJSON,
 		breadcrumbJSON([]breadcrumbItem{{Name: cfg.SEO.SiteName, URL: domain + "/"}, {Name: "文章归档", URL: domain + "/archive"}, {Name: "#" + name}}),
 		tagFirstPaintStyle)
