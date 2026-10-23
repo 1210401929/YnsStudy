@@ -62,6 +62,41 @@ func (h *Controller) indexNowKey(c *gin.Context) {
 	c.Data(http.StatusOK, "text/plain; charset=utf-8", []byte(strings.TrimSpace(h.service.Config.SEO.IndexNowKey)))
 }
 
+// homeTopics 是根地址首屏里的专题入口：热门标签和文章系列
+type homeTopics struct {
+	Tags   []map[string]any // 名字 NAME、公开文章数 TOTAL
+	Series []map[string]any // 编号 ID、名称 TITLE、作者 USERNAME、公开文章数 ARTICLE_COUNT
+}
+
+const (
+	homeTopicTagLimit    = 20
+	homeTopicSeriesLimit = 6
+)
+
+// homeTopics 读取首屏的专题入口。只取达到收录标准（公开文章不少于 2 篇）的标签和系列，
+// 首页不链接到 noindex 页面；查询失败时这一块不显示，不影响首页其他内容。
+func (h *Controller) homeTopics(c *gin.Context) homeTopics {
+	ctx := c.Request.Context()
+	var topics homeTopics
+	if tags, err := h.service.GetIndexableBlogTags(ctx); err == nil {
+		if len(tags) > homeTopicTagLimit {
+			tags = tags[:homeTopicTagLimit]
+		}
+		topics.Tags = tags
+	}
+	if series, err := h.service.PublicSeriesList(ctx, "", "hot", 50); err == nil {
+		for _, row := range series {
+			if len(topics.Series) == homeTopicSeriesLimit {
+				break
+			}
+			if model.IntValue(row, "ARTICLE_COUNT") >= service.SeriesIndexableMin {
+				topics.Series = append(topics.Series, row)
+			}
+		}
+	}
+	return topics
+}
+
 // seoHome 为根路径输出站点介绍和最新公开文章链接。
 // Vue 启动后仍会接管页面；不执行 JavaScript 的抓取器也能理解站点主题并发现新文章。
 func (h *Controller) seoHome(c *gin.Context) {
@@ -72,7 +107,7 @@ func (h *Controller) seoHome(c *gin.Context) {
 	}
 	articles, _ := result.Result.([]map[string]any)
 	owner := h.service.GetSiteOwner(c.Request.Context())
-	page := renderSEOHomeHTML(h.readFrontendShell(), articles, owner, h.service.Config)
+	page := renderSEOHomeHTML(h.readFrontendShell(), articles, h.homeTopics(c), owner, h.service.Config)
 	cacheSeconds := h.service.Config.SEO.ResponseCacheSeconds
 	c.Header("Cache-Control", fmt.Sprintf("public, max-age=0, s-maxage=%d, stale-while-revalidate=60", cacheSeconds))
 	c.Header("X-Robots-Tag", "index, follow, max-image-preview:large, max-snippet:-1")
@@ -271,7 +306,37 @@ type structuredOrganization struct {
 	Logo string `json:"logo,omitempty"`
 }
 
-func renderSEOHomeHTML(shell string, articles []map[string]any, owner service.SiteOwner, cfg *config.Config) string {
+// renderHomeTopicsHTML 输出首屏的“文章系列”和“热门标签”两块，没有数据的那一块不输出
+func renderHomeTopicsHTML(topics homeTopics, domain string) string {
+	var output strings.Builder
+	if len(topics.Series) > 0 {
+		output.WriteString(`<section class="seo-home-latest" aria-labelledby="seo-series-title"><h2 id="seo-series-title">文章系列</h2><ul>`)
+		for _, row := range topics.Series {
+			meta := fmt.Sprintf("%d 篇", model.IntValue(row, "ARTICLE_COUNT"))
+			if author := model.StringValue(row, "USERNAME"); author != "" {
+				meta = authorLinkHTML(author, model.StringValue(row, "USERNUM"), domain) + " · " + meta
+			}
+			fmt.Fprintf(&output, `<li><a href="%s">%s</a><span class="seo-home-meta">%s</span></li>`,
+				htmlstd.EscapeString(seriesURL(domain, model.StringValue(row, "ID"))), htmlstd.EscapeString(model.StringValue(row, "TITLE")), meta)
+		}
+		fmt.Fprintf(&output, `</ul><p class="seo-home-more"><a href="%s%s">查看全部系列 →</a></p></section>`, htmlstd.EscapeString(domain), seriesListPath)
+	}
+	if len(topics.Tags) > 0 {
+		output.WriteString(`<section class="seo-home-latest" aria-labelledby="seo-tags-title"><h2 id="seo-tags-title">热门标签</h2><p class="seo-home-tags">`)
+		for _, row := range topics.Tags {
+			name := model.StringValue(row, "NAME")
+			if name == "" {
+				continue
+			}
+			fmt.Fprintf(&output, `<a href="%s" rel="tag">#%s<span>%d</span></a>`,
+				htmlstd.EscapeString(tagPageURL(domain, name, 1)), htmlstd.EscapeString(name), model.IntValue(row, "TOTAL"))
+		}
+		output.WriteString(`</p></section>`)
+	}
+	return output.String()
+}
+
+func renderSEOHomeHTML(shell string, articles []map[string]any, topics homeTopics, owner service.SiteOwner, cfg *config.Config) string {
 	// 首页使用服务端生成的完整站点 meta，移除 Vue 外壳中的默认副本，避免重复 description/OG。
 	shell = defaultSEOElement.ReplaceAllString(shell, "\n")
 	shell = javascriptNotice.ReplaceAllString(shell, "\n")
@@ -312,7 +377,7 @@ func renderSEOHomeHTML(shell string, articles []map[string]any, owner service.Si
 <meta name="twitter:description" content="%s">
 <meta name="twitter:image" content="%s">
 <script type="application/ld+json">%s</script>
-<style id="yns-seo-home-first-paint">.seo-home-fallback{min-height:100vh;padding:36px 16px;background-color:#efe8da;background-image:radial-gradient(rgba(120,104,80,.18) 1px,transparent 1px);background-size:22px 22px;color:#2b2a27;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif}.seo-home-intro,.seo-home-latest{max-width:1000px;margin:0 auto;background:#fffdf8;border:1px solid #e6dfd1;box-shadow:0 1px 2px rgba(60,50,30,.06),0 10px 24px -16px rgba(60,50,30,.35);padding:28px 32px}.seo-home-intro h1{margin:0 0 12px;font-family:"LXGW WenKai Screen","Kaiti SC","STKaiti","KaiTi","楷体",serif;font-weight:normal;font-size:36px}.seo-home-intro p{margin:0;color:#4d4943;line-height:1.8}.seo-home-intro .seo-home-owner{margin-top:8px;font-size:14px;color:#7d776c}.seo-home-owner a{color:#2f5d8a;text-decoration:none}.seo-home-nav{display:flex;flex-wrap:wrap;gap:18px;margin-top:18px}.seo-home-nav a,.seo-home-latest a{color:#2f5d8a;text-decoration:none}.seo-home-latest{margin-top:22px}.seo-home-latest h2{margin:0 0 12px;font-family:"LXGW WenKai Screen","Kaiti SC","STKaiti","KaiTi","楷体",serif;font-weight:normal;font-size:24px}.seo-home-latest ul{list-style:none;margin:0;padding:0}.seo-home-latest li{display:flex;justify-content:space-between;gap:20px;padding:12px 0;border-top:1px dashed #e6dfd1}.seo-home-meta{flex:none;color:#7d776c;font-size:13px}.seo-home-latest .seo-home-meta a{color:inherit}.seo-home-more{margin:16px 0 0;text-align:right}@media(max-width:640px){.seo-home-fallback{padding:14px 10px}.seo-home-intro,.seo-home-latest{padding:22px 16px}.seo-home-latest li{display:block}.seo-home-meta{display:block;margin-top:6px}}</style>
+<style id="yns-seo-home-first-paint">.seo-home-fallback{min-height:100vh;padding:36px 16px;background-color:#efe8da;background-image:radial-gradient(rgba(120,104,80,.18) 1px,transparent 1px);background-size:22px 22px;color:#2b2a27;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif}.seo-home-intro,.seo-home-latest{max-width:1000px;margin:0 auto;background:#fffdf8;border:1px solid #e6dfd1;box-shadow:0 1px 2px rgba(60,50,30,.06),0 10px 24px -16px rgba(60,50,30,.35);padding:28px 32px}.seo-home-intro h1{margin:0 0 12px;font-family:"LXGW WenKai Screen","Kaiti SC","STKaiti","KaiTi","楷体",serif;font-weight:normal;font-size:36px}.seo-home-intro p{margin:0;color:#4d4943;line-height:1.8}.seo-home-intro .seo-home-owner{margin-top:8px;font-size:14px;color:#7d776c}.seo-home-owner a{color:#2f5d8a;text-decoration:none}.seo-home-nav{display:flex;flex-wrap:wrap;gap:18px;margin-top:18px}.seo-home-nav a,.seo-home-latest a{color:#2f5d8a;text-decoration:none}.seo-home-latest{margin-top:22px}.seo-home-latest h2{margin:0 0 12px;font-family:"LXGW WenKai Screen","Kaiti SC","STKaiti","KaiTi","楷体",serif;font-weight:normal;font-size:24px}.seo-home-latest ul{list-style:none;margin:0;padding:0}.seo-home-latest li{display:flex;justify-content:space-between;gap:20px;padding:12px 0;border-top:1px dashed #e6dfd1}.seo-home-meta{flex:none;color:#7d776c;font-size:13px}.seo-home-latest .seo-home-meta a{color:inherit}.seo-home-more{margin:16px 0 0;text-align:right}.seo-home-tags{display:flex;flex-wrap:wrap;gap:10px 18px;margin:0}.seo-home-tags span{margin-left:3px;color:#7d776c;font-size:12px}@media(max-width:640px){.seo-home-fallback{padding:14px 10px}.seo-home-intro,.seo-home-latest{padding:22px 16px}.seo-home-latest li{display:block}.seo-home-meta{display:block;margin-top:6px}}</style>
 `, escapedDescription, escapedCanonical, htmlstd.EscapeString(cfg.SEO.SiteName), escapedTitle,
 		escapedDescription, escapedCanonical, escapedImage, escapedTitle, escapedDescription, escapedImage, websiteJSON)
 
@@ -348,9 +413,11 @@ func renderSEOHomeHTML(shell string, articles []map[string]any, owner service.Si
 <nav class="seo-home-nav" aria-label="主要栏目"><a href="%s/ynsStudy/Home">最新文章</a><a href="%s/ynsStudy/Resources">资源</a><a href="%s/ynsStudy/Notes">便签墙</a><a href="%s/ynsStudy/FriendLink">友链</a><a href="%s/ynsStudy/About">关于</a></nav>
 </section>
 <section class="seo-home-latest" aria-labelledby="seo-latest-title"><h2 id="seo-latest-title">最新文章</h2><ul>%s</ul><p class="seo-home-more"><a href="%s/archive">查看全部文章 →</a></p></section>
+%s
 </main>`, htmlstd.EscapeString(cfg.SEO.SiteName), escapedDescription, ownerLinkHTML(owner, domain),
 		htmlstd.EscapeString(domain), htmlstd.EscapeString(domain), htmlstd.EscapeString(domain),
-		htmlstd.EscapeString(domain), htmlstd.EscapeString(domain), latest.String(), htmlstd.EscapeString(domain))
+		htmlstd.EscapeString(domain), htmlstd.EscapeString(domain), latest.String(), htmlstd.EscapeString(domain),
+		renderHomeTopicsHTML(topics, domain))
 
 	if titleElementPattern.MatchString(shell) {
 		shell = titleElementPattern.ReplaceAllStringFunc(shell, func(string) string {

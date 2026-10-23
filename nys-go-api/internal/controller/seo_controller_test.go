@@ -30,7 +30,7 @@ func TestRenderSEOHomeHTMLContainsIntroductionAndRealArticleLinks(t *testing.T) 
 
 	owner := testOwner()
 	articles = append(articles, map[string]any{"GUID": "436", "BLOG_TITLE": "手机号昵称", "USERNAME": "15611122742"})
-	page := renderSEOHomeHTML(shell, articles, owner, cfg)
+	page := renderSEOHomeHTML(shell, articles, homeTopics{}, owner, cfg)
 	for _, expected := range []string{
 		`<title>YnsStudy - 余南松的技术分享与个人博客</title>`,
 		`YnsStudy 是余南松（YuNanSong）的个人博客与技术社区`,
@@ -56,6 +56,30 @@ func TestRenderSEOHomeHTMLContainsIntroductionAndRealArticleLinks(t *testing.T) 
 		t.Fatal("首页不应输出手机号形式的昵称")
 	}
 	if strings.Contains(page, "%!") {
+		t.Fatal("首页格式化参数数量不匹配")
+	}
+	if strings.Contains(page, "热门标签") || strings.Contains(page, "文章系列") {
+		t.Fatal("没有标签和系列时不应输出这两块")
+	}
+
+	topics := homeTopics{
+		Tags:   []map[string]any{{"NAME": "Go", "TOTAL": int64(5)}, {"NAME": "前端", "TOTAL": int64(2)}},
+		Series: []map[string]any{{"ID": int64(7), "TITLE": "Go 入门<一>", "USERNAME": "余南松", "USERNUM": "101", "ARTICLE_COUNT": int64(3)}},
+	}
+	withTopics := renderSEOHomeHTML(shell, articles, topics, owner, cfg)
+	for _, expected := range []string{
+		`<h2 id="seo-series-title">文章系列</h2>`,
+		`<a href="https://ynsstudy.cn/series/7">Go 入门&lt;一&gt;</a><span class="seo-home-meta"><a href="https://ynsstudy.cn/user/101">余南松</a> · 3 篇</span>`,
+		`<a href="https://ynsstudy.cn/series">查看全部系列 →</a>`,
+		`<h2 id="seo-tags-title">热门标签</h2>`,
+		`<a href="https://ynsstudy.cn/tag/Go" rel="tag">#Go<span>5</span></a>`,
+		`<a href="https://ynsstudy.cn/tag/%E5%89%8D%E7%AB%AF" rel="tag">#前端<span>2</span></a>`,
+	} {
+		if !strings.Contains(withTopics, expected) {
+			t.Errorf("首页专题入口缺少 %q", expected)
+		}
+	}
+	if strings.Contains(withTopics, "%!") {
 		t.Fatal("首页格式化参数数量不匹配")
 	}
 }
