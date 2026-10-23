@@ -34,7 +34,7 @@
       <div class="friend-grid">
         <article v-for="item in normalFriendLinks" :key="item.GUID"
             class="link-card" :class="{ 'has-actions': isAdmin || item.USERCODE === userStore.userBean.code }">
-          <a :href="item.LINK" target="_blank" rel="noopener noreferrer" class="card-link">
+          <a :href="safeLink(item.LINK)" target="_blank" rel="noopener noreferrer" class="card-link">
             <el-avatar :src="item.AVATAR" :size="48" shape="square" class="site-avatar">
               {{ item.NAME?.trim().charAt(0) || '站' }}
             </el-avatar>
@@ -76,7 +76,7 @@
       <div class="recommend-grid">
         <article v-for="item in recommendLinks" :key="item.GUID"
             class="link-card" :class="{ 'has-actions': isAdmin }">
-          <a :href="item.LINK" target="_blank" rel="noopener noreferrer" class="card-link">
+          <a :href="safeLink(item.LINK)" target="_blank" rel="noopener noreferrer" class="card-link">
             <el-avatar :src="item.AVATAR" :size="48" shape="square" class="site-avatar">
               {{ item.NAME?.trim().charAt(0) || '站' }}
             </el-avatar>
@@ -174,6 +174,9 @@ const friendLinks = ref([]);
 const topAlert = ref([]);
 
 const isAdmin = computed(() => getCurrentUserAdminObject().isAdmin);
+
+// 只允许 http/https 链接：后端已校验，这里再兜底库里已有的旧数据，防止 javascript: 链接被点击执行
+const safeLink = (link) => /^https?:\/\//i.test(String(link || '').trim()) ? String(link).trim() : undefined;
 
 // 过滤出推荐好站
 const recommendLinks = computed(() => {

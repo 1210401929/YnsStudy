@@ -19,6 +19,12 @@
       "port": 4173
     },
     {
+      "name": "go-api",
+      "runtimeExecutable": "C:\\Users\\EDY\\sdk\\go1.26.5\\bin\\go.exe",
+      "runtimeArgs": ["-C", "nys-go-api", "run", "."],
+      "port": 8889
+    },
+    {
       "name": "vue-dev",
       "runtimeExecutable": "npm",
       "runtimeArgs": [

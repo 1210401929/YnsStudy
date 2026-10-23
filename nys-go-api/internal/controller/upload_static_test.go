@@ -48,6 +48,18 @@ func TestUploadedFilesAreCachedAndNotListed(t *testing.T) {
 		t.Fatalf("上传文件应长期缓存, 实际 %q", file.Header().Get("Cache-Control"))
 	}
 
+	if file.Header().Get("X-Content-Type-Options") != "nosniff" || !strings.Contains(file.Header().Get("Content-Security-Policy"), "sandbox") {
+		t.Fatalf("上传文件应带 nosniff 和沙箱 CSP, 实际 %v", file.Header())
+	}
+	if err := os.WriteFile(filepath.Join(dir, "editorImage", "doc.pdf"), []byte("pdf"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	pdf := httptest.NewRecorder()
+	router.ServeHTTP(pdf, httptest.NewRequest("GET", "/uploadFile/editorImage/doc.pdf", nil))
+	if pdf.Header().Get("Content-Security-Policy") != "" || pdf.Header().Get("X-Content-Type-Options") != "nosniff" {
+		t.Fatalf("PDF 不加沙箱（否则浏览器无法预览），但要有 nosniff, 实际 %v", pdf.Header())
+	}
+
 	listing := httptest.NewRecorder()
 	router.ServeHTTP(listing, httptest.NewRequest("GET", "/uploadFile/editorImage/", nil))
 	if strings.Contains(listing.Body.String(), "a.webp") {

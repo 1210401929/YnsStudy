@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 
@@ -73,9 +74,58 @@ func (s *Service) AddFriendLink(c *gin.Context, value map[string]any) model.Resu
 		return *failure
 	}
 	data := pickFields(value, append([]string{"GUID"}, friendLinkFields...)...)
+	if model.Lookup(data, "LINK") == nil {
+		return model.Failure(msgFriendLinkURL)
+	}
+	if failure := s.normalizeFriendLinkURLs(data); failure != nil {
+		return *failure
+	}
+	// “推荐好站”（LINK_TYPE = 2）只有管理员能添加，普通用户只能申请友链
+	if !actor.IsAdmin {
+		data["LINK_TYPE"] = 1
+	}
 	data["USERCODE"] = actor.Code()
 	data["USERNAME"] = actor.User.Name
 	return s.SaveAll(contextOf(c), "add", "friendLinkInfo", []map[string]any{data}, "GUID")
+}
+
+const (
+	msgFriendLinkURL    = "网站地址必须是 http:// 或 https:// 开头的网址"
+	msgFriendLinkAvatar = "网站图标必须是 http:// 或 https:// 开头的图片地址，或本站上传的图片"
+)
+
+// normalizeFriendLinkURLs 校验并规范化请求里出现的 LINK、AVATAR（没出现的不处理，编辑时可以只改部分字段）。
+// 友链地址会直接放进页面的 <a href>，必须拦住 javascript: 之类的地址，否则访客一点击就会执行脚本。
+func (s *Service) normalizeFriendLinkURLs(data map[string]any) *model.Result {
+	fail := func(message string) *model.Result {
+		result := model.Failure(message)
+		return &result
+	}
+	for key := range data {
+		switch strings.ToUpper(key) {
+		case "LINK":
+			link := normalizeWebsite(model.StringValue(data, key))
+			if link == "" {
+				return fail(msgFriendLinkURL)
+			}
+			data[key] = link
+		case "AVATAR":
+			avatar := strings.TrimSpace(model.StringValue(data, key))
+			switch {
+			case avatar == "":
+			case strings.HasPrefix(avatar, "/") && !strings.HasPrefix(avatar, "//"):
+				if avatar = s.uploadKey(avatar); avatar == "" {
+					return fail(msgFriendLinkAvatar)
+				}
+			default:
+				if avatar = normalizeWebsite(avatar); avatar == "" {
+					return fail(msgFriendLinkAvatar)
+				}
+			}
+			data[key] = avatar
+		}
+	}
+	return nil
 }
 
 // requireFriendLinkManager：友链发布者本人或任意管理员可以修改、删除（与前端 isAdmin || 本人 的显示规则一致）。
@@ -102,6 +152,12 @@ func (s *Service) UpdateFriendLink(c *gin.Context, value map[string]any) model.R
 		return *failure
 	}
 	data := pickFields(value, friendLinkFields...)
+	if failure := s.normalizeFriendLinkURLs(data); failure != nil {
+		return *failure
+	}
+	if actor, ok := s.CurrentActor(c); !ok || !actor.IsAdmin {
+		delete(data, "LINK_TYPE")
+	}
 	data["GUID"] = guid
 	result := s.SaveAll(contextOf(c), "edit", "friendLinkInfo", []map[string]any{data}, "GUID")
 	if !result.IsError {

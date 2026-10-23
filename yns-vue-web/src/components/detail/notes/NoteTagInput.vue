@@ -12,14 +12,14 @@
           v-model="draft"
           class="tag-draft"
           maxlength="21"
-          :placeholder="modelValue.length ? '继续添加话题' : '添加话题，例如 Go、踩坑（回车确认）'"
+          :placeholder="modelValue.length ? `继续添加${noun}` : `添加${noun}，例如 Go、踩坑（回车确认）`"
           @keydown.enter.prevent="commit"
           @keydown="onKeydown"
           @blur="commit"
           @compositionstart="composing = true"
           @compositionend="composing = false"
       >
-      <span v-else class="tag-full">最多 {{ MAX_TAGS }} 个话题</span>
+      <span v-else class="tag-full">最多 {{ MAX_TAGS }} 个{{ noun }}</span>
     </div>
     <div v-if="suggestions.length" class="tag-suggest">
       <span class="suggest-label">常用：</span>
@@ -37,7 +37,9 @@ const MAX_RUNES = 20
 const props = defineProps({
   modelValue: { type: Array, default: () => [] },
   // 常用话题（名字数组）
-  popular: { type: Array, default: () => [] }
+  popular: { type: Array, default: () => [] },
+  // 提示文字里的叫法：便签墙叫“话题”，文章叫“标签”
+  noun: { type: String, default: '话题' }
 })
 const emit = defineEmits(['update:modelValue'])
 
@@ -46,10 +48,10 @@ const draft = ref('')
 // 中文输入法拼写过程中按空格、回车不算确认
 const composing = ref(false)
 
-// 和后端 normalizeTagName 一致：去掉开头的 #，不能有空白和 , # 这类分隔符，最长 20 个字
+// 和后端 normalizeTagName 一致：去掉开头的 #，不能有空白和 , # / ? 这类分隔符，最长 20 个字
 const normalize = (name) => {
   const value = String(name || '').trim().replace(/^[#＃]+/, '').trim()
-  if (!value || [...value].length > MAX_RUNES || /[\s,，#＃;；、<>"']/.test(value)) return ''
+  if (!value || [...value].length > MAX_RUNES || /[\s,，#＃;；、<>"'/\\?]/.test(value)) return ''
   return value
 }
 
@@ -70,7 +72,7 @@ function addTags(rawList) {
     if (next.length >= MAX_TAGS) break
     if (!next.some(tag => tag.toLowerCase() === name.toLowerCase())) next.push(name)
   }
-  if (invalid) ElMessage.warning('话题不能包含标点，最长 20 个字')
+  if (invalid) ElMessage.warning(`${props.noun}不能包含标点，最长 20 个字`)
   if (next.length !== props.modelValue.length) emit('update:modelValue', next)
 }
 

@@ -560,7 +560,8 @@ export async function sendNotifications(sendUserCode, receiverUserCode, type, ex
         return false;
     }
     if (!execute) {
-        execute = window.location.href;
+        // 后台只接受站内路径，不带域名
+        execute = window.location.pathname + window.location.search;
     }
     if (!remark) {
         remark = "未知操作";

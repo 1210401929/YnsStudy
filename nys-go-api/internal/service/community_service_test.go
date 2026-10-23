@@ -77,6 +77,13 @@ func TestNormalizeTags(t *testing.T) {
 	if got := normalizeTags("Go，前端,  "); !reflect.DeepEqual(got, []string{"Go", "前端"}) {
 		t.Fatalf("逗号分隔的字符串解析不对: %v", got)
 	}
+	// 文章标签有自己的地址 /tag/名字，含 / \ ? 的名字会把地址拆开
+	if got := normalizeTags([]any{"CI/CD", `a\b`, "why?", "C++", "Node.js"}); !reflect.DeepEqual(got, []string{"C++", "Node.js"}) {
+		t.Fatalf("含路径分隔符的标签应被丢弃: %v", got)
+	}
+	if NormalizeTags(nil) == nil {
+		t.Fatal("NormalizeTags 不应返回 nil，否则修改文章时会被当成“没带标签”")
+	}
 }
 
 func TestIsNumericID(t *testing.T) {

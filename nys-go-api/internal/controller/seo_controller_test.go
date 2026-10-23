@@ -76,6 +76,8 @@ func TestRenderSEOArticleHTMLContainsArticleSignalsAndBody(t *testing.T) {
 		"USERNUM":     "10001",
 		"CREATE_TIME": time.Date(2026, 8, 11, 10, 30, 0, 0, time.FixedZone("CST", 8*60*60)),
 		"UPDATE_TIME": time.Date(2026, 8, 18, 9, 0, 0, 0, time.FixedZone("CST", 8*60*60)),
+		"TAGS":        []string{"Go", "SEO"},
+		"SERIES":      &service.SeriesNav{ID: "7", Title: "Go 实战", Total: 2, Index: 1, Next: map[string]any{"GUID": "500", "BLOG_TITLE": "续篇"}},
 		"MAINTEXT": `<h1>正文一级标题</h1><p>这是真实文章摘要。</p>
 <img src="/uploadFile/editorImage/a.png" alt="image.png" onerror="alert(1)">
 <script>alert('xss')</script>`,
@@ -110,6 +112,11 @@ func TestRenderSEOArticleHTMLContainsArticleSignalsAndBody(t *testing.T) {
 		`<a href="https://ynsstudy.cn/oneBlog/410">← 上一篇：上一篇文章</a>`,
 		`<a href="https://ynsstudy.cn/oneBlog/412">下一篇：下一篇文章 →</a>`,
 		`<h2>YuNanSong 的其他文章</h2>`,
+		`<meta property="article:tag" content="Go">`,
+		`"keywords":"Go,SEO"`,
+		`<a href="https://ynsstudy.cn/tag/SEO" rel="tag">#SEO</a>`,
+		`"isPartOf":{"@type":"CreativeWorkSeries","name":"Go 实战","url":"https://ynsstudy.cn/series/7"}`,
+		`本文属于系列《<a href="https://ynsstudy.cn/series/7">Go 实战</a>》第 1 / 2 篇`,
 		`<a href="https://ynsstudy.cn/user/10001" itemprop="author">YuNanSong</a>`,
 		`"author":{"@type":"Person","name":"YuNanSong","url":"https://ynsstudy.cn/user/10001"}`,
 		`<a href="https://ynsstudy.cn/oneBlog/300">同作者的旧文章</a>`,

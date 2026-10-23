@@ -25,6 +25,15 @@ func (s *Service) AddBlog(c *gin.Context, blog map[string]any) model.Result {
 		return *failure
 	}
 	ctx := contextOf(c)
+	tags := normalizeTags(model.Lookup(blog, "TAGS"))
+	if s.containsBannedTag(tags) {
+		return model.Failure(msgBannedWord)
+	}
+	// 系列必须是作者自己的，先检查，避免文章保存了却进不了系列
+	seriesID, failure := s.checkArticleSeries(ctx, model.StringValue(blog, "SERIES_ID"), actor.Code())
+	if failure != nil {
+		return *failure
+	}
 	blog = normalizeNewBlog(blog)
 	// 作者以登录用户为准，不信任请求体中的 USERCODE/USERNAME
 	blog["USERCODE"] = actor.Code()
@@ -46,6 +55,21 @@ func (s *Service) AddBlog(c *gin.Context, blog map[string]any) model.Result {
 		}
 	}
 	result := stripSearchTextResult(s.SaveAll(ctx, "add", "BLOGINFO", []map[string]any{blog}, "GUID"))
+	if !result.IsError {
+		// 编号可能由数据库生成，以保存后的那一行为准
+		guid := model.StringValue(blog, "GUID")
+		saved, _ := result.Result.([]map[string]any)
+		if len(saved) > 0 && model.StringValue(saved[0], "GUID") != "" {
+			guid = model.StringValue(saved[0], "GUID")
+			saved[0]["TAGS"] = tags
+		}
+		s.saveTargetTags(ctx, TagTargetBlog, guid, tags)
+		if seriesID != "" {
+			if err := s.assignArticleSeries(ctx, guid, seriesID); err != nil {
+				log.Printf("文章 %s 加入系列 %s 失败: %v", guid, seriesID, err)
+			}
+		}
+	}
 	if !result.IsError && isPublicBlogType(model.StringValue(blog, "BLOG_TYPE")) {
 		guid := model.StringValue(blog, "GUID")
 		s.NotifyBlogChanged(guid, actor.Code())
@@ -160,6 +184,16 @@ WHERE b.GUID = ? AND (b.USERCODE = ? OR b.BLOG_TYPE = 'public')`
 	if len(rows) > 0 {
 		_, _ = s.Repo.Exec(contextOf(c), "UPDATE blogInfo SET VIEW_PAGE = COALESCE(VIEW_PAGE, 0) + 1 WHERE GUID = ?", blogID)
 	}
+	s.attachTags(contextOf(c), TagTargetBlog, rows)
+	if len(rows) > 0 {
+		// 作者本人看自己的文章时，系列目录里也列出私密文章
+		isAuthor := userCode != "" && model.StringValue(rows[0], "USERCODE") == userCode
+		if nav := s.ArticleSeriesNav(contextOf(c), rows[0], isAuthor); nav != nil {
+			rows[0]["SERIES"] = nav
+		} else {
+			rows[0]["SERIES"] = nil
+		}
+	}
 	return model.Success(stripSearchText(rows))
 }
 
@@ -177,19 +211,36 @@ LIMIT 1`, strings.TrimSpace(blogID))
 	if len(rows) == 0 {
 		return nil, false, nil
 	}
+	s.attachTags(ctx, TagTargetBlog, rows)
+	if nav := s.ArticleSeriesNav(ctx, rows[0], false); nav != nil {
+		rows[0]["SERIES"] = nav
+	}
 	return rows[0], true, nil
 }
 
-func (s *Service) GetAllBlogs(ctx context.Context, page, pageSize int, keyword string) model.Result {
+// GetAllBlogs 是首页的公开文章列表，可按关键词和标签筛选（两者可以同时使用）
+func (s *Service) GetAllBlogs(ctx context.Context, page, pageSize int, keyword, tag string) model.Result {
 	page, pageSize = normalizePage(page, pageSize)
+	if pageSize > 50 {
+		pageSize = 50
+	}
 	where := " WHERE b.BLOG_TYPE = 'public'"
-	listArgs := make([]any, 0, 4)
-	countArgs := make([]any, 0, 2)
+	listArgs := make([]any, 0, 5)
+	countArgs := make([]any, 0, 3)
 	if strings.TrimSpace(keyword) != "" {
 		where += " AND (b.BLOG_TITLE LIKE ? OR " + s.searchField(ctx, "blogInfo", "b") + " LIKE ?)"
 		like := likePattern(keyword)
 		listArgs = append(listArgs, like, like)
 		countArgs = append(countArgs, like, like)
+	}
+	if strings.TrimSpace(tag) != "" {
+		name := normalizeTagName(tag)
+		if name == "" || !s.tagsReady(ctx) {
+			return model.Success(map[string]any{"total": 0, "data": []map[string]any{}})
+		}
+		where += " AND " + s.blogTagFilter(ctx, "b")
+		listArgs = append(listArgs, name)
+		countArgs = append(countArgs, name)
 	}
 	listArgs = append(listArgs, pageSize, (page-1)*pageSize)
 	rows, err := s.Repo.Query(ctx, "SELECT b.*, u.AVATAR, u.USERNUM FROM blogInfo b LEFT JOIN userInfo u ON b.USERCODE = u.CODE"+where+" ORDER BY b.CREATE_TIME DESC LIMIT ? OFFSET ?", listArgs...)
@@ -200,13 +251,28 @@ func (s *Service) GetAllBlogs(ctx context.Context, page, pageSize int, keyword s
 	if err != nil {
 		return dbFailure("统计文章", err)
 	}
+	s.attachTags(ctx, TagTargetBlog, rows)
+	s.attachSeriesBadges(ctx, rows)
 	return model.Success(map[string]any{"total": firstCount(counts), "data": stripSearchText(replaceTextWithKeywordSummary(rows, "MAINTEXT", keyword))})
 }
 
-func (s *Service) UpdateBlog(c *gin.Context, guid, title, content, blogType string) model.Result {
+// UpdateBlog 修改文章。tags 为 nil 表示请求里没有带标签（旧版前端），保留原有标签不动；
+// seriesID 为 nil 表示没有带系列，保留原来的系列，空字符串表示移出系列。
+func (s *Service) UpdateBlog(c *gin.Context, guid, title, content, blogType string, tags []string, seriesID *string) model.Result {
 	row, failure := s.requireOwnerOrAdmin(c, "blogInfo", guid)
 	if failure != nil {
 		return *failure
+	}
+	if s.containsBannedTag(tags) {
+		return model.Failure(msgBannedWord)
+	}
+	if seriesID != nil {
+		// 系列必须属于文章作者（管理员修改别人的文章时也一样）
+		checked, failure := s.checkArticleSeries(contextOf(c), *seriesID, model.StringValue(row, "USERCODE"))
+		if failure != nil {
+			return *failure
+		}
+		seriesID = &checked
 	}
 	ctx := contextOf(c)
 	content = sanitizeRichText(content)
@@ -227,8 +293,19 @@ func (s *Service) UpdateBlog(c *gin.Context, guid, title, content, blogType stri
 	if _, err := s.Repo.Exec(ctx, "UPDATE blogInfo SET "+sets+" WHERE GUID = ?", append(args, guid)...); err != nil {
 		return dbFailure("修改文章", err)
 	}
+	if tags != nil {
+		s.saveTargetTags(ctx, TagTargetBlog, guid, tags)
+	}
+	if seriesID != nil {
+		if err := s.assignArticleSeries(ctx, guid, *seriesID); err != nil {
+			log.Printf("文章 %s 调整系列失败: %v", guid, err)
+		}
+	} else if previous := normalizeSeriesID(model.StringValue(row, "SERIES_ID")); previous != "" && (wasPublic || isPublicBlogType(blogType)) {
+		// 标题或公开状态变了，系列页的目录也跟着变
+		s.notifySeriesChanged(ctx, previous)
+	}
 	// 文章保存成功后再删除不再使用的图片，保存失败时图片不会丢
-	s.DeleteUploadedFiles(difference(oldURLs, newURLs))
+	s.DeleteUploadedFiles(ctx, difference(oldURLs, newURLs), model.StringValue(row, "USERCODE"))
 	// 公开文章被修改或改为私密时都要通知，后者让搜索引擎发现页面已不可访问。
 	if wasPublic || isPublicBlogType(blogType) {
 		s.NotifyBlogChanged(guid, model.StringValue(rows[0], "USERCODE"))
@@ -271,7 +348,8 @@ func (s *Service) DeleteBlog(c *gin.Context, guid string) model.Result {
 	if err != nil {
 		return dbFailure("删除文章", err)
 	}
-	s.DeleteUploadedFiles(extractImageURLs(model.StringValue(rows[0], "MAINTEXT")))
+	s.deleteTargetTags(ctx, TagTargetBlog, guid)
+	s.DeleteUploadedFiles(ctx, extractImageURLs(model.StringValue(rows[0], "MAINTEXT")), model.StringValue(row, "USERCODE"))
 	if wasPublic {
 		s.NotifyBlogChanged(guid, model.StringValue(rows[0], "USERCODE"))
 	}

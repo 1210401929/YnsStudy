@@ -1,6 +1,6 @@
 package service
 
-// 话题标签。现在用于便签墙的随记（TARGET_TYPE = note），以后文章也可以使用。需要先执行迁移 012。
+// 话题标签。用于便签墙的随记（TARGET_TYPE = note）和文章（TARGET_TYPE = blog，见 blog_tag_service.go）。需要先执行迁移 012。
 
 import (
 	"context"
@@ -14,6 +14,7 @@ import (
 
 const (
 	TagTargetNote = "note"
+	TagTargetBlog = "blog"
 
 	maxTagsPerTarget = 5
 	maxTagRunes      = 20
@@ -23,14 +24,15 @@ func (s *Service) tagsReady(ctx context.Context) bool {
 	return s.tableHasColumn(ctx, "tagRelation", "TAG_ID")
 }
 
-// normalizeTagName 去掉开头的 #，去掉首尾空白；名字里不允许空白和 , # 这类分隔符，最长 20 个字
+// normalizeTagName 去掉开头的 #，去掉首尾空白；名字里不允许空白和 , # 这类分隔符，最长 20 个字。
+// 文章标签有自己的页面地址 /tag/名字，所以 / \ ? 也不允许，否则地址会被拆开。
 func normalizeTagName(name string) string {
 	name = strings.TrimSpace(strings.TrimLeft(strings.TrimSpace(name), "#＃"))
 	if name == "" || len([]rune(name)) > maxTagRunes {
 		return ""
 	}
 	for _, r := range name {
-		if unicode.IsSpace(r) || strings.ContainsRune(",，#＃;；、<>\"'", r) || unicode.IsControl(r) {
+		if unicode.IsSpace(r) || strings.ContainsRune(",，#＃;；、<>\"'/\\?", r) || unicode.IsControl(r) {
 			return ""
 		}
 	}

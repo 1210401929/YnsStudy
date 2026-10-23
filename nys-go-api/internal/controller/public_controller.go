@@ -185,7 +185,13 @@ func (h *Controller) uploadFile(c *gin.Context) {
 		writeResult(c, model.Failure("上传文件不能为空"))
 		return
 	}
-	writeResult(c, h.service.SaveUploadedFile(file, c.PostForm("spliceUrl")))
+	// 记录上传者，以后只有上传者本人（或管理员处理其内容时）才能通过业务操作删除这个文件
+	actor, ok := h.service.CurrentActor(c)
+	if !ok {
+		writeResult(c, model.Failure("用户未登录!"))
+		return
+	}
+	writeResult(c, h.service.SaveUploadedFile(c.Request.Context(), file, c.PostForm("spliceUrl"), actor.Code()))
 }
 
 func (h *Controller) unsubscribeMail(c *gin.Context) {

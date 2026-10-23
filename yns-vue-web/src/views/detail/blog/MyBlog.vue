@@ -19,6 +19,7 @@
             :is-router="true"
             v-model:selectedIndex="selectedIndex"
         />
+        <MySeriesPanel ref="mySeriesPanelRef"/>
       </div>
 
       <el-main class="content" v-if="blogContentStore.blogContents.length > 0">
@@ -64,10 +65,12 @@ import BackgroundAndMusic from "@/components/detail/personInformation/Background
 
 // 分类归档目录组件
 import BlogSidebar from "@/components/detail/myblog/BlogSidebar.vue";
+import MySeriesPanel from "@/components/detail/myblog/MySeriesPanel.vue";
 
 // 编辑器体积较大，点击“发布文章”打开弹窗时才下载
 const ArticleEditor = defineAsyncComponent(() => import('@/components/detail/ArticleEditor.vue'))
 const articleEditorRef = ref(null)
+const mySeriesPanelRef = ref(null)
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -98,13 +101,15 @@ watch(() => route.name, (name) => {
   }
 });
 
-async function handleEditorSubmit({blog_type, title, content}) {
+async function handleEditorSubmit({blog_type, title, content, tags, seriesId}) {
   let userBean = userStore.userBean;
   let blogContent = {
     GUID: null,//不传递guid,后台构造
     BLOG_TITLE: title,
     MAINTEXT: content,
     BLOG_TYPE: blog_type,
+    TAGS: tags || [],
+    SERIES_ID: seriesId || '',
     USERCODE: userBean.code,
     USERNAME: userBean.name,
     CATEGORY_ID: null // 默认新文章暂不分类
@@ -117,6 +122,8 @@ async function handleEditorSubmit({blog_type, title, content}) {
     return;
   }
   articleEditorRef.value?.onSaved();
+  // 新文章可能加入了系列，刷新“我的系列”里的文章数
+  if (seriesId) mySeriesPanelRef.value?.refresh(true);
   blogContent = result.result[0];
   blogContentStore.blogContents.unshift(blogContent);
 

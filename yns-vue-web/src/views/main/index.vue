@@ -75,7 +75,8 @@ const navigateTo = (routerName) => {
 const currentMenu = computed(() => menuItems.value.find(item => route.matched.some(record => record.name === item.router)));
 useSeo(() => {
   const menu = currentMenu.value;
-  if (!menu) return {path: route.path, noindex: !!route.meta.noindex};
+  // 不属于栏目的子页面（如标签页）自己设置标题和规范网址，这里不输出 canonical，避免和页面的 noindex 冲突
+  if (!menu) return {noindex: !!route.meta.noindex};
   return {
     title: menu.title,
     description: menu.description,

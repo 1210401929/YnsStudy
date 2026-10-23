@@ -563,7 +563,8 @@ func (s *Service) DeleteUserAvatar(c *gin.Context, userCode string) model.Result
 	if user.Avatar == "" {
 		return model.Failure("当前用户未设置头像!")
 	}
-	return s.DeleteUploadedFile(user.Avatar)
+	// 头像地址可以由用户随意填写，只删除本人上传的文件
+	return s.DeleteOwnedUpload(contextOf(c), user.Avatar, user.Code)
 }
 
 func (s *Service) ClientIPAddress(c *gin.Context) model.Result {

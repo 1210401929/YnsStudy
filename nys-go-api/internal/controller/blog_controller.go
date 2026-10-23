@@ -12,6 +12,7 @@ import (
 func (h *Controller) registerBlogRoutes(router *gin.Engine) {
 	h.registerAnnouncementRoutes(router.Group("/blog-api/sso"))
 	h.registerArticleRoutes(router.Group("/blog-api/blog"))
+	h.registerSeriesRoutes(router.Group("/blog-api/series"))
 	h.registerCommunityRoutes(router.Group("/blog-api/community"))
 	h.registerGuestbookRoutes(router.Group("/blog-api/guestbook"))
 	h.registerFriendLinkRoutes(router.Group("/blog-api/friendLink"))
@@ -75,6 +76,17 @@ func (h *Controller) registerArticleRoutes(group *gin.RouterGroup) {
 		}
 	})
 	group.Any("/getAllBlog", h.getAllBlogs)
+	// 文章标签：热门标签（只统计公开文章），以及某个标签下的公开文章（标签页使用）
+	group.Any("/getBlogTags", func(c *gin.Context) {
+		body, _ := readBody(c)
+		writeResult(c, h.service.GetBlogTags(c.Request.Context(), intParam(body, "limit", 30)))
+	})
+	group.Any("/getTagArticles", func(c *gin.Context) {
+		body, ok := requireBody(c)
+		if ok {
+			writeResult(c, h.service.GetBlogTagArticles(c.Request.Context(), stringParam(body, "tag"), intParam(body, "page", 1)))
+		}
+	})
 	group.Any("/getArticleLinks", func(c *gin.Context) {
 		body, ok := requireBody(c)
 		if ok {
@@ -141,7 +153,18 @@ func (h *Controller) updateBlog(c *gin.Context) {
 	if !ok {
 		return
 	}
-	writeResult(c, h.service.UpdateBlog(c, stringParam(body, "guid"), stringParam(body, "title"), stringParam(body, "content"), stringParam(body, "blog_type")))
+	// 请求里没有 tags 时（旧版前端）传 nil，保留原有标签
+	var tags []string
+	if raw, exists := body["tags"]; exists {
+		tags = service.NormalizeTags(raw)
+	}
+	// 同理，没有 seriesId 时保留原来的系列；空字符串表示移出系列
+	var seriesID *string
+	if _, exists := body["seriesId"]; exists {
+		value := stringParam(body, "seriesId")
+		seriesID = &value
+	}
+	writeResult(c, h.service.UpdateBlog(c, stringParam(body, "guid"), stringParam(body, "title"), stringParam(body, "content"), stringParam(body, "blog_type"), tags, seriesID))
 }
 
 func (h *Controller) updateBlogCategory(c *gin.Context) {
@@ -157,7 +180,7 @@ func (h *Controller) getAllBlogs(c *gin.Context) {
 	if !ok {
 		return
 	}
-	writeResult(c, h.service.GetAllBlogs(c.Request.Context(), intParam(body, "page", 1), intParam(body, "pageSize", 10), stringParam(body, "keyword")))
+	writeResult(c, h.service.GetAllBlogs(c.Request.Context(), intParam(body, "page", 1), intParam(body, "pageSize", 10), stringParam(body, "keyword"), stringParam(body, "tag")))
 }
 
 func (h *Controller) addBlogComment(c *gin.Context) {

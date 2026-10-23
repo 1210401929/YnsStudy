@@ -147,6 +147,10 @@ const customUploadRequest = async (options) => {
   formData.append('spliceUrl', "userAvatar");
   try {
     const res = await sendAxiosRequest('/pub-api/upload/uploadFile', formData);
+    if (!res || res.isError) {
+      ElMessage.error(res?.errMsg || "上传失败");
+      return;
+    }
     // 删除旧头像
     if (userStore.userBean.avatar) {
       sendAxiosRequest("/pub-api/login/deleteUserAvatarFile", {userCode: userStore.userBean.code});

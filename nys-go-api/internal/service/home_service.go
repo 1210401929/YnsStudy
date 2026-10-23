@@ -20,10 +20,22 @@ func (s *Service) GetHomeData(ctx context.Context) model.Result {
 	if authors.IsError {
 		return authors
 	}
+	// 首页的标签筛选和标签云；读取失败只是不显示，不影响首页其他内容
+	blogTags, err := s.PopularBlogTags(ctx, 30)
+	if err != nil {
+		blogTags = []map[string]any{}
+	}
+	// 首页的“系列专栏”：文章最多的几个系列
+	blogSeries, err := s.PublicSeriesList(ctx, "", "hot", 5)
+	if err != nil {
+		blogSeries = []map[string]any{}
+	}
 	return model.Success(map[string]any{
 		"hotBlogData": hotBlogs.Result,
 		"hotFileData": hotFiles.Result,
 		"higAuthor":   authors.Result,
+		"blogTags":    blogTags,
+		"blogSeries":  blogSeries,
 	})
 }
 

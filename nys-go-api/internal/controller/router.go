@@ -2,6 +2,7 @@ package controller
 
 import (
 	"net/http"
+	"path"
 	"strings"
 	"time"
 
@@ -50,6 +51,7 @@ func NewRouter(cfg *config.Config, serviceLayer *service.Service, cipher *securi
 	// gin.Dir 第二个参数为 false 时不列出目录，避免 /uploadFile/xxx/ 暴露全部已上传文件
 	uploads := router.Group(staticPath, func(c *gin.Context) {
 		c.Header("Cache-Control", "public, max-age=31536000, immutable")
+		setUploadSecurityHeaders(c)
 		c.Next()
 	})
 	uploads.StaticFS("/", gin.Dir(cfg.Upload.Directory, false))
@@ -59,4 +61,18 @@ func NewRouter(cfg *config.Config, serviceLayer *service.Service, cipher *securi
 	controller.registerBlogRoutes(router)
 	controller.registerAIRoutes(router)
 	return router
+}
+
+// uploadSandboxPolicy 让直接打开的上传文件处于沙箱中：即使是以前传上来的 SVG、HTML，里面的脚本也不会执行。
+// 只对“直接打开文件”生效，页面里用 <img>、<video> 引用图片和视频不受影响。
+const uploadSandboxPolicy = "sandbox; default-src 'none'; img-src 'self' data:; media-src 'self'; style-src 'unsafe-inline'"
+
+// setUploadSecurityHeaders 给上传文件加安全响应头。上传文件和网站同一个域名，必须防止被当作网页执行：
+//   - nosniff：浏览器严格按 Content-Type 处理，不会把文件“猜”成网页或脚本；
+//   - CSP sandbox：PDF 除外（Chrome 在沙箱里无法预览 PDF），PDF 本身由浏览器内置的阅读器隔离处理。
+func setUploadSecurityHeaders(c *gin.Context) {
+	c.Header("X-Content-Type-Options", "nosniff")
+	if !strings.EqualFold(path.Ext(c.Request.URL.Path), ".pdf") {
+		c.Header("Content-Security-Policy", uploadSandboxPolicy)
+	}
 }

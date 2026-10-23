@@ -50,6 +50,16 @@
           </div>
         </div>
 
+        <!-- 文章标签：公开文章点开是标签页；私密文章不提供链接（标签页只列公开文章） -->
+        <ArticleSeriesBox :series="blogContent.SERIES" :current-guid="blogContent.GUID" placement="top"/>
+
+        <div v-if="blogContent.TAGS?.length" class="article-tags">
+          <template v-for="tag in blogContent.TAGS" :key="tag">
+            <router-link v-if="blogContent.BLOG_TYPE === 'public'" :to="blogTagHref(tag)" class="j-tag" rel="tag">#{{ tag }}</router-link>
+            <span v-else class="j-tag">#{{ tag }}</span>
+          </template>
+        </div>
+
         <p v-if="!blogContent.GUID" class="sheet-loading">
           <svg class="pencil-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20l1.2-4.6L15.8 4.8a2 2 0 0 1 2.8 0l.6.6a2 2 0 0 1 0 2.8L8.6 18.8z M13.5 7l3.5 3.5 M4 20l4.6-1.2"/></svg>
           正在翻开这一页…
@@ -59,6 +69,7 @@
 
         <div class="article-bottom-actions">
           <p class="end-mark">文章完</p>
+          <ArticleSeriesBox :series="blogContent.SERIES" :current-guid="blogContent.GUID" placement="bottom"/>
           <div class="bottom-action-buttons">
             <!-- 点过之后在按钮角上盖一个红章；按钮有折角裁切，章放在外层才不会被裁掉 -->
             <span class="stamp-holder">
@@ -140,6 +151,9 @@
         :draft-key="'edit-' + contentGuid"
         :title="blogContent.BLOG_TITLE"
         :content="blogContent.MAINTEXT"
+        :tags="blogContent.TAGS || []"
+        :series-id="blogContent.SERIES_ID || ''"
+        :series-editable="blogContent.USERCODE === userStore.userBean?.code"
         :save-type="'edit'"
         :isPublic="blogContent.BLOG_TYPE === 'public' ? true : false"
         @submit="handleEditorSubmit"
@@ -172,6 +186,8 @@ import {
 
 import { adminUserCode, articleRenderMode } from "@/config/vue-config.js";
 import { pubOpenOneBlog, pubOpenUser } from "@/utils/blogUtil.js";
+import { blogTagHref } from "@/utils/blogTags.js";
+import ArticleSeriesBox from "@/components/detail/myblog/ArticleSeriesBox.vue";
 
 // 编辑器体积较大，只在打开编辑弹窗（或切回编辑器展示方式）时才下载
 const ArticleEditor = defineAsyncComponent(() => import("@/components/detail/ArticleEditor.vue"));
@@ -215,15 +231,21 @@ const scrollToComments = () => {
 
 const emit = defineEmits(['loaded', 'not-found', 'toc-change'])
 
-const handleEditorSubmit = async ({blog_type, title, content}) => {
-  const result = await sendAxiosRequestChecked("/blog-api/blog/updateBlog", {
-    guid: contentGuid.value, title, blog_type, content,
-  }, "修改失败");
+const handleEditorSubmit = async ({blog_type, title, content, tags, seriesId}) => {
+  const payload = {guid: contentGuid.value, title, blog_type, content, tags: tags || []};
+  // 不能选系列（管理员修改别人的文章）时不传，后台保留原来的系列
+  if (seriesId !== undefined) payload.seriesId = seriesId;
+  const result = await sendAxiosRequestChecked("/blog-api/blog/updateBlog", payload, "修改失败");
   if (result) {
     articleEditorRef.value?.onSaved();
     blogContent.value.BLOG_TITLE = title;
     blogContent.value.MAINTEXT = content;
     blogContent.value.BLOG_TYPE = blog_type;
+    blogContent.value.TAGS = tags || [];
+    // 系列序号、上一篇下一篇要重新计算，重新读取一次
+    if (seriesId !== undefined && String(seriesId || '') !== String(blogContent.value.SERIES_ID || '')) {
+      reloadSeries();
+    }
     blogContentStore.blogContents.forEach(item => {
       if (item["GUID"] === contentGuid.value) {
         item["BLOG_TITLE"] = title;
@@ -234,6 +256,16 @@ const handleEditorSubmit = async ({blog_type, title, content}) => {
     editorVisible.value = false;
   }
 };
+
+// 修改了所属系列后重新读取系列信息（第几篇、上一篇下一篇）
+async function reloadSeries() {
+  const res = await sendAxiosRequest("/blog-api/blog/getBlog", {blogId: contentGuid.value});
+  const row = res && !res.isError ? res.result?.[0] : null;
+  if (row) {
+    blogContent.value.SERIES_ID = row.SERIES_ID;
+    blogContent.value.SERIES = row.SERIES;
+  }
+}
 
 const loadContentAndComments = async (guid) => {
   // 正文、点赞收藏只依赖文章 ID，两个请求同时发出；评论由评论组件自己加载
@@ -606,6 +638,13 @@ function deleteArticle() {
   align-items: flex-start;
   gap: 16px;
   margin-bottom: 18px;
+}
+
+.article-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: -8px 0 18px;
 }
 
 .article-header h1,

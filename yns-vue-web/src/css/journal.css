@@ -403,3 +403,34 @@ body {
 .el-select__wrapper {
     background-color: #fffefb;
 }
+
+/* 文章标签：像贴在本子上的小标签纸，文章页、首页、标签页共用 */
+.j-tag {
+    display: inline-flex;
+    align-items: center;
+    padding: 1px 8px;
+    border: 1px dashed var(--j-rule-strong);
+    border-radius: 2px;
+    background: var(--j-paper-warm);
+    color: var(--j-pen);
+    font-family: inherit;
+    font-size: 13px;
+    line-height: 1.7;
+    text-decoration: none;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background-color 0.15s, border-color 0.15s;
+}
+
+.j-tag:hover {
+    background: var(--j-note);
+    border-color: var(--j-pen);
+    text-decoration: none;
+}
+
+.j-tag.is-active {
+    background: var(--j-note);
+    border-style: solid;
+    border-color: var(--j-stamp);
+    color: var(--j-stamp);
+}

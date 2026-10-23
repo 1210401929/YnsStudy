@@ -50,6 +50,25 @@
                 />
                 <button v-if="searchKeyword" type="button" class="search-clear" aria-label="清除搜索" @click="clearSearch">×</button>
               </label>
+
+              <!-- 按标签筛选：和搜索可以同时使用，筛选条件写在地址里（?tag=Go），刷新、分享都保留 -->
+              <div v-if="tagOptions.length" class="tag-filter" role="toolbar" aria-label="按标签筛选文章">
+                <button type="button" class="j-tag" :class="{ 'is-active': !activeTag }" @click="selectTag('')">全部</button>
+                <button
+                    v-for="tag in tagOptions"
+                    :key="tag.NAME"
+                    type="button"
+                    class="j-tag"
+                    :class="{ 'is-active': sameTag(tag.NAME, activeTag) }"
+                    :aria-pressed="sameTag(tag.NAME, activeTag)"
+                    @click="selectTag(tag.NAME)"
+                >#{{ tag.NAME }}<span v-if="tag.TOTAL" class="tag-count">{{ tag.TOTAL }}</span></button>
+              </div>
+              <p v-if="activeTag" class="filter-banner">
+                正在看 <strong>#{{ activeTag }}</strong> 的文章<template v-if="!loading">（{{ total }} 篇）</template>
+                · <router-link :to="blogTagHref(activeTag)">打开标签页</router-link>
+                · <a href="#" @click.prevent="selectTag('')">看全部文章</a>
+              </p>
             </div>
 
             <ol class="entries">
@@ -82,6 +101,24 @@
                         @click.stop
                     >{{ article.USERNAME }}</a>
                     <span v-else>{{ article.USERNAME }}</span>
+                    <router-link
+                        v-if="article.SERIES"
+                        :to="seriesHref(article.SERIES.ID)"
+                        class="entry-series"
+                        :title="`系列《${article.SERIES.TITLE}》共 ${article.SERIES.TOTAL} 篇`"
+                        @click.stop
+                    >《{{ article.SERIES.TITLE }}》<template v-if="article.SERIES.INDEX">第 {{ article.SERIES.INDEX }} 篇</template></router-link>
+                    <span v-if="article.TAGS?.length" class="entry-tags">
+                      <button
+                          v-for="tag in article.TAGS.slice(0, 3)"
+                          :key="tag"
+                          type="button"
+                          class="j-tag entry-tag"
+                          :class="{ 'is-active': sameTag(tag, activeTag) }"
+                          :title="`只看 #${tag} 的文章`"
+                          @click.stop="selectTag(tag)"
+                      >#{{ tag }}</button>
+                    </span>
                   </div>
                 </div>
 
@@ -148,6 +185,36 @@
             </ol>
           </section>
 
+          <!-- 标签云：文章越多字越大，点开是标签页 -->
+          <section v-if="tagCloud.length" class="card tag-cloud-card">
+            <h2 class="hand card-title">标签云</h2>
+            <div class="tag-cloud">
+              <router-link
+                  v-for="tag in tagCloud"
+                  :key="tag.NAME"
+                  :to="blogTagHref(tag.NAME)"
+                  class="cloud-tag"
+                  :style="{ fontSize: tag.size + 'px' }"
+                  :title="`${tag.NAME}：${tag.TOTAL} 篇文章`"
+                  rel="tag"
+              >#{{ tag.NAME }}</router-link>
+            </div>
+          </section>
+
+          <!-- 系列专栏：文章最多的几个系列 -->
+          <section v-if="seriesList.length" class="card series-card">
+            <h2 class="hand card-title">系列专栏</h2>
+            <ul class="series-side-list">
+              <li v-for="item in seriesList" :key="item.ID">
+                <router-link :to="seriesHref(item.ID)" class="series-side-link">
+                  <span class="series-side-title">{{ item.TITLE }}</span>
+                  <span class="series-side-meta">{{ item.USERNAME }} · {{ item.ARTICLE_COUNT }} 篇</span>
+                </router-link>
+              </li>
+            </ul>
+            <router-link :to="SERIES_LIST_PATH" class="series-side-more">查看全部系列 →</router-link>
+          </section>
+
           <section v-if="authors.length" class="card">
             <h2 class="hand card-title">优质作者</h2>
             <ul class="author-list">
@@ -190,8 +257,8 @@
 </template>
 
 <script setup>
-import { computed, nextTick, onBeforeUnmount, onMounted, ref } from "vue";
-import { useRouter } from "vue-router";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { useRoute, useRouter } from "vue-router";
 import { ChatDotSquare, Star, View } from "@element-plus/icons-vue";
 import { ElMessage } from "element-plus";
 import debounce from "lodash/debounce.js";
@@ -202,8 +269,11 @@ import { adminUserCode } from "@/config/vue-config.js";
 import { getAnnouncementByRouterName, pubOpenOneBlog, pubOpenUser } from "@/utils/blogUtil.js";
 import Announcement from "@/components/detail/Announcement.vue";
 import HighlightText from "@/components/detail/HighlightText.vue";
+import { blogTagHref } from "@/utils/blogTags.js";
+import { SERIES_LIST_PATH, seriesHref } from "@/utils/blogSeries.js";
 
 const router = useRouter();
+const route = useRoute();
 const userStore = useUserStore();
 const homeStore = useHomeStore();
 homeStore.initHomeData();
@@ -211,6 +281,46 @@ homeStore.initHomeData();
 const hotBlogs = computed(() => homeStore.homeData.hotBlogData || []);
 const authors = computed(() => homeStore.homeData.higAuthor || []);
 const hotFiles = computed(() => homeStore.homeData.hotFileData || []);
+const seriesList = computed(() => homeStore.homeData.blogSeries || []);
+
+// ================= 标签 =================
+// 标签名不区分大小写（Go 和 go 是同一个标签）
+const sameTag = (a, b) => !!a && !!b && String(a).toLowerCase() === String(b).toLowerCase();
+const queryTag = () => (typeof route.query.tag === 'string' ? route.query.tag.trim() : '');
+const activeTag = ref(queryTag());
+const blogTags = computed(() => homeStore.homeData.blogTags || []);
+
+// 筛选栏只放最常用的 12 个；从地址或文章里点进来的冷门标签也补在最前面，保证能看到当前选中的是哪个
+const tagOptions = computed(() => {
+  const options = blogTags.value.slice(0, 12);
+  if (activeTag.value && !options.some(tag => sameTag(tag.NAME, activeTag.value))) {
+    const found = blogTags.value.find(tag => sameTag(tag.NAME, activeTag.value));
+    return [found || {NAME: activeTag.value, TOTAL: 0}, ...options];
+  }
+  return options;
+});
+
+// 标签云：按文章数在 13～20px 之间换算字号
+const tagCloud = computed(() => {
+  const list = blogTags.value.slice(0, 24);
+  if (!list.length) return [];
+  const counts = list.map(tag => Number(tag.TOTAL) || 0);
+  const max = Math.max(...counts);
+  const min = Math.min(...counts);
+  return list.map((tag, index) => ({
+    ...tag,
+    size: max === min ? 15 : Math.round(13 + (counts[index] - min) / (max - min) * 7)
+  }));
+});
+
+// 选中标签写进地址，由下面的 watch 统一重新加载列表；再点一次已选中的标签等于取消
+function selectTag(name) {
+  const next = sameTag(name, activeTag.value) ? '' : String(name || '').trim();
+  const query = {...route.query};
+  if (next) query.tag = next;
+  else delete query.tag;
+  router.replace({query});
+}
 
 const WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六'];
 const today = (() => {
@@ -262,7 +372,8 @@ const fetchArticles = async () => {
     const res = await sendAxiosRequest('/blog-api/blog/getAllBlog', {
       page: page.value,
       pageSize,
-      keyword: activeKeyword.value
+      keyword: activeKeyword.value,
+      tag: activeTag.value
     });
     if (currentRequest !== requestId) return;
     if (!res || res.isError) {
@@ -317,6 +428,15 @@ const clearSearch = () => {
   searchKeyword.value = '';
   searchNow();
 };
+
+// 地址里的标签变化（点标签、浏览器后退）时重新加载
+watch(() => route.query.tag, () => {
+  const next = queryTag();
+  if (next === activeTag.value) return;
+  activeTag.value = next;
+  debouncedSearch.cancel();
+  resetAndLoad();
+});
 
 // 滚动到列表底部时自动加载下一页；“浏览更多内容”按钮作为兜底。
 const sentinelRef = ref(null);
@@ -1155,6 +1275,134 @@ function goMe() {
   color: var(--muted);
 }
 
+/* ============ 标签 ============ */
+.tag-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.tag-count {
+  margin-left: 4px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.filter-banner {
+  margin: 12px 0 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.filter-banner strong {
+  color: var(--j-stamp);
+  font-weight: normal;
+}
+
+.filter-banner a {
+  color: var(--j-pen);
+  text-decoration: none;
+}
+
+.filter-banner a:hover {
+  text-decoration: underline;
+}
+
+.entry-meta {
+  flex-wrap: wrap;
+}
+
+.entry-tags {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-left: 6px;
+}
+
+.entry-tag {
+  padding: 0 6px;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.tag-cloud {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 12px;
+}
+
+.cloud-tag {
+  font-family: var(--j-hand);
+  color: var(--j-pen);
+  line-height: 1.5;
+  text-decoration: none;
+}
+
+.cloud-tag:hover {
+  color: var(--j-stamp);
+  text-decoration: underline;
+}
+
+/* ============ 系列 ============ */
+.entry-series {
+  margin-left: 6px;
+  color: var(--j-stamp);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.entry-series:hover {
+  text-decoration: underline;
+}
+
+.series-side-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.series-side-link {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 0;
+  border-top: 1px dashed var(--j-rule);
+  color: inherit;
+  text-decoration: none;
+}
+
+.series-side-list li:first-child .series-side-link {
+  border-top: none;
+}
+
+.series-side-title {
+  font-size: 14px;
+  color: var(--j-ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.series-side-link:hover .series-side-title {
+  color: var(--j-pen);
+  text-decoration: underline;
+}
+
+.series-side-meta {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.series-side-more {
+  display: inline-block;
+  margin-top: 8px;
+  font-size: 13px;
+  color: var(--j-pen);
+  text-decoration: none;
+}
+
 /* ============ 响应式 ============ */
 @media (max-width: 960px) {
   .layout {
@@ -1228,6 +1476,22 @@ function goMe() {
 
   .entry-title {
     font-size: 17px;
+  }
+
+  /* 手机上标签筛选横向滑动，不占好几行 */
+  .tag-filter {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    scrollbar-width: none;
+  }
+
+  .tag-filter::-webkit-scrollbar {
+    display: none;
+  }
+
+  .tag-filter .j-tag {
+    flex-shrink: 0;
   }
 
   .polaroid {

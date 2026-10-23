@@ -2,6 +2,8 @@ package service
 
 import (
 	"context"
+	"log"
+	"path"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -14,10 +16,25 @@ func (s *Service) AddFileInfo(c *gin.Context, info map[string]any) model.Result 
 	if failure != nil {
 		return *failure
 	}
-	info["USERCODE"] = actor.Code()
-	info["USERNAME"] = actor.User.Name
-	delete(info, "DOWNNUM")
-	return s.SaveAll(contextOf(c), "add", "FILEINFO", []map[string]any{info}, "GUID")
+	ctx := contextOf(c)
+	// 只接受这几个字段；文件地址必须是本人上传的文件，否则删除资源时会顺带删掉别人的文件
+	data := pickFields(info, "GUID", "ORIGINALFILENAME", "REMARK")
+	viewURL := s.uploadKey(model.StringValue(info, "FILEVIEWURL"))
+	if viewURL == "" {
+		return model.Failure(msgUploadInvalidURL)
+	}
+	if s.uploadRecordReady(ctx) {
+		if _, failure := s.checkUploadOwner(ctx, viewURL, actor.Code()); failure != nil {
+			return *failure
+		}
+	}
+	data["FILEVIEWURL"] = viewURL
+	data["SAVEDFILENAME"] = path.Base(viewURL)
+	// 以前这里保存服务器上的绝对路径并公开返回，现在不再保存
+	data["FILEREALURL"] = ""
+	data["USERCODE"] = actor.Code()
+	data["USERNAME"] = actor.User.Name
+	return s.SaveAll(ctx, "add", "FILEINFO", []map[string]any{data}, "GUID")
 }
 
 // DeleteFileInfo 删除资源记录和对应文件。文件地址从数据库读取，不使用请求传入的地址，
@@ -37,7 +54,11 @@ func (s *Service) DeleteFileInfo(c *gin.Context, guid string) model.Result {
 		return model.Failure("删除失败!" + result.ErrMsg)
 	}
 	s.logModeration(c, nil, row, AdminActionDeleteResource, model.StringValue(row, "ORIGINALFILENAME"), "在资源页删除了他人的资源")
-	return s.DeleteUploadedFile(fileURL)
+	// 资源记录已删除；文件只在确实由资源作者上传时才删除，删不掉只记日志，不影响结果
+	if fileResult := s.DeleteOwnedUpload(ctx, fileURL, model.StringValue(row, "USERCODE")); fileResult.IsError && fileResult.ErrMsg != "文件或路径不存在!" {
+		log.Printf("删除资源 %s 的文件未执行 %s: %s", guid, fileURL, fileResult.ErrMsg)
+	}
+	return model.Success("删除成功!")
 }
 
 func (s *Service) GetAllFiles(ctx context.Context, page, pageSize int, keyword string) model.Result {

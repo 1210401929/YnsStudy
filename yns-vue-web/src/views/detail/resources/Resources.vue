@@ -508,22 +508,26 @@ const customUploadRequest = ({file, onProgress, onSuccess, onError}) => {
   });
 };
 
-const handleUploadSuccess = (res, file) => {
-  ElMessage.success(`《${file.name}》 上传成功！`)
+const handleUploadSuccess = async (res, file) => {
+  if (!res || res.isError) {
+    ElMessage.error(res?.errMsg || `《${file.name}》上传失败`)
+    return
+  }
   let fileInfo = {
     GUID: getGuid(),
     ORIGINALFILENAME: res.result.originalFileName,
     SAVEDFILENAME: res.result.savedFileName,
-    FILEREALURL: res.result.fileRealUrl,
     FILEVIEWURL: res.result.fileViewUrl,
     USERCODE: userStore.userBean.code,
     USERNAME: userStore.userBean.name,
     REMARK: '', // 初始化备注为空
   }
-  // 提交到后端保存记录
-  sendAxiosRequest("/blog-api/resource/addFileInfo", {fileInfo});
+  // 提交到后端保存记录，以后台结果为准
+  const saved = await sendAxiosRequestChecked("/blog-api/resource/addFileInfo", {fileInfo}, `《${file.name}》登记失败`);
+  if (!saved) return;
+  ElMessage.success(`《${file.name}》 上传成功！`)
 
-  // 乐观更新：添加到“我的上传”列表头部
+  // 添加到“我的上传”列表头部
   myFiles.value.unshift({
     ...fileInfo,
     CREATE_TIME: new Date().getTime(), // 使用当前时间戳，格式化由 pubFormatDate 处理

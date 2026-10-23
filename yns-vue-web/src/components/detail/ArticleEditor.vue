@@ -20,6 +20,35 @@
         maxlength="200"
     />
 
+    <!-- 标签：最多 5 个，公开文章会出现在首页筛选和标签页里 -->
+    <NoteTagInput
+        v-if="!isReadOnly"
+        v-model="localTags"
+        :popular="popularTagNames"
+        noun="标签"
+        class="tag-row"
+    />
+
+    <!-- 所属系列：只能选自己的系列；管理员修改别人的文章时不显示，系列保持不变 -->
+    <div v-if="!isReadOnly && seriesEditable" class="series-row">
+      <span class="series-label">所属系列</span>
+      <el-select
+          v-model="localSeriesId"
+          clearable
+          placeholder="不加入系列"
+          class="series-select"
+          @change="onSeriesChange"
+      >
+        <el-option
+            v-for="item in mySeries"
+            :key="item.ID"
+            :label="`${item.TITLE}（${item.ARTICLE_COUNT || 0} 篇）`"
+            :value="String(item.ID)"
+        />
+        <el-option :value="NEW_SERIES" label="＋ 新建系列…"/>
+      </el-select>
+    </div>
+
     <!-- 编辑器 -->
     <div :style="wrapperStyle" class="editor-wrapper">
       <Toolbar
@@ -78,6 +107,9 @@ import {
   nextTick
 } from 'vue'
 import {Editor, Toolbar} from '@wangeditor/editor-for-vue'
+import NoteTagInput from '@/components/detail/notes/NoteTagInput.vue'
+import {loadBlogTags} from '@/utils/blogTags.js'
+import {loadMySeries, promptCreateSeries} from '@/utils/blogSeries.js'
 import {sendAxiosRequest, encrypt, pubLoading, getSendAxiosUrl} from '@/utils/common.js'
 import {ElMessage, ElMessageBox} from 'element-plus'
 import {built_in_preface, normalizeAiHtml} from "@/utils/formatHtml.js";
@@ -87,6 +119,12 @@ import {useUserStore} from '@/stores/main/user.js'
 const props = defineProps({
   title: String,
   content: String,
+  // 文章标签（名字数组）
+  tags: {type: Array, default: () => []},
+  // 所属系列编号，空表示不属于系列
+  seriesId: {type: [String, Number], default: ''},
+  // 能否选择系列：只有文章作者本人可以（系列必须属于作者）
+  seriesEditable: {type: Boolean, default: true},
   isPublic: Boolean,
   isReadOnly: Boolean,
   saveType: String,
@@ -99,6 +137,34 @@ const emits = defineEmits(['submit', 'cancel'])
 const isPublic = ref(props.isPublic)
 const localTitle = ref(props.title || '')
 const localContent = ref(props.content || '')
+const localTags = ref([...(props.tags || [])])
+// 常用标签，写作时点一下就能加上
+const popularTagNames = ref([])
+if (!props.isReadOnly) {
+  loadBlogTags().then(list => (popularTagNames.value = list.map(item => item.NAME).filter(Boolean)))
+}
+// 系列：选项里的“新建系列…”用这个值，选中后弹窗新建，再自动选中新系列
+const NEW_SERIES = '__new__'
+const normalizeSeriesId = (value) => (value === null || value === undefined || value === 0 || value === '0') ? '' : String(value)
+const localSeriesId = ref(normalizeSeriesId(props.seriesId))
+let lastSeriesId = localSeriesId.value
+const mySeries = ref([])
+if (!props.isReadOnly && props.seriesEditable) {
+  loadMySeries().then(list => (mySeries.value = list))
+}
+
+async function onSeriesChange(value) {
+  if (value !== NEW_SERIES) {
+    lastSeriesId = value || ''
+    return
+  }
+  localSeriesId.value = lastSeriesId
+  const created = await promptCreateSeries()
+  if (!created?.ID) return
+  mySeries.value = await loadMySeries()
+  localSeriesId.value = String(created.ID)
+  lastSeriesId = localSeriesId.value
+}
 const editorRef = shallowRef(null)
 const editorWrapper = ref(null)
 
@@ -200,7 +266,8 @@ const draftStorageKey = computed(() => {
   return `ynsDraft:${userStore.userBean?.code || 'guest'}:${props.draftKey}`
 })
 // 打开编辑器时的内容（编辑器会把 HTML 规范化，所以在编辑器创建后记录），未改动时不保存草稿
-const baseline = {title: '', content: '', ready: false}
+const baseline = {title: '', content: '', tags: '', ready: false}
+const tagsKey = () => localTags.value.join(',')
 let draftTimer = null
 
 const isBlankContent = (html) => !/<img/i.test(html || '') &&
@@ -220,10 +287,10 @@ function saveDraft() {
   const title = localTitle.value || ''
   const content = localContent.value || ''
   if (!title.trim() && isBlankContent(content)) return
-  if (title === baseline.title && content === baseline.content) return
+  if (title === baseline.title && content === baseline.content && tagsKey() === baseline.tags) return
   try {
     localStorage.setItem(draftStorageKey.value, JSON.stringify({
-      title, content, isPublic: isPublic.value, savedAt: Date.now()
+      title, content, tags: localTags.value, isPublic: isPublic.value, savedAt: Date.now()
     }))
   } catch {
     // 本地存储满了或被禁用时不影响写作
@@ -240,7 +307,7 @@ function clearDraft() {
   }
 }
 
-watch([localTitle, localContent, isPublic], () => {
+watch([localTitle, localContent, isPublic, localTags], () => {
   clearTimeout(draftTimer)
   draftTimer = setTimeout(saveDraft, 1000)
 })
@@ -256,9 +323,10 @@ const formatDraftTime = (time) => {
 function checkDraft(editor) {
   baseline.title = localTitle.value || ''
   baseline.content = editor.getHtml()
+  baseline.tags = tagsKey()
   baseline.ready = true
   const draft = readDraft()
-  if (!draft || (draft.title === baseline.title && draft.content === baseline.content)) return
+  if (!draft || (draft.title === baseline.title && draft.content === baseline.content && (draft.tags || []).join(',') === baseline.tags)) return
   ElMessageBox.confirm(
       `发现 ${formatDraftTime(draft.savedAt)} 自动保存的草稿《${draft.title || '无标题'}》，是否恢复？`,
       '恢复草稿',
@@ -267,6 +335,7 @@ function checkDraft(editor) {
     localTitle.value = draft.title || ''
     localContent.value = draft.content || ''
     if (typeof draft.isPublic === 'boolean') isPublic.value = draft.isPublic
+    if (Array.isArray(draft.tags)) localTags.value = [...draft.tags]
   }).catch((action) => {
     // 点“丢弃”删除草稿；直接关闭弹窗则保留，下次打开还会提示
     if (action === 'cancel') clearDraft()
@@ -276,11 +345,17 @@ function checkDraft(editor) {
 // 保存成功后由父组件调用：清除草稿；发布新文章时同时清空编辑器
 function onSaved() {
   clearDraft()
+  // 系列里的文章数变了，下次打开重新获取
+  if (props.seriesEditable) loadMySeries({refresh: true}).then(list => (mySeries.value = list))
   if (props.saveType === 'add') {
     localTitle.value = ''
     localContent.value = ''
+    localTags.value = []
+    localSeriesId.value = ""
+    lastSeriesId = ""
     baseline.title = ''
     baseline.content = ''
+    baseline.tags = ''
   }
 }
 
@@ -443,7 +518,10 @@ async function submit() {
   emits('submit', {
     blog_type: isPublic.value ? 'public' : 'privacy',
     title: localTitle.value.trim(),
-    content: contentClean.trim()
+    content: contentClean.trim(),
+    tags: [...localTags.value],
+    // 不能选系列时传 undefined，后台保留原来的系列
+    seriesId: props.seriesEditable ? (localSeriesId.value || "") : undefined
   })
 }
 
@@ -463,6 +541,8 @@ const editorStyle = computed(() => ({
 /* ---------- 同步外部变更 ---------- */
 watch(() => props.title, (v) => (localTitle.value = v))
 watch(() => props.content, (v) => (localContent.value = v))
+watch(() => props.tags, (v) => (localTags.value = [...(v || [])]))
+watch(() => props.seriesId, (v) => (localSeriesId.value = lastSeriesId = normalizeSeriesId(v)))
 
 </script>
 <style scoped>
@@ -565,6 +645,28 @@ watch(() => props.content, (v) => (localContent.value = v))
   color: var(--j-ink);
   box-sizing: border-box;
   transition: border-color 0.15s;
+}
+
+.tag-row {
+  margin: -4px 0 14px;
+}
+
+.series-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: -4px 0 14px;
+}
+
+.series-label {
+  flex-shrink: 0;
+  font-size: 13px;
+  color: var(--j-muted);
+}
+
+.series-select {
+  width: 260px;
+  max-width: 100%;
 }
 
 .title-input:focus {

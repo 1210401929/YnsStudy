@@ -45,6 +45,9 @@ func (h *Controller) registerSEORoutes(router *gin.Engine) {
 	page("/user/:u", h.seoProfile)
 	page("/archive/page/:page", h.seoArchive)
 	page("/note/:id", h.seoNote)
+	page("/tag/:name", h.seoTag)
+	page(seriesListPath, h.seoSeriesList)
+	page("/series/:id", h.seoSeries)
 	page(noteWallPath, h.seoNoteWall)
 	page(service.IndexNowKeyPath, h.indexNowKey)
 }
@@ -146,6 +149,29 @@ func (h *Controller) sitemap(c *gin.Context) {
 			Priority:   "0.8",
 		})
 	}
+	// 公开文章数达到收录标准的标签页；查询失败时跳过。
+	if tags, err := h.service.GetIndexableBlogTags(c.Request.Context()); err == nil {
+		for _, tag := range tags {
+			urls = append(urls, sitemapURL{
+				Location:   tagPageURL(domain, model.StringValue(tag, "NAME"), 1),
+				LastModify: formatDate(model.Lookup(tag, "LAST_MODIFIED")),
+				Frequency:  "weekly",
+				Priority:   "0.6",
+			})
+		}
+	}
+	// 文章系列：有系列时提交“全部系列”页，以及公开文章数达到收录标准的系列页；查询失败时跳过。
+	if series, err := h.service.GetIndexableSeries(c.Request.Context()); err == nil && len(series) > 0 {
+		urls = append(urls, sitemapURL{Location: domain + seriesListPath, Frequency: "weekly", Priority: "0.6"})
+		for _, row := range series {
+			urls = append(urls, sitemapURL{
+				Location:   seriesURL(domain, model.StringValue(row, "ID")),
+				LastModify: formatDate(model.Lookup(row, "LAST_MODIFIED")),
+				Frequency:  "weekly",
+				Priority:   "0.7",
+			})
+		}
+	}
 	// 便签墙的每一条随记；查询失败时跳过，不影响文章地址。
 	if notes, err := h.service.GetAllNoteIDs(c.Request.Context()); err == nil {
 		for _, note := range notes {
@@ -202,6 +228,7 @@ type articleStructuredData struct {
 	Publisher        structuredOrganization `json:"publisher"`
 	Image            []string               `json:"image,omitempty"`
 	Keywords         string                 `json:"keywords,omitempty"`
+	IsPartOf         any                    `json:"isPartOf,omitempty"`
 }
 
 type structuredMainEntity struct {
@@ -411,6 +438,12 @@ func renderSEOArticleHTML(shell string, article map[string]any, links service.Ar
 	if firstImage != "" {
 		structured.Image = []string{firstImage}
 	}
+	tags, _ := article["TAGS"].([]string)
+	structured.Keywords = strings.Join(tags, ",")
+	seriesNav, _ := article["SERIES"].(*service.SeriesNav)
+	if seriesNav != nil && seriesNav.Index > 0 {
+		structured.IsPartOf = map[string]any{"@type": "CreativeWorkSeries", "name": seriesNav.Title, "url": seriesURL(domain, seriesNav.ID)}
+	}
 	structuredJSON, _ := json.Marshal(structured)
 
 	escapedTitle := htmlstd.EscapeString(title)
@@ -431,28 +464,28 @@ func renderSEOArticleHTML(shell string, article map[string]any, links service.Ar
 <meta property="og:url" content="%s">
 <meta property="og:image" content="%s">
 <meta property="article:published_time" content="%s">
-<meta property="article:modified_time" content="%s">
+<meta property="article:modified_time" content="%s">%s
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="%s">
 <meta name="twitter:description" content="%s">
 <meta name="twitter:image" content="%s">
 <script type="application/ld+json">%s</script>
 <script type="application/ld+json">%s</script>
-<style id="yns-seo-first-paint">.seo-article-fallback{min-height:100vh;padding:32px 16px;background-color:#efe8da;background-image:radial-gradient(rgba(120,104,80,.18) 1px,transparent 1px);background-size:22px 22px;color:#2b2a27;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif}.seo-article-fallback article{max-width:1000px;margin:0 auto;background:#fffdf8;border:1px solid #e6dfd1;box-shadow:0 1px 2px rgba(60,50,30,.06),0 10px 24px -16px rgba(60,50,30,.35);padding:36px 40px}.seo-breadcrumb{margin-bottom:22px;font-size:13px;color:#7d776c}.seo-breadcrumb a,.seo-article-meta a,.seo-article-links a{color:#2f5d8a;text-decoration:none}.seo-article-fallback h1{font-family:"LXGW WenKai Screen","Kaiti SC","STKaiti","KaiTi","楷体",serif;font-weight:normal;font-size:32px;line-height:1.35;margin:0 0 12px}.seo-article-meta{color:#7d776c;font-size:14px;margin-bottom:28px}.seo-article-content{font-size:16px;line-height:1.85;overflow-wrap:anywhere}.seo-article-content img{display:block;max-width:100%%;height:auto;margin:20px auto}.seo-article-content pre{overflow:auto;padding:16px;background:#f6f1e4;border-radius:4px}.seo-article-content table{display:block;max-width:100%%;overflow:auto;border-collapse:collapse}.seo-article-content td,.seo-article-content th{padding:8px;border:1px solid #e6dfd1}.seo-article-links{margin-top:32px;padding-top:20px;border-top:1px dashed #d6ccb8;font-size:15px;line-height:1.8}.seo-article-pager{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px}.seo-article-links h2{font-family:"LXGW WenKai Screen","Kaiti SC","STKaiti","KaiTi","楷体",serif;font-weight:normal;font-size:20px;margin:20px 0 8px}.seo-article-links ul{margin:0;padding-left:20px}@media(max-width:640px){.seo-article-fallback{padding:12px 10px}.seo-article-fallback article{padding:22px 16px}.seo-article-fallback h1{font-size:25px}}</style>
+<style id="yns-seo-first-paint">.seo-article-fallback{min-height:100vh;padding:32px 16px;background-color:#efe8da;background-image:radial-gradient(rgba(120,104,80,.18) 1px,transparent 1px);background-size:22px 22px;color:#2b2a27;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif}.seo-article-fallback article{max-width:1000px;margin:0 auto;background:#fffdf8;border:1px solid #e6dfd1;box-shadow:0 1px 2px rgba(60,50,30,.06),0 10px 24px -16px rgba(60,50,30,.35);padding:36px 40px}.seo-breadcrumb{margin-bottom:22px;font-size:13px;color:#7d776c}.seo-breadcrumb a,.seo-article-meta a,.seo-article-links a{color:#2f5d8a;text-decoration:none}.seo-article-fallback h1{font-family:"LXGW WenKai Screen","Kaiti SC","STKaiti","KaiTi","楷体",serif;font-weight:normal;font-size:32px;line-height:1.35;margin:0 0 12px}.seo-article-meta{color:#7d776c;font-size:14px;margin-bottom:28px}.seo-article-content{font-size:16px;line-height:1.85;overflow-wrap:anywhere}.seo-article-content img{display:block;max-width:100%%;height:auto;margin:20px auto}.seo-article-content pre{overflow:auto;padding:16px;background:#f6f1e4;border-radius:4px}.seo-article-content table{display:block;max-width:100%%;overflow:auto;border-collapse:collapse}.seo-article-content td,.seo-article-content th{padding:8px;border:1px solid #e6dfd1}.seo-article-links{margin-top:32px;padding-top:20px;border-top:1px dashed #d6ccb8;font-size:15px;line-height:1.8}.seo-article-pager{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px}.seo-article-links h2{font-family:"LXGW WenKai Screen","Kaiti SC","STKaiti","KaiTi","楷体",serif;font-weight:normal;font-size:20px;margin:20px 0 8px}.seo-article-links ul{margin:0;padding-left:20px}.seo-article-series{margin:0 0 24px;padding:10px 14px;background:#fbf0b4;font-size:14px;line-height:1.8}.seo-article-series a{color:#2f5d8a;text-decoration:none}.seo-article-tags{margin-top:24px;color:#7d776c;font-size:14px}.seo-article-tags a{color:#2f5d8a;text-decoration:none;margin-right:6px}@media(max-width:640px){.seo-article-fallback{padding:12px 10px}.seo-article-fallback article{padding:22px 16px}.seo-article-fallback h1{font-size:25px}}</style>
 `, escapedDescription, escapedCanonical, htmlstd.EscapeString(cfg.SEO.SiteName), escapedTitle,
-		escapedDescription, escapedCanonical, escapedImage, escapedPublished, htmlstd.EscapeString(modified),
+		escapedDescription, escapedCanonical, escapedImage, escapedPublished, htmlstd.EscapeString(modified), tagMetaHTML(tags),
 		escapedTitle, escapedDescription, escapedImage, structuredJSON,
 		breadcrumbJSON([]breadcrumbItem{{Name: cfg.SEO.SiteName, URL: domain + "/"}, {Name: "文章归档", URL: domain + "/archive"}, {Name: title}}))
 
 	body := fmt.Sprintf(`<main class="seo-article-fallback">
 <article itemscope itemtype="https://schema.org/BlogPosting">
 <nav class="seo-breadcrumb" aria-label="面包屑"><a href="%s/">YnsStudy</a> / <a href="%s/archive">文章归档</a></nav>
-<header><h1 itemprop="headline">%s</h1><p class="seo-article-meta">%s · <time itemprop="datePublished" datetime="%s">%s</time></p></header>
+<header><h1 itemprop="headline">%s</h1><p class="seo-article-meta">%s · <time itemprop="datePublished" datetime="%s">%s</time></p></header>%s
 <div class="seo-article-content" itemprop="articleBody">%s</div>
-%s
+%s%s
 </article></main>`, htmlstd.EscapeString(domain), htmlstd.EscapeString(domain), escapedTitle, authorHTML,
-		escapedPublished, htmlstd.EscapeString(formatDate(model.Lookup(article, "CREATE_TIME"))), safeContent,
-		renderArticleLinks(links, author, domain))
+		escapedPublished, htmlstd.EscapeString(formatDate(model.Lookup(article, "CREATE_TIME"))), articleSeriesHTML(seriesNav, domain), safeContent,
+		tagLinksForArticleHTML(tags, domain), renderArticleLinks(links, author, domain))
 
 	if titleElementPattern.MatchString(shell) {
 		shell = titleElementPattern.ReplaceAllStringFunc(shell, func(string) string {

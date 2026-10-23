@@ -20,6 +20,9 @@ const sso = () => import('@/views/main/sso/sso.vue')
 const RssDetailView = () => import('@/views/detail/rss/RssDetailView.vue')
 const LuLu = () => import('@/views/detail/z_lulu/LuLu.vue')
 const NotFound = () => import('@/views/main/NotFound.vue')
+const TagArticles = () => import('@/views/detail/tags/TagArticles.vue')
+const SeriesList = () => import('@/views/detail/series/SeriesList.vue')
+const SeriesView = () => import('@/views/detail/series/SeriesView.vue')
 
 const routes = [
     //噜噜
@@ -71,6 +74,23 @@ const routes = [
             {path: 'Community', redirect: '/ynsStudy/Notes'},
             {path: 'FriendLink', name: 'FriendLink', component: FriendLink},
             {path: 'About', name: 'About', component: About}
+        ]
+    },
+    //文章标签页（带顶部导航），首屏由 Go 输出
+    {
+        path: '/tag',
+        component: Index,
+        children: [
+            {path: ':name', name: 'tag', component: TagArticles}
+        ]
+    },
+    //文章系列：全部系列和单个系列（带顶部导航），首屏由 Go 输出
+    {
+        path: '/series',
+        component: Index,
+        children: [
+            {path: '', name: 'seriesList', component: SeriesList},
+            {path: ':id(\\d+)', name: 'series', component: SeriesView}
         ]
     },
     //未匹配的地址，Nginx 同时返回 404 状态码

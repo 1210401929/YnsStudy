@@ -51,6 +51,10 @@ func Auth(cfg config.SecurityConfig, jwt *security.JWT, sessions LoginSessions) 
 // 便签墙：随记页面由 Go 输出首屏；匿名访客可以评论随记、在留言板留言（服务层会做频率、评论限制和违禁词检查）。
 var builtinPublicPaths = []string{
 	"/note/**",
+	// 文章标签页、系列页由 Go 输出首屏
+	"/tag/**",
+	"/series",
+	"/series/**",
 	"/ynsStudy/Notes",
 	"/blog-api/community/addComment",
 	"/blog-api/guestbook/addMessage",
