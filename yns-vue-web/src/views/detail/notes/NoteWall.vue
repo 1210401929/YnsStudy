@@ -81,7 +81,7 @@
     </div>
 
     <el-dialog v-model="userSearchVisible" title="找人" width="min(720px, 92vw)" append-to-body>
-      <UserList/>
+      <FindPeople/>
     </el-dialog>
 
     <el-dialog v-model="editVisible" title="编辑便签" width="min(720px, 94vw)" append-to-body destroy-on-close>
@@ -106,7 +106,8 @@ import '@/css/notes.css'
 import { loadPopularTags, tagHref } from '@/utils/noteTags.js'
 
 // 找人、留言板只在用到时才加载
-const UserList = defineAsyncComponent(() => import('@/components/detail/UserList.vue'))
+// “找人”用公开的用户搜索；后台的用户列表会返回手机号等信息，只有超级管理员能用
+const FindPeople = defineAsyncComponent(() => import('@/components/detail/notes/FindPeople.vue'))
 const GuestbookBoard = defineAsyncComponent(() => import('@/components/detail/notes/GuestbookBoard.vue'))
 
 const route = useRoute()

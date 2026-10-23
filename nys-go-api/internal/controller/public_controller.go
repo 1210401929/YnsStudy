@@ -33,6 +33,13 @@ func (h *Controller) registerPublicRoutes(router *gin.Engine) {
 	login.Any("/getUserInfoByNum", h.getUserByNum)
 	login.Any("/getUserInfoByName", h.getUserByName)
 	login.Any("/getAllUserInfo", h.getAllUsers)
+	// 便签墙“找人”：公开的用户搜索，只返回昵称、头像、简介、编号和公开文章数
+	login.Any("/getPublicUsers", func(c *gin.Context) {
+		body, ok := requireBody(c)
+		if ok {
+			writeResult(c, h.service.SearchPublicUsers(c.Request.Context(), stringParam(body, "keyword"), intParam(body, "page", 1), intParam(body, "pageSize", 10)))
+		}
+	})
 	login.Any("/operationUser", h.operationUser)
 
 	notice := router.Group("/pub-api/notice")

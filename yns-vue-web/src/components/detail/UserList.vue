@@ -157,7 +157,12 @@ const getAllUserInfo = async () => {
       pageSize,
       keyword: searchKeyword.value
     })
-    const newData = res.result.data;
+    if (!res || res.isError || !res.result) {
+      ElMessage.error(res?.errMsg || '获取用户失败');
+      noMore.value = true;
+      return;
+    }
+    const newData = res.result.data || [];
     if (newData.length < pageSize) {
       noMore.value = true
     }
