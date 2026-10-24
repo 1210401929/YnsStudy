@@ -199,11 +199,30 @@ watch(()=>userStore.userBean.code,()=>{
   box-sizing: border-box;
 }
 
+/* 左栏：归档目录 + 我的系列，整栏固定在视口里（不超过一屏高）。
+   “我的系列”按内容高度完整显示、不被挤压，最多 40% 屏高，超出时自己滚动；归档目录占剩下的高度并在内部滚动 */
 .sidebar-wrapper {
   width: 280px;
   flex-shrink: 0;
   position: sticky;
   top: 24px;
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 48px);
+}
+
+.sidebar-wrapper > :deep(.sidebar) {
+  position: static;
+  flex: 1 1 0;
+  height: auto;
+  min-height: 240px;
+  max-height: none;
+}
+
+.sidebar-wrapper > :deep(.my-series) {
+  flex: 0 0 auto;
+  max-height: 40vh;
+  overflow-y: auto;
 }
 
 /* 右侧正文：纸张样式由 ContentAndComment 自己提供 */
@@ -299,6 +318,17 @@ watch(()=>userStore.userBean.code,()=>{
   .sidebar-wrapper {
     width: 100%;
     position: static;
+    height: auto;
+  }
+
+  /* 窄屏上左栏不再固定，归档目录按内容高度显示、最高 500px，与 BlogSidebar 自己的窄屏样式一致 */
+  .sidebar-wrapper > :deep(.sidebar) {
+    flex: none;
+    max-height: 500px;
+  }
+
+  .sidebar-wrapper > :deep(.my-series) {
+    max-height: none;
   }
 
   .content {
