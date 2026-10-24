@@ -39,18 +39,13 @@ func (s *Service) GetHomeData(ctx context.Context) model.Result {
 	})
 }
 
+// GetWebsiteStatistics 是网站统计接口（首页封面、关于页），数据见 SiteStatistics，缓存 5 分钟
 func (s *Service) GetWebsiteStatistics(ctx context.Context) model.Result {
-	query := `SELECT
-(SELECT COUNT(1) FROM blogInfo) AS ARTICLENUM,
-(SELECT COUNT(1) FROM communityInfo) AS COMMUNITYNUM,
-(SELECT COALESCE(SUM(VIEW_PAGE), 0) FROM blogInfo) AS VIEW_PAGE,
-(SELECT COUNT(1) FROM userInfo) AS USERNUM,
-(SELECT COUNT(1) FROM loginHistory) AS USERLOGINNUM`
-	rows, err := s.Repo.Query(ctx, query)
-	if err != nil || len(rows) == 0 {
+	stats, err := s.SiteStatistics(ctx)
+	if err != nil || stats == nil {
 		return model.Failure("获取网站统计失败")
 	}
-	return model.Success(rows[0])
+	return model.Success(stats)
 }
 
 func (s *Service) GetHighQualityAuthors(ctx context.Context, limit int) model.Result {

@@ -21,6 +21,21 @@
       </el-button>
     </header>
 
+    <!-- 本站信息：方便别人互加友链，每项都能一键复制 -->
+    <section v-if="!isEmbed" class="site-info" aria-label="本站信息">
+      <div class="site-info-head">
+        <h2>本站信息</h2>
+        <p>欢迎互换友链，申请后站长审核通过即会显示。</p>
+      </div>
+      <dl class="site-info-list">
+        <div v-for="item in siteInfo" :key="item.label" class="site-info-row">
+          <dt>{{ item.label }}</dt>
+          <dd :title="item.value">{{ item.value }}</dd>
+          <button type="button" class="copy-btn" @click="copyText(item.value, item.label)">复制</button>
+        </div>
+      </dl>
+    </section>
+
     <section class="link-section">
       <div class="section-heading">
         <div>
@@ -33,7 +48,8 @@
       </div>
       <div class="friend-grid">
         <article v-for="item in normalFriendLinks" :key="item.GUID"
-            class="link-card" :class="{ 'has-actions': isAdmin || item.USERCODE === userStore.userBean.code }">
+            class="link-card" :class="{ 'has-actions': isAdmin || item.USERCODE === userStore.userBean.code, 'is-pending': item.STATUS === 'pending' }">
+          <span v-if="item.STATUS === 'pending'" class="pending-stamp" title="站长审核通过后，所有人才能看到">待审核</span>
           <a :href="safeLink(item.LINK)" target="_blank" rel="noopener noreferrer" class="card-link">
             <el-avatar :src="item.AVATAR" :size="48" shape="square" class="site-avatar">
               {{ item.NAME?.trim().charAt(0) || '站' }}
@@ -50,6 +66,8 @@
                 </button>
                 <template #dropdown>
                   <el-dropdown-menu>
+                    <el-dropdown-item v-if="isAdmin && item.STATUS === 'pending'" command="approve"><el-icon><Check/></el-icon>通过审核</el-dropdown-item>
+                    <el-dropdown-item v-if="isAdmin && item.STATUS === 'pending'" command="reject" class="danger-item"><el-icon><CloseBold/></el-icon>拒绝</el-dropdown-item>
                     <el-dropdown-item command="edit"><el-icon><Edit/></el-icon>编辑</el-dropdown-item>
                     <el-dropdown-item command="delete" class="danger-item"><el-icon><Delete/></el-icon>删除</el-dropdown-item>
                   </el-dropdown-menu>
@@ -110,8 +128,8 @@
         :close-on-click-modal="false"
         destroy-on-close
     >
-      <div class="dialog-tip" v-if="!isEditMode && !isRecommendMode">
-        欢迎互换友链！请确保您的站点能够正常访问，且包含本站链接。
+      <div class="dialog-tip" v-if="!isRecommendMode && !isAdmin">
+        欢迎互换友链！请确保您的站点能够正常访问，且包含本站链接。提交{{ isEditMode ? '修改' : '' }}后需要站长审核，通过后才会公开显示。
       </div>
       <div class="dialog-tip dialog-tip--warm" v-if="isRecommendMode && !isEditMode">
         添加的内容将展示在“推荐好站”专区。
@@ -124,7 +142,11 @@
           <el-input v-model="applyForm.LINK" placeholder="例如：https://www.example.com" clearable/>
         </el-form-item>
         <el-form-item label="网站头像">
-          <el-input v-model="applyForm.AVATAR" placeholder="图片 URL，建议正方形比例" clearable/>
+          <div class="avatar-row">
+            <el-input v-model="applyForm.AVATAR" placeholder="图片 URL，建议正方形比例" clearable/>
+            <el-button :loading="fetchingInfo" :disabled="!applyForm.LINK" @click="fetchSiteInfo">自动获取</el-button>
+          </div>
+          <p class="form-hint">填好网站地址后点“自动获取”，会读取对方网站的图标，名称和描述为空时也会一并填上。</p>
         </el-form-item>
         <el-form-item label="一句话描述" required>
           <el-input
@@ -153,8 +175,9 @@
 import {ref, reactive, onMounted, defineProps, computed} from "vue";
 import {useUserStore} from "@/stores/main/user.js";
 import {ElMessage} from "element-plus";
-import {Plus, MoreFilled, Edit, Delete} from '@element-plus/icons-vue';
-import {ele_confirm, getCurrentUserAdminObject, getGuid, sendAxiosRequest, sendAxiosRequestChecked} from "@/utils/common.js";
+import {Plus, MoreFilled, Edit, Delete, Check, CloseBold} from '@element-plus/icons-vue';
+import {ele_confirm, getCurrentUserAdminObject, sendAxiosRequest, sendAxiosRequestChecked} from "@/utils/common.js";
+import {absoluteUrl, DEFAULT_DESCRIPTION, SITE_NAME} from "@/utils/seo.js";
 import Announcement from "@/components/detail/Announcement.vue";
 import {getAnnouncementByRouterName} from "@/utils/blogUtil.js";
 
@@ -177,6 +200,43 @@ const isAdmin = computed(() => getCurrentUserAdminObject().isAdmin);
 
 // 只允许 http/https 链接：后端已校验，这里再兜底库里已有的旧数据，防止 javascript: 链接被点击执行
 const safeLink = (link) => /^https?:\/\//i.test(String(link || '').trim()) ? String(link).trim() : undefined;
+
+// 本站信息：别人互加友链时需要的几项
+const siteInfo = [
+  {label: '网站名称', value: SITE_NAME},
+  {label: '网站地址', value: absoluteUrl('/')},
+  {label: '网站头像', value: absoluteUrl('/icon-512.png')},
+  {label: '一句话描述', value: DEFAULT_DESCRIPTION}
+];
+
+async function copyText(text, label) {
+  try {
+    await navigator.clipboard.writeText(text);
+    ElMessage.success(`已复制${label}`);
+  } catch {
+    ElMessage.warning('浏览器不允许自动复制，请手动选中复制');
+  }
+}
+
+// 填好网址后自动读取对方网站的图标、名称和简介（复用便签墙的链接卡片接口，需要登录）
+const fetchingInfo = ref(false);
+async function fetchSiteInfo() {
+  if (!userStore?.userBean?.code) {
+    ElMessage.warning('登录后才能自动获取');
+    return;
+  }
+  let url = String(applyForm.LINK || '').trim();
+  if (url && !/^https?:\/\//i.test(url)) url = 'https://' + url;
+  fetchingInfo.value = true;
+  const result = await sendAxiosRequestChecked('/blog-api/community/previewLink', {url}, '没能读取这个网站的信息，可以手动填写');
+  fetchingInfo.value = false;
+  const info = result?.result;
+  if (!info) return;
+  if (info.icon || info.image) applyForm.AVATAR = info.icon || info.image;
+  if (!applyForm.NAME && (info.siteName || info.title)) applyForm.NAME = String(info.siteName || info.title).slice(0, 40);
+  if (!applyForm.REMARK && info.description) applyForm.REMARK = String(info.description).slice(0, 50);
+  ElMessage.success(info.icon || info.image ? '已获取网站图标' : '这个网站没有提供图标，可以手动填写');
+}
 
 // 过滤出推荐好站
 const recommendLinks = computed(() => {
@@ -216,7 +276,19 @@ const pushFriendLink = () => {
   dialogVisible.value = true;
 };
 
-const handleCommand = (command, item) => {
+const handleCommand = async (command, item) => {
+  if (command === 'approve' || command === 'reject') {
+    const result = await sendAxiosRequestChecked("/blog-api/friendLink/reviewFriendLink", {friendLinkId: item.GUID, action: command}, "审核失败");
+    if (!result) return;
+    if (command === 'approve') {
+      item.STATUS = 'approved';
+      ElMessage.success(`已通过「${item.NAME}」，申请人会收到通知`);
+    } else {
+      friendLinks.value = friendLinks.value.filter(link => link.GUID !== item.GUID);
+      ElMessage.success(`已拒绝「${item.NAME}」，申请人会收到通知`);
+    }
+    return;
+  }
   if (command === 'edit') {
     isEditMode.value = true;
     isRecommendMode.value = item.LINK_TYPE === 2;
@@ -244,30 +316,21 @@ const submitApply = async () => {
     return false;
   }
 
+  // 以后台结果为准：网址不合法、超过数量上限等会在这里提示，不会出现“显示成功其实没保存”
   if (isEditMode.value) {
-    await sendAxiosRequest("/blog-api/friendLink/updateFriendLink", {friendLink: applyForm});
+    const result = await sendAxiosRequestChecked("/blog-api/friendLink/updateFriendLink", {friendLink: applyForm}, "修改失败");
+    if (!result) return false;
+    const saved = result.result?.[0] || applyForm;
     const target = friendLinks.value.find(oneLink => oneLink.GUID === applyForm.GUID);
-    if (target) {
-      Object.assign(target, applyForm);
-      ElMessage.success("修改成功！");
-    }
+    if (target) Object.assign(target, saved);
+    ElMessage.success(saved.STATUS === 'pending' ? "已提交修改，站长审核通过后显示" : "修改成功！");
   } else {
-    // 限制普通用户最多发布3条友链
-    if (!isAdmin.value) {
-      let currentUserLinks = friendLinks.value.filter(oneLink => oneLink.USERCODE === userStore.userBean.code && oneLink.LINK_TYPE === 2);
-      if (currentUserLinks.length >= 3) {
-        ElMessage.warning('为保证友链质量,只允许发布三个友链');
-        return false;
-      }
-    }
-    let addData = {...applyForm};
-    addData.GUID = getGuid();
-    addData.USERCODE = userStore.userBean.code || 'admin';
-    addData.USERNAME = userStore.userBean.name || '管理员';
-
-    await sendAxiosRequest("/blog-api/friendLink/addFriendLink", {friendLink: addData})
-    friendLinks.value.push(addData);
-    ElMessage.success("提交成功！");
+    // 编号、作者由后台生成；普通用户每人最多 3 个友链，也由后台检查
+    const result = await sendAxiosRequestChecked("/blog-api/friendLink/addFriendLink", {friendLink: {...applyForm}}, "提交失败");
+    if (!result) return false;
+    const saved = result.result?.[0];
+    if (saved) friendLinks.value.push(saved);
+    ElMessage.success(saved?.STATUS === 'pending' ? "已提交申请，站长审核通过后会显示在这里" : "添加成功！");
   }
   dialogVisible.value = false;
 };
@@ -280,7 +343,6 @@ const getFriendLinks = async () => {
 const setTopAlert = async () => {
   // 嵌入模式下不重复显示全局公告
   if (props.isEmbed) return;
-  debugger;
   topAlert.value = await getAnnouncementByRouterName("FriendLink");
 }
 
@@ -556,6 +618,106 @@ onMounted(() => {
   color: #7a5c12;
 }
 
+/* ================= 本站信息 ================= */
+.site-info {
+  margin: 28px 0 8px;
+  padding: 18px 22px;
+  background: var(--j-note);
+  box-shadow: var(--j-shadow);
+}
+
+.site-info-head h2 {
+  margin: 0 0 4px;
+  font-family: var(--j-hand);
+  font-weight: normal;
+  font-size: 20px;
+}
+
+.site-info-head p {
+  margin: 0 0 12px;
+  font-size: 13px;
+  color: var(--j-muted);
+}
+
+.site-info-list {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 24px;
+}
+
+.site-info-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  font-size: 14px;
+}
+
+.site-info-row dt {
+  flex-shrink: 0;
+  width: 5em;
+  color: var(--j-muted);
+}
+
+.site-info-row dd {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--j-ink);
+}
+
+.copy-btn {
+  flex-shrink: 0;
+  border: 1px dashed var(--j-rule-strong);
+  background: var(--j-paper);
+  padding: 0 8px;
+  font-size: 12px;
+  line-height: 1.8;
+  color: var(--j-pen);
+  cursor: pointer;
+}
+
+.copy-btn:hover {
+  border-color: var(--j-pen);
+}
+
+/* ================= 待审核 ================= */
+.link-card.is-pending {
+  opacity: 0.75;
+  border-style: dashed;
+}
+
+.pending-stamp {
+  position: absolute;
+  top: -8px;
+  left: 10px;
+  z-index: 1;
+  padding: 0 6px;
+  border: 1.5px solid var(--j-stamp);
+  background: var(--j-paper);
+  color: var(--j-stamp);
+  font-size: 12px;
+  line-height: 1.6;
+  transform: rotate(-4deg);
+}
+
+.avatar-row {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+}
+
+.form-hint {
+  margin: 4px 0 0;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--j-muted);
+}
+
 @media (hover: hover) {
   .link-card:hover {
     transform: rotate(0deg) translateY(-3px) !important;
@@ -588,6 +750,14 @@ onMounted(() => {
 
   .heading-label {
     transform: none;
+  }
+
+  .site-info {
+    padding: 14px 16px;
+  }
+
+  .site-info-list {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .friend-grid,

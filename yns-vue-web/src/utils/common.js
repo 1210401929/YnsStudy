@@ -41,6 +41,10 @@ export const getSendAxiosUrl = (url) => {
 
 let loginExpiredMessageShown = false;
 
+// 弹出顶栏的登录框（LoginDialog 监听这个事件），用于页面里“去登录”之类的按钮
+export const OPEN_LOGIN_EVENT = 'yns:open-login';
+export const openLoginDialog = () => window.dispatchEvent(new Event(OPEN_LOGIN_EVENT));
+
 /**
  * 登录有效期过半后，后端会在 X-Refresh-Token 响应头里下发续期后的新 Token。
  * 只在本地仍处于登录状态时替换，避免退出登录后又被写回。

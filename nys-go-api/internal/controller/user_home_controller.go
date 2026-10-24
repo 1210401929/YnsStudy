@@ -76,6 +76,8 @@ func (h *Controller) getUserBlogAndCommunity(c *gin.Context) {
 func (h *Controller) registerHomeRoutes(group *gin.RouterGroup) {
 	group.Any("/getHomeData", func(c *gin.Context) { writeResult(c, h.service.GetHomeData(c.Request.Context())) })
 	group.Any("/getWebsiteStatistics", func(c *gin.Context) { writeResult(c, h.service.GetWebsiteStatistics(c.Request.Context())) })
+	// 关于页：文字内容、站长卡片和网站统计
+	group.Any("/getAboutPage", func(c *gin.Context) { writeResult(c, h.service.GetAboutPage(c.Request.Context())) })
 	group.Any("/getHigAuthor", func(c *gin.Context) {
 		body, _ := readBody(c)
 		writeResult(c, h.service.GetHighQualityAuthors(c.Request.Context(), parseIntOr(stringParam(body, "num"), 4)))

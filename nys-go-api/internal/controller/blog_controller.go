@@ -355,7 +355,14 @@ func (h *Controller) registerFriendLinkRoutes(group *gin.RouterGroup) {
 			writeResult(c, h.service.GetFriendLink(c.Request.Context(), stringParam(body, "friendLinkId")))
 		}
 	})
-	group.Any("/getFriendLinks", func(c *gin.Context) { writeResult(c, h.service.GetFriendLinks(c.Request.Context())) })
+	group.Any("/getFriendLinks", func(c *gin.Context) { writeResult(c, h.service.GetFriendLinks(c)) })
+	// 审核友链（管理员）：action = approve 通过 / reject 拒绝
+	group.Any("/reviewFriendLink", func(c *gin.Context) {
+		body, ok := requireBody(c)
+		if ok {
+			writeResult(c, h.service.ReviewFriendLink(c, stringParam(body, "friendLinkId"), stringParam(body, "action")))
+		}
+	})
 }
 
 func (h *Controller) registerResourceRoutes(group *gin.RouterGroup) {
@@ -393,7 +400,7 @@ func (h *Controller) registerResourceRoutes(group *gin.RouterGroup) {
 	group.Any("/setFileDownNum", func(c *gin.Context) {
 		body, ok := requireBody(c)
 		if ok {
-			writeResult(c, h.service.IncrementFileDownloads(c.Request.Context(), stringParam(body, "guid")))
+			writeResult(c, h.service.IncrementFileDownloads(c, stringParam(body, "guid")))
 		}
 	})
 }
@@ -403,7 +410,7 @@ func (h *Controller) getAllFiles(c *gin.Context) {
 	if !ok {
 		return
 	}
-	writeResult(c, h.service.GetAllFiles(c.Request.Context(), intParam(body, "page", 1), intParam(body, "pageSize", 10), stringParam(body, "keyword")))
+	writeResult(c, h.service.GetAllFiles(c.Request.Context(), intParam(body, "page", 1), intParam(body, "pageSize", 10), stringParam(body, "keyword"), stringParam(body, "category")))
 }
 
 func (h *Controller) consistencyFileCheck(c *gin.Context) {

@@ -56,7 +56,7 @@
                   </div>
 
                   <div v-if="file.REMARK" class="file-remark-v2">
-                    <el-icon><Warning /></el-icon>
+                    <el-icon><Memo /></el-icon>
                     {{ file.REMARK }}
                   </div>
 
@@ -160,7 +160,7 @@
               </div>
 
               <div v-if="file.REMARK" class="file-remark-v2 muted" style="margin: 5px 0;">
-                <el-icon><Warning /></el-icon>
+                <el-icon><Memo /></el-icon>
                 {{ file.REMARK }}
               </div>
 
@@ -187,7 +187,7 @@
             description="登录后可管理个人上传文件"
             :image-size="100"
         >
-          <el-button type="primary">去登录</el-button>
+          <el-button type="primary" @click="openLoginDialog">去登录</el-button>
         </el-empty>
       </div>
     </el-main>
@@ -233,19 +233,18 @@ import {ElMessage} from 'element-plus'
 // 导入更多图标
 import {
   User, Clock, Close, CopyDocument, Download, Search, EditPen,
-  FolderOpened, UserFilled, UploadFilled, Warning, Collection,
+  FolderOpened, UserFilled, UploadFilled, Memo, Collection,
   Document, Picture, Suitcase, More, VideoPlay, Headset,
   Files, Tickets, DataBoard, Monitor
 } from '@element-plus/icons-vue';
 
 import {
-  downloadFileByUrl,
   ele_confirm,
   getGuid,
   sendAxiosRequest,
   sendAxiosRequestChecked,
   pubFormatDate,
-  uploadFileWithProgress, getCurrentUserAdminObject
+  uploadFileWithProgress, getCurrentUserAdminObject, openLoginDialog
 } from "@/utils/common.js";
 import {useUserStore} from "@/stores/main/user.js";
 import Announcement from "@/components/detail/Announcement.vue";
@@ -263,7 +262,7 @@ const isUploading = ref(false)
 // ---------------------------------------------------------
 const activeCategory = ref('all') // 当前激活的 Tab
 
-// 定义分类标准和图标
+// 分类和图标；筛选在后台完成，扩展名列表与 Go 端 resource_service.go 的 resourceCategories 保持一致
 const fileCategories = [
   { key: 'all', label: '全部', icon: Collection, exts: [] },
   { key: 'doc', label: '文档', icon: Document, exts: ['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'pdf', 'txt', 'md', 'csv'] },
@@ -282,46 +281,24 @@ const getFileExt = (filename) => {
   return filename.split('.').pop().toLowerCase();
 }
 
-/**
- * [新增] 辅助函数：判断文件属于哪个大类
- */
-const getFileCategoryKey = (filename) => {
-  const ext = getFileExt(filename);
-  if (!ext) return 'other';
 
-  for (const cat of fileCategories) {
-    if (cat.key !== 'all' && cat.key !== 'other' && cat.exts.includes(ext)) {
-      return cat.key;
-    }
-  }
-  return 'other';
-}
+// 分类在后台筛选（分页、总数才准确），列表就是后台返回的这一类文件
+const filteredArticles = computed(() => articles.value);
 
-/**
- * [新增] 计算属性：依据当前选择的 Tab 过滤左侧文件列表
- * 这里采用前端筛选已加载数据的方式。
- */
-const filteredArticles = computed(() => {
-  if (activeCategory.value === 'all') {
-    return articles.value;
-  }
-  return articles.value.filter(file => {
-    return getFileCategoryKey(file.ORIGINALFILENAME) === activeCategory.value;
-  });
-});
+// 各分类的文件数由后台按当前关键词统计，切换分类时不变
+const categoryCounts = ref({});
+const getCategoryCount = (key) => Number(categoryCounts.value[key]) || 0;
 
-/**
- * [新增] 辅助函数：获取统计数量
- */
-const getCategoryCount = (key) => {
-  if (key === 'all') return articles.value.length;
-  return articles.value.filter(file => getFileCategoryKey(file.ORIGINALFILENAME) === key).length;
-}
-
+// 切换分类：重新从第一页加载这一类文件
 const handleTabClick = (tab) => {
-  // 纯前端筛选，切换 tab 不需要重新请求后端
-  console.log('切换分类:', tab.props.name);
+  const name = tab?.props?.name;
+  if (name && name !== loadedCategory) {
+    activeCategory.value = name;
+    resetAndLoad();
+  }
 }
+// 当前列表对应的分类，避免重复点击同一个分类时重新加载
+let loadedCategory = 'all'
 
 /**
  * 依据后缀名获取 Element Plus 图标组件
@@ -396,9 +373,14 @@ const noMore = ref(false)
 // 搜索文件
 const searchKeyword = ref('')
 
+// 每次重新加载都递增，丢弃之前还没返回的请求，避免快速切换分类时旧结果混进新列表
+let requestId = 0
+
 const resetAndLoad = () => {
+  requestId++
   page.value = 1
   noMore.value = false
+  loading.value = false
   articles.value = []
   fetchArticles()
 }
@@ -409,24 +391,32 @@ const debouncedSearch = debounce(() => {
 
 const fetchArticles = async () => {
   if (loading.value || noMore.value) return
+  const current = requestId
+  const category = activeCategory.value
   loading.value = true
   try {
     const res = await sendAxiosRequest('/blog-api/resource/getAllFile', {
       page: page.value,
       pageSize,
-      keyword: searchKeyword.value
+      keyword: searchKeyword.value,
+      category
     })
-    const newData = res.result.data;
-    if (newData.length < pageSize) {
+    if (current !== requestId) return
+    if (!res || res.isError) throw new Error(res?.errMsg || '获取文件列表失败')
+    const newData = res.result.data || [];
+    loadedCategory = category
+    categoryCounts.value = res.result.categoryCounts || {}
+    if (newData.length < pageSize || articles.value.length + newData.length >= Number(res.result.total)) {
       noMore.value = true
     }
     articles.value.push(...newData)
     page.value++
   } catch (e) {
+    if (current !== requestId) return
     console.error('获取文件失败', e)
     ElMessage.error("获取文件列表失败")
   } finally {
-    loading.value = false
+    if (current === requestId) loading.value = false
   }
 }
 
@@ -535,11 +525,18 @@ const handleUploadSuccess = async (res, file) => {
   })
 }
 
+// 直接交给浏览器下载：显示浏览器自己的下载进度，大文件也不用先整个读进内存。
+// 文件和网站同一个域名，download 属性能按原文件名保存。下载次数游客也算，后台按 IP 去重。
 const downloadFile = (file) => {
-  file.DOWNNUM++;
-  ElMessage.info(`开始下载...`);
-  downloadFileByUrl(file.FILEVIEWURL, file.ORIGINALFILENAME)
-  sendAxiosRequest("/blog-api/resource/setFileDownNum", {guid: file.GUID});
+  const link = document.createElement('a');
+  link.href = file.FILEVIEWURL;
+  link.download = file.ORIGINALFILENAME || '';
+  link.rel = 'noopener';
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  file.DOWNNUM = (Number(file.DOWNNUM) || 0) + 1;
+  sendAxiosRequest("/blog-api/resource/setFileDownNum", {guid: file.GUID}).catch(() => {});
 }
 
 const deleteFile = (file) => {

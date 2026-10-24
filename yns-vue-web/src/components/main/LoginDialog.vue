@@ -263,7 +263,7 @@
 import {onBeforeUnmount, onMounted, ref} from 'vue';
 import {useRouter} from "vue-router";
 import {ElMessage} from 'element-plus';
-import {getCurrentUserAdminObject, getSendAxiosUrl, pubFormatDate, sendAxiosRequest} from '@/utils/common.js';
+import {getCurrentUserAdminObject, getSendAxiosUrl, OPEN_LOGIN_EVENT, pubFormatDate, sendAxiosRequest} from '@/utils/common.js';
 import {useUserStore} from '@/stores/main/user.js';
 import {User, Bell} from '@element-plus/icons-vue';
 
@@ -408,9 +408,18 @@ const handleQQLoginMessage = (event) => {
   window.setTimeout(() => location.reload(), 300);
 };
 
-onMounted(() => window.addEventListener('message', handleQQLoginMessage));
+// 其他页面需要登录时（例如资源页的“去登录”）调用 common.js 的 openLoginDialog，弹出这里的登录框
+const openFromEvent = () => {
+  if (!userStore.userBean?.code) visible.value = true;
+};
+
+onMounted(() => {
+  window.addEventListener('message', handleQQLoginMessage);
+  window.addEventListener(OPEN_LOGIN_EVENT, openFromEvent);
+});
 onBeforeUnmount(() => {
   window.removeEventListener('message', handleQQLoginMessage);
+  window.removeEventListener(OPEN_LOGIN_EVENT, openFromEvent);
   clearQQWindowTimer();
 });
 

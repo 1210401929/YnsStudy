@@ -5,6 +5,7 @@ import (
 	"log"
 	"path"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -61,27 +62,115 @@ func (s *Service) DeleteFileInfo(c *gin.Context, guid string) model.Result {
 	return model.Success("删除成功!")
 }
 
-func (s *Service) GetAllFiles(ctx context.Context, page, pageSize int, keyword string) model.Result {
-	page, pageSize = normalizePage(page, pageSize)
-	where := ""
-	listArgs := make([]any, 0, 5)
-	countArgs := make([]any, 0, 3)
-	if strings.TrimSpace(keyword) != "" {
-		where = " WHERE (f.ORIGINALFILENAME LIKE ? OR f.REMARK LIKE ? OR f.USERNAME LIKE ?)"
-		like := "%" + strings.TrimSpace(keyword) + "%"
-		listArgs = append(listArgs, like, like, like)
-		countArgs = append(countArgs, like, like, like)
+// resourceCategories 是资源页的分类，按文件扩展名划分；与前端 Resources.vue 的 fileCategories 保持一致。
+// 不属于任何一类（或没有扩展名）的文件归入 other。
+var resourceCategories = []struct {
+	Key  string
+	Exts []string
+}{
+	{"doc", []string{"doc", "docx", "xls", "xlsx", "ppt", "pptx", "pdf", "txt", "md", "csv"}},
+	{"image", []string{"jpg", "jpeg", "png", "gif", "bmp", "webp", "svg"}},
+	{"video", []string{"mp4", "avi", "mov", "wmv", "flv", "mkv", "webm"}},
+	{"audio", []string{"mp3", "wav", "flac", "aac", "ogg", "m4a"}},
+	{"archive", []string{"zip", "rar", "7z", "tar", "gz"}},
+}
+
+// fileExtExpr 是取文件扩展名（小写）的 SQL 表达式；没有点的文件名取到的是整个名字，自然落入“其他”
+const fileExtExpr = "LOWER(SUBSTRING_INDEX(f.ORIGINALFILENAME, '.', -1))"
+
+// resourceCategoryCondition 返回某个分类的 SQL 条件和参数；all 或未知分类返回空字符串（不筛选）
+func resourceCategoryCondition(category string) (string, []any) {
+	placeholders := func(exts []string) (string, []any) {
+		args := make([]any, len(exts))
+		for i, ext := range exts {
+			args[i] = ext
+		}
+		return strings.TrimSuffix(strings.Repeat("?,", len(exts)), ","), args
 	}
-	listArgs = append(listArgs, pageSize, (page-1)*pageSize)
-	rows, err := s.Repo.Query(ctx, "SELECT f.* FROM fileInfo f"+where+" ORDER BY f.CREATE_TIME DESC LIMIT ? OFFSET ?", listArgs...)
+	if category == "other" {
+		all := make([]string, 0, 40)
+		for _, item := range resourceCategories {
+			all = append(all, item.Exts...)
+		}
+		marks, args := placeholders(all)
+		return "(f.ORIGINALFILENAME NOT LIKE '%.%' OR " + fileExtExpr + " NOT IN (" + marks + "))", args
+	}
+	for _, item := range resourceCategories {
+		if item.Key == category {
+			marks, args := placeholders(item.Exts)
+			return fileExtExpr + " IN (" + marks + ")", args
+		}
+	}
+	return "", nil
+}
+
+// resourceCategorySelect 返回给每个文件算出分类名的 CASE 表达式，用于按分类统计数量
+func resourceCategorySelect() (string, []any) {
+	var expr strings.Builder
+	args := make([]any, 0, 40)
+	expr.WriteString("CASE WHEN f.ORIGINALFILENAME NOT LIKE '%.%' THEN 'other'")
+	for _, item := range resourceCategories {
+		expr.WriteString(" WHEN " + fileExtExpr + " IN (" + strings.TrimSuffix(strings.Repeat("?,", len(item.Exts)), ",") + ") THEN '" + item.Key + "'")
+		for _, ext := range item.Exts {
+			args = append(args, ext)
+		}
+	}
+	expr.WriteString(" ELSE 'other' END")
+	return expr.String(), args
+}
+
+// GetAllFiles 是资源页列表：按关键词和分类筛选（在后台筛选，分页和总数才准确），并返回当前关键词下每个分类的数量
+func (s *Service) GetAllFiles(ctx context.Context, page, pageSize int, keyword, category string) model.Result {
+	page, pageSize = normalizePage(page, pageSize)
+	if pageSize > 50 {
+		pageSize = 50
+	}
+	keywordWhere := ""
+	keywordArgs := make([]any, 0, 3)
+	if strings.TrimSpace(keyword) != "" {
+		keywordWhere = "(f.ORIGINALFILENAME LIKE ? OR f.REMARK LIKE ? OR f.USERNAME LIKE ?)"
+		like := likePattern(keyword)
+		keywordArgs = append(keywordArgs, like, like, like)
+	}
+	conditions := make([]string, 0, 2)
+	args := make([]any, 0, 45)
+	if keywordWhere != "" {
+		conditions = append(conditions, keywordWhere)
+		args = append(args, keywordArgs...)
+	}
+	if condition, categoryArgs := resourceCategoryCondition(strings.TrimSpace(category)); condition != "" {
+		conditions = append(conditions, condition)
+		args = append(args, categoryArgs...)
+	}
+	where := ""
+	if len(conditions) > 0 {
+		where = " WHERE " + strings.Join(conditions, " AND ")
+	}
+	rows, err := s.Repo.Query(ctx, "SELECT f.* FROM fileInfo f"+where+" ORDER BY f.CREATE_TIME DESC LIMIT ? OFFSET ?",
+		append(append([]any{}, args...), pageSize, (page-1)*pageSize)...)
 	if err != nil {
 		return dbFailure("查询资源", err)
 	}
-	counts, err := s.Repo.Query(ctx, "SELECT COUNT(*) AS total FROM fileInfo f"+where, countArgs...)
+	counts, err := s.Repo.Query(ctx, "SELECT COUNT(*) AS total FROM fileInfo f"+where, args...)
 	if err != nil {
 		return dbFailure("统计资源", err)
 	}
-	return model.Success(map[string]any{"total": firstCount(counts), "data": rows})
+	// 各分类数量只受关键词影响，切换分类时数字不变
+	categorySelect, categoryArgs := resourceCategorySelect()
+	countWhere := ""
+	if keywordWhere != "" {
+		countWhere = " WHERE " + keywordWhere
+	}
+	categoryCounts := map[string]int64{"all": 0}
+	if grouped, err := s.Repo.Query(ctx, "SELECT "+categorySelect+" AS CATEGORY, COUNT(*) AS total FROM fileInfo f"+countWhere+" GROUP BY CATEGORY",
+		append(append([]any{}, categoryArgs...), keywordArgs...)...); err == nil {
+		for _, row := range grouped {
+			count := firstCount([]map[string]any{row})
+			categoryCounts[model.StringValue(row, "CATEGORY")] = count
+			categoryCounts["all"] += count
+		}
+	}
+	return model.Success(map[string]any{"total": firstCount(counts), "data": rows, "categoryCounts": categoryCounts})
 }
 
 func (s *Service) GetFilesByUser(ctx context.Context, userCode string) model.Result {
@@ -104,6 +193,17 @@ func (s *Service) UpdateFileInfo(c *gin.Context, guid, originalName, remark stri
 	return result
 }
 
-func (s *Service) IncrementFileDownloads(ctx context.Context, guid string) model.Result {
+// IncrementFileDownloads 记一次下载。游客也计数；同一 IP 同一个文件 24 小时内只算一次，防止刷下载量。
+func (s *Service) IncrementFileDownloads(c *gin.Context, guid string) model.Result {
+	guid = strings.TrimSpace(guid)
+	if guid == "" {
+		return model.Failure(msgNotFound)
+	}
+	ctx := contextOf(c)
+	if s.Cache != nil {
+		if count, err := s.Cache.Increment(ctx, "file_down:"+guid+":"+ClientIP(c), 24*time.Hour); err == nil && count > 1 {
+			return model.Success("今天已经统计过")
+		}
+	}
 	return s.ExecuteSQL(ctx, "UPDATE fileInfo SET DOWNNUM = COALESCE(DOWNNUM, 0) + 1 WHERE GUID = ?", []any{guid})
 }

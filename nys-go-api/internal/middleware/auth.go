@@ -56,8 +56,11 @@ var builtinPublicPaths = []string{
 	"/series",
 	"/series/**",
 	"/ynsStudy/Notes",
+	"/ynsStudy/About",
 	"/blog-api/community/addComment",
 	"/blog-api/guestbook/addMessage",
+	// 资源下载计数：游客下载也算，服务层按 IP 去重
+	"/blog-api/resource/setFileDownNum",
 }
 
 func matchesAny(path string, patterns []string) bool {

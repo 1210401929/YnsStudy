@@ -8,160 +8,177 @@
       :URLNAME="al.URLNAME"
   />
 
+  <!-- 文字内容来自后台 getAboutPage（与 Go 输出的首屏同一份，见 about_service.go） -->
   <div class="about-wrapper">
     <div class="about-container">
-
       <!-- 顶部欢迎区 -->
       <div class="hero">
-        <h1>欢迎来到 YnsStudy</h1>
-        <p class="hero-description">
-          一个集文章创作、评论互动与资源分享于一体的知识社区
-        </p>
+        <h1>{{ content.title || '欢迎来到 YnsStudy' }}</h1>
+        <p class="hero-description">{{ content.intro }}</p>
+
+        <!-- 站长卡片 -->
+        <section v-if="owner.name" class="owner-card" aria-label="站长">
+          <el-avatar :src="owner.avatar" :size="72" class="owner-avatar">{{ owner.name.charAt(0) }}</el-avatar>
+          <div class="owner-body">
+            <div class="owner-name">
+              {{ owner.name }}<span v-if="owner.alternateNames?.length" class="owner-alt">{{ owner.alternateNames[0] }}</span>
+              <span class="owner-badge">站长</span>
+            </div>
+            <p v-if="owner.remark" class="owner-remark">{{ owner.remark }}</p>
+            <div class="owner-links">
+              <router-link v-if="owner.profilePath" :to="owner.profilePath">站长主页</router-link>
+              <router-link :to="{ path: '/ynsStudy/Notes', query: { tab: 'guestbook' } }">给站长留言</router-link>
+              <a v-if="content.contactEmail" :href="`mailto:${content.contactEmail}`">{{ content.contactEmail }}</a>
+              <a v-for="link in owner.sameAs" :key="link" :href="link" target="_blank" rel="noopener me">{{ linkLabel(link) }}</a>
+            </div>
+          </div>
+        </section>
 
         <!-- 站长想说 -->
-        <section class="site-owner-message">
+        <section v-if="content.ownerMessage?.length" class="site-owner-message">
           <span class="j-tape j-tape--pink letter-tape"></span>
           <div class="owner-title">站长想说</div>
-
-          <p>
-            正如上面的介绍，这个网站从建立之初，就不只是想做成我一个人的博客，
-            而是想为每一个热爱写文章的人提供一个可以自由创作的平台。
-            在这里，每个人都可以发表属于自己的文章。
-          </p>
-
-          <p>
-            也正因如此，很多博客聚合网站拒绝收录本站，
-            原因也很简单：这个网站并不算一个纯粹的个人博客。
-          </p>
-
-          <p>
-            建站到现在，网站的流量确实不多，也确实没有太多能让路人驻足的理由。
-            因为没有多少流量，也没有多少用户，它慢慢地几乎又变成了我自己的个人博客。
-          </p>
-
-          <p>
-            我的技术分享、生活吐槽，还有这些年留下的一点一滴，都记录在了这里。
-            我只希望自己还能坚守当初建站时的本心，让这个网站一直活下去。
-          </p>
+          <p v-for="(paragraph, index) in content.ownerMessage" :key="index">{{ paragraph }}</p>
         </section>
       </div>
 
-      <!-- 数据统计框 -->
+      <!-- 数据统计 -->
       <div class="stats-section">
         <h2>数据统计</h2>
-
         <div class="stats">
-          <div class="stat-card">
-            <h3>{{ stats.ARTICLENUM }}</h3>
-            <p>文章</p>
-          </div>
-
-          <div class="stat-card">
-            <h3>{{ stats.COMMUNITYNUM }}</h3>
-            <p>讨论</p>
-          </div>
-
-          <div class="stat-card">
-            <h3>{{ stats.VIEW_PAGE }}</h3>
-            <p>阅读</p>
-          </div>
-
-          <div class="stat-card">
-            <h3>{{ stats.USERNUM }}</h3>
-            <p>用户</p>
-          </div>
-
-          <div class="stat-card">
-            <h3>{{ stats.USERLOGINNUM }}</h3>
-            <p>正式用户访问量</p>
+          <div v-for="item in statItems" :key="item.key" class="stat-card" :title="item.title || item.label">
+            <h3>{{ formatCount(stats[item.key]) }}</h3>
+            <p>{{ item.label }}</p>
           </div>
         </div>
       </div>
 
-      <!-- 功能区域 -->
+      <!-- 功能 -->
       <div class="features">
-        <div
-            class="feature-card"
-            v-for="feature in features"
+        <component
+            :is="feature.link ? 'router-link' : 'div'"
+            v-for="feature in content.features"
             :key="feature.title"
+            :to="feature.link || undefined"
+            class="feature-card"
         >
           <div class="icon">{{ feature.icon }}</div>
           <h3>{{ feature.title }}</h3>
-          <p>{{ feature.description }}</p>
-        </div>
+          <p>{{ feature.text }}</p>
+        </component>
       </div>
 
-      <!-- 技术栈 -->
-      <div class="tech-section">
+      <!-- 建站历程 -->
+      <section v-if="content.timeline?.length" class="timeline-section">
+        <h2>建站历程</h2>
+        <ol class="timeline">
+          <li v-for="item in content.timeline" :key="item.date + item.title" class="timeline-item">
+            <time class="timeline-date">{{ item.date }}</time>
+            <div class="timeline-body">
+              <h3>{{ item.title }}</h3>
+              <p>{{ item.text }}</p>
+            </div>
+          </li>
+        </ol>
+        <router-link v-if="content.changelogPath" :to="content.changelogPath" class="changelog-link">查看完整更新日志 →</router-link>
+      </section>
+
+      <!-- 常见问题 -->
+      <section v-if="content.faq?.length" class="faq-section">
+        <h2>常见问题</h2>
+        <details v-for="item in content.faq" :key="item.title" class="faq-item">
+          <summary>{{ item.title }}</summary>
+          <p>
+            {{ item.text }}
+            <router-link v-if="item.link" :to="item.link" class="faq-link">去看看 →</router-link>
+          </p>
+        </details>
+      </section>
+
+      <!-- 使用技术 -->
+      <div v-if="content.techStack?.length" class="tech-section">
         <span class="j-tape j-tape--green tech-tape"></span>
         <h2>使用技术</h2>
-
         <ul>
-          <li>前端：Vue 3 + Element Plus</li>
-          <li>后端：Go（2026年8月弃用 Spring Cloud + MyBatis）</li>
-          <li>数据库：MySQL + Redis</li>
-          <li>存储：本地 / 云端</li>
+          <li v-for="item in content.techStack" :key="item.title">{{ item.title }}：{{ item.text }}</li>
         </ul>
+        <p v-if="content.sourceUrl" class="tech-source">
+          网站源码：<a :href="content.sourceUrl" target="_blank" rel="noopener">{{ linkLabel(content.sourceUrl) }}</a>
+        </p>
       </div>
-
     </div>
   </div>
 </template>
 
 <script setup>
-import {ref, onMounted} from 'vue'
+import {ref} from 'vue'
 import {sendAxiosRequest} from "@/utils/common.js"
 import Announcement from "@/components/detail/Announcement.vue"
 import {getAnnouncementByRouterName} from "@/utils/blogUtil.js"
+import {absoluteUrl, ownerPerson, SITE_NAME, SITE_OWNER_DISPLAY, useSeo} from "@/utils/seo.js"
 
-const features = [
-  {
-    title: '✍️ 发布文章',
-    description: '记录学习心得与技术经验，支持富文本编辑。',
-    icon: '📝'
-  },
-  {
-    title: '💬 评论互动',
-    description: '查看并参与技术讨论，促进社区交流。',
-    icon: '💬'
-  },
-  {
-    title: '⬆️ 上传资源',
-    description: '分享你收集的学习资料。',
-    icon: '📂'
-  },
-  {
-    title: '⬇️ 下载工具',
-    description: '下载他人分享的学习资源和开发工具。',
-    icon: '📥'
-  }
-]
-
-// 网站统计信息
+const content = ref({})
+const owner = ref({})
 const stats = ref({})
 
-// 公告横幅内容
-const topAlert = ref([])
+// 统计项：随记是便签墙的便签；登录次数是登录用户的累计登录次数
+const statItems = [
+  {key: 'ARTICLENUM', label: '文章'},
+  {key: 'COMMUNITYNUM', label: '随记', title: '便签墙上的便签数'},
+  {key: 'SERIESNUM', label: '系列', title: '有公开文章的系列数'},
+  {key: 'TAGNUM', label: '标签', title: '公开文章用到的标签数'},
+  {key: 'VIEW_PAGE', label: '阅读'},
+  {key: 'USERNUM', label: '用户'},
+  {key: 'USERLOGINNUM', label: '登录次数', title: '注册用户的累计登录次数'}
+]
 
-onMounted(() => {
-  getWebsiteStatistics()
-})
-
-// 获取网站统计数据
-const getWebsiteStatistics = async () => {
-  let result = await sendAxiosRequest("/blog-api/home/getWebsiteStatistics")
-
-  if (result && !result.isError) {
-    stats.value = result.result
-  }
+const formatCount = (value) => {
+  const number = Number(value) || 0
+  if (number >= 10000) return `${(number / 10000).toFixed(number >= 100000 ? 0 : 1).replace(/\.0$/, '')}万`
+  return String(number)
 }
 
-// 获取公告
+// 外部链接显示成“github.com/xxx”这种短形式
+const linkLabel = (link) => String(link || '').replace(/^https?:\/\//, '').replace(/\/$/, '')
+
+const loadAboutPage = async () => {
+  const result = await sendAxiosRequest("/blog-api/home/getAboutPage").catch(() => null)
+  if (result && !result.isError && result.result) {
+    content.value = result.result.content || {}
+    owner.value = result.result.owner || {}
+    stats.value = result.result.stats || {}
+  }
+}
+loadAboutPage()
+
+const topAlert = ref([])
 const setTopAlert = async () => {
   topAlert.value = await getAnnouncementByRouterName("About")
 }
-
 setTopAlert()
+
+// 与 Go 端 renderSEOAboutHTML 一致的标题、描述和结构化数据
+useSeo(() => {
+  const intro = content.value.intro || '一个集文章创作、评论互动与资源分享于一体的知识社区'
+  const description = `${SITE_NAME}：${intro}。站长 ${SITE_OWNER_DISPLAY}，介绍网站的由来、功能、建站历程和常见问题。`.slice(0, 180)
+  const person = ownerPerson()
+  if (owner.value.avatar) person.image = absoluteUrl(owner.value.avatar)
+  return {
+    title: `关于本站 - ${SITE_NAME}`,
+    description,
+    path: '/ynsStudy/About',
+    type: 'profile',
+    jsonLd: {
+      '@context': 'https://schema.org',
+      '@type': 'AboutPage',
+      name: `关于本站 - ${SITE_NAME}`,
+      url: absoluteUrl('/ynsStudy/About'),
+      description,
+      inLanguage: 'zh-CN',
+      mainEntity: person
+    }
+  }
+})
 </script>
 
 <style scoped>
@@ -310,7 +327,7 @@ setTopAlert()
 /* ============ 功能：便签 ============ */
 .features {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 22px;
   margin-top: 60px;
 }
@@ -331,6 +348,12 @@ setTopAlert()
   transform: rotate(0deg) translateY(-3px);
 }
 
+a.feature-card {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+}
+
 .feature-card .icon {
   font-size: 28px;
 }
@@ -347,6 +370,210 @@ setTopAlert()
   font-size: 13px;
   line-height: 1.7;
   color: var(--j-ink-soft);
+}
+
+/* ============ 站长卡片：一张名片 ============ */
+.owner-card {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  max-width: 600px;
+  margin: 32px auto 0;
+  padding: 20px 24px;
+  text-align: left;
+  background: var(--j-paper);
+  border: 1px solid var(--j-rule);
+  box-shadow: var(--j-shadow);
+  transform: rotate(0.4deg);
+}
+
+.owner-avatar {
+  flex-shrink: 0;
+  border: 3px solid #fff;
+  box-shadow: 0 2px 6px rgba(60, 50, 30, 0.2);
+}
+
+.owner-body {
+  min-width: 0;
+}
+
+.owner-name {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+  font-family: var(--j-hand);
+  font-size: 22px;
+}
+
+.owner-alt {
+  font-family: var(--j-sans);
+  font-size: 13px;
+  color: var(--j-muted);
+}
+
+.owner-badge {
+  padding: 0 6px;
+  border: 1.5px solid var(--j-stamp);
+  color: var(--j-stamp);
+  font-family: var(--j-sans);
+  font-size: 12px;
+  line-height: 1.6;
+  transform: rotate(-4deg);
+}
+
+.owner-remark {
+  margin: 4px 0 0;
+  font-size: 14px;
+  color: var(--j-ink-soft);
+}
+
+.owner-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  margin-top: 8px;
+  font-size: 13px;
+}
+
+.owner-links a {
+  color: var(--j-pen);
+  text-decoration: none;
+}
+
+.owner-links a:hover {
+  text-decoration: underline;
+}
+
+/* ============ 建站历程：日记里的时间线 ============ */
+.timeline-section,
+.faq-section {
+  max-width: 720px;
+  margin: 60px auto 0;
+}
+
+.timeline-section h2,
+.faq-section h2 {
+  margin: 0 0 22px;
+  font-family: var(--j-hand);
+  font-weight: normal;
+  font-size: 24px;
+  text-align: center;
+}
+
+.timeline {
+  position: relative;
+  margin: 0;
+  padding: 0 0 0 28px;
+  list-style: none;
+}
+
+.timeline::before {
+  content: "";
+  position: absolute;
+  top: 6px;
+  bottom: 6px;
+  left: 8px;
+  border-left: 2px dashed var(--j-rule-strong);
+}
+
+.timeline-item {
+  position: relative;
+  display: flex;
+  gap: 16px;
+  padding: 0 0 22px;
+}
+
+.timeline-item::before {
+  content: "";
+  position: absolute;
+  top: 6px;
+  left: -25px;
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--j-stamp);
+  border-radius: 50%;
+  background: var(--j-paper);
+}
+
+.changelog-link {
+  display: block;
+  margin-top: 4px;
+  text-align: center;
+  font-size: 14px;
+  color: var(--j-pen);
+  text-decoration: none;
+}
+
+.changelog-link:hover {
+  text-decoration: underline;
+}
+
+.timeline-date {
+  flex-shrink: 0;
+  width: 96px;
+  white-space: nowrap;
+  font-family: var(--j-num);
+  color: var(--j-stamp);
+}
+
+.timeline-body h3 {
+  margin: 0 0 4px;
+  font-family: var(--j-hand);
+  font-weight: normal;
+  font-size: 18px;
+}
+
+.timeline-body p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--j-ink-soft);
+}
+
+/* ============ 常见问题：可以展开的便签条 ============ */
+.faq-item {
+  margin-bottom: 10px;
+  background: var(--j-paper);
+  border: 1px solid var(--j-rule);
+  box-shadow: 0 1px 2px rgba(60, 50, 30, 0.07);
+}
+
+.faq-item summary {
+  padding: 12px 16px;
+  font-size: 15px;
+  color: var(--j-ink);
+  cursor: pointer;
+  list-style-position: inside;
+}
+
+.faq-item[open] summary {
+  border-bottom: 1px dashed var(--j-rule);
+}
+
+.faq-item p {
+  margin: 0;
+  padding: 12px 16px 14px;
+  font-size: 14px;
+  line-height: 1.8;
+  color: var(--j-ink-soft);
+}
+
+.faq-link {
+  margin-left: 6px;
+  color: var(--j-pen);
+  text-decoration: none;
+}
+
+.tech-source {
+  margin: 14px 0 0;
+  font-size: 13px;
+  color: var(--j-muted);
+}
+
+.tech-source a {
+  color: var(--j-pen);
+  text-decoration: none;
 }
 
 /* ============ 使用技术：清单卡 ============ */
@@ -440,6 +667,22 @@ setTopAlert()
 
   .feature-card {
     transform: none !important;
+  }
+
+  .owner-card {
+    flex-direction: column;
+    text-align: center;
+    transform: none;
+  }
+
+  .owner-name,
+  .owner-links {
+    justify-content: center;
+  }
+
+  .timeline-item {
+    flex-direction: column;
+    gap: 2px;
   }
 }
 </style>

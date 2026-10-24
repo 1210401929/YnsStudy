@@ -47,6 +47,7 @@ func (h *Controller) registerSEORoutes(router *gin.Engine) {
 	page("/note/:id", h.seoNote)
 	page("/tag/:name", h.seoTag)
 	page(seriesListPath, h.seoSeriesList)
+	page(aboutPath, h.seoAbout)
 	page("/series/:id", h.seoSeries)
 	page(noteWallPath, h.seoNoteWall)
 	page(service.IndexNowKeyPath, h.indexNowKey)
