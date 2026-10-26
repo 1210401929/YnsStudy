@@ -60,6 +60,7 @@
         </div>
           </el-tab-pane>
           <el-tab-pane label="违禁词" name="bannedWords" lazy><AdminBannedWords/></el-tab-pane>
+          <el-tab-pane label="关于页推荐" name="aboutFeatured" lazy><AdminAboutFeatured/></el-tab-pane>
           <el-tab-pane label="SEO 工具" name="seo" lazy><AdminSeoTools/></el-tab-pane>
           <el-tab-pane label="文件清理" name="files" lazy><AdminFiles/></el-tab-pane>
           <el-tab-pane label="操作日志" name="logs" lazy><AdminLogs/></el-tab-pane>
@@ -85,6 +86,7 @@ import AdminFiles from "@/components/admin/AdminFiles.vue";
 import AdminContent from "@/components/admin/AdminContent.vue";
 import AdminBannedWords from "@/components/admin/AdminBannedWords.vue";
 import AdminSeoTools from "@/components/admin/AdminSeoTools.vue";
+import AdminAboutFeatured from "@/components/admin/AdminAboutFeatured.vue";
 import AdminLogs from "@/components/admin/AdminLogs.vue";
 import AdminCommentBans from "@/components/admin/AdminCommentBans.vue";
 

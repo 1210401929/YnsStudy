@@ -27,8 +27,9 @@ type AboutContent struct {
 	Intro        string      `json:"intro"`
 	OwnerMessage []string    `json:"ownerMessage"`
 	Features     []AboutItem `json:"features"`
-	Timeline     []AboutItem `json:"timeline"`
-	// ChangelogPath 是完整更新日志（站长的《网站更新日志》文章）的地址，建站历程下面放一个入口
+	// SiteStartDate 是网站上线日期（YYYY-MM-DD），用来算“已经陪伴了多少天”
+	SiteStartDate string `json:"siteStartDate"`
+	// ChangelogPath 是站长的《网站更新日志》文章地址，“使用技术”下面放一个入口
 	ChangelogPath string      `json:"changelogPath"`
 	FAQ           []AboutItem `json:"faq"`
 	TechStack     []AboutItem `json:"techStack"`
@@ -36,7 +37,7 @@ type AboutContent struct {
 	SourceURL     string      `json:"sourceUrl"`
 }
 
-// aboutContent 关于页的文字。建站历程按时间先后排列，以后有重要更新时在末尾追加一条。
+// aboutContent 关于页的文字。“站长推荐”不在这里，由站长在后台配置（见 featured_service.go）。
 var aboutContent = AboutContent{
 	Title: "欢迎来到 YnsStudy",
 	Intro: "一个集文章创作、评论互动与资源分享于一体的知识社区",
@@ -54,21 +55,8 @@ var aboutContent = AboutContent{
 		{Icon: "🤖", Title: "AI 帮写", Text: "写文章时让 AI 根据标题起草或接着往下写。"},
 		{Icon: "📡", Title: "RSS 订阅", Text: "用 RSS 阅读器订阅新文章，不错过更新。", Link: "/rss"},
 	},
-	// 取自站长的《网站更新日志》，只挑重要的节点；完整记录见 ChangelogPath
-	Timeline: []AboutItem{
-		{Date: "2025-08-23", Title: "网站 1.0 上线", Text: "基于已有的功能发布第一个版本，YnsStudy 正式开张。"},
-		{Date: "2025-09-01", Title: "AI 帮写", Text: "发表文章时，填好标题就能让 AI 起草全文，也可以在已有内容上接着往下写。"},
-		{Date: "2025-09-04", Title: "个人主页可以换装", Text: "个人主页支持自定义背景图片和背景音乐。"},
-		{Date: "2026-03-03", Title: "目录、资源分类和友链", Text: "文章自动生成目录，资源按类型自动分类，友链有了独立页面；加入管理员和封禁，维护网站秩序。"},
-		{Date: "2026-03-19", Title: "楼中楼评论", Text: "评论可以回复评论；个人主页重新设计，发表页增加了归档目录。"},
-		{Date: "2026-04-10", Title: "RSS 订阅上线", Text: "支持 RSS 订阅；文章地址改为纯数字编号，更利于搜索引擎收录。"},
-		{Date: "2026-05-08", Title: "接口全面加固", Text: "所有非公开接口接入 Token 校验；首页换上简约的新设计。"},
-		{Date: "2026-08-11", Title: "后端重写为 Go", Text: "为缓解服务器资源紧张，后端从 Spring Cloud 微服务重构为 Go 单体项目。"},
-		{Date: "2026-08-19", Title: "支持 QQ 登录", Text: "可以直接用 QQ 账号登录。"},
-		{Date: "2026-10-10", Title: "网站 2.0：手账风格", Text: "全站重做成“手写稿”风格，像一本摊开在桌上的学习手账，手机端也逐页适配。"},
-		{Date: "2026-10", Title: "便签墙和留言板", Text: "原来的“社区”改为便签墙，可以随手贴一张便签，也可以在留言板给站长留言。"},
-		{Date: "2026-10", Title: "文章标签和系列", Text: "文章可以加标签、编入系列；首页可以按标签筛选，也有了标签页和系列页。"},
-	},
+	// 网站 1.0 上线日期，见《网站更新日志》
+	SiteStartDate: "2025-08-23",
 	ChangelogPath: "/oneBlog/46140E57DA81405EAB4C48871B7FE790",
 	FAQ: []AboutItem{
 		{Title: "怎么注册和登录？", Text: "点击右上角的“登录”，可以用账号密码注册，也可以直接用手机验证码或 QQ 登录。"},
@@ -102,7 +90,7 @@ type AboutOwner struct {
 	Remark         string   `json:"remark"`
 }
 
-// GetAboutPage 是关于页接口：文字内容、站长卡片和网站统计
+// GetAboutPage 是关于页接口：文字内容、站长卡片、站长推荐、建站天数和网站统计
 func (s *Service) GetAboutPage(ctx context.Context) model.Result {
 	owner := s.GetSiteOwner(ctx)
 	card := AboutOwner{Name: owner.Name, AlternateNames: owner.AlternateNames, SameAs: owner.SameAs, ProfilePath: owner.ProfilePath, Avatar: owner.Avatar}
@@ -110,7 +98,27 @@ func (s *Service) GetAboutPage(ctx context.Context) model.Result {
 		card.Remark = model.StringValue(rows[0], "REMARK")
 	}
 	stats, _ := s.SiteStatistics(ctx)
-	return model.Success(map[string]any{"content": aboutContent, "owner": card, "stats": stats})
+	return model.Success(map[string]any{
+		"content":  aboutContent,
+		"owner":    card,
+		"stats":    stats,
+		"featured": s.AboutFeatured(ctx),
+		"siteDays": SiteDays(time.Now()),
+	})
+}
+
+// SiteDays 返回到 now 为止网站上线的天数，上线当天算第 1 天；日期按北京时间计算
+func SiteDays(now time.Time) int {
+	start, err := time.ParseInLocation("2006-01-02", aboutContent.SiteStartDate, time.Local)
+	if err != nil {
+		return 0
+	}
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.Local)
+	days := int(today.Sub(start).Hours()/24) + 1
+	if days < 1 {
+		return 0
+	}
+	return days
 }
 
 const siteStatisticsCacheKey = "site_statistics"

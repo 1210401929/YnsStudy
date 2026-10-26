@@ -68,7 +68,8 @@ const ACTION_LABELS = {
   friendLink: '友链',
   commentBan: '评论限制',
   editPost: '修改随记',
-  editSeries: '管理系列'
+  editSeries: '管理系列',
+  aboutFeatured: '关于页推荐'
 }
 
 const action = ref('')

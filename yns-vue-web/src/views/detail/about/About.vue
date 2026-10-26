@@ -15,6 +15,12 @@
       <div class="hero">
         <h1>{{ content.title || '欢迎来到 YnsStudy' }}</h1>
         <p class="hero-description">{{ content.intro }}</p>
+        <!-- 建站天数：上线当天算第 1 天，后台按北京时间计算 -->
+        <p v-if="siteDays > 0" class="site-days">
+          自 {{ startDateText }} 上线，已经陪伴了
+          <span class="site-days-number">{{ siteDays }}</span>
+          天
+        </p>
 
         <!-- 站长卡片 -->
         <section v-if="owner.name" class="owner-card" aria-label="站长">
@@ -42,6 +48,58 @@
         </section>
       </div>
 
+      <!-- 站长推荐：站长在后台“关于页推荐”里挑选，没有配置时整块不显示 -->
+      <section v-if="featured.series.length || featured.articles.length" class="featured-section">
+        <h2>站长推荐</h2>
+        <p class="featured-intro">第一次来？可以先从这些读起。</p>
+
+        <div v-if="featured.series.length" class="featured-series">
+          <router-link
+              v-for="item in featured.series"
+              :key="item.ID"
+              :to="seriesHref(item.ID)"
+              class="series-folder"
+          >
+            <span class="j-tape j-tape--blue folder-tape"></span>
+            <span class="folder-label">系列</span>
+            <span class="folder-title">{{ item.TITLE }}</span>
+            <span v-if="item.DESCRIPTION" class="folder-desc">{{ item.DESCRIPTION }}</span>
+            <span class="folder-meta">
+              共 {{ item.ARTICLE_COUNT }} 篇
+              <span v-if="item.FIRST_GUID" class="folder-start">· 从第一篇开始读 →</span>
+            </span>
+          </router-link>
+        </div>
+
+        <div v-if="featured.articles.length" class="featured-articles">
+          <router-link
+              v-for="(article, index) in featured.articles"
+              :key="article.GUID"
+              :to="{ name: 'oneBlog', params: { g: article.GUID } }"
+              class="featured-card"
+          >
+            <span class="featured-no">{{ String(index + 1).padStart(2, '0') }}</span>
+            <span class="featured-body">
+              <span class="featured-title">{{ article.BLOG_TITLE || '未命名文章' }}</span>
+              <span v-if="article.EXCERPT" class="featured-excerpt">{{ article.EXCERPT }}</span>
+              <span class="featured-meta">
+                {{ formatDay(article.CREATE_TIME) }}
+                <span v-for="tag in (article.TAGS || []).slice(0, 2)" :key="tag" class="featured-tag">#{{ tag }}</span>
+              </span>
+            </span>
+            <img
+                v-if="article.FIRST_IMAGE"
+                :src="article.FIRST_IMAGE"
+                :alt="`${article.BLOG_TITLE} 的文章配图`"
+                class="featured-cover"
+                loading="lazy"
+                decoding="async"
+                @error="article.FIRST_IMAGE = ''"
+            />
+          </router-link>
+        </div>
+      </section>
+
       <!-- 数据统计 -->
       <div class="stats-section">
         <h2>数据统计</h2>
@@ -68,20 +126,6 @@
         </component>
       </div>
 
-      <!-- 建站历程 -->
-      <section v-if="content.timeline?.length" class="timeline-section">
-        <h2>建站历程</h2>
-        <ol class="timeline">
-          <li v-for="item in content.timeline" :key="item.date + item.title" class="timeline-item">
-            <time class="timeline-date">{{ item.date }}</time>
-            <div class="timeline-body">
-              <h3>{{ item.title }}</h3>
-              <p>{{ item.text }}</p>
-            </div>
-          </li>
-        </ol>
-        <router-link v-if="content.changelogPath" :to="content.changelogPath" class="changelog-link">查看完整更新日志 →</router-link>
-      </section>
 
       <!-- 常见问题 -->
       <section v-if="content.faq?.length" class="faq-section">
@@ -102,8 +146,11 @@
         <ul>
           <li v-for="item in content.techStack" :key="item.title">{{ item.title }}：{{ item.text }}</li>
         </ul>
-        <p v-if="content.sourceUrl" class="tech-source">
-          网站源码：<a :href="content.sourceUrl" target="_blank" rel="noopener">{{ linkLabel(content.sourceUrl) }}</a>
+        <p v-if="content.sourceUrl || content.changelogPath" class="tech-source">
+          <template v-if="content.sourceUrl">
+            网站源码：<a :href="content.sourceUrl" target="_blank" rel="noopener">{{ linkLabel(content.sourceUrl) }}</a>
+          </template>
+          <router-link v-if="content.changelogPath" :to="content.changelogPath" class="changelog-link">网站更新日志 →</router-link>
         </p>
       </div>
     </div>
@@ -111,13 +158,23 @@
 </template>
 
 <script setup>
-import {ref} from 'vue'
+import {computed, ref} from 'vue'
 import {sendAxiosRequest} from "@/utils/common.js"
 import Announcement from "@/components/detail/Announcement.vue"
 import {getAnnouncementByRouterName} from "@/utils/blogUtil.js"
+import {seriesHref} from "@/utils/blogSeries.js"
 import {absoluteUrl, ownerPerson, SITE_NAME, SITE_OWNER_DISPLAY, useSeo} from "@/utils/seo.js"
 
 const content = ref({})
+// 站长推荐（后台配置的文章和系列）和建站天数
+const featured = ref({articles: [], series: []})
+const siteDays = ref(0)
+// “2025-08-23”显示成“2025 年 8 月 23 日”
+const startDateText = computed(() => {
+  const match = String(content.value.siteStartDate || '').match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  return match ? `${match[1]} 年 ${Number(match[2])} 月 ${Number(match[3])} 日` : ''
+})
+const formatDay = (value) => String(value || '').slice(0, 10)
 const owner = ref({})
 const stats = ref({})
 
@@ -147,6 +204,11 @@ const loadAboutPage = async () => {
     content.value = result.result.content || {}
     owner.value = result.result.owner || {}
     stats.value = result.result.stats || {}
+    featured.value = {
+      articles: result.result.featured?.articles || [],
+      series: result.result.featured?.series || []
+    }
+    siteDays.value = Number(result.result.siteDays) || 0
   }
 }
 loadAboutPage()
@@ -160,7 +222,7 @@ setTopAlert()
 // 与 Go 端 renderSEOAboutHTML 一致的标题、描述和结构化数据
 useSeo(() => {
   const intro = content.value.intro || '一个集文章创作、评论互动与资源分享于一体的知识社区'
-  const description = `${SITE_NAME}：${intro}。站长 ${SITE_OWNER_DISPLAY}，介绍网站的由来、功能、建站历程和常见问题。`.slice(0, 180)
+  const description = `${SITE_NAME}：${intro}。站长 ${SITE_OWNER_DISPLAY}，介绍网站的由来、站长推荐的文章、功能和常见问题。`.slice(0, 180)
   const person = ownerPerson()
   if (owner.value.avatar) person.image = absoluteUrl(owner.value.avatar)
   return {
@@ -445,14 +507,35 @@ a.feature-card {
   text-decoration: underline;
 }
 
-/* ============ 建站历程：日记里的时间线 ============ */
-.timeline-section,
+/* ============ 建站天数：标题下面的一行手写字 ============ */
+.site-days {
+  margin: 10px 0 0;
+  font-family: var(--j-hand);
+  font-size: 16px;
+  color: var(--j-muted);
+}
+
+.site-days-number {
+  display: inline-block;
+  margin: 0 4px;
+  padding: 0 8px;
+  border: 2px solid rgba(194, 72, 62, 0.7);
+  border-radius: 4px;
+  font-family: var(--j-num);
+  font-size: 22px;
+  line-height: 1.3;
+  color: var(--j-stamp);
+  transform: rotate(-4deg);
+}
+
+/* ============ 站长推荐 ============ */
+.featured-section,
 .faq-section {
-  max-width: 720px;
+  max-width: 820px;
   margin: 60px auto 0;
 }
 
-.timeline-section h2,
+.featured-section h2,
 .faq-section h2 {
   margin: 0 0 22px;
   font-family: var(--j-hand);
@@ -461,74 +544,192 @@ a.feature-card {
   text-align: center;
 }
 
-.timeline {
-  position: relative;
-  margin: 0;
-  padding: 0 0 0 28px;
-  list-style: none;
+.featured-section h2 {
+  margin-bottom: 6px;
 }
 
-.timeline::before {
-  content: "";
-  position: absolute;
-  top: 6px;
-  bottom: 6px;
-  left: 8px;
-  border-left: 2px dashed var(--j-rule-strong);
+.featured-intro {
+  margin: 0 0 24px;
+  text-align: center;
+  font-size: 14px;
+  color: var(--j-muted);
 }
 
-.timeline-item {
+/* 系列：一个贴着胶带的牛皮纸文件夹 */
+.featured-series {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 20px;
+  margin-bottom: 22px;
+}
+
+.series-folder {
   position: relative;
   display: flex;
-  gap: 16px;
-  padding: 0 0 22px;
+  flex-direction: column;
+  gap: 6px;
+  padding: 22px 20px 16px;
+  background: var(--j-kraft);
+  color: var(--j-ink);
+  text-decoration: none;
+  box-shadow: 0 1px 2px rgba(60, 50, 30, 0.12), 0 12px 20px -14px rgba(60, 50, 30, 0.45);
+  transition: transform 0.2s ease;
 }
 
-.timeline-item::before {
+.series-folder:nth-child(odd) { transform: rotate(-0.8deg); }
+.series-folder:nth-child(even) { transform: rotate(0.8deg); }
+
+.series-folder:hover {
+  transform: rotate(0deg) translateY(-3px);
+}
+
+.folder-tape {
+  top: -10px;
+  left: 50%;
+  margin-left: -40px;
+  transform: rotate(-3deg);
+}
+
+.folder-label {
+  align-self: flex-start;
+  padding: 0 6px;
+  border: 1.5px solid var(--j-stamp);
+  color: var(--j-stamp);
+  font-size: 12px;
+  line-height: 1.6;
+  transform: rotate(-4deg);
+}
+
+.folder-title {
+  font-family: var(--j-hand);
+  font-size: 21px;
+  overflow-wrap: anywhere;
+}
+
+.folder-desc {
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--j-ink-soft);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.folder-meta {
+  margin-top: auto;
+  font-size: 13px;
+  color: var(--j-ink-soft);
+}
+
+.folder-start {
+  color: var(--j-pen);
+}
+
+/* 文章：一页页带红色页边线的笔记纸 */
+.featured-articles {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.featured-card {
+  position: relative;
+  display: flex;
+  gap: 14px;
+  padding: 16px 16px 14px 46px;
+  background: var(--j-paper);
+  border: 1px solid var(--j-rule);
+  color: var(--j-ink);
+  text-decoration: none;
+  box-shadow: 0 1px 2px rgba(60, 50, 30, 0.07);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.featured-card::before {
   content: "";
   position: absolute;
-  top: 6px;
-  left: -25px;
-  width: 12px;
-  height: 12px;
-  border: 2px solid var(--j-stamp);
-  border-radius: 50%;
-  background: var(--j-paper);
+  top: 0;
+  bottom: 0;
+  left: 34px;
+  border-left: 1px solid var(--j-margin-red);
+  opacity: 0.6;
+}
+
+.featured-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--j-shadow);
+}
+
+.featured-no {
+  position: absolute;
+  top: 16px;
+  left: 8px;
+  font-family: var(--j-num);
+  font-size: 14px;
+  color: var(--j-stamp);
+}
+
+.featured-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+
+.featured-title {
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.featured-card:hover .featured-title {
+  color: var(--j-pen);
+}
+
+.featured-excerpt {
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--j-ink-soft);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.featured-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  margin-top: auto;
+  font-size: 12px;
+  color: var(--j-muted);
+}
+
+.featured-tag {
+  color: var(--j-pen);
+}
+
+.featured-cover {
+  flex-shrink: 0;
+  align-self: flex-start;
+  width: 76px;
+  height: 58px;
+  object-fit: cover;
+  border: 3px solid #fff;
+  box-shadow: 0 1px 4px rgba(60, 50, 30, 0.2);
 }
 
 .changelog-link {
-  display: block;
-  margin-top: 4px;
-  text-align: center;
-  font-size: 14px;
+  margin-left: 14px;
   color: var(--j-pen);
   text-decoration: none;
 }
 
 .changelog-link:hover {
   text-decoration: underline;
-}
-
-.timeline-date {
-  flex-shrink: 0;
-  width: 96px;
-  white-space: nowrap;
-  font-family: var(--j-num);
-  color: var(--j-stamp);
-}
-
-.timeline-body h3 {
-  margin: 0 0 4px;
-  font-family: var(--j-hand);
-  font-weight: normal;
-  font-size: 18px;
-}
-
-.timeline-body p {
-  margin: 0;
-  font-size: 14px;
-  line-height: 1.7;
-  color: var(--j-ink-soft);
 }
 
 /* ============ 常见问题：可以展开的便签条 ============ */
@@ -680,9 +881,16 @@ a.feature-card {
     justify-content: center;
   }
 
-  .timeline-item {
-    flex-direction: column;
-    gap: 2px;
+  .featured-articles {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .series-folder {
+    transform: none !important;
+  }
+
+  .site-days {
+    font-size: 15px;
   }
 }
 </style>

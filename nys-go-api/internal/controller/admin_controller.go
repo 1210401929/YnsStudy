@@ -134,6 +134,15 @@ func (h *Controller) registerAdminRoutes(group *gin.RouterGroup) {
 	})
 
 	// 操作日志
+	// 关于页的站长推荐
+	group.Any("/getAboutFeatured", func(c *gin.Context) { writeResult(c, h.service.GetAdminAboutFeatured(c)) })
+	group.Any("/setAboutFeatured", func(c *gin.Context) {
+		body, ok := requireBody(c)
+		if ok {
+			writeResult(c, h.service.SetAboutFeatured(c, stringSlice(body["articles"]), stringSlice(body["series"])))
+		}
+	})
+
 	group.Any("/getLogs", func(c *gin.Context) {
 		body, ok := requireBody(c)
 		if ok {

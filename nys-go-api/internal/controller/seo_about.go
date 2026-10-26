@@ -1,6 +1,6 @@
 package controller
 
-// 关于页 /ynsStudy/About 的服务端首屏：站点介绍、站长、站长想说、功能、建站历程、常见问题和使用技术。
+// 关于页 /ynsStudy/About 的服务端首屏：站点介绍和建站天数、站长、站长想说、站长推荐、功能、常见问题和使用技术。
 // 内容来自 service.AboutContentData（与前端关于页同一份），结构化数据声明这是关于页，主体是站长本人，
 // 让搜索站长名字时更容易找到这一页。浏览器加载后由 Vue 接管。
 
@@ -8,11 +8,14 @@ import (
 	"encoding/json"
 	"fmt"
 	htmlstd "html"
+	"net/url"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
 	"nys-go-api/internal/config"
+	"nys-go-api/internal/model"
 	"nys-go-api/internal/service"
 )
 
@@ -23,14 +26,15 @@ const aboutFirstPaintStyle = `<style id="yns-seo-about-first-paint">.seo-about-f
 // seoAbout 输出关于页首屏
 func (h *Controller) seoAbout(c *gin.Context) {
 	owner := h.service.GetSiteOwner(c.Request.Context())
-	h.writeSEOPage(c, renderSEOAboutHTML(h.readFrontendShell(), service.AboutContentData(), owner, h.service.Config))
+	featured := h.service.AboutFeatured(c.Request.Context())
+	h.writeSEOPage(c, renderSEOAboutHTML(h.readFrontendShell(), service.AboutContentData(), owner, featured, service.SiteDays(time.Now()), h.service.Config))
 }
 
-func renderSEOAboutHTML(shell string, content service.AboutContent, owner service.SiteOwner, cfg *config.Config) string {
+func renderSEOAboutHTML(shell string, content service.AboutContent, owner service.SiteOwner, featured service.Featured, siteDays int, cfg *config.Config) string {
 	domain := strings.TrimRight(cfg.External.DomainName, "/")
 	canonical := domain + aboutPath
 	title := "关于本站"
-	description := truncateRunes(fmt.Sprintf("%s：%s。站长 %s，介绍网站的由来、功能、建站历程和常见问题。",
+	description := truncateRunes(fmt.Sprintf("%s：%s。站长 %s，介绍网站的由来、站长推荐的文章、功能和常见问题。",
 		cfg.SEO.SiteName, content.Intro, ownerDisplay(owner)), 180)
 
 	person := ownerPerson(owner, domain)
@@ -81,6 +85,9 @@ func renderSEOAboutHTML(shell string, content service.AboutContent, owner servic
 	body.WriteString(`<main class="seo-about-fallback"><article>`)
 	fmt.Fprintf(&body, `<nav class="seo-breadcrumb" aria-label="面包屑"><a href="%s/">YnsStudy</a> / 关于本站</nav>`, htmlstd.EscapeString(domain))
 	fmt.Fprintf(&body, `<h1>%s</h1><p>%s</p>`, htmlstd.EscapeString(content.Title), htmlstd.EscapeString(content.Intro))
+	if siteDays > 0 {
+		fmt.Fprintf(&body, `<p>自 %s 上线，%s 已经陪伴了 %d 天。</p>`, htmlstd.EscapeString(content.SiteStartDate), htmlstd.EscapeString(cfg.SEO.SiteName), siteDays)
+	}
 
 	body.WriteString(`<h2>站长</h2><p>`)
 	body.WriteString(ownerLinkHTML(owner, domain))
@@ -97,22 +104,40 @@ func renderSEOAboutHTML(shell string, content service.AboutContent, owner servic
 		body.WriteString(`<p>` + htmlstd.EscapeString(paragraph) + `</p>`)
 	}
 
+	// 站长推荐：站长在后台挑选的文章和系列，没有配置时不输出
+	if len(featured.Articles) > 0 || len(featured.Series) > 0 {
+		body.WriteString(`<h2>站长推荐</h2>`)
+		if len(featured.Series) > 0 {
+			body.WriteString(`<ul>`)
+			for _, row := range featured.Series {
+				fmt.Fprintf(&body, `<li>系列《<a href="%s">%s</a>》，共 %d 篇`, htmlstd.EscapeString(seriesURL(domain, model.StringValue(row, "ID"))),
+					htmlstd.EscapeString(model.StringValue(row, "TITLE")), model.IntValue(row, "ARTICLE_COUNT"))
+				if text := strings.TrimSpace(model.StringValue(row, "DESCRIPTION")); text != "" {
+					body.WriteString(`：` + htmlstd.EscapeString(truncateRunes(text, 80)))
+				}
+				body.WriteString(`</li>`)
+			}
+			body.WriteString(`</ul>`)
+		}
+		if len(featured.Articles) > 0 {
+			body.WriteString(`<ul>`)
+			for _, row := range featured.Articles {
+				fmt.Fprintf(&body, `<li><a href="%s/oneBlog/%s">%s</a>`, htmlstd.EscapeString(domain),
+					htmlstd.EscapeString(url.PathEscape(model.StringValue(row, "GUID"))), htmlstd.EscapeString(model.StringValue(row, "BLOG_TITLE")))
+				if excerpt := strings.TrimSpace(model.StringValue(row, "EXCERPT")); excerpt != "" {
+					body.WriteString(`：` + htmlstd.EscapeString(truncateRunes(excerpt, 80)))
+				}
+				body.WriteString(`</li>`)
+			}
+			body.WriteString(`</ul>`)
+		}
+	}
+
 	body.WriteString(`<h2>能做什么</h2><ul>`)
 	for _, item := range content.Features {
 		body.WriteString(`<li>` + link(item.Link, item.Title) + `：` + htmlstd.EscapeString(item.Text) + `</li>`)
 	}
 	body.WriteString(`</ul>`)
-
-	if len(content.Timeline) > 0 {
-		body.WriteString(`<h2>建站历程</h2><ul>`)
-		for _, item := range content.Timeline {
-			fmt.Fprintf(&body, `<li><time>%s</time> %s：%s</li>`, htmlstd.EscapeString(item.Date), htmlstd.EscapeString(item.Title), htmlstd.EscapeString(item.Text))
-		}
-		body.WriteString(`</ul>`)
-		if content.ChangelogPath != "" {
-			body.WriteString(`<p>` + link(content.ChangelogPath, "查看完整更新日志 →") + `</p>`)
-		}
-	}
 
 	body.WriteString(`<h2>常见问题</h2><dl>`)
 	for _, item := range content.FAQ {
@@ -131,6 +156,9 @@ func renderSEOAboutHTML(shell string, content service.AboutContent, owner servic
 	body.WriteString(`</ul>`)
 	if content.SourceURL != "" {
 		body.WriteString(`<p>网站源码：` + link(content.SourceURL, content.SourceURL) + `</p>`)
+	}
+	if content.ChangelogPath != "" {
+		body.WriteString(`<p>` + link(content.ChangelogPath, "网站更新日志 →") + `</p>`)
 	}
 	body.WriteString(`</article></main>`)
 	return injectSEOShell(shell, title+" - "+cfg.SEO.SiteName, head, body.String())

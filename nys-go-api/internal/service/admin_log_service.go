@@ -37,6 +37,7 @@ const (
 	AdminActionCommentBan     = "commentBan"
 	AdminActionEditPost       = "editPost"
 	AdminActionEditSeries     = "editSeries"
+	AdminActionAboutFeatured  = "aboutFeatured"
 )
 
 // msgBannedWord 是内容命中违禁词时的提示
