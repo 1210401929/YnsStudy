@@ -39,6 +39,13 @@ func (h *Controller) registerUserInformationRoutes(group *gin.RouterGroup) {
 		}
 	})
 	group.Any("/getBlogAndCommunityByUserCode", h.getUserBlogAndCommunity)
+	// 作者主页概览：创作数据、热门文章和系列
+	group.Any("/getAuthorOverview", func(c *gin.Context) {
+		body, ok := requireBody(c)
+		if ok {
+			writeResult(c, h.service.GetAuthorOverview(c.Request.Context(), stringParam(body, "userCode")))
+		}
+	})
 	group.Any("/getResourceByUserCode", func(c *gin.Context) {
 		body, ok := requireBody(c)
 		if ok {
@@ -70,7 +77,7 @@ func (h *Controller) getUserBlogAndCommunity(c *gin.Context) {
 	if !ok {
 		return
 	}
-	writeResult(c, h.service.GetBlogAndCommunityByUser(c.Request.Context(), stringParam(body, "userCode"), intParam(body, "page", 1), intParam(body, "pageSize", 10), stringParam(body, "keyword")))
+	writeResult(c, h.service.GetBlogAndCommunityByUser(c.Request.Context(), stringParam(body, "userCode"), intParam(body, "page", 1), intParam(body, "pageSize", 10), stringParam(body, "keyword"), stringParam(body, "type")))
 }
 
 func (h *Controller) registerHomeRoutes(group *gin.RouterGroup) {

@@ -36,165 +36,165 @@
             <UserInfo
                 :user="user"
                 :target-user-code="targetUserCode"
+                :creation-stats="overview.stats"
                 @blog-click="blogMainClick"
             />
           </div>
 
           <div class="main-content">
-            <div class="toolbar">
-              <button class="toolbar-btn link-btn" @click="handleFriendLinkClick">
-                <span v-if="!showFriendLink" class="toolbar-btn-icon">🤝</span>
-                <span v-if="showFriendLink" class="toolbar-btn-icon">🚫</span>
-                <span>{{!showFriendLink ? "查看友链" : "回到文章"}}</span>
-              </button>
-
-              <button class="toolbar-btn jump-btn" @click="scrollToFiles">
-                <span class="toolbar-btn-icon">📁</span>
-                <span>跳转到文件列表</span>
-              </button>
-            </div>
-            <FriendLink :is-embed="true" v-if="showFriendLink" />
+            <!-- 内容：全部 / 文章 / 随记 / 文件四个标签页，列表在后台按类型筛选 -->
             <div class="section-card publish-card">
               <span class="j-tape j-tape--top"></span>
               <div class="section-header">
                 <div class="section-title-group">
                   <span class="section-icon">📚</span>
-                  <h3 class="section-title">发表内容</h3>
-                  <span class="section-count" v-if="showBlogs.length">{{ showBlogs.length }}+</span>
+                  <h3 class="section-title">{{ isSelf ? '我的内容' : 'TA 的内容' }}</h3>
                 </div>
-                <label class="toggle-switch">
-                  <input type="checkbox" v-model="onlyArticle"/>
-                  <span class="toggle-track">
-                    <span class="toggle-thumb"></span>
-                  </span>
-                  <span class="toggle-label">仅文章</span>
-                </label>
+                <nav class="content-tabs" role="tablist" aria-label="内容分类">
+                  <button
+                      v-for="tab in contentTabs"
+                      :key="tab.key"
+                      type="button"
+                      role="tab"
+                      class="content-tab"
+                      :class="{ 'is-active': activeTab === tab.key }"
+                      :aria-selected="activeTab === tab.key"
+                      @click="switchTab(tab.key)"
+                  >
+                    {{ tab.label }}<span v-if="tab.count !== null" class="tab-count">{{ tab.count }}</span>
+                  </button>
+                </nav>
               </div>
 
-              <div v-if="showBlogs.length > 0" class="blog-timeline">
-                <div
-                    v-for="(blog, index) in showBlogs"
-                    :key="blog.GUID"
-                    class="timeline-item"
-                    :style="{ animationDelay: index * 0.06 + 's' }"
-                >
-                  <div class="timeline-connector">
-                    <div class="timeline-dot" :class="blog.TYPE === 'blog' ? 'dot-article' : 'dot-community'"></div>
-                    <div class="timeline-line" v-if="index < showBlogs.length - 1"></div>
-                  </div>
-                  <div class="timeline-content">
-                    <div class="timeline-meta">
-                      <span class="meta-tag" :class="blog.TYPE === 'blog' ? 'tag-article' : 'tag-community'">
-                        {{ blog.TYPE === 'blog' ? '文章' : '随记' }}
-                      </span>
-                      <span class="meta-time">{{ formatDate(blog.CREATE_TIME) }}</span>
+              <!-- 文件 -->
+              <template v-if="activeTab === 'files'">
+                <div v-if="files.length === 0" class="empty-state">
+                  <div class="empty-icon">◇</div>
+                  <p class="empty-text">暂无上传文件</p>
+                </div>
+                <div v-else class="file-list">
+                  <div
+                      v-for="(file, index) in files"
+                      :key="file.GUID || index"
+                      class="file-item"
+                      :style="{ animationDelay: index * 0.05 + 's' }"
+                  >
+                    <div class="file-icon-wrap">
+                      <span class="file-icon">{{ getFileIcon(file.ORIGINALFILENAME) }}</span>
                     </div>
-                    <div class="blog-card" @click="blogMainClick(blog)">
-                      <a
-                          v-if="blog.TYPE === 'blog'"
-                          :href="'/oneBlog/' + blog.GUID"
-                          @click.prevent
-                          class="seo-link"
-                      >
-                        <h4 class="blog-title">{{ blog.BLOG_TITLE }}</h4>
-                      </a>
-                      <a v-else :href="'/note/' + encodeURIComponent(blog.GUID)" @click.prevent class="seo-link">
-                        <h4 class="blog-title">{{ blog.BLOG_TITLE || '一张便签' }}</h4>
-                      </a>
-                      <p class="blog-summary">{{ listExcerpt(blog) }}</p>
-                      <div class="blog-card-footer">
-                        <span class="read-more">阅读全文 →</span>
+                    <div class="file-info">
+                      <span class="file-name" :title="file.ORIGINALFILENAME">{{ file.ORIGINALFILENAME }}</span>
+                      <span class="file-meta">{{ formatDate(file.CREATE_TIME) }} · 下载 {{ file.DOWNNUM || 0 }} 次</span>
+                    </div>
+                    <button class="download-btn" :title="`下载 ${file.ORIGINALFILENAME}`" @click="downloadFile(file)">
+                      <span>↓</span>
+                    </button>
+                  </div>
+                </div>
+              </template>
+
+              <!-- 文章、随记 -->
+              <template v-else>
+                <div v-if="blogs.length > 0" class="blog-timeline">
+                  <div
+                      v-for="(blog, index) in blogs"
+                      :key="blog.TYPE + blog.GUID"
+                      class="timeline-item"
+                      :style="{ animationDelay: (index % pageSize) * 0.06 + 's' }"
+                  >
+                    <div class="timeline-connector">
+                      <div class="timeline-dot" :class="blog.TYPE === 'blog' ? 'dot-article' : 'dot-community'"></div>
+                      <div class="timeline-line" v-if="index < blogs.length - 1"></div>
+                    </div>
+                    <div class="timeline-content">
+                      <div class="timeline-meta">
+                        <span class="meta-tag" :class="blog.TYPE === 'blog' ? 'tag-article' : 'tag-community'">
+                          {{ blog.TYPE === 'blog' ? '文章' : '随记' }}
+                        </span>
+                        <span class="meta-time">{{ formatDate(blog.CREATE_TIME) }}</span>
+                      </div>
+                      <div class="blog-card" @click="blogMainClick(blog)">
+                        <a
+                            v-if="blog.TYPE === 'blog'"
+                            :href="'/oneBlog/' + blog.GUID"
+                            @click.prevent
+                            class="seo-link"
+                        >
+                          <h4 class="blog-title">{{ blog.BLOG_TITLE }}</h4>
+                        </a>
+                        <a v-else :href="'/note/' + encodeURIComponent(blog.GUID)" @click.prevent class="seo-link">
+                          <h4 class="blog-title">{{ blog.BLOG_TITLE || '一张便签' }}</h4>
+                        </a>
+                        <p class="blog-summary">{{ listExcerpt(blog) }}</p>
+                        <div class="blog-card-footer">
+                          <span class="read-more">阅读全文 →</span>
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
-              </div>
 
-              <div v-if="!showBlogs.length && !loading" class="empty-state">
-                <div class="empty-icon">✦</div>
-                <p class="empty-text">暂无内容</p>
-              </div>
-
-              <button
-                  v-if="!noMore && !loading"
-                  class="load-more-btn"
-                  @click="fetchArticles(null)"
-              >
-                <span>加载更多</span>
-                <span class="load-more-arrow">↓</span>
-              </button>
-              <div v-if="loading" class="loading-row">
-                <span class="loading-dot"></span>
-                <span class="loading-dot"></span>
-                <span class="loading-dot"></span>
-              </div>
-              <div v-if="noMore && showBlogs.length" class="end-line">
-                <span class="end-dash"></span>
-                <span class="end-text">已到末尾</span>
-                <span class="end-dash"></span>
-              </div>
-            </div>
-
-            <div class="section-card file-card" ref="fileSection">
-              <div class="section-header">
-                <div class="section-title-group">
-                  <span class="section-icon">📁</span>
-                  <h3 class="section-title">上传的文件</h3>
-                  <span class="section-count" v-if="files.length">{{ files.length }}</span>
+                <div v-if="!blogs.length && !loading" class="empty-state">
+                  <div class="empty-icon">✦</div>
+                  <p class="empty-text">{{ emptyText }}</p>
                 </div>
-              </div>
 
-              <div v-if="files.length === 0" class="empty-state">
-                <div class="empty-icon">◇</div>
-                <p class="empty-text">暂无上传文件</p>
-              </div>
-
-              <div v-else class="file-list">
-                <div
-                    v-for="(file, index) in files"
-                    :key="index"
-                    class="file-item"
-                    :style="{ animationDelay: index * 0.05 + 's' }"
+                <button
+                    v-if="!noMore && !loading && blogs.length"
+                    class="load-more-btn"
+                    @click="fetchArticles(null)"
                 >
-                  <div class="file-icon-wrap">
-                    <span class="file-icon">{{ getFileIcon(file.ORIGINALFILENAME) }}</span>
-                  </div>
-                  <div class="file-info">
-                    <span class="file-name">{{ file.ORIGINALFILENAME }}</span>
-                    <span class="file-meta">{{ formatDate(file.CREATE_TIME) }} · 下载 {{ file.DOWNNUM }} 次</span>
-                  </div>
-                  <button class="download-btn" @click="downloadFile(file)">
-                    <span>↓</span>
-                  </button>
+                  <span>加载更多</span>
+                  <span class="load-more-arrow">↓</span>
+                </button>
+
+                <div v-if="loading" class="loading-row">
+                  <span class="loading-dot"></span>
+                  <span class="loading-dot"></span>
+                  <span class="loading-dot"></span>
                 </div>
-              </div>
+
+                <div v-if="noMore && blogs.length" class="end-line">
+                  <span class="end-dash"></span>
+                  <span class="end-text">已到末尾</span>
+                  <span class="end-dash"></span>
+                </div>
+              </template>
             </div>
           </div>
 
           <div class="right-sidebar">
             <div class="align-spacer"></div>
 
-            <el-card class="sidebar-card recent-articles">
+            <!-- TA 的系列：按专题阅读的入口，没有系列时不显示 -->
+            <el-card v-if="overview.series.length" class="sidebar-card series-card" shadow="never">
               <template #header>
-                <div class="sidebar-card-title">
-                  <span style="display: flex; align-items: center; gap: 6px;">
-                     <span>最近文章</span>
-                  </span>
-                </div>
+                <div class="sidebar-card-title">{{ isSelf ? '我的系列' : 'TA 的系列' }}</div>
               </template>
-              <ul class="recent-articles-list">
-                <li
-                    v-for="(article,index) in recentArticles"
-                    :key="article.GUID"
-                    class="recent-article-item"
-                    :title="article.BLOG_TITLE"
-                    @click="blogMainClick(article)"
-                >
-                  <a :href="'/oneBlog/' + article.GUID" @click.prevent class="seo-link seo-recent-link">
-                    <span style="font-weight: bold;color:rgba(0,0,0,0.5)">{{(index+1) + "："}}</span> {{article.BLOG_TITLE }}
-                  </a>
+              <ul class="side-list">
+                <li v-for="item in overview.series" :key="item.ID" class="side-item">
+                  <router-link :to="seriesHref(item.ID)" class="side-link" :title="item.DESCRIPTION || item.TITLE">
+                    <span class="side-title">{{ item.TITLE }}</span>
+                    <span class="side-meta">{{ item.ARTICLE_COUNT }} 篇</span>
+                  </router-link>
                 </li>
               </ul>
+            </el-card>
+
+            <!-- 热门文章：按阅读量排，和中间按时间排的列表互补 -->
+            <el-card v-if="overview.hotBlogs.length" class="sidebar-card hot-card" shadow="never">
+              <template #header>
+                <div class="sidebar-card-title">热门文章</div>
+              </template>
+              <ol class="side-list">
+                <li v-for="(article, index) in overview.hotBlogs" :key="article.GUID" class="side-item">
+                  <a :href="'/oneBlog/' + article.GUID" class="side-link" :title="article.BLOG_TITLE" @click.prevent="blogMainClick({...article, TYPE: 'blog'})">
+                    <span class="side-rank" :class="{ 'is-top': index < 3 }">{{ index + 1 }}</span>
+                    <span class="side-title">{{ article.BLOG_TITLE }}</span>
+                    <span class="side-meta">{{ formatCount(article.VIEW_PAGE) }} 阅读</span>
+                  </a>
+                </li>
+              </ol>
             </el-card>
 
             <div class="sticky-category">
@@ -227,8 +227,9 @@ import {
   pubFormatDate,
   sendAxiosRequest,
   listExcerpt,
-  downloadFileByUrl
+  downloadUploadedFile
 } from '@/utils/common.js'
+import {seriesHref} from '@/utils/blogSeries.js'
 
 import BackgroundAndMusic from "@/components/detail/personInformation/BackgroundAndMusic.vue";
 import WelcomeOverlay from "@/components/detail/personInformation/WelcomeOverlay.vue";
@@ -237,15 +238,12 @@ import UserInfo from "@/components/main/UserInfo.vue";
 
 //正文与评论组件
 const ContentAndComment = defineAsyncComponent(() => import('@/views/detail/blog/ContentAndComment.vue'))
-//友链组件
-const FriendLink = defineAsyncComponent(() => import('@/views/detail/friendLink/FriendLink.vue'))
 
 import {useUserStore} from '@/stores/main/user.js'
 
 const userStore = useUserStore()
 userStore.initFromLocal()
 
-const recentArticles = ref([])
 const route = useRoute();
 const router = useRouter();
 const user = ref({})
@@ -275,10 +273,63 @@ const loading = ref(false)
 const noMore = ref(false)
 const blogs = ref([])
 const files = ref([])
-const onlyArticle = ref(false)
 const showDialog = ref(false)
 const selectedBlogId = ref('')
-const fileSection = ref(null)
+
+// ================= 内容标签页 =================
+// all 全部、blog 文章、community 随记（在后台筛选）、files 文件
+const activeTab = ref('all')
+// 作者概览：创作数据（公开文章数、随记数、总阅读）、热门文章、系列
+const emptyOverview = () => ({stats: {articles: null, notes: null, views: null}, hotBlogs: [], series: []})
+const overview = ref(emptyOverview())
+const filesLoaded = ref(false)
+
+const countOrNull = (value) => (value === null || value === undefined ? null : Number(value) || 0)
+const contentTabs = computed(() => {
+  const {articles, notes} = overview.value.stats
+  const all = articles === null || notes === null ? null : Number(articles) + Number(notes)
+  return [
+    {key: 'all', label: '全部', count: all},
+    {key: 'blog', label: '文章', count: countOrNull(articles)},
+    {key: 'community', label: '随记', count: countOrNull(notes)},
+    {key: 'files', label: '文件', count: filesLoaded.value ? files.value.length : null}
+  ]
+})
+
+const emptyText = computed(() => ({blog: '还没有公开文章', community: '还没有随记'}[activeTab.value] || '暂无内容'))
+
+// 切换标签页：文章、随记重新从第一页加载；文件已经一次性加载过
+function switchTab(key) {
+  if (key === activeTab.value) return
+  activeTab.value = key
+  if (key === 'files') return
+  requestId++
+  page.value = 1
+  blogs.value = []
+  noMore.value = false
+  loading.value = false
+  fetchArticles(null)
+}
+
+// 每次重新加载列表都递增，丢弃之前还没返回的请求，避免快速切换标签时旧结果混进新列表
+let requestId = 0
+
+const fetchOverview = async (userCode) => {
+  const res = await sendAxiosRequest('/blog-api/userInformation/getAuthorOverview', {userCode}).catch(() => null)
+  if (res && !res.isError && res.result) {
+    overview.value = {
+      stats: res.result.stats || emptyOverview().stats,
+      hotBlogs: res.result.hotBlogs || [],
+      series: res.result.series || []
+    }
+  }
+}
+
+const formatCount = (value) => {
+  const number = Number(value) || 0
+  if (number >= 10000) return `${(number / 10000).toFixed(number >= 100000 ? 0 : 1).replace(/\.0$/, '')}万`
+  return String(number)
+}
 //控制是否显示欢迎页
 const showWelcome = ref(false);
 
@@ -318,7 +369,6 @@ const initPageData = async () => {
       const parsedCode = res.result.code;
       targetUserCode.value = parsedCode;
       user.value = res.result;
-      debugger;
       // 设置页面标题
       // 标题、描述和结构化数据与 Go 输出的首屏一致（站长主页会带上别名和外部主页）
       const profileSeo = buildProfileSeo(user.value, userNum);
@@ -334,6 +384,7 @@ const initPageData = async () => {
       await Promise.all([
         fetchArticles(parsedCode),
         fetchFilesList(parsedCode),
+        fetchOverview(parsedCode),
         setPersonInfo(parsedCode)
       ]);
       //用于Prerender的seo检索   防止只爬虫到外壳没有实际数据
@@ -352,7 +403,6 @@ const initPageData = async () => {
 }
 
 const openUserBlog = ()=>{
-  debugger;
   const blogId = route.params.blogId;
   if(blogId){
     selectedBlogId.value = blogId;
@@ -364,30 +414,35 @@ const fetchArticles = async (userCode) => {
   // 如果没传，就用当前的
   const codeToUse = userCode || targetUserCode.value;
   if (noMore.value || !codeToUse) return;
+  const current = requestId
+  loading.value = true
 
   try {
     const res = await sendAxiosRequest('/blog-api/userInformation/getBlogAndCommunityByUserCode', {
       userCode: codeToUse,
       page: page.value,
       pageSize,
-      keyword: ""
+      keyword: "",
+      // 全部时不传类型；文章、随记在后台筛选
+      type: activeTab.value === 'all' ? '' : activeTab.value
     })
+    if (current !== requestId) return
+    if (!res || res.isError) throw new Error(res?.errMsg || '获取内容失败')
     const newData = res.result.data || []
-    if (newData.length < pageSize) noMore.value = true
+    if (newData.length < pageSize || blogs.value.length + newData.length >= Number(res.result.total)) noMore.value = true
     blogs.value.push(...newData)
     page.value++
-    //给最近文章区域赋值
-    if (recentArticles.value.length < 5) {
-      recentArticles.value = blogs.value.filter(item=>item.TYPE==='blog').slice(0, 5);
-    }
   } catch (e) {
     console.error('获取内容失败', e)
+  } finally {
+    if (current === requestId) loading.value = false
   }
 }
 
 const fetchFilesList = async (userCode) => {
   const result = await sendAxiosRequest('/blog-api/userInformation/getResourceByUserCode', {userCode});
-  if (result && !result.isError) files.value = result.result;
+  if (result && !result.isError) files.value = result.result || [];
+  filesLoaded.value = true;
 };
 
 const setPersonInfo = async (userCode) => {
@@ -403,10 +458,6 @@ const setPersonInfo = async (userCode) => {
 // 其他方法保持原样
 // ----------------------------------------------------
 
-const showBlogs = computed(() => {
-  if (!onlyArticle.value) return blogs.value;
-  return blogs.value.filter(item => item.TYPE === "blog");
-})
 
 function blogMainClick(blog) {
   // 便签墙的随记打开自己的页面
@@ -429,10 +480,8 @@ const onDialogClose = () => {
 
 const formatDate = (dateStr) => pubFormatDate(dateStr)
 
-const downloadFile = (file) => {
-  ElMessage.success(`准备下载：${file.ORIGINALFILENAME}`)
-  downloadFileByUrl(file.FILEVIEWURL, file.ORIGINALFILENAME)
-}
+// 直接交给浏览器下载并记一次下载，见 common.js 的 downloadUploadedFile
+const downloadFile = (file) => downloadUploadedFile(file)
 
 const getFileIcon = (filename) => {
   if (!filename) return '📄'
@@ -446,20 +495,6 @@ const getFileIcon = (filename) => {
   return map[ext] || '📄'
 }
 
-const scrollToFiles = () => {
-  if (fileSection.value?.$el) {
-    fileSection.value.$el.scrollIntoView({behavior: 'smooth'})
-  } else if (fileSection.value) {
-    fileSection.value.scrollIntoView({behavior: 'smooth'})
-  }
-}
-
-const showFriendLink = ref(false);
-
-// 友链点击事件
-const handleFriendLinkClick = () => {
-  showFriendLink.value = !showFriendLink.value;
-};
 
 const enterHomepage = async () => {
   showWelcome.value = false;
@@ -475,10 +510,14 @@ onMounted(() => {
 // 路由是 /user/:u，站内从一个作者主页跳到另一个作者主页时组件会复用，需要按新的 u 重新加载
 watch(() => route.params.u, () => {
   userNotFound.value = false;
+  requestId++;
   page.value = 1;
   blogs.value = [];
   files.value = [];
+  filesLoaded.value = false;
   noMore.value = false;
+  activeTab.value = 'all';
+  overview.value = emptyOverview();
   initPageData();
 });
 
@@ -542,46 +581,6 @@ watch(() => route.params.blogId, (newBlogId) => {
   width: 280px;
 }
 
-/* ===== 工具栏：两张小纸条 ===== */
-.toolbar {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-  margin-bottom: 16px;
-}
-
-.toolbar-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 14px;
-  border: 1px solid var(--j-rule-strong);
-  background: var(--j-paper);
-  font-family: var(--j-hand);
-  font-size: 15px;
-  color: var(--j-ink);
-  cursor: pointer;
-  box-shadow: 0 1px 2px rgba(60, 50, 30, 0.08);
-  transition: transform 0.2s ease, background-color 0.2s ease;
-}
-
-.toolbar-btn:hover {
-  background: var(--j-note);
-  transform: translateY(-2px);
-}
-
-.link-btn {
-  transform: rotate(-1deg);
-}
-
-.jump-btn {
-  transform: rotate(1deg);
-}
-
-.toolbar-btn-icon {
-  font-size: 14px;
-}
-
 /* ===== 区块：一张活页纸 ===== */
 .section-card {
   position: relative;
@@ -638,56 +637,6 @@ watch(() => route.params.blogId, (newBlogId) => {
   font-size: 12px;
   line-height: 20px;
   color: var(--j-muted);
-}
-
-/* 仅文章开关 */
-.toggle-switch {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-  user-select: none;
-}
-
-.toggle-switch input {
-  display: none;
-}
-
-.toggle-track {
-  position: relative;
-  width: 36px;
-  height: 20px;
-  border: 1px solid var(--j-rule-strong);
-  border-radius: 10px;
-  background: #f3eee3;
-  transition: background-color 0.2s ease;
-}
-
-.toggle-switch input:checked + .toggle-track {
-  background: var(--j-note);
-  border-color: #e3cf7a;
-}
-
-.toggle-thumb {
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: #fff;
-  box-shadow: 0 1px 2px rgba(60, 50, 30, 0.3);
-  transition: transform 0.2s ease;
-}
-
-.toggle-switch input:checked + .toggle-track .toggle-thumb {
-  transform: translateX(16px);
-}
-
-.toggle-label {
-  font-family: var(--j-hand);
-  font-size: 15px;
-  color: var(--j-ink-soft);
 }
 
 /* ===== 时间线 ===== */
@@ -926,29 +875,7 @@ watch(() => route.params.blogId, (newBlogId) => {
   color: var(--j-muted);
 }
 
-/* ===== 文件：牛皮纸袋 ===== */
-.file-card {
-  padding-left: 30px;
-  background: var(--j-kraft);
-  border-color: #d8c49d;
-}
-
-.file-card::before {
-  top: 10px;
-  bottom: auto;
-  left: 12px;
-  right: 12px;
-  width: auto;
-  height: 0;
-  border-top: 1px dashed rgba(110, 85, 40, 0.35);
-  background: none;
-  opacity: 1;
-}
-
-.file-card .section-header {
-  border-bottom-color: rgba(110, 85, 40, 0.3);
-}
-
+/* ===== 文件：一张张小卡片 ===== */
 .file-list {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
@@ -1028,7 +955,7 @@ watch(() => route.params.blogId, (newBlogId) => {
   background: var(--j-note);
 }
 
-/* ===== 右侧：最近文章便签 ===== */
+/* ===== 右侧：便签卡片（系列、热门文章） ===== */
 .sidebar-card {
   position: relative;
   overflow: visible;
@@ -1055,28 +982,120 @@ watch(() => route.params.blogId, (newBlogId) => {
   color: var(--j-ink);
 }
 
-.recent-articles-list {
+/* 系列卡片换成浅蓝便签，和热门文章的黄色便签区分开，并朝另一边歪 */
+.series-card {
+  background: #dfe9f2;
+  transform: rotate(-1deg);
+}
+
+.series-card :deep(.el-card__header) {
+  border-bottom-color: rgba(47, 93, 138, 0.25);
+}
+
+.side-list {
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
-.recent-article-item {
-  padding: 8px 0;
+.side-item {
   border-bottom: 1px solid rgba(160, 135, 60, 0.18);
-  font-size: 14px;
-  color: var(--j-ink);
-  cursor: pointer;
 }
 
-.recent-article-item:last-child {
+.series-card .side-item {
+  border-bottom-color: rgba(47, 93, 138, 0.15);
+}
+
+.side-item:last-child {
   border-bottom: none;
 }
 
-.recent-article-item:hover {
+.side-link {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 8px 0;
+  font-size: 14px;
+  color: var(--j-ink);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.side-link:hover .side-title {
   text-decoration: underline;
   text-decoration-color: var(--j-pen);
   text-underline-offset: 3px;
+}
+
+.side-rank {
+  flex-shrink: 0;
+  width: 1.2em;
+  font-family: var(--j-num);
+  color: var(--j-muted);
+  text-align: center;
+}
+
+.side-rank.is-top {
+  color: var(--j-stamp);
+  font-weight: 600;
+}
+
+.side-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.side-meta {
+  flex-shrink: 0;
+  font-size: 12px;
+  color: var(--j-muted);
+}
+
+/* ===== 内容标签页：本子侧边的索引贴 ===== */
+.content-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.content-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 12px;
+  border: 1px solid var(--j-rule-strong);
+  border-bottom-width: 2px;
+  background: var(--j-paper-warm);
+  font-family: var(--j-hand);
+  font-size: 15px;
+  color: var(--j-ink-soft);
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s, transform 0.15s;
+}
+
+.content-tab:hover {
+  background: var(--j-note);
+  color: var(--j-ink);
+}
+
+.content-tab.is-active {
+  background: var(--j-note);
+  border-color: var(--j-stamp);
+  color: var(--j-stamp);
+  transform: translateY(-2px);
+}
+
+.tab-count {
+  font-family: var(--j-num);
+  font-size: 12px;
+  color: var(--j-muted);
+}
+
+.content-tab.is-active .tab-count {
+  color: var(--j-stamp);
 }
 
 .sticky-category {
@@ -1142,11 +1161,6 @@ watch(() => route.params.blogId, (newBlogId) => {
   text-decoration: none;
 }
 
-.seo-recent-link {
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
 
 @keyframes bounce {
   0%, 80%, 100% { transform: scale(0); }
@@ -1194,10 +1208,6 @@ watch(() => route.params.blogId, (newBlogId) => {
 
   .section-card::before {
     left: 16px;
-  }
-
-  .file-card {
-    padding-left: 14px;
   }
 
   .section-header {

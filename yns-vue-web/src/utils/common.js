@@ -41,6 +41,25 @@ export const getSendAxiosUrl = (url) => {
 
 let loginExpiredMessageShown = false;
 
+/**
+ * 下载本站资源文件：直接交给浏览器下载（显示浏览器自己的进度，大文件也不用先整个读进内存），
+ * 文件和网站同一个域名，download 属性能按原文件名保存；同时记一次下载（游客也算，后台按 IP 去重）。
+ * file 是资源记录，需要 FILEVIEWURL、ORIGINALFILENAME、GUID；返回后 DOWNNUM 已加 1。
+ */
+export function downloadUploadedFile(file) {
+    const link = document.createElement('a');
+    link.href = file.FILEVIEWURL;
+    link.download = file.ORIGINALFILENAME || '';
+    link.rel = 'noopener';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    file.DOWNNUM = (Number(file.DOWNNUM) || 0) + 1;
+    if (file.GUID) {
+        sendAxiosRequest("/blog-api/resource/setFileDownNum", {guid: file.GUID}).catch(() => {});
+    }
+}
+
 // 弹出顶栏的登录框（LoginDialog 监听这个事件），用于页面里“去登录”之类的按钮
 export const OPEN_LOGIN_EVENT = 'yns:open-login';
 export const openLoginDialog = () => window.dispatchEvent(new Event(OPEN_LOGIN_EVENT));

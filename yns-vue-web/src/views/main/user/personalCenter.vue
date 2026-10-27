@@ -47,6 +47,12 @@
               :readonly="readonly.email"
               @focus="readonly.email = false"
           />
+          <!-- 个人主页任何人都能看、也会被搜索引擎收录，邮箱默认不公开 -->
+          <div class="email-public">
+            <el-switch v-model="emailPublic" size="small"/>
+            <span>在个人主页公开邮箱</span>
+            <span class="email-public-hint">{{ emailPublic ? '所有访客都能看到' : '只用于接收回复通知，不会公开' }}</span>
+          </div>
         </el-form-item>
 
         <el-form-item label="个性签名">
@@ -85,11 +91,11 @@
 
 <script setup>
 import {compressImage, IMAGE_PRESETS} from '@/utils/imageCompress.js'
-import {ref} from 'vue'
+import {ref, watch} from 'vue'
 import {ElMessage} from 'element-plus'
 import {useUserStore} from "@/stores/main/user.js";
 import {Edit} from "@element-plus/icons-vue";
-import {ele_confirm, sendAxiosRequest,encrypt} from "@/utils/common.js";
+import {ele_confirm, sendAxiosRequest, sendAxiosRequestChecked, encrypt} from "@/utils/common.js";
 import {useRouter} from "vue-router";
 import {pubOpenUser} from "@/utils/blogUtil.js";
 
@@ -120,15 +126,24 @@ const submit = () => {
   if (userStore.userBean.newPassWord) {
     tip = `当前信息包含修改密码,保存后需重新登录,是否确认!`;
   }
-  ele_confirm(tip, () => {
+  ele_confirm(tip, async () => {
     let userInfo = {};
     Object.keys(userStore.userBean).forEach(key => {
       userInfo[key.toUpperCase()] = userStore.userBean[key];
     });
-    sendAxiosRequest("/pub-api/login/changeUserInfo", {userInfo});
+    userInfo.EMAILPUBLIC = emailPublic.value ? '1' : '0';
+    // 以后台结果为准：昵称不合规、登录过期等会在这里提示，不会出现“显示成功其实没保存”
+    const result = await sendAxiosRequestChecked("/pub-api/login/changeUserInfo", {userInfo}, '保存失败');
+    if (!result) return;
+    userStore.userBean.emailpublic = userInfo.EMAILPUBLIC;
+    localStorage.setItem('userBean', JSON.stringify(userStore.userBean));
     ElMessage.success('保存成功');
   })
 }
+
+// 是否在个人主页公开邮箱（后台字段 EMAILPUBLIC：1 公开，0 不公开，默认不公开）
+const emailPublic = ref(userStore.userBean?.emailpublic === '1')
+watch(() => userStore.userBean?.emailpublic, (value) => (emailPublic.value = value === '1'))
 
 // 重置密码字段
 const resetForm = () => {
@@ -207,6 +222,22 @@ const personalCareer = ()=>{
 </script>
 
 <style scoped>
+/* 公开邮箱开关：放在邮箱输入框下面 */
+.email-public {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  font-size: 13px;
+  color: var(--j-ink-soft);
+}
+
+.email-public-hint {
+  font-size: 12px;
+  color: var(--j-muted);
+}
+
 .personal-page {
   min-height: 100vh;
   padding: 40px 20px 64px;

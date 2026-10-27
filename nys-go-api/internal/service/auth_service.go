@@ -406,6 +406,13 @@ func (s *Service) ChangeUserInfo(c *gin.Context, userInfo map[string]any) model.
 	if model.IsPhoneLikeName(model.StringValue(data, "NAME")) {
 		return model.Failure(msgPhoneNickname)
 	}
+	// 是否在个人主页公开邮箱：执行迁移 018 后才有这一列，只接受 1/0
+	if value := model.Lookup(userInfo, "EMAILPUBLIC"); value != nil && s.tableHasColumn(contextOf(c), "userInfo", "EMAILPUBLIC") {
+		data["EMAILPUBLIC"] = "0"
+		if text := strings.TrimSpace(fmt.Sprint(value)); text == "1" || strings.EqualFold(text, "true") {
+			data["EMAILPUBLIC"] = "1"
+		}
+	}
 	data["GUID"] = current.GUID
 	result := s.SaveAll(contextOf(c), "edit", "userInfo", []map[string]any{data}, "GUID")
 	if result.IsError {

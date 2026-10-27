@@ -16,6 +16,8 @@ type User struct {
 	Avatar       string `json:"avatar,omitempty"`
 	IsBan        string `json:"isban,omitempty"`
 	UserNum      int64  `json:"usernum"`
+	// EmailPublic 为 "1" 时个人主页公开邮箱；默认（包括还没执行迁移 018 时）不公开
+	EmailPublic string `json:"emailpublic,omitempty"`
 }
 
 func UserFromRow(row map[string]any) User {
@@ -34,6 +36,7 @@ func UserFromRow(row map[string]any) User {
 		Avatar:       StringValue(row, "AVATAR"),
 		IsBan:        StringValue(row, "ISBAN"),
 		UserNum:      Int64Value(row, "USERNUM"),
+		EmailPublic:  StringValue(row, "EMAILPUBLIC"),
 	}
 }
 
@@ -44,10 +47,13 @@ func (u User) Public() User {
 	return u
 }
 
-// PublicProfile 用于查看他人主页等无需登录的接口：在 Public 的基础上再去掉手机号。
-// 邮箱和登录地区是个人主页上公开展示的信息，予以保留。
+// PublicProfile 用于查看他人主页等无需登录的接口：在 Public 的基础上再去掉手机号；
+// 邮箱只有用户自己选择公开（EmailPublic = "1"）时才保留。登录地区（IP 属地）是公开展示的信息，予以保留。
 func (u User) PublicProfile() User {
 	u = u.Public()
 	u.Phone = ""
+	if u.EmailPublic != "1" {
+		u.Email = ""
+	}
 	return u
 }

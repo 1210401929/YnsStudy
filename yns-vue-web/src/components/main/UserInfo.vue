@@ -27,9 +27,16 @@
                 <span v-if="user.isban === '1'" class="public-badge ban-badge">已封禁</span>
               </div>
             </h2>
-            <p class="user-info-text">邮箱: {{ user.email || "未知" }}</p>
             <p class="user-remark-vertical" :title="user.remark">{{ user.remark || "这个人很神秘~" }}</p>
-            <p class="userip-text">IP: {{ user.loginaddress || "未知" }}</p>
+            <!-- 邮箱只有用户在个人中心选择公开时才会返回 -->
+            <p v-if="user.email" class="user-info-text">邮箱：<a :href="`mailto:${user.email}`" class="email-link">{{ user.email }}</a></p>
+            <p v-if="user.loginaddress" class="userip-text">IP 属地：{{ user.loginaddress }}</p>
+          </div>
+          <!-- 创作数据：只在作者主页传入 -->
+          <div v-if="creationStats && creationStats.articles !== null && creationStats.articles !== undefined" class="creation-stats">
+            <span><strong>{{ formatCount(creationStats.articles) }}</strong>文章</span>
+            <span><strong>{{ formatCount(creationStats.notes) }}</strong>随记</span>
+            <span><strong>{{ formatCount(creationStats.views) }}</strong>阅读</span>
           </div>
 
           <div class="stats-vertical">
@@ -52,8 +59,9 @@
           </div>
 
           <div class="interaction-buttons-vertical">
-            <el-button type="primary" link @click="goToLiked" class="icon-btn">👍 点赞数: {{ likeNum }}</el-button>
-            <el-button type="warning" link @click="goToFavorites" class="icon-btn">⭐ 收藏数: {{ collectNum }}</el-button>
+            <!-- 这是 TA 赞过、收藏过的文章，不是 TA 的文章获得的赞 -->
+            <el-button type="primary" link @click="goToLiked" class="icon-btn" title="查看 TA 点赞过的文章">👍 赞过 {{ likeNum }} 篇</el-button>
+            <el-button type="warning" link @click="goToFavorites" class="icon-btn" title="查看 TA 收藏的文章">⭐ 收藏 {{ collectNum }} 篇</el-button>
           </div>
         </div>
       </el-card>
@@ -89,8 +97,19 @@ const props = defineProps({
   targetUserCode: {
     type: [String, Number],
     required: true
+  },
+  // 作者主页传入的创作数据：articles 公开文章数、notes 随记数、views 公开文章总阅读；不传则不显示
+  creationStats: {
+    type: Object,
+    default: null
   }
 })
+
+const formatCount = (value) => {
+  const number = Number(value) || 0
+  if (number >= 10000) return `${(number / 10000).toFixed(number >= 100000 ? 0 : 1).replace(/\.0$/, '')}万`
+  return String(number)
+}
 
 const emit = defineEmits(['blog-click'])
 
@@ -340,6 +359,36 @@ const handleBlogClick = (blog) => {
   margin: 0;
   font-size: 12px;
   color: var(--j-muted);
+}
+
+.email-link {
+  color: var(--j-pen);
+  text-decoration: none;
+}
+
+/* 创作数据：三个手写数字 */
+.creation-stats {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  width: 100%;
+  padding: 10px 0 2px;
+  font-size: 12px;
+  color: var(--j-muted);
+}
+
+.creation-stats span {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.creation-stats strong {
+  font-family: var(--j-num);
+  font-size: 18px;
+  font-weight: normal;
+  color: var(--j-ink);
 }
 
 .user-remark-vertical {

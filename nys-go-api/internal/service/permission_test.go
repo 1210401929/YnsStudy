@@ -56,8 +56,12 @@ func TestPublicProfileHidesPhoneAndPassword(t *testing.T) {
 	if profile.Phone != "" || profile.Password != "" || profile.PasswordSalt != "" || profile.LoginIP != "" {
 		t.Fatalf("公开资料不应包含手机号、密码或 IP: %#v", profile)
 	}
-	if profile.Email != "a@b.c" || profile.Name != "alice" {
-		t.Fatalf("公开展示的字段不应被清除: %#v", profile)
+	if profile.Email != "" || profile.Name != "alice" {
+		t.Fatalf("没有选择公开时不应返回邮箱，昵称应保留: %#v", profile)
+	}
+	user.EmailPublic = "1"
+	if user.PublicProfile().Email != "a@b.c" {
+		t.Fatal("用户选择公开邮箱后应返回邮箱")
 	}
 }
 

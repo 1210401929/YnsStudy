@@ -244,7 +244,7 @@ import {
   sendAxiosRequest,
   sendAxiosRequestChecked,
   pubFormatDate,
-  uploadFileWithProgress, getCurrentUserAdminObject, openLoginDialog
+  uploadFileWithProgress, getCurrentUserAdminObject, openLoginDialog, downloadUploadedFile
 } from "@/utils/common.js";
 import {useUserStore} from "@/stores/main/user.js";
 import Announcement from "@/components/detail/Announcement.vue";
@@ -525,19 +525,8 @@ const handleUploadSuccess = async (res, file) => {
   })
 }
 
-// 直接交给浏览器下载：显示浏览器自己的下载进度，大文件也不用先整个读进内存。
-// 文件和网站同一个域名，download 属性能按原文件名保存。下载次数游客也算，后台按 IP 去重。
-const downloadFile = (file) => {
-  const link = document.createElement('a');
-  link.href = file.FILEVIEWURL;
-  link.download = file.ORIGINALFILENAME || '';
-  link.rel = 'noopener';
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  file.DOWNNUM = (Number(file.DOWNNUM) || 0) + 1;
-  sendAxiosRequest("/blog-api/resource/setFileDownNum", {guid: file.GUID}).catch(() => {});
-}
+// 直接交给浏览器下载并记一次下载，见 common.js 的 downloadUploadedFile
+const downloadFile = (file) => downloadUploadedFile(file)
 
 const deleteFile = (file) => {
   ele_confirm(`确定要删除文件《${file.ORIGINALFILENAME}》吗？删除后不可恢复！`, async () => {
