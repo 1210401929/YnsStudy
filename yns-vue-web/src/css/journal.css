@@ -30,6 +30,12 @@
     --j-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
     --j-num: Georgia, "Times New Roman", serif;
 
+    /* 文章正文排版：编辑器和阅读页共用，保证写的时候和读的时候一个样 */
+    --article-font-size: 16px;
+    --article-line-height: 1.8;
+    --article-para-gap: 0.9em;
+    --article-heading-gap: 1.6em;
+
     /* Element Plus 主题 */
     --el-color-primary: #2f5d8a;
     --el-color-primary-light-3: #6d8ead;

@@ -87,6 +87,7 @@ const onDblClick = (e) => {
 
 .article-body {
   padding: 0 10px;
+  font-size: var(--article-font-size);
   color: var(--w-e-textarea-color);
   word-wrap: break-word;
   overflow-x: auto;
@@ -99,7 +100,11 @@ const onDblClick = (e) => {
   padding: 0;
 }
 
-.article-body :deep(p),
+/* 正文行高、段距用 journal.css 里的公共数值，和编辑器一致；作者用工具栏设的行高写在段落上，优先生效 */
+.article-body :deep(p) {
+  line-height: var(--article-line-height);
+}
+
 .article-body :deep(blockquote),
 .article-body :deep(td),
 .article-body :deep(th) {
@@ -126,7 +131,7 @@ const onDblClick = (e) => {
 }
 
 .article-body :deep(p) {
-  margin: 0.6em 0;
+  margin: var(--article-para-gap) 0;
 }
 
 .article-body :deep(span) {
@@ -138,7 +143,7 @@ const onDblClick = (e) => {
 .article-body :deep(h3),
 .article-body :deep(h4),
 .article-body :deep(h5) {
-  margin: 1.6em 0 0.6em;
+  margin: var(--article-heading-gap) 0 0.6em;
   line-height: 1.4;
   color: var(--j-ink);
 }
@@ -181,7 +186,7 @@ const onDblClick = (e) => {
 
 .article-body :deep(li) {
   margin: 5px 0;
-  line-height: normal;
+  line-height: var(--article-line-height);
 }
 
 /*

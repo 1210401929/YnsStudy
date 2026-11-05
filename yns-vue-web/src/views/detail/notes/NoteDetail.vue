@@ -391,9 +391,15 @@ useSeo(() => {
 }
 
 /* 便签纸上正文的底色透明，透出纸的颜色 */
+/* 随记用自己的编辑器，排版保持原样，不跟文章一起变 */
+.note-text {
+  --article-font-size: 15.5px;
+  --article-line-height: 1.5;
+  --article-para-gap: 0.6em;
+}
+
 .note-text :deep(.article-body) {
   padding: 0;
-  font-size: 15.5px;
   line-height: 1.85;
 }
 

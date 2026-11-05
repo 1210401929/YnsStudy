@@ -73,8 +73,15 @@
     <div v-if="!isReadOnly" class="bottom-buttons">
       <!-- 左侧 AI 按钮 -->
       <div class="left-buttons">
-        <button type="button" class="ai-button" @click="aiButtonMh">Ai帮写</button>
-        <button type="button" class="ai-button" @click="aiButtonXx">Ai续写</button>
+        <!-- AI 帮写、续写暂时隐藏，代码保留，需要时把 v-if 去掉即可 -->
+        <button v-if="false" type="button" class="ai-button" @click="aiButtonMh">Ai帮写</button>
+        <button v-if="false" type="button" class="ai-button" @click="aiButtonXx">Ai续写</button>
+        <button
+            type="button"
+            class="ai-button"
+            title="删除多余空段落和段首空格，中文里的英文标点改成中文标点；代码和链接不动"
+            @click="tidyContent"
+        >一键整理</button>
       </div>
 
       <!-- 右侧 取消/提交 按钮 -->
@@ -113,6 +120,7 @@ import {loadMySeries, promptCreateSeries} from '@/utils/blogSeries.js'
 import {sendAxiosRequest, encrypt, pubLoading, getSendAxiosUrl} from '@/utils/common.js'
 import {ElMessage, ElMessageBox} from 'element-plus'
 import {built_in_preface, normalizeAiHtml} from "@/utils/formatHtml.js";
+import {tidyArticle} from '@/utils/articleTidy.js'
 import {useUserStore} from '@/stores/main/user.js'
 
 /* ---------- props / emits ---------- */
@@ -379,6 +387,13 @@ onBeforeUnmount(() => {
   editorRef.value = null
 })
 
+/* ---------- 一键整理 ---------- */
+function tidyContent() {
+  const count = tidyArticle(editorRef.value)
+  if (count) ElMessage.success(`已整理 ${count} 处，按 Ctrl+Z 可以撤销`)
+  else ElMessage.info('没有需要整理的地方')
+}
+
 /* ---------- ai按钮组 ---------- */
 //从头写
 function aiButtonMh() {
@@ -575,7 +590,30 @@ watch(() => props.seriesId, (v) => (localSeriesId.value = lastSeriesId = normali
 
 /* 统一段落上下间距，避免内联 margin 干扰视觉 */
 :deep(p) {
-  margin: 0.6em 0 !important;
+  margin: var(--article-para-gap) 0 !important;
+}
+
+/*
+ * 正文排版：字号、行高、标题间距用 journal.css 里的公共数值，和阅读页（ArticleViewer）一致，
+ * 编辑时看到的就是读者看到的。作者用工具栏设的行高、字号写在段落上，优先生效。
+ */
+:deep(.w-e-text) {
+  font-size: var(--article-font-size);
+}
+
+/* 编辑器里的列表项是带项目符号的 div（不是 li），对应阅读页的 li */
+:deep(.w-e-text-container p),
+:deep(.w-e-text-container [data-slate-editor] > div:has(> [data-w-e-reserve])) {
+  line-height: var(--article-line-height);
+}
+
+:deep(.w-e-text-container [data-slate-editor] h1),
+:deep(.w-e-text-container [data-slate-editor] h2),
+:deep(.w-e-text-container [data-slate-editor] h3),
+:deep(.w-e-text-container [data-slate-editor] h4),
+:deep(.w-e-text-container [data-slate-editor] h5) {
+  margin: var(--article-heading-gap) 0 0.6em;
+  line-height: 1.4;
 }
 
 /* 列表缩进，避免项目符号跑到可视区外 */
@@ -723,8 +761,6 @@ watch(() => props.seriesId, (v) => (localSeriesId.value = lastSeriesId = normali
 }
 
 .is-reading :deep(.w-e-text) {
-  font-size: 16px;
-  line-height: 1.9;
   color: var(--j-ink);
 }
 
@@ -732,8 +768,6 @@ watch(() => props.seriesId, (v) => (localSeriesId.value = lastSeriesId = normali
 .is-reading :deep(.w-e-text-container [data-slate-editor] h2),
 .is-reading :deep(.w-e-text-container [data-slate-editor] h3),
 .is-reading :deep(.w-e-text-container [data-slate-editor] h4) {
-  margin: 1.6em 0 0.6em;
-  line-height: 1.4;
   color: var(--j-ink);
 }
 
