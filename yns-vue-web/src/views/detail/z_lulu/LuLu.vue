@@ -8,7 +8,7 @@
       @pointerleave="resetLuluMotion"
     >
       <div
-        :key="currentScene.name"
+        :key="currentScene.key"
         class="scene-background"
         :class="{ 'has-scene-image': Boolean(currentScene.image) }"
         :style="sceneBackgroundStyle"
@@ -25,6 +25,11 @@
               <button v-if="syncNotice.retry" type="button" @click="fetchStatus()">重试</button>
             </div>
           </div>
+        </div>
+
+        <div v-if="displayLevel >= 60" class="top-wedding">
+          <LuluWedding ref="weddingRef" :level="displayLevel"
+            :intro-ready="lumeiIsResident && !showLumeiMoveIn && !showLumeiLetter && !isWorldPanelOpen && !isLogPanelOpen && !isWardrobeOpen" />
         </div>
 
         <div class="quick-stats">
@@ -257,13 +262,13 @@
             <span>许愿</span>
             <small>{{ wishText }}</small>
           </button>
-          <button class="action-btn dress-btn" @click="changeAccessory" :disabled="isActionDisabled">
+          <button class="action-btn dress-btn" type="button" @click="openWardrobe" :disabled="isActionDisabled" aria-haspopup="dialog">
             <span>换装</span>
             <small>{{ currentAccessory.name }}</small>
           </button>
-          <button class="action-btn scene-btn" @click="changeScene" :disabled="isActionDisabled">
+          <button class="action-btn scene-btn" @click="changeScene" :disabled="isActionDisabled || isChangingScene || !sharedScene" title="切换后，所有访客都会看到同一场景">
             <span>换场景</span>
-            <small>{{ currentScene.name }}</small>
+            <small>{{ isChangingScene ? '切换中…' : (sharedScene ? currentScene.name : (sceneSyncFailed ? '同步失败' : '同步中…')) }}</small>
           </button>
         </div>
       </section>
@@ -313,6 +318,27 @@
         <button type="button" @click="changeMessagePage(messagePagination.page + 1)" :disabled="isMessageLoading || messagePagination.page >= messagePagination.totalPages">下一页</button>
       </nav>
     </aside>
+
+    <el-dialog v-model="isWardrobeOpen" title="噜噜和噜妹的衣柜" width="min(600px, 92vw)" append-to-body>
+      <p v-if="!outfitState" class="wardrobe-hint" role="status">
+        {{ outfitSyncFailed ? '暂时无法同步衣柜。' : '正在同步衣柜…' }}
+        <button v-if="outfitSyncFailed" type="button" class="message-refresh" @click="fetchOutfits">重试</button>
+      </p>
+      <div v-else class="wardrobe-body" :aria-busy="Boolean(savingOutfit)">
+        <p class="wardrobe-hint">两人的衣服可以分别选，换好后大家都会看到。</p>
+        <section v-for="group in wardrobeGroups" :key="group.character" class="wardrobe-section" :aria-label="group.title">
+          <h4>{{ group.title }} <small v-if="group.unlocked">{{ group.selected.name }}</small></h4>
+          <p v-if="!group.unlocked" class="wardrobe-hint">Lv.55 噜妹入住后解锁。</p>
+          <div v-else class="wardrobe-choices">
+            <button v-for="outfit in group.options" :key="outfit.key" type="button"
+              class="wardrobe-choice" :aria-pressed="outfit.key === group.selected.key"
+              :disabled="Boolean(savingOutfit)" @click="selectOutfit(group.character, outfit)">
+              {{ savingOutfit === `${group.character}:${outfit.key}` ? '换装中…' : outfit.name }}
+            </button>
+          </div>
+        </section>
+      </div>
+    </el-dialog>
 
     <div v-if="isLogPanelOpen" class="log-overlay" @click.self="isLogPanelOpen = false">
       <section class="log-panel">
@@ -418,6 +444,13 @@
             </div>
           </article>
 
+          <article v-if="displayLevel >= 60" class="weekly-task-card">
+            <div class="weekly-task-heading">
+              <div><span>婚礼手账 · Lv.70</span><strong>两只杯子的约定</strong></div>
+              <button class="message-refresh" type="button" @click="openWeddingFromWorld">{{ displayLevel >= 70 ? '回看婚礼' : '查看筹备' }}</button>
+            </div>
+          </article>
+
           <article v-if="worldData.weekly.unlocked" class="weekly-task-card">
             <div class="weekly-task-heading">
               <div>
@@ -518,6 +551,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
 import { ElMessage } from 'element-plus';
 import { sendAxiosRequest } from '@/utils/common.js';
+import LuluWedding from './LuluWedding.vue';
 
 const currentUserId = 1;
 const isLoading = ref(false);
@@ -540,6 +574,7 @@ const isLogLoading = ref(false);
 const isLogPanelOpen = ref(false);
 const isWorldLoading = ref(false);
 const isWorldPanelOpen = ref(false);
+const weddingRef = ref(null);
 const dismissedNPCEventId = ref(null);
 const showLumeiMoveIn = ref(false);
 const residentLine = ref('');
@@ -629,13 +664,14 @@ const dailyMission = ref({
   target: 1,
   reward: '完成后心情会亮一下'
 });
-const accessoryIndex = ref(0);
-const SCENE_MODE_COUNT = 7;
-const sceneIndex = ref((() => {
-  if (typeof window === 'undefined') return 0;
-  const stored = Number(window.localStorage.getItem('luluSceneIndex'));
-  return Number.isInteger(stored) && stored >= 0 && stored < SCENE_MODE_COUNT ? stored : 0;
-})());
+const outfitState = ref(null);
+const isWardrobeOpen = ref(false);
+const outfitSyncFailed = ref(false);
+const savingOutfit = ref('');
+const sharedScene = ref(null);
+const displayedSceneKey = ref('original');
+const isChangingScene = ref(false);
+const sceneSyncFailed = ref(false);
 const wishText = ref('抽一句');
 
 let actionTimer = null;
@@ -646,6 +682,8 @@ let thoughtClearTimer = null;
 let comboTimer = null;
 let motionFrame = null;
 let pollerTimer = null;
+let sceneSyncInFlight = false;
+let outfitSyncInFlight = false;
 let worldRefreshTimer = null;
 let residentLineTimer = null;
 let lumeiPoseTimer = null;
@@ -766,31 +804,45 @@ const musicActions = [
   { label: '听音乐', frames: [luluImages.music], effect: ['摇起来', 'type-mood'] }
 ];
 
-const accessoryModes = [
-  { name: '初始衣服', image: luluImages.idle, sleepImage: luluImages.sleepFloor },
-  { name: '蓝色卫衣', image: luluImages.idleHoodie, sleepImage: luluImages.sleepHoodie },
-  { name: '绿色背带裤', image: luluImages.idleOveralls, sleepImage: luluImages.sleepOveralls },
-  { name: '红围巾套装', image: luluImages.idleScarf, sleepImage: luluImages.sleepScarf },
-  { name: '斜挎小包', image: luluImages.idleCrossbody, sleepImage: luluImages.sleepCrossbody },
-  { name: '睡衣噜', image: luluImages.idlePajamas, sleepImage: luluImages.sleepPajamas },
-  { name: '绿裤衩噜', image: luluImages.idleGreenpants, sleepImage: luluImages.sleepGreenpants },
-  { name: '河豚包噜', image: luluImages.idleGreenpantsPuffer, sleepImage: luluImages.sleepGreenpantsPuffer },
-  { name: '西瓜噜', image: luluImages.idleWatermelon, sleepImage: luluImages.sleepWatermelon },
-  { name: '鲨鱼拖鞋噜', image: luluImages.idleSharkSlippers, sleepImage: luluImages.sleepSharkSlippers },
-  { name: '恐龙噜', image: luluImages.idleDinosaurBox, sleepImage: luluImages.sleepDinosaurBox },
-  { name: '蟑螂噜', image: luluImages.idleCockroach, sleepImage: luluImages.sleepCockroach },
-  { name: '领带噜', image: luluImages.idleTie, sleepImage: luluImages.sleepTie }
-];
+const outfitCatalog = (entries) => new Map(entries.map(([key, name, image, sleepImage]) =>
+  [key, { key, name, image, sleepImage }]));
 
-const sceneModes = [
-  { name: '原始背景', image: '' },
-  { name: '暖暖小屋', image: '/picture/lulu/scenes/scene-cozy-room.webp' },
-  { name: '阳光花园', image: '/picture/lulu/scenes/scene-sunny-garden.webp' },
-  { name: '森林空地', image: '/picture/lulu/scenes/scene-forest-clearing.webp' },
-  { name: '海边露台', image: '/picture/lulu/scenes/scene-seaside-terrace.webp' },
-  { name: '星空营地', image: '/picture/lulu/scenes/scene-starry-camp.webp' },
-  { name: '噜妹的小家', image: '/picture/lulu/scenes/scene-lumei-home.webp', requiresResident: true }
-];
+const accessoryModes = outfitCatalog([
+  ['default', '初始衣服', luluImages.idle, luluImages.sleepFloor],
+  ['hoodie', '蓝色卫衣', luluImages.idleHoodie, luluImages.sleepHoodie],
+  ['overalls', '绿色背带裤', luluImages.idleOveralls, luluImages.sleepOveralls],
+  ['scarf', '红围巾套装', luluImages.idleScarf, luluImages.sleepScarf],
+  ['crossbody', '斜挎小包', luluImages.idleCrossbody, luluImages.sleepCrossbody],
+  ['pajamas', '睡衣噜', luluImages.idlePajamas, luluImages.sleepPajamas],
+  ['greenpants', '绿裤衩噜', luluImages.idleGreenpants, luluImages.sleepGreenpants],
+  ['greenpants-puffer', '河豚包噜', luluImages.idleGreenpantsPuffer, luluImages.sleepGreenpantsPuffer],
+  ['watermelon', '西瓜噜', luluImages.idleWatermelon, luluImages.sleepWatermelon],
+  ['shark-slippers', '鲨鱼拖鞋噜', luluImages.idleSharkSlippers, luluImages.sleepSharkSlippers],
+  ['dinosaur-box', '恐龙噜', luluImages.idleDinosaurBox, luluImages.sleepDinosaurBox],
+  ['cockroach', '蟑螂噜', luluImages.idleCockroach, luluImages.sleepCockroach],
+  ['tie', '领带噜', luluImages.idleTie, luluImages.sleepTie],
+  ['winter-puffer', '黑色羽绒服', img('lulu_fadai_winter_puffer'), img('lulu_sleep_winter_puffer')],
+  ['winter-knit', '松绿帽子围巾', img('lulu_fadai_winter_knit'), img('lulu_sleep_winter_knit')]
+]);
+
+const lumeiOutfits = outfitCatalog([
+  ['default', '粉色格子衣', npcImages.resident, npcImages.residentSitting],
+  ['winter-puffer', '雾粉羽绒服', '/picture/lulu/npc/lumei-winter-puffer.webp', '/picture/lulu/npc/lumei-winter-puffer-sitting.webp'],
+  ['winter-knit', '莓红帽子围巾', '/picture/lulu/npc/lumei-winter-knit.webp', '/picture/lulu/npc/lumei-winter-knit-sitting.webp']
+]);
+
+const sceneModes = new Map([
+  ['original', '原始背景'],
+  ['cozy-room', '暖暖小屋'],
+  ['sunny-garden', '阳光花园'],
+  ['forest-clearing', '森林空地'],
+  ['seaside-terrace', '海边露台'],
+  ['starry-camp', '星空营地'],
+  ['lumei-home', '噜妹的小家'],
+  ['winter-courtyard', '雪夜小院'],
+  ['winter-fireplace', '壁炉暖屋'],
+  ['wedding-room', '噜噜和噜妹的婚房']
+].map(([key, name]) => [key, { key, name, image: key === 'original' ? '' : `/picture/lulu/scenes/scene-${key}.webp` }]));
 
 const missionPool = [
   { type: 'feed', title: '给噜噜准备一顿饭', target: 1, reward: '完成后心情会亮一下' },
@@ -877,13 +929,12 @@ const currentLumeiImage = computed(() => {
     music: npcImages.residentMusic,
     bath: npcImages.residentBath
   };
-  let requestedImage = npcImages.resident;
-  if (actionImages[lumeiActivity.value]) {
-    requestedImage = actionImages[lumeiActivity.value];
-  } else if (lumeiDisplayPose.value === 'sitting') {
-    requestedImage = npcImages.residentSitting;
-  }
-  return failedImageUrls.value.has(requestedImage) ? npcImages.resident : requestedImage;
+  const sitting = lumeiDisplayPose.value === 'sitting';
+  const outfitImage = sitting ? currentLumeiOutfit.value.sleepImage : currentLumeiOutfit.value.image;
+  const requestedImage = actionImages[lumeiActivity.value] || outfitImage;
+  if (!failedImageUrls.value.has(requestedImage)) return requestedImage;
+  if (!failedImageUrls.value.has(outfitImage)) return outfitImage;
+  return sitting && !failedImageUrls.value.has(npcImages.residentSitting) ? npcImages.residentSitting : npcImages.resident;
 });
 
 const currentLumeiImageAlt = computed(() => {
@@ -912,6 +963,8 @@ const currentLuluImage = computed(() => {
   let requestedImage;
   if (isLuluAway.value) {
     requestedImage = npcImages.outing;
+  } else if (petData.value.currentState === 'SLEEPING' && ['idle', 'sleep'].includes(actionCategory.value)) {
+    requestedImage = currentAccessory.value.sleepImage;
   } else if (actionFrames.value.length) {
     requestedImage = actionFrames.value[actionFrameIndex.value % actionFrames.value.length];
   } else if (petData.value.currentState === 'SLEEPING') {
@@ -981,14 +1034,14 @@ const floatingMessages = computed(() => {
   return messages.value.slice(0, 8).reverse();
 });
 
-const currentAccessory = computed(() => accessoryModes[accessoryIndex.value] || accessoryModes[0]);
+const currentAccessory = computed(() => accessoryModes.get(outfitState.value?.luluKey) || accessoryModes.get('default'));
+const currentLumeiOutfit = computed(() => lumeiOutfits.get(outfitState.value?.lumeiKey) || lumeiOutfits.get('default'));
+const wardrobeGroups = computed(() => [
+  { character: 'lulu', title: '噜噜', unlocked: true, selected: currentAccessory.value, options: [...accessoryModes.values()] },
+  { character: 'lumei', title: '噜妹', unlocked: outfitState.value?.lumeiUnlocked, selected: currentLumeiOutfit.value, options: [...lumeiOutfits.values()] }
+]);
 
-const isSceneUnlocked = (scene) => !scene?.requiresResident || lumeiIsResident.value;
-
-const currentScene = computed(() => {
-  const selectedScene = sceneModes[sceneIndex.value] || sceneModes[0];
-  return isSceneUnlocked(selectedScene) ? selectedScene : sceneModes[0];
-});
+const currentScene = computed(() => sceneModes.get(displayedSceneKey.value));
 
 const sceneBackgroundStyle = computed(() => {
   if (!currentScene.value.image) return {};
@@ -1182,12 +1235,16 @@ const preloadImage = (url) => new Promise((resolve, reject) => {
 const preloadAccessoryImages = async (accessory) => {
   const urls = [...new Set([accessory?.image, accessory?.sleepImage].filter(Boolean))];
   const results = await Promise.allSettled(urls.map(preloadImage));
-  const failed = results
-    .filter((result) => result.status === 'rejected')
-    .map((result) => String(result.reason?.message || result.reason).replace('图片加载失败: ', ''));
-  if (failed.length) {
-    failedImageUrls.value = new Set([...failedImageUrls.value, ...failed]);
-  }
+  const failures = new Set(failedImageUrls.value);
+  const failed = urls.filter((url, index) => {
+    if (results[index].status === 'fulfilled') {
+      failures.delete(url);
+      return false;
+    }
+    failures.add(url);
+    return true;
+  });
+  failedImageUrls.value = failures;
   return failed;
 };
 
@@ -1404,6 +1461,11 @@ const openWorldPanel = () => {
   fetchLuluWorld(true);
 };
 
+const openWeddingFromWorld = () => {
+  isWorldPanelOpen.value = false;
+  weddingRef.value?.open();
+};
+
 const dismissNPCEvent = () => {
   dismissedNPCEventId.value = activeNPCEvent.value?.id ?? null;
 };
@@ -1542,17 +1604,6 @@ const scheduleWorldRefresh = () => {
   worldRefreshTimer = window.setTimeout(() => fetchLuluWorld(true), 700);
 };
 
-const setSceneIndex = (value) => {
-  const numericValue = Number(value);
-  const normalized = Number.isFinite(numericValue)
-    ? ((Math.trunc(numericValue) % sceneModes.length) + sceneModes.length) % sceneModes.length
-    : 0;
-  sceneIndex.value = normalized;
-  if (typeof window !== 'undefined') {
-    window.localStorage.setItem('luluSceneIndex', String(normalized));
-  }
-};
-
 const applyFunState = (data) => {
   if (!data) return;
   dailyMission.value = {
@@ -1563,14 +1614,12 @@ const applyFunState = (data) => {
     reward: getField(data, 'MISSION_REWARD', 'missionReward', '完成后心情会亮一下')
   };
   careStreak.value = Number(getField(data, 'STREAK_COUNT', 'streakCount', 1));
-  accessoryIndex.value = Number(getField(data, 'CLOTHES_INDEX', 'clothesIndex', 0)) % accessoryModes.length;
 };
 
 const fetchFunState = async () => {
   try {
     const result = await sendAxiosRequest('/blog-api/lulu/fun-state', { userNum: currentUserId });
     applyFunState(result);
-    await preloadAccessoryImages(currentAccessory.value);
   } catch (error) {
     console.error('获取 噜噜 玩法状态失败:', error);
   }
@@ -1684,6 +1733,7 @@ const updatePetData = (data) => {
 
   if (petData.value.level > 0 && nextLevel > petData.value.level) {
     triggerEffect('*', 'LEVEL UP!', 'type-level');
+    if (petData.value.level < 70 && nextLevel >= 70) fetchSharedScene();
   }
 
   petData.value = {
@@ -1796,7 +1846,8 @@ const getLogIcon = (actionType) => {
     NPC_LETTER: '信',
     NPC_OUTING: '游',
     NPC_SOLO_OUTING: '出',
-    NPC_RESIDENT: '家'
+    NPC_RESIDENT: '家',
+    NPC_WEDDING: '囍'
   };
   return map[actionType] || '记';
 };
@@ -1833,50 +1884,136 @@ const recordDailyVisit = async () => {
   }
 };
 
-const changeAccessory = async () => {
-  registerBondInteraction();
+const applyOutfits = (data) => {
+  const luluKey = data?.LULU_OUTFIT_KEY;
+  const lumeiKey = data?.LUMEI_OUTFIT_KEY;
+  const revision = Number(data?.REVISION);
+  if (!accessoryModes.has(luluKey) || !lumeiOutfits.has(lumeiKey) || !Number.isSafeInteger(revision) || revision < 0) {
+    throw new Error('服务器返回了无效的换装信息');
+  }
+  if (outfitState.value && revision < outfitState.value.revision) return;
+  outfitState.value = {
+    luluKey, lumeiKey, revision,
+    lumeiUnlocked: data.LUMEI_UNLOCKED === true
+  };
+};
+
+const fetchOutfits = async () => {
+  if (outfitSyncInFlight) return;
+  outfitSyncInFlight = true;
   try {
-    const result = await sendAxiosRequest('/blog-api/lulu/clothes/change', { userNum: currentUserId });
-    const nextIndex = Number(getField(result, 'CLOTHES_INDEX', 'clothesIndex', 0)) % accessoryModes.length;
-    const failed = await preloadAccessoryImages(accessoryModes[nextIndex]);
-    if (failed.length) {
-      console.error('换装图片加载失败:', failed);
-    }
-    applyFunState(result);
-    triggerEffect('装', `换成${currentAccessory.value.name}`, 'type-mood');
-    const displayImage = petData.value.currentState === 'SLEEPING'
-      ? currentAccessory.value.sleepImage
-      : currentAccessory.value.image;
-    startFrameAction('ambient', { label: `噜噜换上了${currentAccessory.value.name}`, frames: [displayImage] }, 2200, false, 1000);
+    applyOutfits(await sendAxiosRequest('/blog-api/lulu/outfits'));
+    outfitSyncFailed.value = false;
   } catch (error) {
-    console.error('切换 噜噜 衣服失败:', error);
-    ElMessage.error('换装失败');
+    outfitSyncFailed.value = true;
+    console.error('同步共享衣柜失败:', error);
+  } finally {
+    outfitSyncInFlight = false;
   }
 };
 
-const changeScene = async () => {
-  let nextIndex = sceneIndex.value;
-  for (let offset = 1; offset <= sceneModes.length; offset += 1) {
-    const candidateIndex = (sceneIndex.value + offset) % sceneModes.length;
-    if (isSceneUnlocked(sceneModes[candidateIndex])) {
-      nextIndex = candidateIndex;
-      break;
+const openWardrobe = () => {
+  isWardrobeOpen.value = true;
+  fetchOutfits();
+};
+
+const selectOutfit = async (character, outfit) => {
+  const group = wardrobeGroups.value.find((entry) => entry.character === character);
+  if (!outfitState.value || !group?.unlocked || savingOutfit.value || outfit.key === group.selected.key) return;
+  savingOutfit.value = `${character}:${outfit.key}`;
+  try {
+    const failed = await preloadAccessoryImages(outfit);
+    if (failed.length) {
+      ElMessage.error('服饰图片没有加载成功，请稍后重试');
+      return;
     }
+    applyOutfits(await sendAxiosRequest('/blog-api/lulu/outfits/change', { character, outfitKey: outfit.key }));
+    const current = character === 'lulu' ? currentAccessory.value : currentLumeiOutfit.value;
+    if (current.key === outfit.key) {
+      registerBondInteraction();
+      const message = `${group.title}换上了${outfit.name}`;
+      triggerEffect('装', message, 'type-mood');
+      ElMessage.success(message);
+    }
+  } catch (error) {
+    console.error('换装失败:', error);
+    ElMessage.error('换装失败，请稍后重试');
+    fetchOutfits();
+  } finally {
+    savingOutfit.value = '';
   }
-  const nextScene = sceneModes[nextIndex];
-  if (nextScene.image) {
+};
+
+const applySharedScene = async (data, preloadedKey = '') => {
+  const key = data?.SCENE_KEY;
+  const nextKey = data?.NEXT_SCENE_KEY;
+  const revision = Number(data?.REVISION);
+  const scene = sceneModes.get(key);
+  if (!scene || !sceneModes.has(nextKey) || !Number.isSafeInteger(revision) || revision < 0) {
+    throw new Error('服务器返回了无效的场景信息');
+  }
+  if (sharedScene.value && revision < sharedScene.value.revision) return;
+
+  sharedScene.value = { key, nextKey, revision };
+  if (key === displayedSceneKey.value) return;
+  if (scene.image && key !== preloadedKey) await preloadImage(scene.image);
+  // A newer server response may have arrived while this background was loading.
+  if (sharedScene.value.revision === revision && sharedScene.value.key === key) {
+    displayedSceneKey.value = key;
+  }
+};
+
+const fetchSharedScene = async () => {
+  if (sceneSyncInFlight) return;
+  sceneSyncInFlight = true;
+  try {
+    const result = await sendAxiosRequest('/blog-api/lulu/scene');
+    await applySharedScene(result);
+    sceneSyncFailed.value = false;
+  } catch (error) {
+    sceneSyncFailed.value = true;
+    console.error('同步共享场景失败:', error);
+  } finally {
+    sceneSyncInFlight = false;
+  }
+};
+
+const syncVisibleLuluDisplay = () => {
+  if (document.hidden) return;
+  fetchSharedScene();
+  fetchOutfits();
+};
+
+const changeScene = async () => {
+  if (isChangingScene.value || !sharedScene.value) return;
+  const { nextKey, revision } = sharedScene.value;
+  const nextScene = sceneModes.get(nextKey);
+  isChangingScene.value = true;
+  try {
     try {
-      await preloadImage(nextScene.image);
+      if (nextScene.image) await preloadImage(nextScene.image);
     } catch (error) {
       console.error('场景图片加载失败:', error);
       ElMessage.error('场景图片没有加载成功，请稍后重试');
       return;
     }
+    const result = await sendAxiosRequest('/blog-api/lulu/scene/change', { sceneKey: nextKey, revision });
+    await applySharedScene(result, nextKey);
+    if (!result.APPLIED) {
+      ElMessage.info('有访客先换了场景，已同步最新场景');
+      return;
+    }
+    if (result.SCENE_KEY === nextKey && currentScene.value.key === nextKey) {
+      registerBondInteraction();
+      triggerEffect('景', nextKey === 'original' ? '回到原始背景' : `来到${nextScene.name}`, 'type-mood');
+    }
+  } catch (error) {
+    console.error('切换共享场景失败:', error);
+    ElMessage.error('场景切换失败，请稍后重试');
+    fetchSharedScene();
+  } finally {
+    isChangingScene.value = false;
   }
-
-  registerBondInteraction();
-  setSceneIndex(nextIndex);
-  triggerEffect('景', nextIndex === 0 ? '回到原始背景' : `来到${nextScene.name}`, 'type-mood');
 };
 
 const makeWish = () => {
@@ -2275,12 +2412,17 @@ onMounted(() => {
   preloadCoreImages();
   fetchFunState();
   fetchStatus();
+  syncVisibleLuluDisplay();
   fetchMessages();
   initializeLuluWorld();
   scheduleThought();
   scheduleAmbientAction();
   scheduleLumeiPose();
-  pollerTimer = window.setInterval(() => fetchStatus(true), 10000);
+  document.addEventListener('visibilitychange', syncVisibleLuluDisplay);
+  pollerTimer = window.setInterval(() => {
+    fetchStatus(true);
+    syncVisibleLuluDisplay();
+  }, 10000);
 });
 
 onBeforeUnmount(() => {
@@ -2295,6 +2437,7 @@ onBeforeUnmount(() => {
   window.clearTimeout(moveInThoughtTimer);
   window.cancelAnimationFrame(motionFrame);
   window.clearInterval(pollerTimer);
+  document.removeEventListener('visibilitychange', syncVisibleLuluDisplay);
 });
 </script>
 
@@ -2396,6 +2539,11 @@ onBeforeUnmount(() => {
   justify-content: space-between;
   align-items: flex-start;
   gap: 18px;
+}
+
+.top-wedding {
+  align-self: center;
+  margin-inline-end: auto;
 }
 
 .identity-block {
@@ -3564,6 +3712,71 @@ onBeforeUnmount(() => {
 .pager button:disabled {
   cursor: not-allowed;
   opacity: 0.42;
+}
+
+.wardrobe-body {
+  max-height: 65vh;
+  overflow-y: auto;
+  display: grid;
+  gap: 14px;
+  padding: 2px;
+}
+
+.wardrobe-hint {
+  margin: 0;
+  color: #625870;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.wardrobe-section {
+  padding: 13px;
+  border: 1px solid #f2e7df;
+  border-radius: 16px;
+  background: #fff9f4;
+}
+
+.wardrobe-section h4 {
+  margin: 0 0 9px;
+  color: #47374b;
+}
+
+.wardrobe-section h4 small {
+  margin-inline-start: 8px;
+  color: #74526b;
+  font-weight: 600;
+}
+
+.wardrobe-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.wardrobe-choice {
+  padding: 7px 10px;
+  border: 1px solid #e7d5d0;
+  border-radius: 10px;
+  background: #fff;
+  color: #514050;
+  font: inherit;
+  cursor: pointer;
+}
+
+.wardrobe-choice[aria-pressed='true'] {
+  border-color: #b77687;
+  background: #ffe7ec;
+  font-weight: 700;
+}
+
+.wardrobe-choice:focus-visible {
+  outline: 2px solid #a35673;
+  outline-offset: 2px;
+}
+
+.wardrobe-choice:disabled {
+  opacity: .65;
+  cursor: wait;
 }
 
 .log-overlay {
@@ -4900,6 +5113,16 @@ onBeforeUnmount(() => {
     gap: 8px;
   }
 
+  .top-wedding {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    margin-inline-end: 0;
+  }
+
+  .top-wedding :deep(.wedding-entry) {
+    width: 100%;
+  }
+
   .identity-block {
     min-width: 0;
     gap: 8px;
@@ -5185,6 +5408,10 @@ onBeforeUnmount(() => {
 
   .top-status {
     grid-template-columns: 1fr;
+  }
+
+  .top-wedding {
+    grid-row: 3;
   }
 
   .identity-block {

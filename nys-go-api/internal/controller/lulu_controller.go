@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -24,6 +25,12 @@ func (h *Controller) registerLuluRoutes(group *gin.RouterGroup) {
 	group.POST("/fun-state", h.petFunState)
 	group.POST("/mission/advance", h.advancePetMission)
 	group.POST("/clothes/change", h.changePetClothes)
+	group.POST("/outfits", h.luluOutfits)
+	group.POST("/outfits/change", h.changeLuluOutfit)
+	group.POST("/wedding", h.luluWedding)
+	group.POST("/wedding/blessing", h.addLuluWeddingBlessing)
+	group.POST("/scene", h.luluScene)
+	group.POST("/scene/change", h.changeLuluScene)
 	group.POST("/world", h.petWorld)
 }
 
@@ -176,6 +183,60 @@ func (h *Controller) petWorld(c *gin.Context) {
 		return
 	}
 	value, err := h.service.GetPetWorld(c.Request.Context(), userNum, service.ClientIP(c), c.GetHeader("User-Agent"))
+	h.writeLulu(c, value, err)
+}
+
+func (h *Controller) luluScene(c *gin.Context) {
+	value, err := h.service.GetLuluScene(c.Request.Context())
+	h.writeLulu(c, value, err)
+}
+
+func (h *Controller) luluOutfits(c *gin.Context) {
+	value, err := h.service.GetLuluOutfits(c.Request.Context())
+	h.writeLulu(c, value, err)
+}
+
+func (h *Controller) luluWedding(c *gin.Context) {
+	value, err := h.service.GetLuluWedding(c.Request.Context(), service.ClientIP(c))
+	h.writeLulu(c, value, err)
+}
+
+func (h *Controller) addLuluWeddingBlessing(c *gin.Context) {
+	body, ok := requireBody(c)
+	if !ok {
+		return
+	}
+	writeResult(c, h.service.AddLuluWeddingBlessing(c, stringParam(body, "content")))
+}
+
+func (h *Controller) changeLuluOutfit(c *gin.Context) {
+	body, ok := requireBody(c)
+	if !ok {
+		return
+	}
+	value, err := h.service.ChangeLuluOutfit(c.Request.Context(), stringParam(body, "character"), stringParam(body, "outfitKey"))
+	if errors.Is(err, service.ErrLuluOutfitUnavailable) {
+		c.JSON(http.StatusBadRequest, model.Failure(err.Error()))
+		return
+	}
+	h.writeLulu(c, value, err)
+}
+
+func (h *Controller) changeLuluScene(c *gin.Context) {
+	body, ok := requireBody(c)
+	if !ok {
+		return
+	}
+	revision, err := int64Param(body, "revision")
+	if err != nil || revision < 0 {
+		c.JSON(http.StatusBadRequest, model.Failure("无效的场景版本"))
+		return
+	}
+	value, err := h.service.ChangeLuluScene(c.Request.Context(), stringParam(body, "sceneKey"), revision)
+	if errors.Is(err, service.ErrLuluSceneUnavailable) {
+		c.JSON(http.StatusBadRequest, model.Failure(err.Error()))
+		return
+	}
 	h.writeLulu(c, value, err)
 }
 
