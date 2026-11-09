@@ -27,9 +27,21 @@
           </div>
         </div>
 
-        <div v-if="displayLevel >= 60" class="top-wedding">
-          <LuluWedding ref="weddingRef" :level="displayLevel"
-            :intro-ready="lumeiIsResident && !showLumeiMoveIn && !showLumeiLetter && !isWorldPanelOpen && !isLogPanelOpen && !isWardrobeOpen" />
+        <div v-if="['ready', 'stale'].includes(statusSyncState)" class="top-story">
+          <LuluWedding v-if="weddingPreviewUnlocked" ref="weddingRef" :level="displayLevel"
+            :intro-ready="!showLumeiLetter && !isWorldPanelOpen && !isLogPanelOpen && !isWardrobeOpen" />
+          <button v-else class="residency-card" :class="{ 'status-resident': lumeiIsResident }"
+            type="button" aria-haspopup="dialog" @click="openResidencyFromHome">
+            <div class="residency-card-layout">
+              <div class="residency-card-copy">
+                <span>当前剧情 · Lv.{{ worldData.residency.targetLevel }}</span>
+                <strong>{{ lumeiIsResident ? '噜妹正式入住啦' : '噜妹入住计划' }}</strong>
+                <small>{{ lumeiIsResident ? '查看入住纪念' : worldData.residency.title }}</small>
+              </div>
+              <img v-if="currentResidencyStageImage" class="residency-stage-thumb"
+                :src="currentResidencyStageImage" alt="" />
+            </div>
+          </button>
         </div>
 
         <div class="quick-stats">
@@ -85,36 +97,15 @@
           </div>
           <small>缺席 {{ monthlyCompanionship.missedDays }} 天 · 连续 {{ careStreak }} 天</small>
         </div>
-        <button class="residency-card" :class="`status-${worldData.residency.status.toLowerCase()}`" type="button" @click="openWorldPanel">
-          <div class="residency-card-layout">
-            <div class="residency-card-copy">
-              <span>噜妹入住计划 · Lv.55</span>
-              <strong>{{ worldData.residency.title }}</strong>
-              <div class="residency-progress">
-                <div class="residency-fill" :style="{ width: `${lumeiResidencyProgress}%` }"></div>
-              </div>
-              <small v-if="worldData.residency.resident">
-                已经常驻 · 本周任务 {{ worldData.weekly.completedCount }}/{{ worldData.weekly.totalCount }}
-              </small>
-              <small v-else>当前 Lv.{{ worldData.residency.currentLevel }} · 还差 {{ worldData.residency.remainingLevels }} 级</small>
-            </div>
-            <img
-              v-if="currentResidencyStageImage"
-              class="residency-stage-thumb"
-              :src="currentResidencyStageImage"
-              :alt="worldData.residency.homeStage.title"
-            />
-          </div>
-        </button>
         <button class="community-card" type="button" @click="openWorldPanel">
-          <span>全站共同目标</span>
+          <span>噜噜世界 · 全站共同目标</span>
           <strong>{{ worldData.communityGoal.title }}</strong>
           <div class="community-progress">
             <div class="community-fill" :class="{ completed: worldData.communityGoal.completed }" :style="{ width: `${communityGoalProgress}%` }"></div>
           </div>
           <small>
             {{ worldData.communityGoal.current }}/{{ worldData.communityGoal.target }}
-            · {{ worldData.memory.title }}
+            · {{ lumeiIsResident ? '剧情回忆与每周任务' : worldData.memory.title }}
           </small>
         </button>
       </div>
@@ -391,65 +382,70 @@
         <div v-if="isWorldLoading" class="empty-message">回忆册读取中...</div>
 
         <template v-else>
-          <article class="residency-world-card" :class="`status-${worldData.residency.status.toLowerCase()}`">
-            <div v-if="currentResidencyStageImage" class="residency-stage-visual">
-              <img :src="currentResidencyStageImage" :alt="worldData.residency.homeStage.title" />
-              <span>Lv.{{ worldData.residency.homeStage.level }}</span>
-              <small v-if="worldData.residency.homeStage.complete">完全体</small>
-            </div>
-            <img v-else class="residency-character-preview" :src="npcImages.resident" alt="噜妹入住形象" />
-            <div class="residency-world-copy">
-              <span>噜妹入住计划 · Lv.{{ worldData.residency.targetLevel }}</span>
-              <strong>{{ worldData.residency.title }}</strong>
-              <p>{{ worldData.residency.message }}</p>
-              <div class="residency-progress large">
-                <div class="residency-fill" :style="{ width: `${lumeiResidencyProgress}%` }"></div>
-              </div>
-              <small v-if="worldData.residency.resident">
-                {{ worldData.residency.residentSince ? `${worldData.residency.residentSince} 正式入住` : '已经正式入住' }}
-              </small>
-              <small v-else>{{ worldData.residency.nextMilestoneText }}</small>
-            </div>
-            <div v-if="worldData.residency.homeStage.items.length" class="residency-stage-items">
-              <span>当前房间已有</span>
-              <p>{{ worldData.residency.homeStage.description }}</p>
-              <div>
-                <small v-for="item in worldData.residency.homeStage.items" :key="item">✓ {{ item }}</small>
-              </div>
-            </div>
-            <div class="residency-story" aria-label="噜妹入住剧情进度">
-              <div
-                v-for="chapter in worldData.residency.chapters"
-                :key="chapter.level"
-                class="story-chapter"
-                :class="{ unlocked: chapter.unlocked, current: chapter.current }"
-              >
-                <div v-if="chapter.level >= 50" class="story-chapter-art" :class="{ locked: !chapter.unlocked }">
-                  <img v-if="chapter.unlocked" :src="residencyStageImageForLevel(chapter.level)" :alt="chapter.title" />
-                  <span v-else aria-hidden="true">?</span>
+          <section class="world-story" aria-labelledby="world-story-title">
+            <h4 id="world-story-title">{{ lumeiIsResident ? '剧情回忆' : '当前剧情' }}</h4>
+            <details :open="!lumeiIsResident || residencyOpenedFromHome">
+              <summary class="world-story-entry">
+                {{ lumeiIsResident ? 'Lv.55 · 噜妹入住纪念' : 'Lv.55 · 噜妹入住计划' }}
+              </summary>
+              <article v-if="lumeiIsResident" class="move-in-memory-card">
+                <img :src="npcImages.moveInMemory" alt="噜噜欢迎噜妹入住的纪念画面" />
+                <div>
+                  <span>入住纪念</span>
+                  <strong>从远方来信，到每天都在身边</strong>
+                  <p>{{ worldData.residency.residentSince || 'Lv.55 解锁日' }} · 噜噜和噜妹拥有了共同的家</p>
                 </div>
-                <span>Lv.{{ chapter.level }}</span>
-                <strong>{{ chapter.title }}</strong>
-                <small>{{ chapter.unlocked ? chapter.description : '继续陪伴噜噜后解锁' }}</small>
-              </div>
-            </div>
-          </article>
-
-          <article v-if="lumeiIsResident" class="move-in-memory-card">
-            <img :src="npcImages.moveInMemory" alt="噜噜欢迎噜妹入住的纪念画面" />
-            <div>
-              <span>入住纪念</span>
-              <strong>从远方来信，到每天都在身边</strong>
-              <p>{{ worldData.residency.residentSince || 'Lv.55 解锁日' }} · 噜噜和噜妹拥有了共同的家</p>
-            </div>
-          </article>
-
-          <article v-if="displayLevel >= 60" class="weekly-task-card">
-            <div class="weekly-task-heading">
-              <div><span>婚礼手账 · Lv.70</span><strong>两只杯子的约定</strong></div>
-              <button class="message-refresh" type="button" @click="openWeddingFromWorld">{{ displayLevel >= 70 ? '回看婚礼' : '查看筹备' }}</button>
-            </div>
-          </article>
+              </article>
+              <article class="residency-world-card" :class="`status-${worldData.residency.status.toLowerCase()}`">
+                <div v-if="currentResidencyStageImage" class="residency-stage-visual">
+                  <img :src="currentResidencyStageImage" :alt="worldData.residency.homeStage.title" />
+                  <span>Lv.{{ worldData.residency.homeStage.level }}</span>
+                  <small v-if="worldData.residency.homeStage.complete">完全体</small>
+                </div>
+                <img v-else class="residency-character-preview" :src="npcImages.resident" alt="噜妹入住形象" />
+                <div class="residency-world-copy">
+                  <span>{{ lumeiIsResident ? '入住筹备记录' : '噜妹入住计划' }} · Lv.{{ worldData.residency.targetLevel }}</span>
+                  <strong>{{ worldData.residency.title }}</strong>
+                  <p>{{ worldData.residency.message }}</p>
+                  <div class="residency-progress large">
+                    <div class="residency-fill" :style="{ width: `${lumeiResidencyProgress}%` }"></div>
+                  </div>
+                  <small v-if="worldData.residency.resident">
+                    {{ worldData.residency.residentSince ? `${worldData.residency.residentSince} 正式入住` : '已经正式入住' }}
+                  </small>
+                  <small v-else>{{ worldData.residency.nextMilestoneText }}</small>
+                </div>
+                <div v-if="worldData.residency.homeStage.items.length" class="residency-stage-items">
+                  <span>当前房间已有</span>
+                  <p>{{ worldData.residency.homeStage.description }}</p>
+                  <div>
+                    <small v-for="item in worldData.residency.homeStage.items" :key="item">✓ {{ item }}</small>
+                  </div>
+                </div>
+                <div class="residency-story" aria-label="噜妹入住筹备记录">
+                  <div
+                    v-for="chapter in worldData.residency.chapters"
+                    :key="chapter.level"
+                    class="story-chapter"
+                    :class="{ unlocked: chapter.unlocked, current: chapter.current }"
+                  >
+                    <div v-if="chapter.level >= 50" class="story-chapter-art" :class="{ locked: !chapter.unlocked }">
+                      <img v-if="chapter.unlocked" :src="residencyStageImageForLevel(chapter.level)" :alt="chapter.title" />
+                      <span v-else aria-hidden="true">?</span>
+                    </div>
+                    <span>Lv.{{ chapter.level }}</span>
+                    <strong>{{ chapter.title }}</strong>
+                    <small>{{ chapter.unlocked ? chapter.description : '继续陪伴噜噜后解锁' }}</small>
+                  </div>
+                </div>
+              </article>
+            </details>
+            <button v-if="displayLevel >= 70" class="world-story-entry world-story-wedding" type="button"
+              aria-haspopup="dialog" @click="openWeddingFromWorld">
+              <span>Lv.70 · 噜噜与噜妹的婚礼</span>
+              <small>查看婚礼纪念</small>
+            </button>
+          </section>
 
           <article v-if="worldData.weekly.unlocked" class="weekly-task-card">
             <div class="weekly-task-heading">
@@ -532,7 +528,7 @@
       </section>
     </div>
 
-    <div v-if="showLumeiMoveIn" class="move-in-overlay" role="dialog" aria-modal="true" aria-labelledby="lumei-move-in-title">
+    <div v-if="showLumeiMoveIn && !weddingPreviewUnlocked" class="move-in-overlay" role="dialog" aria-modal="true" aria-labelledby="lumei-move-in-title">
       <section class="move-in-card">
         <div class="move-in-sparkles" aria-hidden="true"><span>✦</span><span>♥</span><span>✦</span></div>
         <img class="move-in-memory-image" :src="npcImages.moveInMemory" alt="噜噜欢迎噜妹入住的纪念画面" />
@@ -554,6 +550,7 @@ import { sendAxiosRequest } from '@/utils/common.js';
 import LuluWedding from './LuluWedding.vue';
 
 const currentUserId = 1;
+const weddingPreviewLevel = 60;
 const isLoading = ref(false);
 const statusSyncState = ref('loading');
 const coreImagesReady = ref(false);
@@ -574,6 +571,7 @@ const isLogLoading = ref(false);
 const isLogPanelOpen = ref(false);
 const isWorldLoading = ref(false);
 const isWorldPanelOpen = ref(false);
+const residencyOpenedFromHome = ref(false);
 const weddingRef = ref(null);
 const dismissedNPCEventId = ref(null);
 const showLumeiMoveIn = ref(false);
@@ -860,6 +858,7 @@ const wishPool = [
 ];
 
 const displayLevel = computed(() => petData.value.level || 1);
+const weddingPreviewUnlocked = computed(() => displayLevel.value >= weddingPreviewLevel);
 
 const maxExpOfCurrentLevel = computed(() => displayLevel.value * 50 + 100);
 
@@ -1426,11 +1425,10 @@ const applyLuluWorld = (result) => {
     preloadLumeiResidentAssets();
   }
 
-  if (residency.resident && typeof window !== 'undefined' && window.localStorage.getItem('lumeiResidentIntroSeenV2') !== '1') {
-    showLumeiMoveIn.value = true;
-  } else if (!residency.resident) {
-    showLumeiMoveIn.value = false;
-  }
+  showLumeiMoveIn.value = residency.resident && !weddingPreviewUnlocked.value
+    && residency.currentLevel < weddingPreviewLevel
+    && typeof window !== 'undefined'
+    && window.localStorage.getItem('lumeiResidentIntroSeenV2') !== '1';
 
   if (nextEvent?.active && nextEvent.id !== lastAnnouncedNPCEventId) {
     lastAnnouncedNPCEventId = nextEvent.id;
@@ -1457,13 +1455,19 @@ const fetchLuluWorld = async (silent = false) => {
 };
 
 const openWorldPanel = () => {
+  residencyOpenedFromHome.value = false;
   isWorldPanelOpen.value = true;
   fetchLuluWorld(true);
 };
 
+const openResidencyFromHome = () => {
+  openWorldPanel();
+  residencyOpenedFromHome.value = true;
+};
+
 const openWeddingFromWorld = () => {
   isWorldPanelOpen.value = false;
-  weddingRef.value?.open();
+  weddingRef.value?.openMemory();
 };
 
 const dismissNPCEvent = () => {
@@ -2541,7 +2545,7 @@ onBeforeUnmount(() => {
   gap: 18px;
 }
 
-.top-wedding {
+.top-story {
   align-self: center;
   margin-inline-end: auto;
 }
@@ -2803,14 +2807,14 @@ onBeforeUnmount(() => {
 }
 
 .residency-card {
+  padding: 8px 12px;
   background:
     radial-gradient(circle at 92% 12%, rgba(255, 215, 121, 0.33), transparent 35%),
     rgba(255, 249, 252, 0.78);
 }
 
 .residency-card-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 72px;
+  display: flex;
   align-items: center;
   gap: 9px;
 }
@@ -3838,6 +3842,40 @@ onBeforeUnmount(() => {
   color: #2f3440;
   font-size: 22px;
   font-weight: 900;
+}
+
+.world-story {
+  display: grid;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.world-story > h4 {
+  margin: 0;
+  color: #2f3440;
+  font-size: 16px;
+}
+
+.world-story-entry {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid #f2dce4;
+  border-radius: 12px;
+  background: #fff8fb;
+  color: #694557;
+  font: inherit;
+  font-weight: 800;
+  text-align: left;
+  cursor: pointer;
+}
+
+.world-story-wedding {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 10px;
 }
 
 .memory-card,
@@ -5077,8 +5115,7 @@ onBeforeUnmount(() => {
     grid-template-columns: 1fr 1fr;
   }
 
-  .community-card,
-  .residency-card {
+  .community-card {
     grid-column: auto;
   }
 
@@ -5113,13 +5150,13 @@ onBeforeUnmount(() => {
     gap: 8px;
   }
 
-  .top-wedding {
+  .top-story {
     grid-column: 1 / -1;
     grid-row: 2;
     margin-inline-end: 0;
   }
 
-  .top-wedding :deep(.wedding-entry) {
+  .top-story :deep(.wedding-entry) {
     width: 100%;
   }
 
@@ -5410,7 +5447,7 @@ onBeforeUnmount(() => {
     grid-template-columns: 1fr;
   }
 
-  .top-wedding {
+  .top-story {
     grid-row: 3;
   }
 
@@ -5490,7 +5527,6 @@ onBeforeUnmount(() => {
   }
 
   .residency-card-layout {
-    grid-template-columns: minmax(0, 1fr) 58px;
     gap: 6px;
   }
 

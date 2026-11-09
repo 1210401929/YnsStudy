@@ -1,9 +1,9 @@
 <template>
   <button type="button" class="wedding-entry" aria-haspopup="dialog" @click="open">
     <span class="wedding-entry-copy">
-      <small>{{ wedding?.married ? 'Lv.70 · 婚礼纪念' : '婚礼预告 · Lv.70 举行' }}</small>
-      <strong>{{ chapter?.title || '两只杯子的约定' }}</strong>
-      <small>{{ wedding?.married ? '回看仪式与合照' : wedding?.currentLevel === 69 ? '再升 1 级就举行婚礼' : '打开婚礼手账' }}</small>
+      <small>当前剧情 · Lv.70</small>
+      <strong>{{ weddingUnlocked ? (ceremonyCompleted ? '婚礼纪念' : '参加婚礼') : '婚礼筹备' }}</strong>
+      <small>{{ weddingUnlocked ? (ceremonyCompleted ? '回看仪式与合照' : '一起见证两只杯子的约定') : (chapter?.title || '打开婚礼手账') }}</small>
     </span>
     <img v-if="entryImage" :src="entryImage" alt="" />
   </button>
@@ -41,7 +41,9 @@
               <h3>{{ chapter.title }}</h3>
               <p>{{ chapter.description }}</p>
               <template v-if="wedding.married">
-                <button type="button" class="wedding-button" :disabled="!vowCards.length" @click="startCeremony">见证婚礼</button>
+                <button type="button" class="wedding-button" :disabled="!vowCards.length" @click="startCeremony">
+                  {{ ceremonyCompleted ? '重温婚礼' : '见证婚礼' }}
+                </button>
                 <p class="wedding-next">婚房已经解锁，可通过「换场景」前往。</p>
               </template>
               <p v-else class="wedding-next">下一章 · Lv.{{ wedding.nextLevel }}</p>
@@ -96,6 +98,7 @@ const ceremonyArt = '/picture/lulu/npc/lulu-wedding-ceremony.webp';
 const preparation = '/picture/lulu/npc/lulu-wedding-preparation.webp';
 const introStorageKey = 'luluWeddingCeremonyIntroV2';
 const previewStorageKey = 'luluWeddingPreviewSeen';
+const ceremonyCompletedStorageKey = 'luluWeddingCeremonyCompleted';
 const visible = ref(false);
 const wedding = ref(null);
 const error = ref(false);
@@ -105,9 +108,11 @@ const ceremonyStep = ref(null);
 const openedVows = ref(new Set());
 const introPending = ref(false);
 const seenWeddingNotices = new Set();
+const ceremonyCompleted = ref(hasSeenNotice(ceremonyCompletedStorageKey));
 let latestRequest = 0;
 
 const chapter = computed(() => wedding.value?.chapters.at(-1));
+const weddingUnlocked = computed(() => wedding.value?.married || props.level >= 70);
 const entryImage = computed(() => wedding.value?.married ? photo : (chapter.value?.level >= 65 ? preparation : ''));
 const vowCards = computed(() => wedding.value?.vows || []);
 const allVowsOpened = computed(() => vowCards.value.length > 0 && vowCards.value.every((card) => openedVows.value.has(card.id)));
@@ -126,7 +131,7 @@ async function fetchWedding() {
       const wasPreparing = wedding.value !== null && !wedding.value.married;
       wedding.value = result;
       error.value = false;
-      if (result.married && (wasPreparing || result.currentLevel === result.targetLevel) && !hasSeenNotice(introStorageKey)) {
+      if (!visible.value && result.married && (wasPreparing || result.currentLevel === result.targetLevel) && !hasSeenNotice(introStorageKey)) {
         introPending.value = true;
       }
     }
@@ -136,12 +141,24 @@ async function fetchWedding() {
   }
 }
 
-function open() {
-  if (introPending.value && vowCards.value.length) startCeremony();
-  else {
-    ceremonyStep.value = null;
-    visible.value = true;
-  }
+async function open() {
+  const enterCeremony = weddingUnlocked.value && !ceremonyCompleted.value;
+  const canStartNow = enterCeremony && vowCards.value.length > 0;
+  if (canStartNow) startCeremony();
+  else showWeddingSummary();
+
+  await fetchWedding();
+  if (enterCeremony && !canStartNow && visible.value && ceremonyStep.value === null) startCeremony();
+}
+
+function showWeddingSummary() {
+  introPending.value = false;
+  ceremonyStep.value = null;
+  visible.value = true;
+}
+
+function openMemory() {
+  showWeddingSummary();
   fetchWedding();
 }
 
@@ -171,7 +188,13 @@ function openVow(id) {
 
 function advanceCeremony() {
   if (ceremonyStep.value === null || (ceremonyStep.value === 1 && !allVowsOpened.value)) return;
-  ceremonyStep.value = ceremonyStep.value + 1 < ceremony.length ? ceremonyStep.value + 1 : null;
+  if (ceremonyStep.value + 1 < ceremony.length) {
+    ceremonyStep.value += 1;
+    return;
+  }
+  ceremonyCompleted.value = true;
+  markNoticeSeen(ceremonyCompletedStorageKey);
+  ceremonyStep.value = null;
 }
 
 async function sendBlessing() {
@@ -207,7 +230,7 @@ watch([wedding, () => props.introReady, visible], ([state, ready, isOpen]) => {
 watch([introPending, () => props.introReady, vowCards], ([pending, ready, cards]) => {
   if (pending && ready && cards.length) startCeremony();
 });
-defineExpose({ open });
+defineExpose({ openMemory });
 </script>
 
 <style scoped>
