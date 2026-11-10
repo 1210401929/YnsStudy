@@ -16,12 +16,14 @@ var legacyLuluOutfitKeys = [...]string{
 	"greenpants-puffer", "watermelon", "shark-slippers", "dinosaur-box", "cockroach", "tie",
 }
 
+var winterOutfitKeys = [...]string{"winter-puffer", "winter-knit", "snowman"}
+
 func validLuluOutfit(key string) bool {
-	return slices.Contains(legacyLuluOutfitKeys[:], key) || key == "winter-puffer" || key == "winter-knit"
+	return slices.Contains(legacyLuluOutfitKeys[:], key) || slices.Contains(winterOutfitKeys[:], key)
 }
 
 func validLumeiOutfit(key string) bool {
-	return key == "default" || key == "winter-puffer" || key == "winter-knit"
+	return key == "default" || slices.Contains(winterOutfitKeys[:], key)
 }
 
 type LuluOutfitState struct {

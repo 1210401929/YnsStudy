@@ -805,6 +805,7 @@ const musicActions = [
 const outfitCatalog = (entries) => new Map(entries.map(([key, name, image, sleepImage]) =>
   [key, { key, name, image, sleepImage }]));
 
+const snowmanOutfitKey = 'snowman';
 const accessoryModes = outfitCatalog([
   ['default', '初始衣服', luluImages.idle, luluImages.sleepFloor],
   ['hoodie', '蓝色卫衣', luluImages.idleHoodie, luluImages.sleepHoodie],
@@ -820,13 +821,15 @@ const accessoryModes = outfitCatalog([
   ['cockroach', '蟑螂噜', luluImages.idleCockroach, luluImages.sleepCockroach],
   ['tie', '领带噜', luluImages.idleTie, luluImages.sleepTie],
   ['winter-puffer', '黑色羽绒服', img('lulu_fadai_winter_puffer'), img('lulu_sleep_winter_puffer')],
-  ['winter-knit', '松绿帽子围巾', img('lulu_fadai_winter_knit'), img('lulu_sleep_winter_knit')]
+  ['winter-knit', '松绿帽子围巾', img('lulu_fadai_winter_knit'), img('lulu_sleep_winter_knit')],
+  [snowmanOutfitKey, '雪人噜', img('lulu_fadai_snowman'), img('lulu_sleep_snowman')]
 ]);
 
 const lumeiOutfits = outfitCatalog([
   ['default', '粉色格子衣', npcImages.resident, npcImages.residentSitting],
   ['winter-puffer', '雾粉羽绒服', '/picture/lulu/npc/lumei-winter-puffer.webp', '/picture/lulu/npc/lumei-winter-puffer-sitting.webp'],
-  ['winter-knit', '莓红帽子围巾', '/picture/lulu/npc/lumei-winter-knit.webp', '/picture/lulu/npc/lumei-winter-knit-sitting.webp']
+  ['winter-knit', '莓红帽子围巾', '/picture/lulu/npc/lumei-winter-knit.webp', '/picture/lulu/npc/lumei-winter-knit-sitting.webp'],
+  [snowmanOutfitKey, '雪人噜妹', '/picture/lulu/npc/lumei-snowman.webp', '/picture/lulu/npc/lumei-snowman-sleep.webp']
 ]);
 
 const sceneModes = new Map([
@@ -916,6 +919,7 @@ const lumeiActivity = computed(() => {
 });
 
 const lumeiDisplayPose = computed(() => {
+  if (currentLumeiOutfit.value.key === snowmanOutfitKey) return 'standing';
   if (lumeiActivity.value === 'sleep') return 'sitting';
   if (lumeiActivity.value !== 'idle') return 'standing';
   return lumeiPose.value;
@@ -929,7 +933,8 @@ const currentLumeiImage = computed(() => {
     bath: npcImages.residentBath
   };
   const sitting = lumeiDisplayPose.value === 'sitting';
-  const outfitImage = sitting ? currentLumeiOutfit.value.sleepImage : currentLumeiOutfit.value.image;
+  const useRestImage = sitting || lumeiActivity.value === 'sleep';
+  const outfitImage = useRestImage ? currentLumeiOutfit.value.sleepImage : currentLumeiOutfit.value.image;
   const requestedImage = actionImages[lumeiActivity.value] || outfitImage;
   if (!failedImageUrls.value.has(requestedImage)) return requestedImage;
   if (!failedImageUrls.value.has(outfitImage)) return outfitImage;
@@ -937,6 +942,9 @@ const currentLumeiImage = computed(() => {
 });
 
 const currentLumeiImageAlt = computed(() => {
+  if (currentLumeiOutfit.value.key === snowmanOutfitKey && lumeiActivity.value === 'sleep') {
+    return '穿着雪人服站着打盹的噜妹';
+  }
   const descriptions = {
     feed: '拿着点心和手帕照顾噜噜的噜妹',
     play: '陪噜噜一起玩球的噜妹',
@@ -950,7 +958,9 @@ const currentLumeiImageAlt = computed(() => {
 
 const lumeiSpeechText = computed(() => {
   if (residentLine.value) return residentLine.value;
-  if (petData.value.currentState === 'SLEEPING') return '嘘，噜噜睡着啦，我们小声一点。';
+  if (lumeiActivity.value === 'sleep' && currentLumeiOutfit.value.key !== snowmanOutfitKey) {
+    return '嘘，噜噜睡着啦，我们小声一点。';
+  }
   return '';
 });
 
@@ -980,7 +990,9 @@ const currentLuluImage = computed(() => {
 
 const animationClass = computed(() => {
   if (isLuluAway.value) return 'anim-away';
-  if (petData.value.currentState === 'SLEEPING') return 'anim-sleep';
+  if (petData.value.currentState === 'SLEEPING') {
+    return currentAccessory.value.key === snowmanOutfitKey ? 'anim-breathe' : 'anim-sleep';
+  }
 
   const map = {
     feed: 'anim-eat',
